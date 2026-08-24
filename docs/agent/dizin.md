@@ -130,6 +130,10 @@
   üç düzeyde gizleme) ve `pdf/` belge ucu (`?inline=1` önizleme) ·
   `analiz/` sıcaklık puanı ve projeksiyon · `tanimlar/` marka ve ticari şart
   defteri
+- `src/app/(app)/offers/hesap-raporlari/` — Teklif aşamasındaki hesap raporu
+  listesi + detay/editör/ekipman/PDF rota kabukları. Hesap kodu burada
+  kopyalanmaz; `projects` altındaki ortak görünümleri ve `lib/calc` motorunu
+  kullanır, yalnız `projects.report_context = 'offer'` kayıtlarını gösterir.
 - `src/lib/pdf/offer.tsx` — TEKLİF BELGESİ: kapak (KİMDEN/KİME) → kalem başına
   teknik sayfalar → test yükü → ticari blok → tek şemalı fiyat tablosu →
   notlar → kapsam dışı; altbilgi künyesi her sayfada

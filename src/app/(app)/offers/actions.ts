@@ -37,6 +37,14 @@ import { offerFileName } from "@/lib/pdf/doc-naming";
 import { OFFER_STATUSES, type OfferStatus } from "@/lib/offers/status";
 import { renderOfferPdf } from "@/lib/pdf/offer";
 import {
+  isOfferSignaturePath,
+  MAX_OFFER_SIGNATURE_BYTES,
+  OFFER_SIGNATURE_BUCKET,
+  OFFER_SIGNATURE_MIME,
+} from "@/lib/offers/signature";
+import { normalizeOfferSignature } from "@/lib/offers/signature-image";
+import { loadOfferSignatureImages } from "@/lib/offers/signature-server";
+import {
   copyOfferSchema,
   ensureOptionSchema,
   newOfferSchema,
@@ -642,6 +650,79 @@ export async function saveOfferRevision(
 }
 
 /**
+ * Tarayıcının özel kovaya yüklediği imza PNG'sini ölçer ve standartlaştırır.
+ * Payload'a yolu yazmak editörün işidir; bu kapı dosyanın gerçekten PNG ve bu
+ * taslak revizyona ait olduğunu kanıtlar.
+ */
+export async function prepareOfferSignature(
+  offerId: string,
+  revisionId: string,
+  input: { path: string; fileName: string }
+): Promise<OfferActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const path = (input.path ?? "").trim();
+  if (!isOfferSignaturePath(offerId, revisionId, path)) {
+    return { error: "İmza yolu bu teklif revizyonuna ait değil." };
+  }
+  const { data: revision } = await supabase
+    .from("offer_revisions")
+    .select("id")
+    .eq("id", revisionId)
+    .eq("offer_id", offerId)
+    .eq("status", "draft")
+    .maybeSingle();
+  if (!revision) return { error: "Yalnız taslak revizyona imza eklenebilir." };
+
+  const { data: file, error: downloadError } = await supabase.storage
+    .from(OFFER_SIGNATURE_BUCKET)
+    .download(path);
+  if (downloadError || !file) return { error: "Yüklenen imza depoda bulunamadı." };
+
+  async function reject(message: string): Promise<OfferActionResult> {
+    await supabase.storage.from(OFFER_SIGNATURE_BUCKET).remove([path]);
+    return { error: message };
+  }
+  if (file.size > MAX_OFFER_SIGNATURE_BYTES) return reject("İmza 1 MB sınırını aşıyor.");
+  const normalized = await normalizeOfferSignature(new Uint8Array(await file.arrayBuffer()));
+  if (!normalized.ok) return reject(normalized.error);
+  const { error: uploadError } = await supabase.storage
+    .from(OFFER_SIGNATURE_BUCKET)
+    .upload(path, normalized.png, { contentType: OFFER_SIGNATURE_MIME, upsert: true });
+  if (uploadError) return reject(`İmza kaydedilemedi: ${uploadError.message}`);
+
+  await audit(supabase, user.id, "offer.signature_prepare", {
+    offer_id: offerId,
+    revision_id: revisionId,
+    file: (input.fileName ?? "").trim(),
+  });
+  return { ok: true };
+}
+
+/** Taslakta kullanılmayan imza nesnesini geri alınabilir en dar kapsamda siler. */
+export async function removeOfferSignature(
+  offerId: string,
+  revisionId: string,
+  path: string
+): Promise<OfferActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+  if (!isOfferSignaturePath(offerId, revisionId, path)) {
+    return { error: "İmza yolu bu teklif revizyonuna ait değil." };
+  }
+  const { error } = await supabase.storage.from(OFFER_SIGNATURE_BUCKET).remove([path]);
+  if (error) return { error: error.message };
+  await audit(supabase, user.id, "offer.signature_remove", {
+    offer_id: offerId,
+    revision_id: revisionId,
+  });
+  return { ok: true };
+}
+
+/**
  * Revizyonu yayımlar: durum `issued` olur, tetikleyici damgalar ve kilitler.
  *
  * PDF `offers` kovasına ARŞİVLENİR — teslim edilen belge bir daha üretilmez,
@@ -679,6 +760,8 @@ export async function issueOfferRevision(
       .single();
     if (offer) {
       const settings = await getReportSettings(supabase);
+      const normalizedPayload = withDefaults(revision.payload, offer.currency as string);
+      const signatureImages = await loadOfferSignatureImages(supabase, normalizedPayload);
       const buffer = await renderOfferPdf({
         offer: {
           offerNo: offer.offer_no as string,
@@ -688,7 +771,7 @@ export async function issueOfferRevision(
           customerName: offer.customer_name as string,
           currency: offer.currency as string,
         },
-        payload: withDefaults(revision.payload, offer.currency as string),
+        payload: normalizedPayload,
         company: {
           company: settings.company,
           address: settings.address ?? "",
@@ -697,6 +780,7 @@ export async function issueOfferRevision(
           web: settings.web ?? "",
         },
         meta: { generatedAt: new Date().toLocaleDateString("tr-TR") },
+        signatureImages,
       });
       const { error: uploadError } = await supabase.storage
         .from("offers")

@@ -112,6 +112,7 @@ export async function registerEquipmentAttachment(
   }
 
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}/equipment`);
+  revalidatePath(`/offers/hesap-raporlari/${projectId}/revisions/${revisionId}/equipment`);
   return { ok: true, pageCount };
 }
 

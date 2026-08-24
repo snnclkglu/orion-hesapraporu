@@ -65,6 +65,48 @@ export function lineAmount(line: OfferPriceLine): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Satıra özel geçerli iskonto oranı; boş/geçersiz değer iskonto değildir. */
+export function ownLineDiscountPercent(line: OfferPriceLine): number | null {
+  const p = line.discountPercent;
+  return typeof p === "number" && Number.isFinite(p) && p > 0 && p < 100 ? p : null;
+}
+
+/** Satır iskontosunun tam sayı hedefi — toplam yüzde iskontosuyla aynı yönde yuvarlanır. */
+export function lineDiscountTarget(line: OfferPriceLine): number | null {
+  const ham = lineAmount(line);
+  const oran = ownLineDiscountPercent(line);
+  if (ham === null || oran === null) return null;
+  return Math.ceil(ham * (1 - oran / 100));
+}
+
+function yuvarla(n: number, basamak = 2): number {
+  const c = 10 ** basamak;
+  return Math.round(n * c) / c;
+}
+
+/**
+ * Bir satırın kendi iskontosunu birim fiyata yansıtır ve hedef toplamı tutar.
+ * Önce birim fiyat tam sayıya yuvarlanır, kalan fark aynı satıra iki hane ile
+ * yazılır; toplam iskonto dağıtımındaki mevcut kuralın tek satırlık hâlidir.
+ */
+function lineWithOwnDiscount(line: OfferPriceLine): OfferPriceLine {
+  const hedef = lineDiscountTarget(line);
+  if (hedef === null || line.qty === null || line.qty <= 0 || line.unitPrice === null) return line;
+  const ilkBirim = Math.round(line.unitPrice * (1 - (ownLineDiscountPercent(line) as number) / 100));
+  const artik = hedef - line.qty * ilkBirim;
+  return {
+    ...line,
+    unitPrice: yuvarla(ilkBirim + artik / line.qty),
+    // Hesaplanan fiyat bir kez daha iskontolanmasın.
+    discountPercent: null,
+  };
+}
+
+/** Satırın kendi iskontosundan sonraki tutarı; toplam hesapları bunu okur. */
+export function effectiveLineAmount(line: OfferPriceLine): number | null {
+  return lineAmount(lineWithOwnDiscount(line));
+}
+
 /**
  * Toplama giren satırlar: gizlenmiş olmayan ve `inTotal` taşıyanlar.
  *
@@ -84,7 +126,7 @@ export function offerTotal(lines: readonly OfferPriceLine[]): number | null {
   let toplam = 0;
   let varMi = false;
   for (const line of totalledLines(lines)) {
-    const tutar = lineAmount(line);
+    const tutar = effectiveLineAmount(line);
     if (tutar === null) continue;
     toplam += tutar;
     varMi = true;
@@ -158,11 +200,6 @@ export function discountPercent(pricing: OfferPricing): number | null {
   return (tutar / ham) * 100;
 }
 
-function yuvarla(n: number, basamak = 2): number {
-  const c = 10 ** basamak;
-  return Math.round(n * c) / c;
-}
-
 /**
  * İSKONTONUN DOKUNDUĞU SATIR — tek tanım.
  *
@@ -176,6 +213,11 @@ function yuvarla(n: number, basamak = 2): number {
  */
 function iskontoluSatirMi(l: OfferPriceLine): boolean {
   return !l.hidden && l.inTotal && l.qty !== null && l.qty > 0 && l.unitPrice !== null;
+}
+
+/** Satıra özel iskonto, toplama girmeyen fiyat satırında da gösterilebilir. */
+function fiyatlanabilirSatirMi(l: OfferPriceLine): boolean {
+  return !l.hidden && l.qty !== null && l.qty > 0 && l.unitPrice !== null;
 }
 
 /**
@@ -206,8 +248,10 @@ export function applyDiscountToLines(
   const ham = offerTotal(lines);
   if (ham === null || ham <= 0 || !Number.isFinite(target) || target <= 0) return [...lines];
 
+  // Önce satır bazlı oranlar uygulanır; toplam iskonto bunun ÜSTÜNE gelir.
+  const taban = lines.map(lineWithOwnDiscount);
   const oran = target / ham;
-  const yeni = lines.map((l) =>
+  const yeni = taban.map((l) =>
     iskontoluSatirMi(l) ? { ...l, unitPrice: Math.round((l.unitPrice as number) * oran) } : l
   );
 
@@ -237,6 +281,8 @@ export function applyDiscountToLines(
 export interface DiscountedLine {
   unitPrice: number;
   amount: number;
+  /** Yalnız satırın kendi açık oranı; toplam iskonto oranı dip toplamda yazılır. */
+  discountPercent: number | null;
 }
 
 /**
@@ -265,15 +311,21 @@ export interface DiscountedLine {
 export function discountedLines(pricing: OfferPricing): Map<string, DiscountedLine> {
   const out = new Map<string, DiscountedLine>();
   const hedef = pricing.discountTotal;
-  if (hedef === null || hedef === undefined) return out;
-  if (discountAmount(pricing) === null) return out;
-
-  const yeni = applyDiscountToLines(pricing.lines, hedef);
+  const toplamIskontoVar = hedef !== null && hedef !== undefined && discountAmount(pricing) !== null;
+  const yeni = toplamIskontoVar
+    ? applyDiscountToLines(pricing.lines, hedef as number)
+    : pricing.lines.map(lineWithOwnDiscount);
   pricing.lines.forEach((line, i) => {
-    if (!iskontoluSatirMi(line)) return;
+    const kendiOrani = ownLineDiscountPercent(line);
+    const etkilenir = kendiOrani !== null || (toplamIskontoVar && iskontoluSatirMi(line));
+    if (!etkilenir || !fiyatlanabilirSatirMi(line)) return;
     const tutar = lineAmount(yeni[i]);
     if (yeni[i].unitPrice === null || tutar === null) return;
-    out.set(line.id, { unitPrice: yeni[i].unitPrice as number, amount: tutar });
+    out.set(line.id, {
+      unitPrice: yeni[i].unitPrice as number,
+      amount: tutar,
+      discountPercent: kendiOrani,
+    });
   });
   return out;
 }

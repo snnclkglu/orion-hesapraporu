@@ -47,6 +47,7 @@ interface JobJoin {
   delivery_date: string | null;
   workshop_exit_date: string | null;
   shipping_address: string | null;
+  shipping_country: string | null;
   customers: CustomerJoin | CustomerJoin[] | null;
   /** İş emrinin sözleşme PDF'i — İŞ BAŞINA tek satır (`job_contracts`). */
   job_contracts: ContractJoin | ContractJoin[] | null;
@@ -78,7 +79,7 @@ export async function loadSaleRows(supabase: SupabaseClient): Promise<SaleRow[]>
     .select(
       `id, item_no, product_name, sort,
        jobs!inner(id, job_no, customer, status, contract_date, work_order_date,
-                  delivery_date, workshop_exit_date, shipping_address,
+                  delivery_date, workshop_exit_date, shipping_address, shipping_country,
                   customers(short_name, color_hue),
                   job_contracts(file_path, file_name)),
        job_item_sales(scope, due_date, shipment_date, quantity, unit, unit_weight_kg,
@@ -109,6 +110,7 @@ export async function loadSaleRows(supabase: SupabaseClient): Promise<SaleRow[]>
       jobDeliveryDate: job?.delivery_date ?? null,
       jobWorkshopExitDate: job?.workshop_exit_date ?? null,
       jobShippingAddress: job?.shipping_address ?? "",
+      jobShippingCountry: job?.shipping_country?.trim() || "Türkiye",
       contractPath: sozlesme?.file_path ?? "",
       contractName: sozlesme?.file_name ?? "",
       hasSale: Boolean(s),

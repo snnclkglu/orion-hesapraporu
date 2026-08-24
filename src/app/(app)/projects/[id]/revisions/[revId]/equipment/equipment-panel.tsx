@@ -167,6 +167,7 @@ const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 export function EquipmentPanel({
   projectId, revisionId, autoGroups, summary, initialExtras, initialAttachments,
   initialDrawingNote, initialCustomerDrawingPath, datasheetUrls, sheetUrls, locked,
+  basePath = "/projects",
 }: {
   projectId: string;
   revisionId: string;
@@ -187,6 +188,7 @@ export function EquipmentPanel({
   /** kind|brand|model → uygulamadaki katalog sayfası adresi (ekipman adına bağlanır) */
   sheetUrls: Record<string, string>;
   locked: boolean;
+  basePath?: string;
 }) {
   const [extras, setExtras] = useState<EquipmentExtraRow[]>(initialExtras);
   const [attachments, setAttachments] = useState<PanelAttachment[]>(initialAttachments);
@@ -207,7 +209,7 @@ export function EquipmentPanel({
   const customerDrawingPreviewPath = customerDrawingPathOf(customerDrawingPath);
   const [noteState, setNoteState] = useState<"temiz" | "bekliyor" | "kaydedildi">("temiz");
 
-  const dlBase = `/projects/${projectId}/revisions/${revisionId}/equipment/download`;
+  const dlBase = `${basePath}/${projectId}/revisions/${revisionId}/equipment/download`;
   const dl = (format: "xlsx" | "pdf", detailed = false) =>
     `${dlBase}?format=${format}&scope=${scope}${detailed ? "&detay=1" : ""}`;
 

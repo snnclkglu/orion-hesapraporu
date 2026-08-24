@@ -117,6 +117,7 @@ import { costMargin } from "@/lib/offers/cost/totals";
 import { ItemEditor } from "./item-editor";
 import { KalemEkleDialog } from "./kalem-ekle-dialog";
 import { RowEditor, type OptionBook } from "./row-editor";
+import { SignatureUpload } from "./signature-upload";
 
 type BolumKey = string;
 
@@ -626,6 +627,7 @@ export function OfferEditor({
           {aktif === "kapak" ? (
             <KapakEditor
               offerId={offerId}
+              revisionId={revisionId}
               offerNo={offerNo}
               revNo={revNo}
               offerSubject={offerSubject}
@@ -830,6 +832,7 @@ function KayitRozeti({
 
 function KapakEditor({
   offerId,
+  revisionId,
   offerNo,
   revNo,
   offerSubject,
@@ -840,6 +843,7 @@ function KapakEditor({
   onChange,
 }: {
   offerId: string;
+  revisionId: string;
   offerNo: string;
   revNo: number;
   offerSubject: string;
@@ -1084,28 +1088,47 @@ function KapakEditor({
         </div>
       </Bolum>
 
-      <Bolum baslik="İMZALAR" aciklama="Kapağın altında yan yana basılır.">
+      <Bolum baslik="İMZALAR" aciklama="Kullanıcıyı seçin; PNG imza varsa kapağın altında adı ve unvanıyla basılır.">
         <div className="grid gap-2">
           {c.signatories.map((s, i) => (
-            <div key={i} className="flex flex-wrap items-end gap-2">
-              <Alan
-                etiket="Ad Soyad"
-                value={s.name}
-                onChange={(v) =>
-                  set({
-                    signatories: c.signatories.map((x, j) => (j === i ? { ...x, name: v } : x)),
-                  })
-                }
-              />
-              <Alan
-                etiket="Unvan"
-                value={s.title}
-                onChange={(v) =>
-                  set({
-                    signatories: c.signatories.map((x, j) => (j === i ? { ...x, title: v } : x)),
-                  })
-                }
-              />
+            <div key={i} className="grid gap-3 border p-3 md:grid-cols-[minmax(13rem,1fr)_1fr_1fr_auto] md:items-end">
+              <div className="grid gap-1.5">
+                <Label>İmza Sahibi</Label>
+                <Select
+                  value={s.userId ?? authors.find((a) => a.name === s.name)?.id ?? "__none__"}
+                  onValueChange={(id) => {
+                    const author = authors.find((a) => a.id === id);
+                    if (!author) return;
+                    set({
+                      signatories: c.signatories.map((x, j) => j === i ? {
+                        ...x,
+                        userId: author.id,
+                        name: author.name,
+                        title: author.title,
+                        ...(x.userId && x.userId !== author.id
+                          ? { signaturePath: "", signatureName: "" }
+                          : {}),
+                      } : x),
+                    });
+                  }}
+                >
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Kullanıcı seçin" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__" disabled>Kullanıcı seçin</SelectItem>
+                    {authors.map((author) => (
+                      <SelectItem key={author.id} value={author.id}>
+                        {author.name}{author.title ? ` — ${author.title}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Alan etiket="Ad Soyad" value={s.name} onChange={(v) => set({
+                signatories: c.signatories.map((x, j) => j === i ? { ...x, name: v } : x),
+              })} />
+              <Alan etiket="Unvan" value={s.title} onChange={(v) => set({
+                signatories: c.signatories.map((x, j) => j === i ? { ...x, title: v } : x),
+              })} />
               <Button
                 type="button"
                 variant="ghost"
@@ -1116,6 +1139,22 @@ function KapakEditor({
               >
                 <Trash2 className="size-4" />
               </Button>
+              <div className="md:col-span-3">
+                <SignatureUpload
+                  offerId={offerId}
+                  revisionId={revisionId}
+                  userId={s.userId ?? authors.find((a) => a.name === s.name)?.id ?? null}
+                  path={s.signaturePath ?? ""}
+                  fileName={s.signatureName ?? ""}
+                  onChange={(next) => set({
+                    signatories: c.signatories.map((x, j) => j === i ? {
+                      ...x,
+                      signaturePath: next.path,
+                      signatureName: next.fileName,
+                    } : x),
+                  })}
+                />
+              </div>
             </div>
           ))}
           <div>
@@ -1124,7 +1163,13 @@ function KapakEditor({
               variant="ghost"
               size="sm"
               className="oc-tap"
-              onClick={() => set({ signatories: [...c.signatories, { name: "", title: "" }] })}
+              onClick={() => {
+                const author = authors[0];
+                set({ signatories: [...c.signatories, author
+                  ? { userId: author.id, name: author.name, title: author.title, signaturePath: "", signatureName: "" }
+                  : { userId: null, name: "", title: "", signaturePath: "", signatureName: "" }
+                ] });
+              }}
             >
               <Plus className="size-3.5" /> İmza Ekle
             </Button>
@@ -1588,6 +1633,7 @@ function FiyatEditor({
               <TableHead className="w-20">Adet</TableHead>
               <TableHead className="w-28">Birim</TableHead>
               <TableHead className="w-32">Birim Fiyat</TableHead>
+              <TableHead className="w-24">İskonto %</TableHead>
               {/* MALİYET SÜTUNU TUTARIN SOLUNDADIR (kullanıcı isteği): göz
                   soldan sağa "neye mal oluyor → ne satıyoruz" okur. Sütun
                   yalnız EKRANDA vardır; müşteriye giden PDF onu hiç görmez
@@ -1718,6 +1764,19 @@ function FiyatEditor({
                     </p>
                   ) : null}
                 </TableCell>
+                <TableCell data-label="Satır İskontosu">
+                  <div className="grid gap-1">
+                    <SayiKutusu
+                      value={line.discountPercent ?? null}
+                      onChange={(v) => setLine(i, { ...line, discountPercent: v })}
+                      aria-label="Satır iskonto oranı yüzde"
+                      className="h-9 text-right font-mono"
+                    />
+                    {line.discountPercent !== null && line.discountPercent !== undefined ? (
+                      <span className="text-right text-[10px] text-muted-foreground">%</span>
+                    ) : null}
+                  </div>
+                </TableCell>
                 {/* SERBEST SATIRIN MALİYETİ ELLE GİRİLİR (kullanıcı isteği
                     18.08.2026), kaleme bağlı satırınki maliyet belgesinden
                     OKUNUR. İki kaynak asla toplanmaz: bağ varsa kutu hiç
@@ -1814,7 +1873,7 @@ function FiyatEditor({
               {/* TESLİM SÜRESİ SÜTUNU AÇIKKEN BİR SÜTUN DAHA VARDIR: sayı elle
                   yazılsaydı sütun açıldığında TOPLAM satırı kayardı. */}
               <TableCell
-                colSpan={p.leadTimeUnit ? 7 : 6}
+                colSpan={p.leadTimeUnit ? 8 : 7}
                 className="text-right font-medium"
                 data-label="Fiyat Özeti"
                 data-mobile-span="full"
@@ -2019,7 +2078,7 @@ function IskontoAlani({
           />
         </div>
         <span className="text-sm text-muted-foreground">
-          Satır toplamı {ham === null ? "—" : fmtMoney(ham, p.currency)}
+          Satır indirimleri sonrası {ham === null ? "—" : fmtMoney(ham, p.currency)}
         </span>
         {tutar !== null && oran !== null ? (
           <span className="text-sm font-medium">
@@ -2036,7 +2095,7 @@ function IskontoAlani({
           onClick={() => {
             if (hedef === null) return;
             const lines = applyDiscountToLines(p.lines, hedef);
-            onChange({ ...payload, pricing: { ...p, lines } });
+            onChange({ ...payload, pricing: { ...p, lines, discountTotal: null } });
             toast.success("Birim fiyatlar iskontoya göre güncellendi; toplam tuttu.");
           }}
         >
@@ -2044,6 +2103,8 @@ function IskontoAlani({
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
+        Her satırdaki <span className="font-medium">İskonto %</span> kutusu yalnız o
+        kaleme uygulanır; toplam iskonto varsa satır indirimlerinden sonra hesaplanır.
         Oranı yazıp <span className="font-medium">Uygula</span> derseniz iskontolu toplam
         hesaplanır ve küsurat <span className="font-medium">yukarı</span> yuvarlanır; tutarı
         doğrudan da yazabilirsiniz. Boş bırakılırsa belgede iskonto satırı görünmez. Tutar

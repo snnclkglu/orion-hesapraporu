@@ -1520,3 +1520,21 @@ kolayca yapılabilmeli ve bölümün hiçbir ekranında yatay kaydırma olmamal�
 `/dev/offer-cost-preview/costs/demo` ve `/dev/cost-templates-preview` 320 ve
 375 px'te `documentElement.scrollWidth === clientWidth` verir; teklif/maliyet
 bölümünde `overflow-x: auto|scroll` taşıyan görünür kap bulunmaz.
+
+## TEKLIF-67 — Teklif Hesap Raporları teklif listesi ile analiz arasındadır.
+
+`/offers/hesap-raporlari`, bölüm rayında **Teklifler → Teklif Hesap Raporları
+→ Analiz** sırasındadır. Amaç, henüz işe dönüşmemiş bir teklif için hesap
+raporunu hemen açmak ve Mühendislik listesini teklif ön çalışmalarıyla
+karıştırmamaktır.
+
+Bu sayfa yeni bir hesap ürünü değildir. Liste ve gezinme teklif bağlamındadır;
+hesap formu, revizyon snapshot'ı, hesap motoru, PDF ve ekipman çıktısı
+Mühendislik'in bileşenleridir (HESAP-31). Veri ayrımı
+`projects.report_context = 'offer'` süzgeciyle yapılır. Teklif raporu iş emrine
+bağlanmaz ve teklif detayında alınmış işe ait teslim sekmeleri (şartname,
+elektrik projesi, teknik resim ve el kitabı) açılmaz.
+
+Görsel ölçüt `/dev/offer-reports-preview`dir. Liste Mühendislik tablosunun
+aynısını kullanır ama İş No sütununu göstermez; telefonda aynı kart katlama
+kuralını korur.

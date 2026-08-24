@@ -18,6 +18,7 @@ import { renderOfferPdf } from "@/lib/pdf/offer";
 import { offerFileName } from "@/lib/pdf/doc-naming";
 import { getReportSettings } from "@/lib/settings";
 import { loadCustomerLogo } from "@/lib/customers/logo-server";
+import { loadOfferSignatureImages } from "@/lib/offers/signature-server";
 
 export const runtime = "nodejs";
 
@@ -52,9 +53,10 @@ export async function GET(
   // gecikirdi. `loadCustomerLogo` HİÇBİR KOŞULDA FIRLATMAZ — logo inmezse
   // `null` döner ve belge logosuz basılır (bir logo yüzünden 500 dönmek kabul
   // edilemez).
-  const [settings, customerLogo] = await Promise.all([
+  const [settings, customerLogo, signatureImages] = await Promise.all([
     getReportSettings(supabase),
     loadCustomerLogo(supabase, offer.customer_id),
+    loadOfferSignatureImages(supabase, revision.payload),
   ]);
   const buffer = await renderOfferPdf({
     offer: {
@@ -74,6 +76,7 @@ export async function GET(
       web: settings.web,
     },
     customerLogo,
+    signatureImages,
     meta: { generatedAt: new Date().toLocaleDateString("tr-TR") },
   });
 

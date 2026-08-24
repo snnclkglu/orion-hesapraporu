@@ -418,6 +418,7 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
     !/\/edit(\/|$)/.test(pathname ?? "");
   const isWide =
     /^\/(jobs|projects|sales)\/?$/.test(pathname ?? "") ||
+    /^\/offers\/hesap-raporlari\/?$/.test(pathname ?? "") ||
     jobsHub ||
     /^\/worklog(\/|$)/.test(pathname ?? "") ||
     /^\/purchasing(\/|$)/.test(pathname ?? "") ||

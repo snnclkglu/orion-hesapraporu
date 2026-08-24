@@ -49,6 +49,7 @@ export async function saveEquipmentExtras(
   if (error) return { error: error.message };
 
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}/equipment`);
+  revalidatePath(`/offers/hesap-raporlari/${projectId}/revisions/${revisionId}/equipment`);
   return { ok: true };
 }
 
@@ -105,6 +106,7 @@ export async function saveEquipmentNote(
   }
 
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}/equipment`);
+  revalidatePath(`/offers/hesap-raporlari/${projectId}/revisions/${revisionId}/equipment`);
   return { ok: true };
 }
 
@@ -166,6 +168,7 @@ export async function saveDrawingNote(
   }
 
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}/equipment`);
+  revalidatePath(`/offers/hesap-raporlari/${projectId}/revisions/${revisionId}/equipment`);
   return { ok: true };
 }
 
@@ -208,5 +211,6 @@ export async function saveCustomerDrawingLink(
   }
 
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}/equipment`);
+  revalidatePath(`/offers/hesap-raporlari/${projectId}/revisions/${revisionId}/equipment`);
   return { ok: true, path };
 }

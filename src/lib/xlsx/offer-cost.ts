@@ -45,7 +45,6 @@ import {
   MUTED_GRAY,
   ORION_RED,
   TOTAL_FILL,
-  autoWidth,
   styleHeaderRow,
   writeTitleBlock,
 } from "@/lib/excel/brand";
@@ -83,12 +82,10 @@ const IC_BELGE = "İÇ BELGE — MÜŞTERİYE VERİLMEZ";
 /**
  * Marka bandının kaplayacağı sütun sayısı.
  *
- * Özet listesinin sütun sayısı defterdeki oran grubu sayısına göre değişir
- * (`ozetBasliklari`); bant ise SABİT bir genişlikte durur — bandı tablonun
- * genişliğine bağlamak, üç oranlı bir teklifte bandı, dört oranlıda başka bir
- * yerde bitirirdi.
+ * Her iki sayfa sekiz sütunluk aynı dikey baskı genişliğini kullanır; başlık
+ * bandı böylece her yaprakta aynı yerde biter.
  */
-const SUTUN = 12;
+const SUTUN = 8;
 
 // Biçimler: PARA ve ORAN dışındaki her sayı (kg, adet, miktar) tek biçimdedir.
 const SAYI = "#,##0";
@@ -300,94 +297,6 @@ function bant(ws: ExcelJS.Worksheet, baslik: string, p: OfferCostWorkbookProps):
 
 // ————————————————————————————————————————————————————————— 1. ÖZET
 
-/**
- * ÖZET LİSTESİNİN SÜTUNLARI — vinçler VE serbest fiyat satırları TEK tabloda.
- *
- * Kullanıcı kararı (22.08.2026, MALIYET-38): *"Özet kısmında tek bir liste
- * istiyorum."* Ekran o gün üç bloktan tek listeye indi; Excel ise ayrı bir
- * "FİYAT SATIRLARININ ELLE MALİYETLERİ" bloğu basmaya devam ediyordu — aynı
- * belgenin iki yüzü iki farklı yapı anlatıyordu.
- *
- * ORAN SÜTUNLARI DEFTERDEN GELİR, sayısı sabit yazılmaz: yarın dördüncü bir
- * oran grubu açılırsa tablo kendiliğinden bir sütun daha çizer.
- */
-function ozetBasliklari(cur: string, oranlar: readonly { title: string }[]): string[] {
-  return [
-    "KALEM",
-    "TÜR",
-    "ADET",
-    "ÇELİK [KG]",
-    "TOPLAM AĞIRLIK [KG]",
-    "ÇELİK × ADET [KG]",
-    "ÇELİK %",
-    "TOPLAM × ADET [KG]",
-    "TOPLAM %",
-    "BİRİM MALİYET",
-    "PAKET MALİYET",
-    "İMALAT",
-    "İMALAT %",
-    "PROJE",
-    "PROJE %",
-    ...oranlar.flatMap((r) => [teknikDegerBuyuk(r.title), `${teknikDegerBuyuk(r.title)} %`]),
-    "GENEL GİDER DAHİL MALİYET",
-    `${cur}/KG`,
-  ];
-}
-
-/**
- * ÖZET TABLOSUNUN SÜTUN NUMARALARI — TEK yerde.
- *
- * Oran grubu sayısı defterden gelir ve her oran artık İKİ sütun tutar (tutar +
- * yüzde, md. 6); numaraları çağrı yerlerinde elle saymak, dördüncü bir oran
- * grubu açıldığında başlıkla verinin sessizce kaymasına yol açardı. Başlık
- * listesi ile bu harita AYNI sıradan üretilir ve bir duman testi ikisini
- * karşılaştırır.
- */
-function ozetSutunlari(oranSayisi: number) {
-  const oranTutar = (j: number) => 16 + j * 2;
-  const maliyet = 16 + oranSayisi * 2;
-  return {
-    kalem: 1,
-    tur: 2,
-    adet: 3,
-    celikBirim: 4,
-    agirlikBirim: 5,
-    celik: 6,
-    celikYuzde: 7,
-    agirlik: 8,
-    agirlikYuzde: 9,
-    birimMaliyet: 10,
-    paketMaliyet: 11,
-    imalat: 12,
-    imalatYuzde: 13,
-    proje: 14,
-    projeYuzde: 15,
-    oranTutar,
-    oranYuzde: (j: number) => oranTutar(j) + 1,
-    maliyet,
-    kg: maliyet + 1,
-  };
-}
-
-/**
- * BİR SAYININ TABANINA ORANI (0–1) — ekran ve PDF ile AYNI kural.
- *
- * Kullanıcı isteği (23.08.2026, md. 6). İKİ TABAN vardır: para sütunları
- * SATIRIN KENDİ MALİYETİNE, ağırlık sütunları belgenin dip toplamına oranlanır
- * (gerekçesi `overview-view.tsx`te). Excel yüzdeyi 0–1 bekler, o yüzden burada
- * 100 ile çarpılmaz — `payHucresi` doğrudan yazar.
- */
-function oranPayi(pay: number | null, taban: number | null): number | null {
-  if (pay === null || taban === null || taban === 0 || !Number.isFinite(taban)) return null;
-  return pay / taban;
-}
-
-/** Boş değeri SIFIR SAYMAYAN toplam — hiç sayı yoksa `null` (değişmez md. 4). */
-function toplaSayilar(list: readonly (number | null)[]): number | null {
-  const dolu = list.filter((n): n is number => n !== null && Number.isFinite(n));
-  return dolu.length ? dolu.reduce((t, n) => t + n, 0) : null;
-}
-
 function ozetSayfasi(
   wb: ExcelJS.Workbook,
   p: OfferCostWorkbookProps,
@@ -402,13 +311,18 @@ function ozetSayfasi(
   // ağırlıkları oradan okunur (md. 7). Verilmezse Excel özeti ekrandakinden
   // eksik çıkardı — MALIYET-24'ün yasakladığı ayrışma.
   const ozet = costOverview(totals, p.offerPayload, steelWeights, p.payload);
-  const oranlar = totals.rates;
-  const basliklarListesi = ozetBasliklari(cur, oranlar);
-  const SON = basliklarListesi.length;
 
   const ws = wb.addWorksheet(sekmeAdi(wb, "Özet"), {
-    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+    pageSetup: {
+      orientation: "portrait",
+      paperSize: 9,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: { left: 0.3, right: 0.3, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 },
+    },
   });
+  ws.views = [{ showGridLines: false }];
   let r = bant(ws, "Maliyet Çalışması — Özet", p);
 
   // A — KÜNYE
@@ -509,146 +423,58 @@ function ozetSayfasi(
   yuzdeHucresi(markup, 2, ozet.margin.markupPercent);
   r += 1;
 
-  // D — MALİYET ÖZETİ: TEK LİSTE (MALIYET-38)
+  // İlk basılı sayfa yönetim kararını tek başına taşır; kalem özeti ikinci
+  // dikey sayfada başlar. Geniş bir çizelgeyi A4'e küçültmek yerine içerik
+  // PDF gibi anlamlı yapraklara bölünür.
+  ws.getRow(r).addPageBreak();
+
+  // D — MALİYET ÖZETİ: DİKEY SAYFAYA SIĞAN TEK LİSTE
   blokBasligi(ws, r++, "MALİYET ÖZETİ");
   notSatiri(
     ws,
     r++,
-    "Vinçler ve teklifin serbest fiyat satırları TEK listede; beş ana başlık kalem bazında dağıtılmıştır. Serbest satırın beş başlığı YOKTUR ve uydurulmaz — hücreler boş kalır."
+    "Vinçler ve serbest fiyat satırları tek listede; ayrıntılı gider dağılımı aşağıdaki bölümlerde ve Maliyet Kalemleri sayfasındadır."
   );
-  basliklar(ws, r++, basliklarListesi);
-  const K = ozetSutunlari(oranlar.length);
-
-  // ISI ÖLÇEKLERİ SÜTUN BAZINDADIR (md. 4): "bu sütunun en büyüğü" cümlesi
-  // literal olarak doğrudur. Tek bir ölçek kurulsaydı çelik ağırlığı toplam
-  // ağırlıkla yarışır ve HER ZAMAN daha soğuk görünürdü — sütunun kendi
-  // içindeki fark hiç okunmazdı.
-  const satirlar = [
-    ...ozet.items.map((i) => ({
-      celik: i.steelPackageKg,
-      agirlik: i.weightPackageKg,
-      maliyet: i.headings.loaded,
-      imalat: i.headings.fabrication,
-      proje: i.headings.project,
-      rates: i.headings.rates,
-    })),
-    ...ozet.manualLines.map((l) => ({
-      celik: l.steelKg,
-      agirlik: l.totalKg,
-      maliyet: l.amount,
-      imalat: l.headings.fabrication,
-      proje: l.headings.project,
-      rates: l.headings.rates,
-    })),
-  ];
-  const enBuyukCelik = costLargestAmount(satirlar.map((x) => x.celik));
-  const enBuyukAgirlik = costLargestAmount(satirlar.map((x) => x.agirlik));
-  const enBuyukMaliyet = costLargestAmount(satirlar.map((x) => x.maliyet));
+  basliklar(ws, r++, ["KALEM", "TÜR", "ADET", "ÇELİK KG", "TOPLAM KG", "MALİYET", `${cur}/KG`]);
+  const enBuyukCelik = costLargestAmount([
+    ...ozet.items.map((i) => i.steelPackageKg),
+    ...ozet.manualLines.map((l) => l.steelKg),
+  ]);
+  const enBuyukAgirlik = costLargestAmount([
+    ...ozet.items.map((i) => i.weightPackageKg),
+    ...ozet.manualLines.map((l) => l.totalKg),
+  ]);
+  const enBuyukMaliyet = costLargestAmount([
+    ...ozet.items.map((i) => i.headings.loaded),
+    ...ozet.manualLines.map((l) => l.amount),
+  ]);
 
   for (const i of ozet.items) {
     const row = ws.getRow(r++);
-    row.getCell(K.kalem).value = teknikDegerBuyuk(i.title) || "—";
-    row.getCell(K.tur).value = "vinç";
-    sayiHucresi(row, K.adet, i.qty, SAYI);
-    sayiHucresi(row, K.celikBirim, i.steelKg, SAYI);
-    sayiHucresi(row, K.agirlikBirim, i.weightKg, SAYI);
-    isiliSayi(row, K.celik, i.steelPackageKg, SAYI, enBuyukCelik);
-    // AĞIRLIK YÜZDESİNİN TABANI BELGENİN DİP TOPLAMIDIR; PARA yüzdelerininki
-    // SATIRIN KENDİ MALİYETİ (md. 6, iki taban — gerekçesi `oranPayi`da).
-    payHucresi(row, K.celikYuzde, oranPayi(i.steelPackageKg, ozet.steelKgAll));
-    isiliSayi(row, K.agirlik, i.weightPackageKg, SAYI, enBuyukAgirlik);
-    payHucresi(row, K.agirlikYuzde, oranPayi(i.weightPackageKg, ozet.weightKgAll));
-    sayiHucresi(row, K.birimMaliyet, i.unit, para);
-    sayiHucresi(row, K.paketMaliyet, i.package, para);
-    sayiHucresi(row, K.imalat, i.headings.fabrication, para);
-    payHucresi(row, K.imalatYuzde, oranPayi(i.headings.fabrication, i.headings.loaded));
-    sayiHucresi(row, K.proje, i.headings.project, para);
-    payHucresi(row, K.projeYuzde, oranPayi(i.headings.project, i.headings.loaded));
-    i.headings.rates.forEach((x, j) => {
-      sayiHucresi(row, K.oranTutar(j), x.amount, para);
-      payHucresi(row, K.oranYuzde(j), oranPayi(x.amount, i.headings.loaded));
-    });
-    isiliSayi(row, K.maliyet, i.headings.loaded, para, enBuyukMaliyet);
-    // Özet sayfasındaki hesaplanan EUR/kg metriği de diğer özet rakamları
-    // gibi ondalıksız görünür; hammadde defterindeki gerçek giriş fiyatları
-    // aşağıdaki ayrı tabloda hassasiyetini korur.
-    sayiHucresi(row, K.kg, costPerKg(i.unit, i.weightKg), SAYI);
-    cizgi(row, SON);
+    row.getCell(1).value = teknikDegerBuyuk(i.title) || "—";
+    row.getCell(2).value = "vinç";
+    sayiHucresi(row, 3, i.qty, SAYI);
+    isiliSayi(row, 4, i.steelPackageKg, SAYI, enBuyukCelik);
+    isiliSayi(row, 5, i.weightPackageKg, SAYI, enBuyukAgirlik);
+    isiliSayi(row, 6, i.headings.loaded, para, enBuyukMaliyet);
+    sayiHucresi(row, 7, costPerKg(i.unit, i.weightKg), SAYI);
+    cizgi(row, 7);
   }
-  // SERBEST FİYAT SATIRLARI AYNI TABLONUN SATIRLARIDIR (MALIYET-38); ayrımı
-  // TÜR sütunu söyler, ayrı bir blok değil. Ağırlıkları ELLE girilmiştir
-  // (md. 7); BEŞ BAŞLIĞI DA artık elle girilebilir (23.08.2026, md. 1) ve
-  // dokunulmamış hücre BOŞ kalır — uydurulmaz (değişmez md. 4).
   for (const l of ozet.manualLines) {
     const row = ws.getRow(r++);
-    row.getCell(K.kalem).value = teknikDegerBuyuk(l.description) || "—";
-    row.getCell(K.tur).value = "fiyat satırı";
-    sayiHucresi(row, K.celikBirim, l.steelKg, SAYI);
-    sayiHucresi(row, K.agirlikBirim, l.totalKg, SAYI);
-    isiliSayi(row, K.celik, l.steelKg, SAYI, enBuyukCelik);
-    payHucresi(row, K.celikYuzde, oranPayi(l.steelKg, ozet.steelKgAll));
-    isiliSayi(row, K.agirlik, l.totalKg, SAYI, enBuyukAgirlik);
-    payHucresi(row, K.agirlikYuzde, oranPayi(l.totalKg, ozet.weightKgAll));
-    sayiHucresi(row, K.imalat, l.headings.fabrication, para);
-    payHucresi(row, K.imalatYuzde, oranPayi(l.headings.fabrication, l.amount));
-    sayiHucresi(row, K.proje, l.headings.project, para);
-    payHucresi(row, K.projeYuzde, oranPayi(l.headings.project, l.amount));
-    l.headings.rates.forEach((x, j) => {
-      sayiHucresi(row, K.oranTutar(j), x.amount, para);
-      payHucresi(row, K.oranYuzde(j), oranPayi(x.amount, l.amount));
-    });
-    isiliSayi(row, K.maliyet, l.amount, para, enBuyukMaliyet);
-    cizgi(row, SON);
+    row.getCell(1).value = teknikDegerBuyuk(l.description) || "—";
+    row.getCell(2).value = "fiyat satırı";
+    isiliSayi(row, 4, l.steelKg, SAYI, enBuyukCelik);
+    isiliSayi(row, 5, l.totalKg, SAYI, enBuyukAgirlik);
+    isiliSayi(row, 6, l.amount, para, enBuyukMaliyet);
+    cizgi(row, 7);
   }
   const kalemToplam = ws.getRow(r++);
-  kalemToplam.getCell(K.kalem).value = "TOPLAM";
-  sayiHucresi(kalemToplam, K.celik, ozet.steelKgAll, SAYI);
-  sayiHucresi(kalemToplam, K.agirlik, ozet.weightKgAll, SAYI);
-  // PAKET MALİYET SÜTUNUNUN TOPLAMI proje geneli TAŞIMAZ: doğrudan maliyet
-  // (`totals.direct`) bunun üstüne bir de PROJE GENELİ grubunu ekler. İkisini
-  // aynı hücrede göstermek, okuyanın sütunu toplayıp tutturamamasına yol
-  // açardı — proje geneli maliyet kalemleri sekmesinde ayrı durur.
-  sayiHucresi(kalemToplam, K.paketMaliyet, ozet.packageTotal, para);
-  // BEŞ BAŞLIĞIN DİP TOPLAMI KENDİ SÜTUNUNU TOPLAR, `costTotals`i DEĞİL:
-  // serbest fiyat satırlarının başlıkları artık elle girilebiliyor
-  // (23.08.2026, md. 1) ve `totals.fabrication` yalnız VİNÇLERİ sayar. İkisi
-  // karışsaydı sütunu toplayan okuyucu dip toplamı tutturamazdı.
-  sayiHucresi(kalemToplam, K.imalat, toplaSayilar(satirlar.map((x) => x.imalat)), para);
-  sayiHucresi(kalemToplam, K.proje, toplaSayilar(satirlar.map((x) => x.proje)), para);
-  oranlar.forEach((_, j) =>
-    sayiHucresi(
-      kalemToplam,
-      K.oranTutar(j),
-      toplaSayilar(satirlar.map((x) => x.rates[j]?.amount ?? null)),
-      para
-    )
-  );
-  // DİP YÜZDELERİN TABANI BELGENİN TOPLAM MALİYETİDİR: satırdaki cümlenin
-  // belge düzeyindeki karşılığı. AĞIRLIK dip toplamlarında yüzde YOKTUR —
-  // onlar zaten satır yüzdelerinin tabanıdır ve %100 yazmak hiçbir şey
-  // söylemezdi.
-  payHucresi(
-    kalemToplam,
-    K.imalatYuzde,
-    oranPayi(toplaSayilar(satirlar.map((x) => x.imalat)), ozet.margin.cost)
-  );
-  payHucresi(
-    kalemToplam,
-    K.projeYuzde,
-    oranPayi(toplaSayilar(satirlar.map((x) => x.proje)), ozet.margin.cost)
-  );
-  oranlar.forEach((_, j) =>
-    payHucresi(
-      kalemToplam,
-      K.oranYuzde(j),
-      oranPayi(toplaSayilar(satirlar.map((x) => x.rates[j]?.amount ?? null)), ozet.margin.cost)
-    )
-  );
-  // MALİYET SÜTUNUNUN DİP TOPLAMI belge toplamı + elle maliyetlerdir: sütunu
-  // toplamak dağıtılamayan yükü (`unallocated`) dışarıda bırakır ve okuyan
-  // yukarıdaki KÂR satırıyla tutturamazdı.
-  sayiHucresi(kalemToplam, K.maliyet, ozet.margin.cost, para);
-  toplamBicimi(kalemToplam, SON);
+  kalemToplam.getCell(1).value = "TOPLAM";
+  sayiHucresi(kalemToplam, 4, ozet.steelKgAll, SAYI);
+  sayiHucresi(kalemToplam, 5, ozet.weightKgAll, SAYI);
+  sayiHucresi(kalemToplam, 6, ozet.margin.cost, para);
+  toplamBicimi(kalemToplam, 7);
   r += 1;
 
   // DAĞITILAMAYAN YÜK SESSİZ GEÇİLMEZ (ekranla aynı uyarı).
@@ -765,11 +591,9 @@ function ozetSayfasi(
   // dosyayı açan kişi kaydırırken pencerenin üst kısmının neden takılı
   // kaldığını çözmek zorunda kalıyordu ve dondurmayı kaldırmak Excel'de bir
   // menü gezisidir. Sütun başlıkları zaten tablonun ilk satırındadır.
-  autoWidth(ws, 12, 46);
-  // Basılan uzun cümleler (uyarı ve not satırları) ilk sütunda yaşar ve
-  // `autoWidth` birleşik olmayan her hücreyi ölçtüğü için sütunu 46 karaktere
-  // kadar şişirirdi; kalem adları için 34 yeter.
-  ws.getColumn(1).width = 34;
+  [34, 16, 10, 14, 14, 18, 12, 3].forEach((width, i) => { ws.getColumn(i + 1).width = width; });
+  ws.pageSetup.printArea = `A1:G${Math.max(1, r)}`;
+  ws.headerFooter.oddFooter = `&L${IC_BELGE}&R&P / &N`;
 }
 
 // ————————————————————————————————— 2. MALİYET KALEMLERİ (TEK ÇİZELGE)
@@ -798,31 +622,25 @@ function ozetSayfasi(
  */
 const KALEM_BASLIKLARI = [
   "KAYNAK",
-  "ADET",
   "GRUP",
   "KALEM",
   "MİKTAR",
   "BİRİM",
   "BİRİM FİYAT",
-  "TUTAR",
-  "PAKET TUTAR",
-  "TEKLİFTE",
-  "NOT",
+  "TOPLAM",
+  "AÇIKLAMA",
 ] as const;
 
 /** Sütun numaraları — başlık listesiyle AYNI sıradan; elle sayılmaz. */
 const KS = {
   kaynak: 1,
-  adet: 2,
-  grup: 3,
-  kalem: 4,
-  miktar: 5,
-  birim: 6,
-  birimFiyat: 7,
-  tutar: 8,
-  paketTutar: 9,
-  teklifte: 10,
-  not: 11,
+  grup: 2,
+  kalem: 3,
+  miktar: 4,
+  birim: 5,
+  birimFiyat: 6,
+  toplam: 7,
+  aciklama: 8,
 } as const;
 
 /**
@@ -860,8 +678,8 @@ function grupSatirlari(
   const carpan = adet === null || adet <= 0 ? 1 : adet;
   for (const l of group.lines) {
     const row = ws.getRow(r++);
-    row.getCell(KS.kaynak).value = kaynak;
-    sayiHucresi(row, KS.adet, adet, SAYI);
+    row.height = 30;
+    row.getCell(KS.kaynak).value = adet !== null && adet > 1 ? `${kaynak} · ${adet} ADET` : kaynak;
     row.getCell(KS.grup).value = grupEtiketi;
     row.getCell(KS.kalem).value = teknikDegerBuyuk(l.label) || "—";
     sayiHucresi(row, KS.miktar, l.qty, SAYI);
@@ -871,13 +689,11 @@ function grupSatirlari(
     // ondalıksız ve binlik ayraçlı görünür.
     sayiHucresi(row, KS.birimFiyat, l.unitPrice, l.priceSource ? hassasBirimFiyat : para);
     const tutar = costLineAmount(l);
-    // TUTAR ISISI ÇİZELGEDE DE VARDIR (md. 4): ekranla ve PDF'le AYNI rampa.
-    // İki sütun da renklenir çünkü ikisi de bir tutardır ve okuyan hangisine
-    // bakarsa baksın aynı büyüklük işaretini görmelidir.
-    isiliSayi(row, KS.tutar, tutar, para, enBuyukTutar);
+    // Dikey düzende tek sonuç sütunu vardır: paket/adet etkisi uygulanmış,
+    // doğrudan maliyet toplamına gerçekten giren rakam.
     isiliSayi(
       row,
-      KS.paketTutar,
+      KS.toplam,
       tutar === null ? null : tutar * carpan,
       para,
       enBuyukTutar * (carpan > 0 ? carpan : 1)
@@ -886,8 +702,19 @@ function grupSatirlari(
     // MALIYET-4 DEĞİŞMEDİ — iki kaynak hâlâ toplanmaz ve hangisinin geçerli
     // olduğu EKRANDA görünür (asa düğmesi); çizelgede o sütun her satırda
     // tekrar eden ve süzgeçte hiç kullanılmayan bir metindi.
-    row.getCell(KS.teklifte).value = refOf(group.key, l.key) ?? "";
-    row.getCell(KS.not).value = l.note ?? "";
+    const teklifRef = refOf(group.key, l.key);
+    const note = String(l.note ?? "").trim();
+    const aciklama = [teklifRef ? `Teklif: ${teklifRef}` : "", note ? `Not: ${note}` : ""]
+      .filter(Boolean)
+      .join(" · ");
+    row.getCell(KS.aciklama).value = aciklama || "—";
+    for (let col = 1; col <= KALEM_BASLIKLARI.length; col += 1) {
+      row.getCell(col).alignment = {
+        horizontal: col === KS.aciklama ? "left" : undefined,
+        vertical: "middle",
+        wrapText: col === KS.kaynak || col === KS.grup || col === KS.kalem || col === KS.aciklama,
+      };
+    }
     cizgi(row, KALEM_BASLIKLARI.length);
   }
   return r;
@@ -902,8 +729,16 @@ function kalemlerSayfasi(
   const cur = p.payload.currency || p.offer.currency;
   const para = paraBicimi(cur);
   const ws = wb.addWorksheet(sekmeAdi(wb, "Maliyet Kalemleri"), {
-    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+    pageSetup: {
+      orientation: "portrait",
+      paperSize: 9,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.45, header: 0.2, footer: 0.2 },
+    },
   });
+  ws.views = [{ showGridLines: false }];
   let r = bant(ws, "Maliyet Kalemleri", p);
   // AÇIKLAMA NOTU KALDIRILDI (kullanıcı isteği 23.08.2026, md. 10). Söylediği
   // üç şeyin üçü de zaten çizelgenin kendisinde duruyordu: KAYNAK sütunu
@@ -921,6 +756,7 @@ function kalemlerSayfasi(
 
   const baslikSatiri = r;
   basliklar(ws, r++, KALEM_BASLIKLARI);
+  ws.getRow(baslikSatiri).height = 24;
   const ilkVeri = r;
 
   for (const item of basilan.items) {
@@ -959,7 +795,7 @@ function kalemlerSayfasi(
   r += 1;
   const dip = ws.getRow(r++);
   dip.getCell(KS.kaynak).value = "DOĞRUDAN MALİYET (KALEM PAKETLERİ + PROJE GENELİ)";
-  sayiHucresi(dip, KS.paketTutar, totals.direct, para);
+  sayiHucresi(dip, KS.toplam, totals.direct, para);
   toplamBicimi(dip, KALEM_BASLIKLARI.length);
 
   // SÜZGEÇ TABLONUN KENDİSİNE KURULUR, dip toplama DEĞİL: filtre aralığına
@@ -971,9 +807,14 @@ function kalemlerSayfasi(
       to: { row: sonVeri, column: KALEM_BASLIKLARI.length },
     };
   }
-  // BAŞLIK VE İLK SÜTUN DONDURULMAZ (md. 9) — özet sekmesiyle aynı gerekçe:
-  // donmuş bölme kullanıcının kendi görünümüne el koyar.
-  autoWidth(ws, 10, 40);
+  // Ekranda dondurma yoktur; baskıda ise her dikey yaprak sütun adlarını
+  // tekrar eder. Bu, çok sayfalı PDF benzeri okumanın temelidir.
+  ws.pageSetup.printTitlesRow = `${baslikSatiri}:${baslikSatiri}`;
+  ws.pageSetup.printArea = `A1:H${Math.max(1, r)}`;
+  [23, 20, 30, 10, 10, 16, 18, 28].forEach((width, i) => { ws.getColumn(i + 1).width = width; });
+  ws.getColumn(KS.kalem).alignment = { wrapText: true, vertical: "top" };
+  ws.getColumn(KS.aciklama).alignment = { wrapText: true, vertical: "top" };
+  ws.headerFooter.oddFooter = `&L${IC_BELGE}&R&P / &N`;
 }
 
 // ————————————————————————————————————————————————————————— çalışma kitabı

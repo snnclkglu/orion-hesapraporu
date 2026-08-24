@@ -345,6 +345,40 @@ describe("iskontolu toplam", () => {
     expect(p.pricing.discountTotal).toBeNull();
   });
 
+  it("SATIR BAZLI İSKONTO toplamı ve basılan birim fiyatı kendi oranıyla düşürür", () => {
+    const line = { ...newPriceLine(), id: "satir", qty: 1, unitPrice: 101, discountPercent: 10 };
+    const p = fiyat([line]);
+    // 90,9 firma lehine yukarı yuvarlanır; oran yine açıkça %10 olarak kalır.
+    expect(offerTotal(p.lines)).toBe(91);
+    expect(effectiveTotal(p)).toBe(91);
+    expect(discountedLines(p).get("satir")).toEqual({
+      unitPrice: 91,
+      amount: 91,
+      discountPercent: 10,
+    });
+  });
+
+  it("TOPLAM İSKONTO satır indirimlerinden SONRA uygulanır ve toplamı tutar", () => {
+    const lines = [
+      { ...newPriceLine(), id: "a", qty: 1, unitPrice: 100, discountPercent: 10 },
+      { ...newPriceLine(), id: "b", qty: 1, unitPrice: 100 },
+    ];
+    const p = fiyat(lines, 171); // satırlar 190, üstüne %10 toplam iskonto
+    expect(offerTotal(lines)).toBe(190);
+    expect(discountPercent(p)).toBeCloseTo(10, 6);
+    const map = discountedLines(p);
+    expect([...map.values()].reduce((n, v) => n + v.amount, 0)).toBe(171);
+    expect(map.get("a")?.discountPercent).toBe(10);
+    expect(map.get("b")?.discountPercent).toBeNull();
+  });
+
+  it("taşımada satır iskonto oranı korunur, geçersiz oran temizlenir", () => {
+    const valid = withDefaults({ pricing: { lines: [{ ...newPriceLine(), discountPercent: 12.5 }] } });
+    const invalid = withDefaults({ pricing: { lines: [{ ...newPriceLine(), discountPercent: 100 }] } });
+    expect(valid.pricing.lines[0].discountPercent).toBe(12.5);
+    expect(invalid.pricing.lines[0].discountPercent).toBeNull();
+  });
+
   // ————————————————————————————— kalem bazında iskonto (TEKLIF-65)
 
   it("KALEM FİYATLARININ TOPLAMI belgenin iskontolu toplamını TUTAR", () => {

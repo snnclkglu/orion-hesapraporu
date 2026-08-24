@@ -20,6 +20,13 @@ import {
   notesForRevision,
   type EquipmentNoteRow,
 } from "./[id]/revisions/[revId]/equipment/notes";
+import {
+  ENGINEERING_REPORT_CONTEXT,
+  OFFER_REPORT_CONTEXT,
+  REPORT_CONTEXTS,
+  reportBasePath,
+  reportContextOf,
+} from "@/lib/report-context";
 
 /**
  * Kaynak revizyonun ekipman listesi "Ek Özellikler" notlarını yeni revizyona
@@ -155,6 +162,7 @@ const projectSchema = z.object({
   // İş emri bağlantısı: Mühendislik bölümünde iş seçilirse dolu gelir;
   // bağımsız raporlarda null kalır (sonradan "İşe Bağla" ile bağlanabilir).
   job_id: z.uuid().nullable(),
+  report_context: z.enum(REPORT_CONTEXTS),
 });
 
 export type ActionResult = { error?: string };
@@ -171,7 +179,11 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
     name: formData.get("name"),
     customer: formData.get("customer"),
     crane_type: formData.get("crane_type") || DEFAULT_CRANE_TYPE,
-    job_id: formData.get("job_id") || null,
+    report_context: formData.get("report_context") || ENGINEERING_REPORT_CONTEXT,
+    job_id:
+      formData.get("report_context") === OFFER_REPORT_CONTEXT
+        ? null
+        : formData.get("job_id") || null,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
@@ -197,12 +209,14 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
       doc_no: parsed.data.doc_no,
       name: parsed.data.name,
       ...(parsed.data.job_id ? { job_id: parsed.data.job_id } : {}),
+      report_context: parsed.data.report_context,
     },
   });
 
   revalidatePath("/projects");
+  revalidatePath("/offers/hesap-raporlari");
   if (parsed.data.job_id) revalidatePath(`/jobs/${parsed.data.job_id}`);
-  redirect(`/projects/${project.id}`);
+  redirect(`${reportBasePath(parsed.data.report_context)}/${project.id}`);
 }
 
 // ----------------------------------------------------- Proje bilgisi düzenleme
@@ -272,7 +286,9 @@ export async function updateProjectDetails(
   });
 
   revalidatePath("/projects");
+  revalidatePath("/offers/hesap-raporlari");
   revalidatePath(`/projects/${parsedId.data}`);
+  revalidatePath(`/offers/hesap-raporlari/${parsedId.data}`);
   if (current.job_id) revalidatePath(`/jobs/${current.job_id}`);
   return {};
 }
@@ -383,10 +399,13 @@ export async function duplicateProject(
 
   const { data: source } = await supabase
     .from("projects")
-    .select("id, doc_no, crane_type")
+    .select("id, doc_no, crane_type, report_context")
     .eq("id", sourceProjectId)
     .maybeSingle();
   if (!source) return { error: "Kaynak hesap raporu bulunamadı" };
+  const sourceContext = reportContextOf(source.report_context);
+  const targetJobId = sourceContext === OFFER_REPORT_CONTEXT ? null : parsed.data.job_id;
+  const targetJobItemId = sourceContext === OFFER_REPORT_CONTEXT ? null : parsed.data.job_item_id;
 
   const { data: copy, error } = await supabase
     .from("projects")
@@ -395,7 +414,8 @@ export async function duplicateProject(
       name: parsed.data.name,
       customer: parsed.data.customer,
       crane_type: source.crane_type,
-      job_id: parsed.data.job_id,
+      report_context: sourceContext,
+      job_id: targetJobId,
       created_by: user.id,
     })
     .select("id")
@@ -442,12 +462,12 @@ export async function duplicateProject(
   }
 
   // Seçilen iş kalemi bu yeni rapora bağlanır (kalem başka rapora bağlıysa devralınır)
-  if (parsed.data.job_id && parsed.data.job_item_id) {
+  if (targetJobId && targetJobItemId) {
     await supabase
       .from("job_items")
       .update({ project_id: copy.id })
-      .eq("id", parsed.data.job_item_id)
-      .eq("job_id", parsed.data.job_id);
+      .eq("id", targetJobItemId)
+      .eq("job_id", targetJobId);
   }
 
   await supabase.from("audit_log").insert({
@@ -458,15 +478,16 @@ export async function duplicateProject(
     detail: {
       source_project_id: sourceProjectId,
       source_revision_id: last?.id ?? null,
-      job_id: parsed.data.job_id,
-      ...(parsed.data.job_item_id ? { job_item_id: parsed.data.job_item_id } : {}),
+      job_id: targetJobId,
+      ...(targetJobItemId ? { job_item_id: targetJobItemId } : {}),
       doc_no: parsed.data.doc_no,
     },
   });
 
   revalidatePath("/projects");
-  if (parsed.data.job_id) revalidatePath(`/jobs/${parsed.data.job_id}`);
-  redirect(`/projects/${copy.id}`);
+  revalidatePath("/offers/hesap-raporlari");
+  if (targetJobId) revalidatePath(`/jobs/${targetJobId}`);
+  redirect(`${reportBasePath(sourceContext)}/${copy.id}`);
 }
 
 // ------------------------------------------------------------- İşe bağlama
@@ -502,10 +523,16 @@ export async function assignProjectToJob(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, doc_no, job_id")
+    .select("id, doc_no, job_id, report_context")
     .eq("id", parsed.data.project_id)
     .maybeSingle();
   if (!project) return { error: "Hesap raporu bulunamadı" };
+  if (reportContextOf(project.report_context) === OFFER_REPORT_CONTEXT) {
+    return {
+      error:
+        "Teklif hesap raporu işe bağlanamaz; kazanılan iş için raporu Mühendislik bölümüne kopyalayın.",
+    };
+  }
   const previousJobId = project.job_id as string | null;
 
   const { error } = await supabase
@@ -540,6 +567,7 @@ export async function assignProjectToJob(
   });
 
   revalidatePath("/projects");
+  revalidatePath("/offers/hesap-raporlari");
   revalidatePath(`/projects/${parsed.data.project_id}`);
   if (previousJobId) revalidatePath(`/jobs/${previousJobId}`);
   if (parsed.data.job_id) revalidatePath(`/jobs/${parsed.data.job_id}`);
@@ -617,7 +645,9 @@ export async function setProjectArchived(
   });
 
   revalidatePath("/projects");
+  revalidatePath("/offers/hesap-raporlari");
   revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/offers/hesap-raporlari/${projectId}`);
   return {};
 }
 
@@ -666,7 +696,7 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
   // revizyonun kapalı bölüm listesine bir ÖNERİ yazmak için.
   const { data: proje } = await supabase
     .from("projects")
-    .select("crane_type")
+    .select("crane_type, report_context")
     .eq("id", projectId)
     .maybeSingle();
 
@@ -738,7 +768,9 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
   });
 
   revalidatePath(`/projects/${projectId}`);
-  redirect(`/projects/${projectId}/revisions/${revision.id}`);
+  const basePath = reportBasePath(reportContextOf(proje?.report_context));
+  revalidatePath(`${basePath}/${projectId}`);
+  redirect(`${basePath}/${projectId}/revisions/${revision.id}`);
 }
 
 /**

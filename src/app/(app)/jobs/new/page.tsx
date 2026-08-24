@@ -106,6 +106,7 @@ export default async function NewJobPage({
         // Sevk/montaj adresi KOPYALANIR (tarihlerin tersine): tekrarlayan
         // siparişte değişen şey termin, değişmeyen şey teslim yeridir.
         shipping_address: src.shipping_address ?? "",
+        shipping_country: src.shipping_country ?? "Türkiye",
         assembly_address: src.assembly_address ?? "",
         quantity_text: src.quantity_text ?? "",
         job_leader: src.job_leader ?? "",

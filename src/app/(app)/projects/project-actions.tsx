@@ -34,6 +34,11 @@ import {
 import { docCode } from "@/lib/pdf/doc-naming";
 import { DEFAULT_CRANE_TYPE, craneTypeOptions } from "@/lib/crane-types";
 import { adBuyuk } from "@/lib/tr-text";
+import {
+  ENGINEERING_REPORT_CONTEXT,
+  OFFER_REPORT_CONTEXT,
+  type ReportContext,
+} from "@/lib/report-context";
 
 export interface ProjectSummary {
   id: string;
@@ -102,11 +107,13 @@ export function DuplicateProjectDialog({
   jobs,
   open,
   onOpenChange,
+  reportContext = ENGINEERING_REPORT_CONTEXT,
 }: {
   project: ProjectSummary;
   jobs: JobOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  reportContext?: ReportContext;
 }) {
   const [pending, startTransition] = useTransition();
   const [docNo, setDocNo] = useState(() => suggestDocNo(project.doc_no));
@@ -121,6 +128,7 @@ export function DuplicateProjectDialog({
     [jobOptions, jobId]
   );
   const items = selectedJob?.items ?? [];
+  const allowJobAssignment = reportContext !== OFFER_REPORT_CONTEXT;
 
   function onPickJob(id: string) {
     setJobId(id);
@@ -167,24 +175,26 @@ export function DuplicateProjectDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label>Hedef İş</Label>
-            <Select value={jobId} onValueChange={onPickJob}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_JOB}>Bağımsız (İşe Atanmamış)</SelectItem>
-                {jobOptions.map((j) => (
-                  <SelectItem key={j.id} value={j.id}>
-                    {j.job_no} · {j.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {allowJobAssignment && (
+            <div className="grid gap-2">
+              <Label>Hedef İş</Label>
+              <Select value={jobId} onValueChange={onPickJob}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_JOB}>Bağımsız (İşe Atanmamış)</SelectItem>
+                  {jobOptions.map((j) => (
+                    <SelectItem key={j.id} value={j.id}>
+                      {j.job_no} · {j.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-          {items.length > 0 && (
+          {allowJobAssignment && items.length > 0 && (
             <div className="grid gap-2">
               <Label>İş Kalemi</Label>
               <Select value={itemId} onValueChange={onPickItem}>
@@ -215,8 +225,15 @@ export function DuplicateProjectDialog({
               required
             />
             <p className="text-[11px] text-muted-foreground">
-              Doküman no <span className="font-medium">iş kalemi numarasıdır</span>; rapor kodu
-              bundan türer → <span className="font-mono">{docCode("HR", docNo || "0055-02", 1)}</span>
+              {allowJobAssignment ? (
+                <>
+                  Doküman no <span className="font-medium">iş kalemi numarasıdır</span>; rapor
+                  kodu bundan türer →{" "}
+                </>
+              ) : (
+                <>Teklif çalışmasına ait benzersiz doküman no; rapor kodu bundan türer → </>
+              )}
+              <span className="font-mono">{docCode("HR", docNo || "0055-02", 1)}</span>
             </p>
           </div>
           <div className="grid gap-2">
@@ -532,11 +549,13 @@ export function ProjectRowActions({
   project,
   jobs,
   canDelete,
+  reportContext = ENGINEERING_REPORT_CONTEXT,
 }: {
   project: ProjectSummary;
   jobs: JobOption[];
   /** Yalnızca yönetici siler (projects DELETE politikası is_admin() ister) */
   canDelete: boolean;
+  reportContext?: ReportContext;
 }) {
   const [active, setActive] = useState<ActiveDialog>(null);
 
@@ -562,9 +581,11 @@ export function ProjectRowActions({
           <DropdownMenuItem onSelect={() => setActive("duplicate")}>
             <Copy className="size-3.5" /> Kopyala
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setActive("assign")}>
-            <Link2 className="size-3.5" /> İşe Bağla
-          </DropdownMenuItem>
+          {reportContext !== OFFER_REPORT_CONTEXT && (
+            <DropdownMenuItem onSelect={() => setActive("assign")}>
+              <Link2 className="size-3.5" /> İşe Bağla
+            </DropdownMenuItem>
+          )}
           {canDelete && (
             <>
               <DropdownMenuSeparator />
@@ -588,11 +609,12 @@ export function ProjectRowActions({
         <DuplicateProjectDialog
           project={project}
           jobs={jobs}
+          reportContext={reportContext}
           open
           onOpenChange={(o) => !o && setActive(null)}
         />
       )}
-      {active === "assign" && (
+      {active === "assign" && reportContext !== OFFER_REPORT_CONTEXT && (
         <AssignJobDialog
           project={project}
           jobs={jobs}
@@ -616,10 +638,12 @@ export function ProjectDetailActions({
   project,
   jobs,
   canDelete,
+  reportContext = ENGINEERING_REPORT_CONTEXT,
 }: {
   project: ProjectSummary;
   jobs: JobOption[];
   canDelete: boolean;
+  reportContext?: ReportContext;
 }) {
   const [active, setActive] = useState<ActiveDialog>(null);
 
@@ -631,10 +655,12 @@ export function ProjectDetailActions({
       <Button variant="ghost" size="sm" onClick={() => setActive("duplicate")}>
         <Copy className="size-3.5 text-muted-foreground" /> Kopyala
       </Button>
-      <Button variant="ghost" size="sm" onClick={() => setActive("assign")}>
-        <Link2 className="size-3.5 text-muted-foreground" />
-        {project.job_id ? "İşi Değiştir" : "İşe Bağla"}
-      </Button>
+      {reportContext !== OFFER_REPORT_CONTEXT && (
+        <Button variant="ghost" size="sm" onClick={() => setActive("assign")}>
+          <Link2 className="size-3.5 text-muted-foreground" />
+          {project.job_id ? "İşi Değiştir" : "İşe Bağla"}
+        </Button>
+      )}
       {canDelete && (
         <Button
           variant="ghost"
@@ -657,11 +683,12 @@ export function ProjectDetailActions({
         <DuplicateProjectDialog
           project={project}
           jobs={jobs}
+          reportContext={reportContext}
           open
           onOpenChange={(o) => !o && setActive(null)}
         />
       )}
-      {active === "assign" && (
+      {active === "assign" && reportContext !== OFFER_REPORT_CONTEXT && (
         <AssignJobDialog
           project={project}
           jobs={jobs}

@@ -85,6 +85,7 @@ export default async function EditJobPage({
     workshop_exit_date: job.workshop_exit_date ?? "",
     delivery_date: job.delivery_date ?? "",
     shipping_address: job.shipping_address ?? "",
+    shipping_country: job.shipping_country ?? "Türkiye",
     assembly_address: job.assembly_address ?? "",
     quantity_text: job.quantity_text ?? "",
     job_leader: job.job_leader ?? "",

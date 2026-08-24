@@ -32,6 +32,11 @@ import {
 import { ProjectRowActions } from "./project-actions";
 import type { JobOption } from "./new-project-dialog";
 import { cn } from "@/lib/utils";
+import {
+  ENGINEERING_REPORT_CONTEXT,
+  OFFER_REPORT_CONTEXT,
+  type ReportContext,
+} from "@/lib/report-context";
 
 export interface ProjectRow {
   id: string;
@@ -148,11 +153,16 @@ export function ProjectsTable({
   projects,
   jobs,
   canDelete,
+  basePath = "/projects",
+  reportContext = ENGINEERING_REPORT_CONTEXT,
 }: {
   projects: ProjectRow[];
   jobs: JobOption[];
   canDelete: boolean;
+  basePath?: string;
+  reportContext?: ReportContext;
 }) {
+  const showJob = reportContext !== OFFER_REPORT_CONTEXT;
   const [year, setYear] = useState(ALL);
   const [customer, setCustomer] = useState(ALL);
   const [status, setStatus] = useState(ALL);
@@ -326,7 +336,7 @@ export function ProjectsTable({
                 Henüz açılmamış olanların kritikleri proje adının ALTINDA
                 durur (aşağıdaki ikinci satır); kart markup'ı çoğaltılmaz. */}
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortHead label="İş No" sortKey="job_no" className={cn(CIVI, "hidden md:table-cell")}
+              <SortHead label="İş No" sortKey="job_no" className={cn(CIVI, "hidden", showJob && "md:table-cell")}
                 active={sort.key === "job_no"} dir={sort.dir} onSort={toggleSort} />
               {/* Telefonda İKİ SATIRA SARAR: "Doküman No" tek satırdayken
                   sütunun tabanını 115px'e çekiyordu ve o 21px doğrudan proje
@@ -366,7 +376,7 @@ export function ProjectsTable({
                 <TableRow key={p.id} className="relative cursor-pointer">
                   <TableCell
                     data-label="İş No"
-                    className={cn(CIVI, "hidden font-mono text-sm text-muted-foreground md:table-cell")}
+                    className={cn(CIVI, "hidden font-mono text-sm text-muted-foreground", showJob && "md:table-cell")}
                   >
                     {p.job_no && p.job_id ? (
                       // Dokunma hedefi `.oc-tap` ile 44px'e tamamlanır, KUTU
@@ -390,7 +400,7 @@ export function ProjectsTable({
                     data-mobile-hide-label
                     className={cn(CIVI, "font-mono text-sm font-medium text-primary")}
                   >
-                    <Link href={`/projects/${p.id}`} className="after:absolute after:inset-0">
+                    <Link href={`${basePath}/${p.id}`} className="after:absolute after:inset-0">
                       {p.doc_no}
                     </Link>
                   </TableCell>
@@ -438,7 +448,7 @@ export function ProjectsTable({
                           kaybettiriyordu. `relative z-10` satırın tamamını
                           kaplayan proje bağlantısının üstünde kalmasını
                           sağlar (aksi hâlde dokunuş projeye giderdi). */}
-                      {p.job_no && p.job_id ? (
+                      {showJob && p.job_no && p.job_id ? (
                         <span className="md:hidden">
                           <Link
                             href={`/jobs/${p.job_id}`}
@@ -511,6 +521,7 @@ export function ProjectsTable({
                       }}
                       jobs={jobs}
                       canDelete={canDelete}
+                      reportContext={reportContext}
                     />
                   </TableCell>
                 </TableRow>

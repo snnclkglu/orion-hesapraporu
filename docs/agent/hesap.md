@@ -1176,3 +1176,22 @@ UÇTA taşır ve bir uçtaki düzen ötekinde birebir tekrarlanır; ekipman list
 yüzden `bufferOrderQty` = kurulu adet × 2 basar. Liste eskiden SABİT 2
 yazıyordu, kutuda ne seçilirse seçilsin (kullanıcı bildirimi, 24.08.2026).
 Çarpan saf tarafta tek yerdedir — Excel ve PDF aynı sayıyı okur.
+
+## HESAP-31 — Teklif hesabı ayrı arşivdir, ayrı motor değildir.
+
+Teklif aşamasında hızlı açılan hesap raporları da `projects` + `revisions`
+snapshot zincirini, `RevisionEditor`, `runCalc`, hesap raporu PDF'i ve ekipman
+çıktılarını **aynen** kullanır. İkinci bir hesap çekirdeği, teklif için
+sadeleştirilmiş formül kopyası ya da teklif payload'ı içinde hesap bloğu yoktur.
+
+Ayrım yalnız `projects.report_context` alanındadır:
+
+- `engineering` — alınmış iş / Mühendislik arşivi (`/projects`),
+- `offer` — teklif ön hesabı (`/offers/hesap-raporlari`).
+
+Mevcut kayıtların varsayılanı `engineering`dir. Teklif bağlamı `job_id`
+taşımaz; iş kazanıldığında teklif raporu sessizce Mühendislik'e taşınmaz.
+Gerekirse Mühendislik bağlamında kopya açılır; iki revizyon zinciri ve iki
+arşiv birbirinden ayrı kalır. Teklif detayında elektrik projesi, şartname,
+teknik resim takibi ve el kitabı gösterilmez — bunlar alınmış işin teslim
+katmanlarıdır. Hesap raporu ve ondan türeyen ekipman listesi ise ortaktır.

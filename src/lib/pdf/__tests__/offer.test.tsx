@@ -317,6 +317,16 @@ describe("kalem bazında iskonto", () => {
     expect(metin).toContain(duz(fmtMoney(hedef, "EUR")));
   });
 
+  it("PDF satır ve toplam iskonto ORANLARINI açıkça yazar", async () => {
+    const props = fikstur();
+    props.payload.pricing.lines[0].discountPercent = 12.5;
+    const satirlarSonrasi = offerTotal(props.payload.pricing.lines)!;
+    props.payload.pricing.discountTotal = Math.ceil(satirlarSonrasi * 0.9);
+    const metin = duz(await pdfMetni(props));
+    expect(metin).toContain(duz("İSKONTO %12,5"));
+    expect(metin).toContain(duz("İSKONTO (%"));
+  });
+
   it("İSKONTO YOKKEN kalem fiyatı TEK katmandır", () => {
     // Fikstürün ham hâlinde iskonto yoktur; 55.900 € tek başına durur ve
     // yanında ikinci bir rakam belirmez.

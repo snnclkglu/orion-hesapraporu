@@ -169,6 +169,14 @@ export interface OfferPriceLine {
   /** "Takım" · "Adet" · "Kişi" · "Metre" — defterden seçilir. */
   unit: string;
   unitPrice: number | null;
+  /**
+   * Bu fiyat satırına özel iskonto oranı (0–100).
+   *
+   * Toplam iskonto varsa satır iskontolarından SONRA uygulanır. Oran ayrıca
+   * saklanır çünkü müşteriye giden PDF'te satırın yanında açıkça yazılır;
+   * yuvarlanmış net fiyattan oranı geri türetmek doğru yüzdeyi vermezdi.
+   */
+  discountPercent?: number | null;
   /** Toplama girsin mi. */
   inTotal: boolean;
   /** Belgede "(Opsiyonel)" rozetiyle görünür. */
@@ -263,8 +271,14 @@ export interface OfferPricing {
 // ————————————————————————————————————————————————————————— kapak
 
 export interface OfferSignatory {
+  /** Kullanıcı defterindeki kişi; eski/serbest kayıtta null olabilir. */
+  userId?: string | null;
   name: string;
   title: string;
+  /** `offer-signatures` kovasındaki doğrulanmış PNG yolu. */
+  signaturePath?: string;
+  /** Yalnız editörde gösterilen özgün dosya adı. */
+  signatureName?: string;
 }
 
 export interface OfferCover {

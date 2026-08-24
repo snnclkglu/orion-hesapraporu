@@ -67,6 +67,8 @@ export interface SaleRow {
   jobDeliveryDate: string | null;
   jobWorkshopExitDate: string | null;
   jobShippingAddress: string;
+  /** İş Listesi PDF'ine giden kısa sevk bilgisi; adres ayrı alanda kalır. */
+  jobShippingCountry: string;
   /**
    * İŞ EMRİNİN SÖZLEŞME PDF'İ (`job_contracts`) — kalem başına değil İŞ
    * BAŞINA (kullanıcı kararı, 18.08.2026). Aynı işin bütün satırları aynı

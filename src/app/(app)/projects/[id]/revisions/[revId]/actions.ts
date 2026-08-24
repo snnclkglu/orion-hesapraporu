@@ -118,6 +118,8 @@ export async function issueRevision(
 
   revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}`);
+  revalidatePath(`/offers/hesap-raporlari/${projectId}`);
+  revalidatePath(`/offers/hesap-raporlari/${projectId}/revisions/${revisionId}`);
   return pdfArchived
     ? { ok: true }
     : {
@@ -161,6 +163,7 @@ export async function setRevisionTemplate(
   });
 
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}`);
+  revalidatePath(`/offers/hesap-raporlari/${projectId}/revisions/${revisionId}`);
   return { ok: true };
 }
 
@@ -255,5 +258,6 @@ export async function saveRevision(
   });
 
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}`);
+  revalidatePath(`/offers/hesap-raporlari/${projectId}/revisions/${revisionId}`);
   return { ok: true };
 }

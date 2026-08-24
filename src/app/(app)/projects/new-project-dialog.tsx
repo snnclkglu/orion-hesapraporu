@@ -1,8 +1,8 @@
 "use client";
 
-// "Yeni Hesap Raporu" — hesap raporları YALNIZCA Mühendislik bölümünden açılır.
-// Açılışta istenirse doğrudan bir iş emri kalemine bağlanır; bağlanmazsa rapor
-// bağımsız kalır ve sonradan "İşe Bağla" ile bir işe bağlanabilir.
+// "Yeni Hesap Raporu" — Mühendislik ve Teklif Hesap Raporları aynı pencereyi
+// kullanır. Mühendislikte rapor istenirse iş emri kalemine bağlanır; teklif
+// bağlamında iş seçimi hiç açılmaz ve kayıt ayrı teklif arşivine gider.
 // Akış: İş seçilir → o işin kalemleri (ürün + iş no) listelenir → kalem
 // seçilince doküman no ve rapor adı otomatik dolar.
 //
@@ -34,6 +34,11 @@ import { docCode } from "@/lib/pdf/doc-naming";
 import { DEFAULT_CRANE_TYPE, craneTypeOptions } from "@/lib/crane-types";
 import { adBuyuk } from "@/lib/tr-text";
 import { cn } from "@/lib/utils";
+import {
+  ENGINEERING_REPORT_CONTEXT,
+  OFFER_REPORT_CONTEXT,
+  type ReportContext,
+} from "@/lib/report-context";
 
 export interface JobItemOption {
   /** job_items.id — kalem bağlantısı bu kimlikle güncellenir */
@@ -60,17 +65,20 @@ export const NO_ITEM = "__no_item__";
 export function NewProjectDialog({
   defaultCraneType = DEFAULT_CRANE_TYPE,
   jobs,
+  reportContext = ENGINEERING_REPORT_CONTEXT,
 }: {
   defaultCraneType?: string;
   /** Opsiyonel iş seçimi için aktif iş listesi (kalemleriyle birlikte). */
   jobs?: JobOption[];
+  reportContext?: ReportContext;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const craneTypes = craneTypeOptions(defaultCraneType);
   const [craneType, setCraneType] = useState(defaultCraneType);
 
-  const showJobSelect = (jobs?.length ?? 0) > 0;
+  const offerContext = reportContext === OFFER_REPORT_CONTEXT;
+  const showJobSelect = !offerContext && (jobs?.length ?? 0) > 0;
   const [selectedJobId, setSelectedJobId] = useState<string>(NO_JOB);
   const selectedJob = useMemo(
     () => jobs?.find((j) => j.id === selectedJobId),
@@ -132,12 +140,14 @@ export function NewProjectDialog({
         <DialogHeader>
           <DialogTitle>Yeni Hesap Raporu</DialogTitle>
           <DialogDescription>
-            Raporu bir iş emri kalemine bağlayın ya da bağımsız bırakın; bağımsız
-            raporlar sonradan &quot;İşe Bağla&quot; ile bir işe bağlanabilir.
+            {offerContext
+              ? "Teklif aşamasındaki hesabı hemen açın. Aynı mühendislik motoru kullanılır; kayıt Mühendislik arşivine karışmaz."
+              : "Raporu bir iş emri kalemine bağlayın ya da bağımsız bırakın; bağımsız raporlar sonradan “İşe Bağla” ile bir işe bağlanabilir."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
           {/* İş bağlantısı */}
+          <input type="hidden" name="report_context" value={reportContext} />
           <input type="hidden" name="job_id" value={effectiveJobId} />
           {showJobSelect && (
             <div className="grid min-w-0 gap-2">
@@ -208,8 +218,14 @@ export function NewProjectDialog({
             {/* Doküman kodunun canlı önizlemesi: kuralın ne ürettiği alanın
                 altında görünsün, PDF açılana kadar beklenmesin. */}
             <p className="text-[11px] text-muted-foreground">
-              Doküman no <span className="font-medium">iş kalemi numarasıdır</span>; rapor kodu
-              bundan türer →{" "}
+              {offerContext ? (
+                <>Teklif çalışmasına ait benzersiz doküman no; rapor kodu bundan türer → </>
+              ) : (
+                <>
+                  Doküman no <span className="font-medium">iş kalemi numarasıdır</span>; rapor
+                  kodu bundan türer →{" "}
+                </>
+              )}
               <span className="font-mono">{docCode("HR", docNo || "0055-01", 1)}</span>
             </p>
           </div>

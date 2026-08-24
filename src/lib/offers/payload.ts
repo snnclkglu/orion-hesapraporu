@@ -353,6 +353,7 @@ export function newPriceLine(itemId: string | null = null): OfferPriceLine {
     qty: 1,
     unit: "Takım",
     unitPrice: null,
+    discountPercent: null,
     inTotal: true,
   };
 }
@@ -598,9 +599,12 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
       customerRef: metin(cover.customerRef),
       greeting: metin(cover.greeting),
       intro: metin(cover.intro),
-      signatories: dizi<{ name?: unknown; title?: unknown }>(cover.signatories).map((s) => ({
+      signatories: dizi<Record<string, unknown>>(cover.signatories).map((s) => ({
+        userId: typeof s?.userId === "string" && s.userId ? s.userId : null,
         name: metin(s?.name),
         title: metin(s?.title),
+        signaturePath: metin(s?.signaturePath),
+        signatureName: metin(s?.signatureName),
       })),
       hidden: cover.hidden === true,
     },
@@ -673,6 +677,10 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
         qty: sayiVeyaNull(l.qty),
         unit: metin(l.unit, "Takım"),
         unitPrice: sayiVeyaNull(l.unitPrice),
+        discountPercent: (() => {
+          const oran = sayiVeyaNull(l.discountPercent);
+          return oran !== null && oran > 0 && oran < 100 ? oran : null;
+        })(),
         inTotal: l.inTotal !== false,
         optional: l.optional === true,
         hidden: l.hidden === true,

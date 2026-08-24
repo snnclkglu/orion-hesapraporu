@@ -13,6 +13,12 @@ import { ProjectDetailActions, type ProjectSummary } from "../project-actions";
 import { SpecButton } from "./spec-button";
 import type { ProjectSpec } from "@/lib/project-specs";
 import type { JobOption } from "../new-project-dialog";
+import {
+  ENGINEERING_REPORT_CONTEXT,
+  OFFER_REPORT_CONTEXT,
+  reportContextLabel,
+  type ReportContext,
+} from "@/lib/report-context";
 
 export interface HeaderJob {
   id: string;
@@ -36,6 +42,8 @@ export function ProjectDetailHeader({
   itemNo,
   spec,
   canEditSpec,
+  basePath = "/projects",
+  reportContext = ENGINEERING_REPORT_CONTEXT,
 }: {
   project: { id: string; doc_no: string; name: string; customer: string; crane_type: string; archived: boolean };
   job: HeaderJob | null;
@@ -60,8 +68,11 @@ export function ProjectDetailHeader({
   /** Projenin GÜNCEL şartnamesi; yüklenmemişse null. */
   spec: ProjectSpec | null;
   canEditSpec: boolean;
+  basePath?: string;
+  reportContext?: ReportContext;
 }) {
   const hasDraft = latestRev?.status === "draft";
+  const offerContext = reportContext === OFFER_REPORT_CONTEXT;
 
   return (
     /* ÜST SATIR künye + birincil eylemler, ALT SATIR eylem şerididir.
@@ -85,7 +96,9 @@ export function ProjectDetailHeader({
                 </Link>
               </>
             ) : (
-              <Link href="/projects" className="hover:underline">Mühendislik</Link>
+              <Link href={basePath} className="hover:underline">
+                {reportContextLabel(reportContext)}
+              </Link>
             )}
             {" / "}
             <span className="font-mono">{itemNo?.trim() || project.doc_no}</span>
@@ -110,7 +123,7 @@ export function ProjectDetailHeader({
           <div className="flex flex-wrap gap-2">
             {hasDraft && latestRev && (
               <Button asChild>
-                <Link href={`/projects/${project.id}/revisions/${latestRev.id}`}>
+                <Link href={`${basePath}/${project.id}/revisions/${latestRev.id}`}>
                   Düzenlemeye Devam (V{latestRev.rev_no})
                 </Link>
               </Button>
@@ -137,30 +150,41 @@ export function ProjectDetailHeader({
           Button'lar dokunmatik payını tabandan alıyor, bunlar almıyordu.
           `.oc-tap` hedefi 44px'e tamamlar, kutu 40px'te kalır (MOBIL-1). */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-        <Link
-          href={`/projects/${project.id}/compare`}
-          className="oc-tap inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
-        >
-          <GitCompare className="size-3.5 text-muted-foreground" />
-          <span className="sm:hidden">Karşılaştır</span>
-          <span className="hidden sm:inline">Revizyonları Karşılaştır</span>
-        </Link>
-        <Link
-          href={`/projects/${project.id}/audit`}
-          className="oc-tap inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
-        >
-          <ScrollText className="size-3.5 text-muted-foreground" />
-          <span className="sm:hidden">Kayıt</span>
-          <span className="hidden sm:inline">İşlem Kaydı</span>
-        </Link>
+        {!offerContext && (
+          <>
+            <Link
+              href={`/projects/${project.id}/compare`}
+              className="oc-tap inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
+            >
+              <GitCompare className="size-3.5 text-muted-foreground" />
+              <span className="sm:hidden">Karşılaştır</span>
+              <span className="hidden sm:inline">Revizyonları Karşılaştır</span>
+            </Link>
+            <Link
+              href={`/projects/${project.id}/audit`}
+              className="oc-tap inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
+            >
+              <ScrollText className="size-3.5 text-muted-foreground" />
+              <span className="sm:hidden">Kayıt</span>
+              <span className="hidden sm:inline">İşlem Kaydı</span>
+            </Link>
+          </>
+        )}
         {/* ŞARTNAME EYLEM ŞERİDİNDEDİR ve YOKSA KIRMIZIDIR (kullanıcı isteği,
             19.08.2026). Renk bir süs değil: hesap raporu şartnameye cevap
             verir ve şartnamesiz bir proje EKSİKTİR. Yüklüyse düğme sakinleşir
             ve belgeyi AÇAR — çözülmüş bir durum kalıcı bir alarm gibi
             durmamalı. Gerekçenin tamamı `spec-button.tsx` başlığındadır. */}
-        <SpecButton projectId={project.id} spec={spec} canEdit={canEditSpec} />
+        {!offerContext && (
+          <SpecButton projectId={project.id} spec={spec} canEdit={canEditSpec} />
+        )}
         <ArchiveButton projectId={project.id} archived={project.archived} />
-        <ProjectDetailActions project={summary} jobs={jobs} canDelete={canDelete} />
+        <ProjectDetailActions
+          project={summary}
+          jobs={jobs}
+          canDelete={canDelete}
+          reportContext={reportContext}
+        />
       </div>
     </div>
   );

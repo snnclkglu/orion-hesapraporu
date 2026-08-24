@@ -3,6 +3,7 @@
 // alınır ve hem server action hem client form buradan kullanır.
 
 import { z } from "zod";
+import { DEFAULT_SHIPPING_COUNTRY } from "@/lib/countries";
 import { revizyonHarfi } from "@/lib/jobs/is-emri";
 import { adBuyuk } from "@/lib/tr-text";
 
@@ -87,6 +88,8 @@ export const jobInputSchema = z.object({
    * değildir (md. 3 kapsamı) ve `customer_address` de çevrilmiyor.
    */
   shipping_address: z.string().trim().max(400).default(""),
+  /** İş Listesi PDF'inde sevk adresi yerine yalnız bu kısa ülke adı basılır. */
+  shipping_country: z.string().trim().min(1, "Sevk ülkesi gerekli").max(120).default(DEFAULT_SHIPPING_COUNTRY),
   assembly_address: z.string().trim().max(400).default(""),
   quantity_text: z.string().trim().max(60).default(""),
   job_leader: z.string().trim().max(120).default(""),
@@ -208,6 +211,7 @@ export const EMPTY_JOB: JobInput = {
   workshop_exit_date: "",
   delivery_date: "",
   shipping_address: "",
+  shipping_country: DEFAULT_SHIPPING_COUNTRY,
   assembly_address: "",
   quantity_text: "",
   job_leader: "",

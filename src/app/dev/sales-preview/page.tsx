@@ -29,7 +29,7 @@ function row(
   contractDate: string,
   sale: Partial<SaleInput> | null,
   /** İş emrinden gelen öneriler — pencerenin boş alanları bunlarla dolar. */
-  isEmri?: Partial<Pick<SaleRow, "jobDeliveryDate" | "jobWorkshopExitDate" | "jobShippingAddress">>
+  isEmri?: Partial<Pick<SaleRow, "jobDeliveryDate" | "jobWorkshopExitDate" | "jobShippingAddress" | "jobShippingCountry">>
 ): SaleRow {
   const s: SaleInput = { ...EMPTY_SALE, ...(sale ?? {}) };
   const qty = s.quantity ?? 0;
@@ -52,6 +52,7 @@ function row(
     jobDeliveryDate: isEmri?.jobDeliveryDate ?? null,
     jobWorkshopExitDate: isEmri?.jobWorkshopExitDate ?? null,
     jobShippingAddress: isEmri?.jobShippingAddress ?? "",
+    jobShippingCountry: isEmri?.jobShippingCountry ?? "Türkiye",
     // Sözleşme YALNIZ BİR satırda dolu: sütunun hem dolu hem boş hâli aynı
     // ekranda görünsün (düğme yoksa hücre gerçekten boş kalmalı).
     contractPath: itemNo.startsWith("0002") ? "onizleme/sozlesme.pdf" : "",
@@ -89,6 +90,7 @@ const ROWS: SaleRow[] = [
     jobDeliveryDate: "2026-12-15",
     jobWorkshopExitDate: "2026-11-20",
     jobShippingAddress: "ASTOR ENERJİ A.Ş. ANKARA OSB TESİSİ, SİNCAN / ANKARA",
+    jobShippingCountry: "Türkiye",
   }),
   // Fiyatı var ama kuru yok: ciroya giremeyen satır
   row("0054-00", "75 t Kapasiteli Kaldırma Kirişi", "LITEC MAKİNA SAN. VE TİC. A.Ş.",

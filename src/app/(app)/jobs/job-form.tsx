@@ -42,6 +42,7 @@ import {
 } from "@/lib/jobs/is-emri";
 import { adBuyuk } from "@/lib/tr-text";
 import { cn } from "@/lib/utils";
+import { COUNTRIES_TR } from "@/lib/countries";
 
 /** Formun kullandığı kullanıcı kaydı (iş lideri / hazırlayan listeleri). */
 export interface PersonOption {
@@ -738,6 +739,22 @@ export function JobForm({
             tesise gider. Montaj varsayılan olarak sevkin aynısıdır — anahtar
             kapatılınca ayrı yazılır. */}
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-1.5 sm:col-span-2 sm:max-w-xs">
+            <Label htmlFor="shipping_country">Sevk Ülkesi</Label>
+            <Select value={form.shipping_country} onValueChange={(v) => set("shipping_country", v)}>
+              <SelectTrigger id="shipping_country" className="w-full">
+                <SelectValue placeholder="Ülke seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                {COUNTRIES_TR.map((country) => (
+                  <SelectItem key={country} value={country}>{country}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Güncel İş Listesi PDF&apos;inde uzun adres yerine yalnız bu ülke görünür.
+            </p>
+          </div>
           <div className="grid gap-1.5">
             <Label htmlFor="shipping_address">Sevk Adresi</Label>
             <Textarea

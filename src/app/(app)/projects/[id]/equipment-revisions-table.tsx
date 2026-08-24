@@ -28,9 +28,11 @@ export interface EquipmentRevisionRow {
 export function EquipmentRevisionsTable({
   projectId,
   revisions,
+  basePath = "/projects",
 }: {
   projectId: string;
   revisions: EquipmentRevisionRow[];
+  basePath?: string;
 }) {
   return (
     <div className="relative overflow-hidden rounded-lg border bg-card">
@@ -78,7 +80,7 @@ export function EquipmentRevisionsTable({
                   className="font-medium whitespace-normal"
                 >
                   <Link
-                    href={`/projects/${projectId}/revisions/${revision.id}/equipment`}
+                    href={`${basePath}/${projectId}/revisions/${revision.id}/equipment`}
                     className="oc-tap inline-flex items-center text-primary hover:underline"
                   >
                     Ekipman V{revision.revNo}
@@ -89,7 +91,7 @@ export function EquipmentRevisionsTable({
                 </TableCell>
                 <TableCell data-label="Bağlı Hesap" data-mobile-hide-label className="font-mono whitespace-normal">
                   <Link
-                    href={`/projects/${projectId}/revisions/${revision.id}`}
+                    href={`${basePath}/${projectId}/revisions/${revision.id}`}
                     className="oc-tap inline-flex items-center text-primary hover:underline"
                   >
                     Hesap V{revision.revNo}

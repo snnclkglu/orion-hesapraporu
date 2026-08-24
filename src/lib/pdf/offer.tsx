@@ -23,12 +23,11 @@
 // Büyük harf metnin kendisinde `trUpper()` ile verilir.
 
 import React from "react";
-import { Document, Image, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
+import { Document, Image, Path, StyleSheet, Svg, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import {
   BRAND,
   BRAND_LOGO_INK,
   BRAND_LOGO_PAPER,
-  BRAND_SYMBOL_INK,
   BrandPage,
   FONTS,
   LOGO_MONO_RATIO,
@@ -45,6 +44,7 @@ import { teknikDegerBuyuk, teknikEtiketBuyuk } from "@/lib/offers/buyuk";
 import { printedGeneralTerms, printedPayload } from "@/lib/offers/payload";
 import {
   discountAmount,
+  discountPercent,
   discountedLines,
   lineAmount,
   offerTotal,
@@ -93,6 +93,8 @@ export interface OfferDocumentProps {
    * ya da indirilemezse `null` geçilir — belge logosuz basılır, DÜŞMEZ.
    */
   customerLogo?: Buffer | null;
+  /** `signaturePath` anahtarlı, özel depodan sunucu tarafından indirilmiş PNG'ler. */
+  signatureImages?: Record<string, Buffer>;
   meta: { generatedAt: string };
   /**
    * İKİ GEÇİŞİN İÇ ALANLARI — çağıran DOLDURMAZ (`renderOfferPdf` yönetir).
@@ -382,6 +384,7 @@ const S = StyleSheet.create({
   giris: { fontFamily: FONTS.sans, fontSize: 9, lineHeight: 1.65, color: BRAND.gray700 },
   saygi: { fontFamily: FONTS.sans, fontSize: 9, fontWeight: 700, color: BRAND.ink, marginTop: 5.25 },
   imzalar: { flexDirection: "row", gap: 40, marginTop: 12 },
+  imzaGorsel: { width: 84, height: 28, objectFit: "contain", marginBottom: 3 },
   imzaAd: { fontFamily: FONTS.sans, fontSize: 8.5, fontWeight: 700, color: BRAND.ink },
   imzaUnvan: { ...T.caption, fontSize: 7, marginTop: 1 },
 
@@ -741,6 +744,14 @@ const S = StyleSheet.create({
   },
   /** İki katmanlı fiyat hücresi: eski rakam üstte, geçerli rakam altında. */
   fiyatYigin: { alignItems: "flex-end" },
+  fiyatIskonto: {
+    fontFamily: FONTS.mono,
+    fontSize: 5.25,
+    fontWeight: 600,
+    lineHeight: 1.2,
+    color: BRAND.red,
+    marginTop: 1,
+  },
   // ---- toplam şeritleri
   //
   // ÖDENECEK RAKAM KÖMÜR ŞERİTTEDİR ve tablonun en büyük yazısıdır; ara
@@ -1444,8 +1455,19 @@ function KunyeMarkasi({ logo, monogram }: { logo?: Buffer | null; monogram?: boo
   if (monogram) {
     const boy = 19;
     return (
-      // eslint-disable-next-line jsx-a11y/alt-text
-      <Image src={BRAND_SYMBOL_INK} style={{ width: boy / SYMBOL_INK_RATIO, height: boy }} />
+      // KİMDEN kartındaki kısa işaret marka kırmızısıdır. Raster "ink" varlığı
+      // kömür renkti; var olan kurumsal SVG yolları React-PDF içinde vektör
+      // olarak çizilir, böylece baskıda renk ve keskinlik korunur.
+      <Svg viewBox="0 0 147.652 95.921" style={{ width: boy / SYMBOL_INK_RATIO, height: boy }}>
+        <Path
+          fill={BRAND.red}
+          d="M47.393 1.826C56.099 1.983 64.655 4.729 72.248 10.403C73.229 11.136 73.521 11.608 72.625 12.688C69.038 17.007 66.414 21.89 64.471 27.149C63.797 28.973 63.786 28.969 62.372 27.736C52.85 19.432 39.976 19.318 31.005 27.791C24.187 34.23 21.919 42.284 24.719 51.283C27.505 60.238 33.784 65.777 43.095 67.222C57.375 69.439 69.61 58.781 69.694 44.368C69.817 23.237 85.097 5.25 106.122 2.318C122.745 0 136.354 5.919 146.77 19.127C147.652 20.244 147.444 20.805 146.324 21.541C141.771 24.533 137.243 27.565 132.771 30.674C131.684 31.429 131.226 31.22 130.432 30.264C124.423 23.025 116.652 20.049 107.502 22.046C98.123 24.092 92.33 30.231 89.903 39.542C89.086 42.675 89.509 45.887 89.113 49.051C87.28 63.72 79.992 74.868 67.109 81.946C41.668 95.921 10.533 81.195 4.724 52.673C0 29.48 16.186 6.172 39.579 2.471C41.928 2.099 44.283 1.823 47.393 1.826"
+        />
+        <Path
+          fill={BRAND.red}
+          d="M112.73 87.264C102.969 87.068 94.416 84.306 86.804 78.673C85.717 77.868 85.59 77.344 86.497 76.247C90.111 71.875 92.788 66.945 94.661 61.597C95.108 60.323 95.341 60.028 96.499 61.09C106.887 70.618 121.605 69.532 130.565 58.582C131.33 57.648 131.771 57.736 132.645 58.338C137.228 61.492 141.843 64.601 146.478 67.678C147.383 68.278 147.63 68.713 146.895 69.692C140.006 78.87 130.941 84.51 119.657 86.57C117.26 87.007 114.832 87.183 112.73 87.264"
+        />
+      </Svg>
     );
   }
   if (!logo) return null;
@@ -1547,6 +1569,7 @@ function KapakSayfasi({
   payload,
   company,
   customerLogo,
+  signatureImages,
   bolumler,
   pageOf,
   coverDensity = 0,
@@ -1609,6 +1632,10 @@ function KapakSayfasi({
             <View style={S.imzalar}>
               {cover.signatories.map((s, i) => (
                 <View key={`${s.name}-${i}`}>
+                  {s.signaturePath && signatureImages?.[s.signaturePath] ? (
+                    // eslint-disable-next-line jsx-a11y/alt-text
+                    <Image src={signatureImages[s.signaturePath]} style={S.imzaGorsel} />
+                  ) : null}
                   <Text style={S.imzaAd}>{s.name}</Text>
                   {s.title.trim() ? <Text style={S.imzaUnvan}>{s.title}</Text> : null}
                 </View>
@@ -1907,6 +1934,7 @@ function FiyatTablosu({
   // İSKONTO belgeye ancak satır toplamından FARKLIYSA girer; `discountAmount`
   // bu farkı zaten `null`a çevirir.
   const iskonto = discountAmount(payload.pricing);
+  const iskontoOrani = discountPercent(payload.pricing);
   const iskontolu = iskonto === null ? null : payload.pricing.discountTotal ?? null;
   // KALEM BAZINDA İSKONTO (kullanıcı isteği, 22.08.2026): fatura satır satır
   // kesileceği için kalem fiyatları da iskontolu hâlleriyle görünür. Rakamlar
@@ -2005,6 +2033,11 @@ function FiyatTablosu({
                     <View key={s.key} style={[S.fiyatYigin, yerlesim]}>
                       <Text style={S.fiyatEski}>{fmtMoney(line.unitPrice, currency)}</Text>
                       <Text style={S.fiyatVeri}>{fmtMoney(indirimli.unitPrice, currency)}</Text>
+                      {indirimli.discountPercent !== null ? (
+                        <Text style={S.fiyatIskonto}>
+                          İSKONTO %{String(indirimli.discountPercent).replace(".", ",")}
+                        </Text>
+                      ) : null}
                     </View>
                   ) : (
                     <Text key={s.key} style={[S.fiyatVeri, yerlesim]}>
@@ -2049,7 +2082,15 @@ function FiyatTablosu({
                 üstü çizili rakam "ne kadar indirim yapıldı" sorusunu ancak
                 çıkarma yaparak cevaplar, satır ise doğrudan söyler. */}
             <AraToplam baslik="TOPLAM" tutar={toplam} currency={currency} ustuCizili />
-            <AraToplam baslik="İSKONTO" tutar={-iskonto} currency={currency} />
+            <AraToplam
+              baslik={`İSKONTO${
+                iskontoOrani === null
+                  ? ""
+                  : ` (%${iskontoOrani.toFixed(2).replace(/\.00$/, "").replace(".", ",")})`
+              }`}
+              tutar={-iskonto}
+              currency={currency}
+            />
             <ToplamSeridi
               baslik="İSKONTOLU TOPLAM"
               tutar={iskontolu}

@@ -1,8 +1,8 @@
 "use client";
 
-// Teklif bölümü rayı — Teklifler · Tanımlar.
+// Teklif bölümü rayı — Teklifler · Teklif Hesap Raporları · Analiz · Tanımlar.
 //
-// TELEFONDA AÇILIR LİSTE YOKTUR: beş bölüm yan yana kutularla görünür ve
+// TELEFONDA AÇILIR LİSTE YOKTUR: altı bölüm yan yana kutularla görünür ve
 // 360px üstünde üç sütun × iki satıra yerleşir. Kullanıcı nereye gideceğini
 // listeyi açmadan görür; masaüstünde bölüm rayı görünmeye devam eder.
 //
@@ -20,6 +20,11 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/offers", label: "Teklifler", exact: true },
+  // TEKLİF HESAP RAPORLARI, teklif listesi ile analiz arasındadır: satış
+  // çalışması açılır → aynı mühendislik motoruyla ön hesap yapılır → teklif
+  // sonucu analiz edilir. Kayıtlar `projects.report_context = offer` ile
+  // Mühendislik arşivinden ayrılır; hesap kodu kopyalanmaz.
+  { href: "/offers/hesap-raporlari", label: "Teklif Hesap Raporları", exact: false },
   { href: "/offers/analiz", label: "Analiz", exact: false },
   // TANIMLAR ARTIK `exact`TİR: altına bir adres eklendi ve önek eşleşmesi iki
   // sekmeyi birden etkin gösterirdi — "hangi sayfadayım" sorusunun cevabı

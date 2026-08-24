@@ -40,8 +40,16 @@ const LEVELS = [
   },
 ] as const;
 
-export function ReportMenu({ projectId, revisionId }: { projectId: string; revisionId: string }) {
-  const base = `/projects/${projectId}/revisions/${revisionId}/report`;
+export function ReportMenu({
+  projectId,
+  revisionId,
+  basePath = "/projects",
+}: {
+  projectId: string;
+  revisionId: string;
+  basePath?: string;
+}) {
+  const base = `${basePath}/${projectId}/revisions/${revisionId}/report`;
   return (
     <DropdownMenu>
       {/* Dokunmatikte 32px'lik tetikleyici parmakla tutulmuyordu (sözleşme §2) */}

@@ -61,6 +61,7 @@ export function ProjectTabsNav({
   electricalPartCount,
   drawingPlanCount,
   manualRevisionCount,
+  compact = false,
 }: {
   revisionCount: number;
   /** Hesap raporu revizyonlarından türetilen ekipman listesi sürüm adedi. */
@@ -70,6 +71,8 @@ export function ProjectTabsNav({
   drawingPlanCount: number;
   /** El kitabı revizyon adedi; kitap açılmamışsa 0. */
   manualRevisionCount: number;
+  /** Teklif hesabında yalnız ortak motor çıktıları gösterilir. */
+  compact?: boolean;
 }) {
   return (
     // `items-end`: alt çizgili bir rayda hem sekmeler hem yanındaki bağlantı
@@ -105,24 +108,28 @@ export function ProjectTabsNav({
           <span className="hidden lg:inline">Ekipman Listeleri</span>
           {equipmentCount > 0 && <span className={COUNT}>{equipmentCount}</span>}
         </TabsTrigger>
-        <TabsTrigger value="electrical" className={TAB}>
-          <Zap className="size-4" />
-          <span className="lg:hidden">Elektrik</span>
-          <span className="hidden lg:inline">Elektrik Projesi</span>
-          {electricalPartCount > 0 && <span className={COUNT}>{electricalPartCount}</span>}
-        </TabsTrigger>
-        <TabsTrigger value="drawings" className={TAB}>
-          <Ruler className="size-4" />
-          <span className="lg:hidden">Resimler</span>
-          <span className="hidden lg:inline">Teknik Resim Takibi</span>
-          {drawingPlanCount > 0 && <span className={COUNT}>{drawingPlanCount}</span>}
-        </TabsTrigger>
-        <TabsTrigger value="manual" className={TAB}>
-          <BookOpen className="size-4" />
-          <span className="lg:hidden">El Kitabı</span>
-          <span className="hidden lg:inline">İşletme ve Bakım El Kitabı</span>
-          {manualRevisionCount > 0 && <span className={COUNT}>{manualRevisionCount}</span>}
-        </TabsTrigger>
+        {!compact && (
+          <>
+            <TabsTrigger value="electrical" className={TAB}>
+              <Zap className="size-4" />
+              <span className="lg:hidden">Elektrik</span>
+              <span className="hidden lg:inline">Elektrik Projesi</span>
+              {electricalPartCount > 0 && <span className={COUNT}>{electricalPartCount}</span>}
+            </TabsTrigger>
+            <TabsTrigger value="drawings" className={TAB}>
+              <Ruler className="size-4" />
+              <span className="lg:hidden">Resimler</span>
+              <span className="hidden lg:inline">Teknik Resim Takibi</span>
+              {drawingPlanCount > 0 && <span className={COUNT}>{drawingPlanCount}</span>}
+            </TabsTrigger>
+            <TabsTrigger value="manual" className={TAB}>
+              <BookOpen className="size-4" />
+              <span className="lg:hidden">El Kitabı</span>
+              <span className="hidden lg:inline">İşletme ve Bakım El Kitabı</span>
+              {manualRevisionCount > 0 && <span className={COUNT}>{manualRevisionCount}</span>}
+            </TabsTrigger>
+          </>
+        )}
       </TabsList>
     </div>
   );

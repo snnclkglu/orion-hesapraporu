@@ -62,7 +62,9 @@ export async function GET(request: NextRequest) {
     contractDate: r.contractDate,
     dueDate: r.sale.due_date,
     shipmentDate: r.sale.shipment_date,
-    shipmentPlace: r.sale.shipment_place,
+    // Uzun tesis/adres metni satır yüksekliğini bozmasın: iş emrinde ayrı
+    // seçilen ülke, bu referans belgesinde sevk yeri olarak yeterlidir.
+    shipmentPlace: r.jobShippingCountry,
   }));
 
   const bugun = new Date();
