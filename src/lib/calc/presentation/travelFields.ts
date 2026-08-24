@@ -14,6 +14,14 @@ import {
 } from "../derive";
 import {
   TRAVEL_MOTOR_POWERS,
+  GEARBOX_OUTPUT_FEATURES,
+  GEARBOX_OUTPUT_FEATURE_LABELS,
+  GEARBOX_MOUNTING_POSITIONS,
+  MOTOR_MOUNT_TYPES,
+  MOTOR_MOUNT_TYPE_LABELS,
+  MOTOR_BRAKE_OPTIONS,
+  MOTOR_EFFICIENCY_CLASSES,
+  MOTOR_ENCODER_OPTIONS,
   type FieldDef,
 } from "../fields";
 import { TRAVEL_NO, TRAVEL_YES } from "../modules/travelGroup";
@@ -304,7 +312,38 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
       "gerçek motor adedi elle seçilebilir.",
   },
   { key: "motorShaftMm", label: "Motor Mil Çapı", unit: "mm", type: "number", diameter: true },
+  {
+    key: "motorMountType", label: "Motor Bağlantı Biçimi", type: "select",
+    options: MOTOR_MOUNT_TYPES as unknown as string[], optionLabels: MOTOR_MOUNT_TYPE_LABELS,
+    hint: "IEC montaj biçimi (B5 büyük flanşlı, B14 yüz flanşlı). Sipariş için gerekli.",
+  },
+  {
+    key: "motorBrakeType", label: "Motor Freni", type: "select",
+    options: MOTOR_BRAKE_OPTIONS as unknown as string[],
+    hint: "Motor kendinden frenli (fren motoru) mi.",
+  },
+  {
+    key: "motorEfficiencyClass", label: "Verim Sınıfı", type: "select",
+    options: MOTOR_EFFICIENCY_CLASSES as unknown as string[],
+    hint: "IEC verim sınıfı (IE1…IE4).",
+  },
+  {
+    key: "motorEncoder", label: "Enkoder", type: "select",
+    options: MOTOR_ENCODER_OPTIONS as unknown as string[],
+    hint: "Motorda enkoder var mı.",
+  },
   { key: "gearboxModel", label: "Seçilen Dişli Kutusu", type: "text" },
+  {
+    key: "gearboxOutputFeature", label: "Redüktör Özelliği (Çıkış)", type: "select",
+    options: GEARBOX_OUTPUT_FEATURES as unknown as string[],
+    optionLabels: GEARBOX_OUTPUT_FEATURE_LABELS,
+    hint: "Sipariş kodunun son parçası (ör. DT472.03). Delik milli, flanşlı vb.",
+  },
+  {
+    key: "gearboxMountingPosition", label: "Redüktör Montaj Pozisyonu", type: "select",
+    options: GEARBOX_MOUNTING_POSITIONS as unknown as string[],
+    hint: "Redüktörün montaj konumu (YILMAZ D serisi M1…M6). Sipariş için raporda görünür.",
+  },
   {
     key: "gearboxRatio", label: "Tahvil Oranı", type: "number",
     hint:

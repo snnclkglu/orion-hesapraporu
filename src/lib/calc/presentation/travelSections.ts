@@ -358,7 +358,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       "applicationClass", "serviceFactorKs", "accelTorqueFactorKt",
       "accelerationMs2", "tempFactor",
     ],
-    selectionKeys: ["motorBrand", "motorModel", "motorPowerKw", "motorRpm", "motorCount", "motorShaftMm"],
+    selectionKeys: ["motorBrand", "motorModel", "motorMountType", "motorBrakeType", "motorEfficiencyClass", "motorEncoder", "motorPowerKw", "motorRpm", "motorCount", "motorShaftMm"],
     rows: [
       {
         key: "weight.movingTonnes", label: "Hareket Eden Toplam Kütle ΣG",
@@ -440,7 +440,8 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     equipmentSlugs: ["gearbox"],
     inputKeys: ["gearboxServiceFactor", "reducerStages"],
     selectionKeys: [
-      "gearboxModel", "gearboxRatio", "gearboxOutputTorqueKnm",
+      "gearboxModel", "gearboxOutputFeature", "gearboxMountingPosition",
+      "gearboxRatio", "gearboxOutputTorqueKnm",
       "gearboxInputShaftMm", "gearboxOutputShaftMm",
     ],
     rows: [

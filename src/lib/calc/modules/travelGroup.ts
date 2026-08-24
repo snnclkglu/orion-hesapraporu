@@ -280,11 +280,23 @@ export interface TravelSelections {
   motorBrand: string;
   /** Katalogun kendi tip kodu; katalog sayfası bu kodla bulunur. */
   motorModel: string;
+  /** Motor bağlantı biçimi (B3/B5/B14…) — sipariş için */
+  motorMountType?: string;
+  /** Motor freni: "Frensiz" | "Kendinden Frenli" */
+  motorBrakeType?: string;
+  /** IEC verim sınıfı (IE1…IE4) */
+  motorEfficiencyClass?: string;
+  /** Enkoder: "Yok" | "Var" */
+  motorEncoder?: string;
   motorPowerKw: number;
   motorRpm: number;
   motorCount: number;
   motorShaftMm: number;
   gearboxModel: string;
+  /** Redüktör çıkış özelliği sipariş kodu (00/01/02/03/0S) → DT472.03 */
+  gearboxOutputFeature?: string;
+  /** Redüktör montaj pozisyonu (M1…M6) — sipariş/rapor için */
+  gearboxMountingPosition?: string;
   gearboxRatio: number;
   gearboxOutputTorqueKnm: number;
   gearboxInputShaftText: string;

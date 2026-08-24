@@ -719,7 +719,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     equipmentSlugs: ["gearbox"],
     description: "Tambur torku, gerekli çevrim oranı ve redüktör seçimi.",
     inputKeys: ["drumCount", "gearboxServiceFactor", "reducerStages", "stageEfficiency"],
-    selectionKeys: ["gearboxModel", "gearboxRatio", "gearboxNominalTorqueKnm", "gearboxInputShaftMm", "gearboxOutputShaftMm", "gearboxAllowedRadialKn"],
+    selectionKeys: ["gearboxModel", "gearboxOutputFeature", "gearboxMountingPosition", "gearboxRatio", "gearboxNominalTorqueKnm", "gearboxInputShaftMm", "gearboxOutputShaftMm", "gearboxAllowedRadialKn"],
     rows: [
       {
         key: "drum.torque", label: "Tambur Torku", formula: "M_t = r · n_tah · F_kN",
@@ -771,7 +771,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     equipmentSlugs: ["motor"],
     description: "Motor giriş torku ve gerekli güç (CMAA 70).",
     inputKeys: ["tempFactor", "motorDivisor"],
-    selectionKeys: ["motorBrand", "motorModel", "motorPowerKw", "motorRpm", "motorShaftMm", "motorCount"],
+    selectionKeys: ["motorBrand", "motorModel", "motorMountType", "motorBrakeType", "motorEfficiencyClass", "motorEncoder", "motorPowerKw", "motorRpm", "motorShaftMm", "motorCount"],
     rows: [
       {
         key: "gearbox.outputTorque", label: "Redüktör Çıkış Torku", formula: "M_ç = M_t · 1000",

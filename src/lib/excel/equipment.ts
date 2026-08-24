@@ -119,6 +119,41 @@ const fmt = (n: number | null | undefined, digits = 0): string => {
 const textOr = (s: string | null | undefined, fallback = "-"): string =>
   s && s.trim() !== "" ? s.trim() : fallback;
 
+/**
+ * Redüktör sipariş kodu: modele çıkış özelliği eklenir (DT472 + ".03" →
+ * DT472.03). Özellik seçilmemişse yalın model döner (eski kayıt uyumu).
+ */
+const gearboxOrderCode = (model: unknown, feature: unknown): string => {
+  const m = typeof model === "string" ? model.trim() : "";
+  const f = typeof feature === "string" ? feature.trim() : "";
+  if (!m) return "-";
+  return f ? `${m}.${f}` : m;
+};
+
+/** Montaj pozisyonu varsa spec'e ek metin ("· montaj M1"), yoksa boş. */
+const gearboxMountingNote = (pos: unknown): string => {
+  const p = typeof pos === "string" ? pos.trim() : "";
+  return p ? `, montaj ${p}` : "";
+};
+
+/**
+ * Motor sipariş nitelikleri spec sonuna eklenir: bağlantı biçimi (B5/B14),
+ * kendinden frenli, verim sınıfı, enkoder. Yalnız GİRİLMİŞ olanlar yazılır —
+ * boş alan uydurma değer üretmez (md. 4).
+ */
+const motorAttributesNote = (sel: {
+  motorMountType?: unknown; motorBrakeType?: unknown;
+  motorEfficiencyClass?: unknown; motorEncoder?: unknown;
+}): string => {
+  const parts: string[] = [];
+  const t = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  if (t(sel.motorMountType)) parts.push(t(sel.motorMountType));
+  if (t(sel.motorBrakeType) === "Kendinden Frenli") parts.push("kendinden frenli");
+  if (t(sel.motorEfficiencyClass)) parts.push(t(sel.motorEfficiencyClass));
+  if (t(sel.motorEncoder) === "Var") parts.push("enkoderli");
+  return parts.length ? `, ${parts.join(", ")}` : "";
+};
+
 const THIN_BORDER: Partial<ExcelJS.Borders> = {
   top: { style: "thin", color: { argb: HAIRLINE } },
   bottom: { style: "thin", color: { argb: HAIRLINE } },
@@ -325,8 +360,8 @@ function hoistRows(
       kind: "gearbox",
       component: "Redüktör",
       brand: "-",
-      model: textOr(sel.gearboxModel),
-      spec: `i = ${fmt(sel.gearboxRatio, 2)}, nominal tork ${fmt(sel.gearboxNominalTorqueKnm, 1)} kNm, giriş mili Ø${fmt(sel.gearboxInputShaftMm)} / çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm`,
+      model: gearboxOrderCode(sel.gearboxModel, sel.gearboxOutputFeature),
+      spec: `i = ${fmt(sel.gearboxRatio, 2)}, nominal tork ${fmt(sel.gearboxNominalTorqueKnm, 1)} kNm, giriş mili Ø${fmt(sel.gearboxInputShaftMm)} / çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition)}`,
       // Çift tamburun ikisini de ortadaki TEK redüktör taşır.
       qty: 1,
     },
@@ -336,7 +371,7 @@ function hoistRows(
       component: "Motor",
       brand: textOr(sel.motorBrand),
       model: textOr(sel.motorModel),
-      spec: `${fmt(sel.motorPowerKw, 1)} kW, ${fmt(sel.motorRpm)} d/dak, mil Ø${fmt(sel.motorShaftMm)} mm`,
+      spec: `${fmt(sel.motorPowerKw, 1)} kW, ${fmt(sel.motorRpm)} d/dak, mil Ø${fmt(sel.motorShaftMm)} mm${motorAttributesNote(sel)}`,
       qty: sel.motorCount,
     },
     {
@@ -407,7 +442,7 @@ function travelRows(
       component: "Motor",
       brand: textOr(sel.motorBrand),
       model: textOr(sel.motorModel),
-      spec: `${fmt(sel.motorPowerKw, 2)} kW, ${fmt(sel.motorRpm)} d/dak, mil Ø${fmt(sel.motorShaftMm)} mm`,
+      spec: `${fmt(sel.motorPowerKw, 2)} kW, ${fmt(sel.motorRpm)} d/dak, mil Ø${fmt(sel.motorShaftMm)} mm${motorAttributesNote(sel)}`,
       qty: sel.motorCount,
     },
     {
@@ -415,8 +450,8 @@ function travelRows(
       kind: "gearbox",
       component: "Redüktör",
       brand: "-",
-      model: textOr(sel.gearboxModel),
-      spec: `i = ${fmt(sel.gearboxRatio, 2)}, çıkış torku ${fmt(sel.gearboxOutputTorqueKnm, 2)} kNm, çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm`,
+      model: gearboxOrderCode(sel.gearboxModel, sel.gearboxOutputFeature),
+      spec: `i = ${fmt(sel.gearboxRatio, 2)}, çıkış torku ${fmt(sel.gearboxOutputTorqueKnm, 2)} kNm, çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition)}`,
       qty: sel.motorCount,
     },
   ];

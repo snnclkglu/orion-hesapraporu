@@ -305,6 +305,38 @@ export const USAGE_CLASSES = ["T0", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T
 export const STRUCTURE_CLASSES = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8"] as const;
 export const DRUM_MATERIALS = ["St44", "St52", "St44/St52"] as const;
 export const SHAFT_MATERIALS = ["S355JR", "C25", "C30", "C35", "4140+QT", "4140"] as const;
+
+/**
+ * Redüktör ÇIKIŞ ÖZELLİĞİ — sipariş kodunun son parçası (ör. DT472.03).
+ * Kod redüktör modeline nokta ile eklenir. Kaldırma ve yürütme redüktörleri
+ * aynı listeyi kullanır (YILMAZ D serisi tip anahtarı).
+ */
+export const GEARBOX_OUTPUT_FEATURES = ["00", "01", "02", "03", "0S"] as const;
+export const GEARBOX_OUTPUT_FEATURE_LABELS: Record<string, string> = {
+  "00": "00 — Delik Milli",
+  "01": "01 — Mil Çıkışlı",
+  "02": "02 — Flanşlı, Mil Çıkışlı",
+  "03": "03 — Flanşlı, Delik Milli",
+  "0S": "0S — Sıkma Bilezikli",
+};
+/** Redüktör montaj pozisyonu (YILMAZ D serisi: M1…M6). Sipariş ve rapor için. */
+export const GEARBOX_MOUNTING_POSITIONS = ["M1", "M2", "M3", "M4", "M5", "M6"] as const;
+
+/** Motor bağlantı (montaj) biçimi — IEC. Sipariş için: B5/B14 ayrımı kritik. */
+export const MOTOR_MOUNT_TYPES = ["B3", "B5", "B14", "B35", "B34"] as const;
+export const MOTOR_MOUNT_TYPE_LABELS: Record<string, string> = {
+  B3: "B3 — Ayaklı",
+  B5: "B5 — Büyük Flanşlı (FF)",
+  B14: "B14 — Yüz Flanşlı (FT)",
+  B35: "B35 — Ayaklı + Büyük Flanşlı",
+  B34: "B34 — Ayaklı + Yüz Flanşlı",
+};
+/** Motor kendinden frenli mi (fren motoru). Sipariş/rapor için. */
+export const MOTOR_BRAKE_OPTIONS = ["Frensiz", "Kendinden Frenli"] as const;
+/** IEC verim sınıfı. */
+export const MOTOR_EFFICIENCY_CLASSES = ["IE1", "IE2", "IE3", "IE4"] as const;
+/** Encoder (enkoder) var mı. */
+export const MOTOR_ENCODER_OPTIONS = ["Yok", "Var"] as const;
 export const HOOK_TYPES = [
   "DIN 15401 Tekli Kanca",
   "DIN 15402 Çift Ağız Kanca",
@@ -969,6 +1001,19 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "bearingHousingWidthMm", label: "Yatak Genişliği A₂", unit: "mm", type: "number" },
   { key: "bearingHousingSeatType", label: "Yataklama Tipi", type: "text" },
   { key: "gearboxModel", label: "Redüktör", type: "text" },
+  {
+    // Çıkış özelliği sipariş kodunun son parçasıdır (DT472 + ".03" → DT472.03).
+    // Ekipman listesi modele bunu ekler; hesaba girmez.
+    key: "gearboxOutputFeature", label: "Redüktör Özelliği (Çıkış)", type: "select",
+    options: GEARBOX_OUTPUT_FEATURES as unknown as string[],
+    optionLabels: GEARBOX_OUTPUT_FEATURE_LABELS,
+    hint: "Sipariş kodunun son parçası (ör. DT472.03). Delik milli, flanşlı vb.",
+  },
+  {
+    key: "gearboxMountingPosition", label: "Redüktör Montaj Pozisyonu", type: "select",
+    options: GEARBOX_MOUNTING_POSITIONS as unknown as string[],
+    hint: "Redüktörün montaj konumu (YILMAZ D serisi M1…M6). Sipariş için raporda görünür.",
+  },
   { key: "gearboxRatio", label: "Çevrim Oranı", type: "number" },
   { key: "gearboxNominalTorqueKnm", label: "Redüktör Nominal Torku", unit: "kNm", type: "number" },
   { key: "gearboxInputShaftMm", label: "Redüktör Giriş Mili", unit: "mm", type: "number", diameter: true },
@@ -995,6 +1040,26 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   // Tip kodu katalogtan gelir ve iki yeri besler: ekipman listesindeki model
   // sütunu ve "Katalog Sayfası" düğmesi (sayfa MARKA + MODEL ile bulunur).
   { key: "motorModel", label: "Motor Tip Kodu", type: "text" },
+  {
+    key: "motorMountType", label: "Motor Bağlantı Biçimi", type: "select",
+    options: MOTOR_MOUNT_TYPES as unknown as string[], optionLabels: MOTOR_MOUNT_TYPE_LABELS,
+    hint: "IEC montaj biçimi (B5 büyük flanşlı, B14 yüz flanşlı). Sipariş için gerekli.",
+  },
+  {
+    key: "motorBrakeType", label: "Motor Freni", type: "select",
+    options: MOTOR_BRAKE_OPTIONS as unknown as string[],
+    hint: "Motor kendinden frenli (fren motoru) mi. Raporda ve siparişte görünür.",
+  },
+  {
+    key: "motorEfficiencyClass", label: "Verim Sınıfı", type: "select",
+    options: MOTOR_EFFICIENCY_CLASSES as unknown as string[],
+    hint: "IEC verim sınıfı (IE1…IE4).",
+  },
+  {
+    key: "motorEncoder", label: "Enkoder", type: "select",
+    options: MOTOR_ENCODER_OPTIONS as unknown as string[],
+    hint: "Motorda enkoder var mı (hız/konum geri beslemesi).",
+  },
   {
     key: "motorCount", label: "Motor Adedi", type: "select",
     options: ["1", "2", "4"], numeric: true,

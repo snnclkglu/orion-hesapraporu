@@ -729,6 +729,10 @@ export interface HoistSelections {
   bearingHousingWidthMm: number;
   bearingHousingSeatType: string;
   gearboxModel: string;
+  /** Redüktör çıkış özelliği sipariş kodu (00/01/02/03/0S) → DT472.03 */
+  gearboxOutputFeature?: string;
+  /** Redüktör montaj pozisyonu (M1…M6) — sipariş/rapor için */
+  gearboxMountingPosition?: string;
   gearboxRatio: number;
   gearboxNominalTorqueKnm: number;
   gearboxInputShaftMm: number;
@@ -741,6 +745,14 @@ export interface HoistSelections {
   motorBrand: string;
   /** Katalogun kendi tip kodu (ör. "1LE1503-1DB23-4AA4"); satın alma bunu ister. */
   motorModel: string;
+  /** Motor bağlantı biçimi (B3/B5/B14…) — sipariş için */
+  motorMountType?: string;
+  /** Motor freni: "Frensiz" | "Kendinden Frenli" */
+  motorBrakeType?: string;
+  /** IEC verim sınıfı (IE1…IE4) */
+  motorEfficiencyClass?: string;
+  /** Enkoder: "Yok" | "Var" */
+  motorEncoder?: string;
   motorCount: number;
   brakeBrand: string;
   brakeModel: string;
