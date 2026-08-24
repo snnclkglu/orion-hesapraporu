@@ -344,6 +344,13 @@ export const MOTOR_ENCODER_OPTIONS = ["Yok", "Var"] as const;
  * (ör. "SKF, FAG"). "DİĞER" serbest marka için işarettir.
  */
 export const BEARING_BRANDS = ["SKF", "FAG", "TIMKEN", "DİĞER"] as const;
+
+/** Halat soketi tipi (Van Beest Green Pin). Model halat çapından otomatik. */
+export const BALANCE_SOCKET_TYPES = ["Normal", "Uzun"] as const;
+/** Denge loadcell markası. Model/kapasite yükten otomatik. */
+export const BALANCE_LOADCELL_BRANDS = ["Esit", "Kobastar"] as const;
+/** Denge elemanının taşıdığı halat adedi (loadcell/rulman yükü çarpanı). */
+export const BALANCE_ROPE_COUNTS = ["1", "2"] as const;
 export const HOOK_TYPES = [
   "DIN 15401 Tekli Kanca",
   "DIN 15402 Çift Ağız Kanca",
@@ -906,6 +913,14 @@ export const HOIST_INPUT_FIELDS: FieldDef<HoistInputs>[] = [
       "Denge Makaralı: iki yivin halatı üst denge makarasından sürekli geçer; iki yiv tek sağ helis halat parçası olur.\n\n" +
       "Yok: üstte denge elemanı bulunmaz; halat dengeleme ekipmanı (soket/loadcell/rulman ya da denge makarası) bölümü hesap raporunda açılmaz.",
   },
+  {
+    // Denge elemanının taşıdığı halat kolu adedi (loadcell/rulman yükü = halat
+    // yükü × adet). Genelde 2, nadiren 1. Yalnız denge düzeni "Yok" değilken
+    // anlamlı; bölüm zaten o durumda görünmez.
+    key: "balanceRopeCount", label: "Denge Elemanı Halat Adedi", type: "select",
+    options: BALANCE_ROPE_COUNTS as unknown as string[], numeric: true,
+    hint: "Loadcell/rulman yükü = halat yükü × bu adet. Standart 2.",
+  },
   { key: "drumWallThicknessMm", label: "Tambur Yiv Dibi Et Kalınlığı", unit: "mm", type: "number" },
   {
     key: "safetyGrooveCount", label: "Emniyet Sarımı", type: "select",
@@ -1032,6 +1047,27 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "gearboxOutputShaftMm", label: "Redüktör Çıkış Mili", unit: "mm", type: "number", diameter: true },
   { key: "gearboxWeightKg", label: "Redüktör Ağırlığı", unit: "kg", type: "number" },
   { key: "gearboxAllowedRadialKn", label: "Redüktör İzinli Radyal Yük", unit: "kN", type: "number" },
+  // --- Halat dengeleme düzeni (denge traversi / makarası) ---
+  {
+    key: "balanceSocketType", label: "Halat Soketi Tipi", type: "select",
+    options: BALANCE_SOCKET_TYPES as unknown as string[],
+    hint: "Van Beest Green Pin. Soket modeli halat çapından otomatik seçilir. Standart: Normal.",
+  },
+  {
+    key: "balanceLoadcellBrand", label: "Loadcell Markası", type: "select",
+    options: BALANCE_LOADCELL_BRANDS as unknown as string[],
+    hint: "Esit PLC veya Kobastar LPW1. Kapasite, halat yükü × adet'ten otomatik seçilir.",
+  },
+  {
+    key: "balanceBearingBrand", label: "Denge Rulmanı Markası", type: "multiselect",
+    options: BEARING_BRANDS as unknown as string[],
+    hint: "Bir veya daha fazla (SKF/FAG/TIMKEN/DİĞER). NA/NNF tipi rulman.",
+  },
+  { key: "balanceBearingType", label: "Denge Rulmanı Tipi", type: "text", hint: "NA veya NNF tipi." },
+  { key: "balanceBearingCode", label: "Denge Rulmanı Kodu", type: "text" },
+  { key: "balanceBearingDynCKn", label: "Denge Rulmanı Dinamik Yük C", unit: "kN", type: "number" },
+  { key: "balanceBearingStatC0Kn", label: "Denge Rulmanı Statik Yük C0", unit: "kN", type: "number" },
+  { key: "balanceSheaveDiaMm", label: "Denge Makarası Çapı", unit: "mm", type: "number", diameter: true, hint: "Yalnız denge makaralı düzende." },
   {
     key: "motorPowerKw", label: "Motor Gücü", unit: "kW", type: "select",
     options: HOIST_MOTOR_POWERS.options, optionLabels: HOIST_MOTOR_POWERS.optionLabels,

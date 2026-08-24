@@ -72,6 +72,7 @@ import {
   drumShaftGeometry,
   hoistSpecView,
   ropeLengthPlan,
+  computeHoistGroup,
 } from "@/lib/calc/modules/hoistGroup";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
 import type {
@@ -307,6 +308,77 @@ export interface EquipmentExtraRow {
   qty: string;
 }
 
+/**
+ * Halat dengeleme düzeni ekipmanı (denge traversi / makarası). Soket, loadcell
+ * ve yük OTOMATİK seçimden (computeHoistGroup cells) okunur — ekipman listesi
+ * hesapla aynı değerleri gösterir. "Yok" düzeninde boş döner.
+ */
+function balanceRows(
+  moduleKey: HoistKey,
+  inp: HoistInputs,
+  sel: HoistSelections,
+  specs: TechnicalSpecs
+): EqRow[] {
+  if (inp.ropeBalancingType === "none") return [];
+  const rk = (slug: string) => `${moduleKey}:${slug}`;
+  const c = computeHoistGroup(specs, moduleKey, inp, sel).cells as Record<string, number | string>;
+  const numOf = (k: string) => (typeof c[k] === "number" ? (c[k] as number) : undefined);
+  const strOf = (k: string) => (typeof c[k] === "string" ? (c[k] as string) : undefined);
+  const ropeCount = numOf("balance.ropeCount") ?? 2;
+  const loadKg = numOf("balance.load");
+  const loadcellModel = strOf("balance.loadcellModel");
+  const loadcellCap = numOf("balance.loadcellCapacity");
+  const rows: EqRow[] = [];
+
+  if (inp.ropeBalancingType === "equalizerBeam") {
+    const socketModel = strOf("balance.socketModel");
+    const socketMbl = numOf("balance.socketMbl");
+    rows.push({
+      rowKey: rk("balanceSocket"),
+      kind: "other",
+      component: "Halat soketi (denge traversi)",
+      brand: "Van Beest",
+      model: textOr(socketModel),
+      spec: `Ø${fmt(sel.ropeDiaMm)} mm halat · ${textOr(sel.balanceSocketType, "Normal")} tip${socketMbl ? ` · MBL ${fmt(socketMbl, 0)} t` : ""}`,
+      qty: Math.round(ropeCount),
+    });
+  } else {
+    rows.push({
+      rowKey: rk("balanceSheave"),
+      kind: "other",
+      component: "Denge makarası",
+      brand: "-",
+      model: sel.balanceSheaveDiaMm ? `Ø${fmt(sel.balanceSheaveDiaMm)} mm` : "-",
+      spec: `min çap ${fmt(numOf("balance.sheaveMinDia"), 0)} mm (FEM T.4.2.3.1.1)`,
+      qty: 1,
+    });
+  }
+
+  rows.push({
+    rowKey: rk("balanceLoadcell"),
+    kind: "other",
+    component: "Yük hücresi (loadcell)",
+    brand: textOr(sel.balanceLoadcellBrand, "Esit"),
+    model: textOr(strOf("balance.loadcellModelShort") ?? loadcellModel),
+    spec: `kapasite ${fmt(loadcellCap, 0)} kg · denge yükü ${fmt(loadKg, 0)} kg`,
+    qty: 1,
+  });
+  // Rulman ELLE girilir (NA/NNF). Boşken de satır çıkar ama alanlar "—" olur
+  // (uydurma değer yok, md. 4); satır mühendise "rulman seçilecek" der.
+  rows.push({
+    rowKey: rk("balanceBearing"),
+    kind: "bearing",
+    component: "Denge rulmanı",
+    brand: textOr(sel.balanceBearingBrand),
+    model: textOr(sel.balanceBearingCode),
+    spec: sel.balanceBearingStatC0Kn
+      ? `${sel.balanceBearingType ? sel.balanceBearingType + " · " : ""}C0 = ${fmt(sel.balanceBearingStatC0Kn, 1)} kN`
+      : `${textOr(sel.balanceBearingType, "NA/NNF tipi")} · seçilecek`,
+    qty: 2,
+  });
+  return rows;
+}
+
 /** Ana / yardımcı kaldırma grubu bileşen satırları (aynı set) */
 function hoistRows(
   moduleKey: HoistKey,
@@ -407,6 +479,7 @@ function hoistRows(
       spec: `tork ${fmt(sel.drumCouplingTorqueNm)} Nm, radyal yük ${fmt(sel.drumCouplingRadialN)} N, Dmaks Ø${fmt(sel.drumCouplingDmaxMm)} mm`,
       qty: doubleDrum ? 2 : 1,
     },
+    ...balanceRows(moduleKey, inp, sel, specs),
   ];
 }
 
@@ -924,6 +997,10 @@ function withAlternativeRows(
   const out: EqRow[] = [];
   for (const main of mainRows) {
     out.push(main);
+    // Halat dengeleme ekipmanı (soket/loadcell/rulman/makara) OTOMATİK türetilir
+    // ve halat seçeneğine göre değişebilir; ama bunlar kullanıcının seçtiği bir
+    // "alternatif" değildir. Rope alternatifleri denge satırlarını çoğaltmasın.
+    if (main.rowKey && main.rowKey.includes(":balance")) continue;
     for (const v of variants) {
       const alt = v.rows.find((r) => r.rowKey === main.rowKey);
       if (!alt || sameEquipment(alt, main)) continue;

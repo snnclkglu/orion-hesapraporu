@@ -76,7 +76,7 @@ export interface HoistSectionDef {
    * Emniyet freni her kaldırma grubunda bulunmaz; olmayan grupta bölüm hiç
    * çizilmez — boş bir "seçim yapılmadı" bloğu rapora gürültü katardı.
    */
-  visible?: (specs: TechnicalSpecs, which: HoistWhich) => boolean;
+  visible?: (specs: TechnicalSpecs, which: HoistWhich, inputs?: Record<string, unknown>) => boolean;
   /**
    * Bu bölümün ekipman listesindeki satır slug'ları (`EqRow.rowKey`in
    * `<modulKey>:` sonrası). Bölüm GİZLENDİĞİNDE bu satırlar da listeden düşer
@@ -1029,5 +1029,89 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       "safety.torque", "safety.flange", "safety.flangeThickness",
       "safety.airGap", "safety.hydraulic",
     ],
+  },
+  {
+    // Denge TRAVERSİ — yalnız `ropeBalancingType` "Denge Traversli" iken.
+    // Halat ucu kama soketiyle bağlanır; loadcell ve rulman halat yükünün
+    // `balanceRopeCount` katını taşır. Soket halat çapından, loadcell yükten
+    // OTOMATİK seçilir (wedge-socket.ts / load-cell.ts). visible input'a bağlı
+    // (bkz. görünürlük çerçevesi); inputs verilmezse görünür sayılır.
+    id: "2.9",
+    title: "Halat Dengeleme — Denge Traversi",
+    description:
+      "Denge traversinde halat ucu kama soketiyle bağlanır. Yük hücresi ve " +
+      "rulman, halat yükünün halat adedi (genelde 2) katını taşır. Soket halat " +
+      "çapına göre, loadcell yüke göre otomatik seçilir; rulman (NA/NNF) elle girilir.",
+    visible: (_specs, _which, inputs) =>
+      inputs === undefined ||
+      (inputs as { ropeBalancingType?: string }).ropeBalancingType === "equalizerBeam",
+    equipmentSlugs: ["balanceSocket", "balanceLoadcell", "balanceBearing"],
+    inputKeys: ["balanceRopeCount"],
+    selectionKeys: [
+      "balanceSocketType", "balanceLoadcellBrand", "balanceBearingBrand",
+      "balanceBearingType", "balanceBearingCode", "balanceBearingDynCKn",
+      "balanceBearingStatC0Kn",
+    ],
+    rows: [
+      {
+        key: "balance.load", label: "Denge Yükü", formula: "F = F_halat · n",
+        subst: (x) => `${n(num(x.c["rope.load"]))} · ${n(num(x.c["balance.ropeCount"]))}`,
+        unit: "kg",
+      },
+      {
+        key: "balance.socket", label: "Seçilen Halat Soketi (otomatik)",
+        valueFrom: (x) => (x.c["balance.socketModel"] as string) ?? "—",
+        subst: (x) =>
+          `Ø${n(x.sel.ropeDiaMm)} mm halat · ${x.sel.balanceSocketType ?? "Normal"} tip · MBL ${n(num(x.c["balance.socketMbl"]))} t`,
+      },
+      {
+        key: "balance.loadcellSel", label: "Seçilen Loadcell (otomatik)",
+        valueFrom: (x) => (x.c["balance.loadcellModel"] as string) ?? "—",
+        subst: (x) =>
+          `${x.sel.balanceLoadcellBrand ?? "Esit"} · kapasite ${n(num(x.c["balance.loadcellCapacity"]))} kg`,
+      },
+    ],
+    checkSuffixes: ["balance.socketMbl", "balance.loadcell", "balance.bearing"],
+  },
+  {
+    // Denge MAKARASI — yalnız `ropeBalancingType` "Denge Makaralı" iken.
+    // Soket yerine makara; min çap FEM 1.001 T.4.2.3.1.1 dengeleme makarası
+    // katsayısıyla. Loadcell ve rulman traversiyle aynıdır.
+    id: "2.10",
+    title: "Halat Dengeleme — Denge Makarası",
+    description:
+      "Denge makarasında iki yivin halatı üst makaradan geçer. Makara çapı " +
+      "FEM 1.001 T.4.2.3.1.1 'dengeleme makarası' katsayısını sağlamalıdır. Yük " +
+      "hücresi ve rulman traversiyle aynı yükle (halat yükü × adet) seçilir.",
+    visible: (_specs, _which, inputs) =>
+      inputs === undefined ||
+      (inputs as { ropeBalancingType?: string }).ropeBalancingType === "equalizerSheave",
+    equipmentSlugs: ["balanceSheave", "balanceLoadcell", "balanceBearing"],
+    inputKeys: ["balanceRopeCount"],
+    selectionKeys: [
+      "balanceSheaveDiaMm", "balanceLoadcellBrand", "balanceBearingBrand",
+      "balanceBearingType", "balanceBearingCode", "balanceBearingDynCKn",
+      "balanceBearingStatC0Kn",
+    ],
+    rows: [
+      {
+        key: "balance.load", label: "Denge Yükü", formula: "F = F_halat · n",
+        subst: (x) => `${n(num(x.c["rope.load"]))} · ${n(num(x.c["balance.ropeCount"]))}`,
+        unit: "kg",
+      },
+      {
+        key: "balance.sheaveMinDia", label: "Minimum Denge Makarası Çapı",
+        formula: "D_min = H_dengeleme · d",
+        subst: (x) => `H · ${n(x.sel.ropeDiaMm)}`,
+        unit: "mm", standard: "FEM 1.001 T.4.2.3.1.1", diameter: true,
+      },
+      {
+        key: "balance.loadcellSel", label: "Seçilen Loadcell (otomatik)",
+        valueFrom: (x) => (x.c["balance.loadcellModel"] as string) ?? "—",
+        subst: (x) =>
+          `${x.sel.balanceLoadcellBrand ?? "Esit"} · kapasite ${n(num(x.c["balance.loadcellCapacity"]))} kg`,
+      },
+    ],
+    checkSuffixes: ["balance.sheaveDia", "balance.loadcell", "balance.bearing"],
   },
 ];

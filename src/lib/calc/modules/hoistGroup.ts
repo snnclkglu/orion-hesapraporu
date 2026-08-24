@@ -33,12 +33,15 @@ import { solveBeam, type PointLoad } from "../beam";
 import {
   drumAllowableStress,
   drumCoefficient,
+  equalizerCoefficient,
   groovePitch,
   mechanismLife,
   ropeSafetyFactor,
   shaftMaterialAllowables,
 } from "../coefficients";
 import { commonReevingByLabel, deriveReeving, type Reeving } from "../reeving";
+import { wedgeSocketForRope } from "../wedge-socket";
+import { loadCellForLoad } from "../load-cell";
 import { shaftStress } from "../shaftStress";
 import { drumBrakeSpec } from "../drum-brake";
 import { KGF_TO_MPA } from "@/lib/units";
@@ -585,6 +588,11 @@ export interface HoistInputs {
   reevingLabel?: string;
   /** Denge traversi (ayrı sağ/sol halatlar) veya denge makarası (tek sürekli halat). */
   ropeBalancingType: RopeBalancingType;
+  /**
+   * Denge elemanının (traversi/makarası) taşıdığı halat kolu adedi. Loadcell
+   * ve rulman yükü = halat yükü × bu adet. Genelde 2 (nadiren 1). Varsayılan 2.
+   */
+  balanceRopeCount?: number;
   hookBlockWeightKg: number;    // kanca bloğu / kepçe ağırlığı
   ropeWeightKg: number;         // askıdaki halatların ağırlığı
   drumWallThicknessMm: number;  // tambur et kalınlığı
@@ -766,6 +774,19 @@ export interface HoistSelections {
   motorCouplingWheelDiaMm: number;
   motorCouplingTorqueNm: number;
   motorCouplingDmaxMm: number;
+  // --- Halat dengeleme düzeni (denge traversi / denge makarası) ---
+  /** Halat soketi tipi: "Normal" | "Uzun" (model halat çapından otomatik). */
+  balanceSocketType?: string;
+  /** Loadcell markası: "Esit" | "Kobastar" (model/kapasite yükten otomatik). */
+  balanceLoadcellBrand?: string;
+  /** Denge rulmanı (elle) — traversi ve makarada ortak. */
+  balanceBearingBrand?: string;
+  balanceBearingType?: string;
+  balanceBearingCode?: string;
+  balanceBearingDynCKn?: number;
+  balanceBearingStatC0Kn?: number;
+  /** Denge makarası çapı [mm] (yalnız denge makaralı düzende). */
+  balanceSheaveDiaMm?: number;
   drumCouplingBrand: string;
   drumCouplingModel: string;
   drumCouplingTorqueNm: number;
@@ -1652,6 +1673,91 @@ export function computeHoistGroup(
     pass: sel.drumCouplingDmaxMm >= drumCouplingShaftDiaMm,
     kind: "uretici", severity: "engelleyici",
   });
+
+  // --- Halat dengeleme düzeni (denge traversi / denge makarası) -------------
+  // Yalnız `ropeBalancingType` "Yok" DEĞİLKEN hesaplanır. Denge elemanı halat
+  // yükünü `balanceRopeCount` kadar halat kolundan taşır (genelde 2). Loadcell
+  // ve rulman bu birleşik yükle boyutlandırılır; soket halat çapına, denge
+  // makarası FEM 1.001 T.4.2.3.1.1 "dengeleme makarası" katsayısına göre.
+  // Kontroller yalnız İLGİLİ SEÇİM DOLUYKEN üretilir (boş şablon uyarı üretmez);
+  // hepsi `uyari` — yanlış/eksik seçimi gösterir ama yayını sert bloklamaz.
+  const balancingActive = inp.ropeBalancingType !== "none";
+  if (balancingActive) {
+    const balanceRopeCount =
+      Number.isFinite(inp.balanceRopeCount) && (inp.balanceRopeCount ?? 0) > 0
+        ? Math.round(inp.balanceRopeCount as number)
+        : 2;
+    const balanceLoadKg = ropeLoadKg * balanceRopeCount;
+    const balanceLoadKn = (balanceLoadKg * 9.81) / 1000;
+    Object.assign(cells, {
+      "balance.ropeCount": balanceRopeCount,
+      "balance.load": balanceLoadKg,
+    });
+
+    // Loadcell OTOMATİK: markaya göre gerekli yükün üstündeki en küçük kapasite.
+    const loadcell = loadCellForLoad(balanceLoadKg, sel.balanceLoadcellBrand);
+    if (loadcell) {
+      Object.assign(cells, {
+        "balance.loadcellModel": `${loadcell.brand} ${loadcell.model}`,
+        "balance.loadcellModelShort": loadcell.model,
+        "balance.loadcellCapacity": loadcell.capacityKg,
+      });
+      checks.push({
+        id: `${which}.balance.loadcell`,
+        label: "Loadcell Kapasitesi",
+        required: balanceLoadKg, provided: loadcell.capacityKg,
+        unit: "kg", op: ">=", computedSide: "required",
+        pass: loadcell.capacityKg >= balanceLoadKg,
+        kind: "uretici", severity: "uyari",
+      });
+    }
+
+    // Denge rulmanı statik yükü (C0) birleşik yükü karşılamalı [kN] — elle girilir.
+    if (Number.isFinite(sel.balanceBearingStatC0Kn) && (sel.balanceBearingStatC0Kn ?? 0) > 0) {
+      checks.push({
+        id: `${which}.balance.bearing`,
+        label: "Denge Rulmanı Statik Yük C0",
+        required: balanceLoadKn, provided: sel.balanceBearingStatC0Kn as number,
+        unit: "kN", op: ">=", computedSide: "required",
+        pass: (sel.balanceBearingStatC0Kn as number) >= balanceLoadKn,
+        kind: "uretici", severity: "uyari",
+      });
+    }
+
+    if (inp.ropeBalancingType === "equalizerBeam") {
+      // Denge traversi: halat soketi OTOMATİK (halat çapı + tip).
+      const socket = wedgeSocketForRope(sel.ropeDiaMm, sel.balanceSocketType);
+      if (socket) {
+        const socketMblKg = socket.mblTon * 1000;
+        Object.assign(cells, {
+          "balance.socketModel": socket.model,
+          "balance.socketMbl": socket.mblTon,
+        });
+        checks.push({
+          id: `${which}.balance.socketMbl`,
+          label: "Soket MBL (Minimum Kırılma Yükü)",
+          required: balanceLoadKg, provided: socketMblKg,
+          unit: "kg", op: ">=", computedSide: "required",
+          pass: socketMblKg >= balanceLoadKg,
+          kind: "uretici", severity: "uyari",
+        });
+      }
+    } else {
+      // Denge makarası: minimum çap D ≥ H_dengeleme · d (FEM T.4.2.3.1.1).
+      const balanceSheaveMinDiaMm = equalizerCoefficient(mech) * sel.ropeDiaMm;
+      cells["balance.sheaveMinDia"] = balanceSheaveMinDiaMm;
+      if (Number.isFinite(sel.balanceSheaveDiaMm) && (sel.balanceSheaveDiaMm ?? 0) > 0) {
+        checks.push({
+          id: `${which}.balance.sheaveDia`,
+          label: "Denge Makarası Çapı (FEM T.4.2.3.1.1)",
+          required: balanceSheaveMinDiaMm, provided: sel.balanceSheaveDiaMm as number,
+          unit: "mm", op: ">=", computedSide: "required",
+          pass: (sel.balanceSheaveDiaMm as number) >= balanceSheaveMinDiaMm,
+          kind: "standart", severity: "uyari",
+        });
+      }
+    }
+  }
 
   // --- 2.8 Emniyet freni (tambur üstü kaliper) ------------------------------
   // Yalnız emniyet freni ÖNGÖRÜLEN kaldırma gruplarında hesaplanır; olmayan

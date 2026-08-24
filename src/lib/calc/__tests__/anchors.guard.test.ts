@@ -89,7 +89,13 @@ import type { AnyCheck } from "../types";
 //   mi (`brake.wheelModel`, 2.5), (3) kaplin kasnağı fren kasnağına eşit mi
 //   (`motorCoupling.brakeWheelMatch`, 2.6). Yanlış/eski bir fren seçimi
 //   bölümü "uygun değil" gösterir; yayını sert bloklamaz (severity uyari).
-const EXPECTED_CHECK_COUNT = 301;
+// 309 = 301 + 8 (halat dengeleme düzeni, Faz 3): şablon "Denge Traversli"
+//   olduğu için dört kaldırma grubunun her birinde İKİ kontrol üretilir —
+//   loadcell kapasitesi (`balance.loadcell`) ve soket MBL (`balance.socketMbl`),
+//   ikisi de OTOMATİK seçimden. Denge makarası varyantı (`balance.sheaveDia`)
+//   ve elle rulman (`balance.bearing`) şablonda üretilmez; suffixleri yine de
+//   2.9/2.10 checkSuffixes'te bağlıdır. Hepsi `uyari`.
+const EXPECTED_CHECK_COUNT = 309;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 

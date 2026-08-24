@@ -98,6 +98,7 @@ export const V5_MAIN_HOIST_INPUTS: HoistInputs = {
   // Tarihsel V5 düzeni denge makaralıdır. Yeni iş şablonu aşağıda traversli
   // düzene geçer; eski referansın ekipman bölünümü değişmesin.
   ropeBalancingType: "equalizerSheave",
+  balanceRopeCount: 2,
   ropeOrderLengthAuto: true,
   sheaveEfficiency: STANDARD_SHEAVE_EFFICIENCY,
   fixedSheaveCount: 0,
@@ -141,6 +142,10 @@ export const V5_MAIN_HOIST_INPUTS: HoistInputs = {
 };
 
 export const V5_MAIN_HOIST_SELECTIONS: HoistSelections = {
+  // Halat dengeleme: soket standart Normal, loadcell markası Esit (kullanıcı
+  // Kobastar seçebilir). Model/kapasite/MBL otomatik.
+  balanceSocketType: "Normal",
+  balanceLoadcellBrand: "Esit",
   ropeBrand: "Hasçelik",
   ropeDiaMm: 18,
   ropeConstruction: "6x36",

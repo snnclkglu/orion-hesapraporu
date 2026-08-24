@@ -334,7 +334,7 @@ export interface AdapterSection {
    * yüzden adım listesi kurulurken de değerlendirilebilir. Tanımsızsa bölüm
    * her zaman görünür.
    */
-  visible?: (specs: TechnicalSpecs) => boolean;
+  visible?: (specs: TechnicalSpecs, inputs?: Record<string, unknown>) => boolean;
 }
 
 /** Ana kiriş takımı anahtarları — adaptör iki takımı da aynı fabrikadan üretir. */
@@ -611,7 +611,9 @@ function hoistAdapter(which: HoistKey): ModuleAdapter {
       selectionKeys: s.selectionKeys,
       headline: HOIST_HEADLINES[s.id],
       checkSuffixes: s.checkSuffixes,
-      visible: s.visible ? (specs: TechnicalSpecs) => s.visible!(specs, which) : undefined,
+      visible: s.visible
+        ? (specs: TechnicalSpecs, inputs?: Record<string, unknown>) => s.visible!(specs, which, inputs)
+        : undefined,
       rows: s.rows.map((r) => {
         const sub = r.subst;
         const valueFrom = r.valueFrom;

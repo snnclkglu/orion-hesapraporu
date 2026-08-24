@@ -71,6 +71,7 @@ import { reevingDiagram } from "./reeving";
 import { drumDiagram } from "./drum";
 import { drumShaftDiagram } from "./drumShaft";
 import { shaftWeldDiagram } from "./shaftWeld";
+import { balanceDiagram } from "./balance";
 import { hookBlockShaftDiagram } from "./hookBlockShaft";
 import {
   liftingBeamDiagram,
@@ -474,6 +475,36 @@ export function diagramForSection(
         maxMomentKgCm: v?.maxMomentKgCm,
         loadBandCm: v?.shaftLoadBandCm,
         loadIntensityKgPerCm: v?.shaftLoadIntensityKgPerCm,
+      });
+    }
+
+    if (isHoistKey(moduleKey as ModuleKey) && (rawSectionId === "2.9" || rawSectionId === "2.10")) {
+      // Halat dengeleme düzeni şeması — traversi (2.9) veya makarası (2.10).
+      // Değerler saf hesaptan (cells); soket/loadcell otomatik seçilmiştir.
+      const st = input[HOIST_FIELD[moduleKey as HoistKey]];
+      if (!st) return null;
+      const mr = result[HOIST_FIELD[moduleKey as HoistKey]];
+      const c = (mr?.cells ?? {}) as Record<string, number | string>;
+      const numOf = (k: string) => (typeof c[k] === "number" ? (c[k] as number) : undefined);
+      const strOf = (k: string) => (typeof c[k] === "string" ? (c[k] as string) : undefined);
+      const sel = st.selections;
+      const bearingText = [sel.balanceBearingType, sel.balanceBearingCode]
+        .filter((x) => typeof x === "string" && x.trim() !== "")
+        .join(" ")
+        .trim() || undefined;
+      return balanceDiagram({
+        variant: rawSectionId === "2.10" ? "sheave" : "beam",
+        loadKg: numOf("balance.load"),
+        ropeCount: numOf("balance.ropeCount"),
+        ropeDiaMm: sel.ropeDiaMm,
+        socketModel: strOf("balance.socketModel"),
+        socketType: sel.balanceSocketType,
+        socketMblTon: numOf("balance.socketMbl"),
+        loadcellModel: strOf("balance.loadcellModel"),
+        loadcellCapacityKg: numOf("balance.loadcellCapacity"),
+        bearingText,
+        sheaveDiaMm: sel.balanceSheaveDiaMm,
+        sheaveMinDiaMm: numOf("balance.sheaveMinDia"),
       });
     }
 
