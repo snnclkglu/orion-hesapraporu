@@ -298,6 +298,8 @@ export interface HookBlockSelections {
   sheaveSealCode?: string;
   /** Kapaksız makarada rulmanın kendi kapak/sızdırmazlık soneki. */
   sheaveBearingClosure?: "Z" | "ZZ" | "RS" | "2RS";
+  /** Kabul edilen makara rulmanı markaları (çoklu, virgülle ayrık) */
+  sheaveBearingBrand?: string;
   sheaveBearingType: string;
   sheaveBearingCode: string;
   /** Makara rulmanı dinamik yük katsayısı C [kN] */

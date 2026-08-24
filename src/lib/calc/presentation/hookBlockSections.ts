@@ -337,7 +337,7 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
       "FEM 1.001 T.2.1.3.2 kullanım sınıfı bandından okunur.",
     inputKeys: [],
     selectionKeys: [
-      "sheaveBearingType", "sheaveBearingCode", "sheaveBearingBoreMm",
+      "sheaveBearingBrand", "sheaveBearingType", "sheaveBearingCode", "sheaveBearingBoreMm",
       "sheaveBearingDynCKn", "sheaveBearingStatC0Kn",
     ],
     rows: [

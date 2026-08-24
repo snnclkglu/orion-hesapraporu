@@ -284,7 +284,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     description: "Eşdeğer yükler, statik emniyet ve L10 yorulma ömrü (FEM 1.001 T.2.1.3.2).",
     inputKeys: ["bearingCount", "bearingFactorY0", "bearingFactorY1"],
     selectionKeys: [
-      "bearingType", "bearingCode", "bearingBoreMm", "bearingOuterDiaMm",
+      "bearingBrand", "bearingType", "bearingCode", "bearingBoreMm", "bearingOuterDiaMm",
       "bearingWidthMm", "bearingDynCKn", "bearingStatC0Kn",
     ],
     rows: [

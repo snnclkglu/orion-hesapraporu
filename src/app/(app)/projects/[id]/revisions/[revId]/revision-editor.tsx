@@ -395,7 +395,49 @@ function Field({
       {/* Denetim + yardım metinleri TEK kutuda: subgrid'in ikinci rayı bu
           kutudur, alan bileşeni her zaman iki çocuk taşır. */}
       <div className="grid min-w-0 content-start gap-1">
-      {def.type === "select" ? (() => {
+      {def.type === "multiselect" ? (() => {
+        // Çoklu seçim (rulman markaları): değer virgülle ayrık string olarak
+        // saklanır ("SKF, FAG"). Seçenekler chip olarak çizilir; tıklama üyeliği
+        // açar/kapar ve seçenek sırasına göre yeniden birleştirilir.
+        const base = (def.options ?? []).map(String);
+        const cur = String(v ?? "");
+        const selected = new Set(
+          cur.split(",").map((x) => x.trim()).filter(Boolean)
+        );
+        const toggle = (opt: string) => {
+          const next = new Set(selected);
+          if (next.has(opt)) next.delete(opt);
+          else next.add(opt);
+          const joined = base.filter((o) => next.has(o)).join(", ");
+          onChange({ ...value, [def.key]: joined });
+        };
+        return (
+          <div className="flex flex-wrap gap-1.5">
+            {base.map((o) => {
+              const on = selected.has(o);
+              return (
+                <button
+                  key={o}
+                  type="button"
+                  disabled={locked}
+                  aria-pressed={on}
+                  onClick={() => toggle(o)}
+                  className={cn(
+                    "inline-flex items-center gap-1 border px-2 py-1 font-mono text-xs transition-colors pointer-coarse:min-h-10",
+                    on
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted",
+                    locked && "pointer-events-none opacity-70"
+                  )}
+                >
+                  <span aria-hidden>{on ? "☑" : "☐"}</span>
+                  {def.optionLabels?.[o] ?? o}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })() : def.type === "select" ? (() => {
         // Sayısal select'ler (tambur/teker çapı, sıcaklık) değeri sayı olarak yazar.
         // Kayıtlı değer listede yoksa listeye eklenir (eski revizyonlar bozulmaz).
         // Liste üç kaynaktan gelebilir: alanın KENDİ kayıt nesnesinden

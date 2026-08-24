@@ -647,7 +647,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     equipmentSlugs: ["drumBearing"],
     description: "Eşdeğer yükler, statik emniyet ve L10 yorulma ömrü (FEM T.2.1.3.2).",
     inputKeys: ["bearingFactorY1", "bearingFactorY2"],
-    selectionKeys: ["bearingType", "bearingCode", "bearingBoreMm", "bearingDynCKn", "bearingStatC0Kn"],
+    selectionKeys: ["bearingBrand", "bearingType", "bearingCode", "bearingBoreMm", "bearingDynCKn", "bearingStatC0Kn"],
     rows: [
       {
         key: "drumBearing.bore", label: "Rulman İç Çapı / Mil Oturma Çapı",

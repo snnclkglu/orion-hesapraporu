@@ -22,6 +22,7 @@ import {
   MOTOR_BRAKE_OPTIONS,
   MOTOR_EFFICIENCY_CLASSES,
   MOTOR_ENCODER_OPTIONS,
+  BEARING_BRANDS,
   type FieldDef,
 } from "../fields";
 import { TRAVEL_NO, TRAVEL_YES } from "../modules/travelGroup";
@@ -284,6 +285,11 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   },
   { key: "wheelDiaMm", label: "Tekerlek Çapı", unit: "mm", type: "select", options: WHEEL_DIA_SERIES_MM, numeric: true, diameter: true },
   { key: "shaftMaterial", label: "Mil Malzemesi", type: "select", options: WHEEL_SHAFT_MATERIALS },
+  {
+    key: "bearingBrand", label: "Rulman Markası", type: "multiselect",
+    options: BEARING_BRANDS as unknown as string[],
+    hint: "Kabul edilen marka(lar) — bir veya daha fazla (SKF/FAG/TIMKEN/DİĞER).",
+  },
   { key: "bearingType", label: "Rulman Tipi", type: "text" },
   { key: "bearingCode", label: "Rulman Kodu", type: "text" },
   { key: "bearingDynCKn", label: "Dinamik Yük Katsayısı C", unit: "kN", type: "number" },

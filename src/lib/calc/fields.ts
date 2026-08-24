@@ -39,7 +39,7 @@ export interface FieldDef<T> {
    */
   labelFor?: (specs: TechnicalSpecs) => string;
   unit?: string;
-  type: "number" | "text" | "select";
+  type: "number" | "text" | "select" | "multiselect";
   options?: readonly string[];
   /** Teknik özellik seçimlerine göre değişen select seçenekleri. */
   optionsFor?: (specs: TechnicalSpecs) => readonly string[];
@@ -337,6 +337,13 @@ export const MOTOR_BRAKE_OPTIONS = ["Frensiz", "Kendinden Frenli"] as const;
 export const MOTOR_EFFICIENCY_CLASSES = ["IE1", "IE2", "IE3", "IE4"] as const;
 /** Encoder (enkoder) var mı. */
 export const MOTOR_ENCODER_OPTIONS = ["Yok", "Var"] as const;
+
+/**
+ * Rulman markaları — atölyenin kullandığı markalar. Çoklu seçim (bir veya
+ * daha fazla): kabul edilen markalar virgülle ayrık string olarak saklanır
+ * (ör. "SKF, FAG"). "DİĞER" serbest marka için işarettir.
+ */
+export const BEARING_BRANDS = ["SKF", "FAG", "TIMKEN", "DİĞER"] as const;
 export const HOOK_TYPES = [
   "DIN 15401 Tekli Kanca",
   "DIN 15402 Çift Ağız Kanca",
@@ -988,6 +995,11 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
       "Otomatik anahtarı kapatıldığında toplam halat boyu elle değiştirilebilir.",
   },
   { key: "shaftMaterial", label: "Mil Malzemesi", type: "select", options: SHAFT_MATERIALS },
+  {
+    key: "bearingBrand", label: "Rulman Markası", type: "multiselect",
+    options: BEARING_BRANDS as unknown as string[],
+    hint: "Kabul edilen marka(lar) — bir veya daha fazla seçilebilir (SKF/FAG/TIMKEN/DİĞER).",
+  },
   { key: "bearingType", label: "Rulman Tipi", type: "text" },
   { key: "bearingCode", label: "Rulman Kodu", type: "text" },
   { key: "bearingBoreMm", label: "Rulman İç Çapı", unit: "mm", type: "number", hint: "Tambur mili D2 yatak/rulman oturma çapıyla birebir aynı olmalıdır." },

@@ -267,6 +267,8 @@ export interface TravelSelections {
   wheelTensileNmm2: number;     // teker malzemesi çekme dayanımı [N/mm²]
   wheelDiaMm: number;           // tekerlek çapı [mm]
   shaftMaterial: string;        // teker mili malzemesi
+  /** Kabul edilen rulman markaları (çoklu, virgülle ayrık: "SKF, FAG") */
+  bearingBrand?: string;
   bearingType: string;
   bearingCode: string;
   bearingDynCKn: number;        // dinamik yük sayısı C [kN]

@@ -712,6 +712,8 @@ export interface HoistSelections {
   /** Satın alınacak bütün halat parçalarının etkin toplam boyu [m]. */
   ropeOrderLengthM?: number;
   shaftMaterial: ShaftMaterial;
+  /** Kabul edilen rulman markaları (çoklu, virgülle ayrık: "SKF, FAG") */
+  bearingBrand?: string;
   bearingType: string;
   bearingCode: string;          // ör. 22212
   /** Rulman iç çapı [mm] — tambur milinin D2 oturma çapıyla birebir eşleşir. */

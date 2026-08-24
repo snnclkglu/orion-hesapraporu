@@ -2,7 +2,7 @@
 // key'ler motor tiplerinin (HookBlockInputs, HookBlockSelections) alan
 // adlarıyla birebir aynıdır.
 
-import { DRUM_DIA_SERIES_MM, type FieldDef } from "../fields";
+import { DRUM_DIA_SERIES_MM, BEARING_BRANDS, type FieldDef } from "../fields";
 import {
   HOOK_NUMBERS,
   HOOK_STRENGTH_CLASSES,
@@ -176,6 +176,11 @@ export const HOOKBLOCK_SELECTION_FIELDS: FieldDef<HookBlockSelections>[] = [
     options: SHEAVE_BEARING_CLOSURES,
     visibleWhen: (sel) => sel.sheaveEnclosure === "Kapaksız",
     info: BEARING_CLOSURE_INFO,
+  },
+  {
+    key: "sheaveBearingBrand", label: "Makara Rulmanı Markası", type: "multiselect",
+    options: BEARING_BRANDS as unknown as string[],
+    hint: "Kabul edilen marka(lar) — bir veya daha fazla (SKF/FAG/TIMKEN/DİĞER).",
   },
   { key: "sheaveBearingType", label: "Makara Rulmanı Tipi", type: "text" },
   { key: "sheaveBearingCode", label: "Makara Rulmanı Kodu", type: "text" },

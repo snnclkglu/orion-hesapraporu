@@ -56,7 +56,7 @@ export interface SectionCatalogMapping {
  */
 export interface CatalogTargetField {
   key: string;
-  type: "number" | "text" | "select";
+  type: "number" | "text" | "select" | "multiselect";
   /** select değerleri sayısal alana yazılır (ör. tambur çapı serisi) */
   numeric?: boolean;
 }

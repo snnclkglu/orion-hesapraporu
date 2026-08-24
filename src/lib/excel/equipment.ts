@@ -141,6 +141,12 @@ const gearboxMountingNote = (pos: unknown): string => {
  * kendinden frenli, verim sınıfı, enkoder. Yalnız GİRİLMİŞ olanlar yazılır —
  * boş alan uydurma değer üretmez (md. 4).
  */
+/** Rulman spec'ine tip önekini ekler ("222XX Küresel Makaralı · "). */
+const bearingTypePrefix = (type: unknown): string => {
+  const t = typeof type === "string" ? type.trim() : "";
+  return t ? `${t} · ` : "";
+};
+
 const motorAttributesNote = (sel: {
   motorMountType?: unknown; motorBrakeType?: unknown;
   motorEfficiencyClass?: unknown; motorEncoder?: unknown;
@@ -341,9 +347,9 @@ function hoistRows(
       rowKey: rk("drumBearing"),
       kind: "bearing",
       component: "Tambur rulmanı",
-      brand: textOr(sel.bearingType),
+      brand: textOr(sel.bearingBrand),
       model: textOr(sel.bearingCode),
-      spec: `C = ${fmt(sel.bearingDynCKn, 1)} kN, C0 = ${fmt(sel.bearingStatC0Kn, 1)} kN`,
+      spec: `${bearingTypePrefix(sel.bearingType)}C = ${fmt(sel.bearingDynCKn, 1)} kN, C0 = ${fmt(sel.bearingStatC0Kn, 1)} kN`,
       qty: doubleDrum ? 4 : 2,
     },
     {
@@ -428,9 +434,9 @@ function travelRows(
       rowKey: rk("wheelBearing"),
       kind: "bearing",
       component: "Teker rulmanı",
-      brand: textOr(sel.bearingType),
+      brand: textOr(sel.bearingBrand),
       model: textOr(sel.bearingCode),
-      spec: `C = ${fmt(sel.bearingDynCKn, 1)} kN, C0 = ${fmt(sel.bearingStatC0Kn, 1)} kN`,
+      spec: `${bearingTypePrefix(sel.bearingType)}C = ${fmt(sel.bearingDynCKn, 1)} kN, C0 = ${fmt(sel.bearingStatC0Kn, 1)} kN`,
       qty:
         inp.wheelCount > 0 && inp.bearingCount > 0
           ? inp.wheelCount * inp.bearingCount
@@ -651,9 +657,9 @@ function hookBlockRows(
       rowKey: rk("sheaveBearing"),
       kind: "bearing",
       component: "Makara rulmanı",
-      brand: textOr(sel.sheaveBearingType),
+      brand: textOr(sel.sheaveBearingBrand),
       model: textOr(sel.sheaveBearingCode),
-      spec: `C = ${fmt(sel.sheaveBearingDynCKn, 1)} kN, C0 = ${fmt(sel.sheaveBearingStatC0Kn, 1)} kN`,
+      spec: `${bearingTypePrefix(sel.sheaveBearingType)}C = ${fmt(sel.sheaveBearingDynCKn, 1)} kN, C0 = ${fmt(sel.sheaveBearingStatC0Kn, 1)} kN`,
       qty: sheaveCount * 2 * blockQuantity,
     },
     ...(hasSingleLiftingBeam

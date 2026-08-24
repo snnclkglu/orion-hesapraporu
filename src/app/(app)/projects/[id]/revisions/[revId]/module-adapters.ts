@@ -163,7 +163,7 @@ export interface AnyFieldDef {
   /** Teknik özelliklere göre değişen etiket (ör. kanca/tutucu tipi adı) */
   labelFor?: (specs: TechnicalSpecs) => string;
   unit?: string;
-  type: "number" | "text" | "select";
+  type: "number" | "text" | "select" | "multiselect";
   options?: readonly string[];
   /** Teknik özellik seçimlerine göre değişen select seçenekleri. */
   optionsFor?: (specs: TechnicalSpecs) => readonly string[];
