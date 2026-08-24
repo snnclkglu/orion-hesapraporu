@@ -40,6 +40,7 @@ import {
 } from "../coefficients";
 import { commonReevingByLabel, deriveReeving, type Reeving } from "../reeving";
 import { shaftStress } from "../shaftStress";
+import { drumBrakeSpec } from "../drum-brake";
 import { KGF_TO_MPA } from "@/lib/units";
 import { hasSafetyBrake, hoistEquipmentArrangement } from "../types";
 import type {
@@ -1523,6 +1524,35 @@ export function computeHoistGroup(
     // Gerekli tork, firma servis faktörüyle ölçeklenir; sağlanmadan yayınlanamaz.
     kind: "firma", severity: "engelleyici",
   });
+  // Fren SEÇİM tutarlılığı (uyarı, kullanıcı kararı 2026-08-24): seçilen SIBRE
+  // TE kasnak freninin katalog kaydı çözülüyorsa, saklı kasnak çapı ve tork
+  // bununla TUTARLI olmalıdır. Tutarsızsa bölüm "uygun değil" görünür ve
+  // mühendisi yanlış/eski seçimi (ör. TE315/30/5 yerine 50/6, ya da model 250
+  // iken kasnak 315) düzeltmeye yönlendirir. `uyari`: yayını sert bloklamaz.
+  const brakeSpec = drumBrakeSpec(sel.brakeModel);
+  if (brakeSpec) {
+    checks.push({
+      id: `${which}.brake.torqueModel`,
+      label: "Fren Torku Modelin Ayar Aralığında",
+      min: brakeSpec.minTorqueNm, max: brakeSpec.maxTorqueNm,
+      provided: sel.brakeTorqueNm, unit: "Nm", op: "range",
+      pass:
+        Number.isFinite(sel.brakeTorqueNm) &&
+        sel.brakeTorqueNm >= brakeSpec.minTorqueNm &&
+        sel.brakeTorqueNm <= brakeSpec.maxTorqueNm,
+      kind: "firma", severity: "uyari",
+    });
+    checks.push({
+      id: `${which}.brake.wheelModel`,
+      label: "Fren Kasnağı = Seçilen Model Kasnak Çapı",
+      min: brakeSpec.drumDiaMm, max: brakeSpec.drumDiaMm,
+      provided: sel.brakeWheelDiaMm, unit: "mm", op: "range",
+      pass:
+        Number.isFinite(sel.brakeWheelDiaMm) &&
+        sel.brakeWheelDiaMm === brakeSpec.drumDiaMm,
+      kind: "firma", severity: "uyari",
+    });
+  }
 
   // --- 2.6 Motor-redüktör kaplini ------------------------------------------
   const requiredMotorCouplingTorqueNm = motorShaftTorqueNm * inp.motorCouplingServiceFactor;
@@ -1552,6 +1582,19 @@ export function computeHoistGroup(
     pass: sel.motorCouplingDmaxMm >= couplingShaftDiaMm,
     kind: "uretici", severity: "engelleyici",
   });
+  // Servis freni motor-redüktör kaplininin KASNAĞI üzerinde oturur: fren
+  // kasnağı ile kaplin kasnağı aynı parçadır. İkisi girilip farklıysa uyarı
+  // (kullanıcı kararı 2026-08-24). İkisi de girilmemişse kontrol çıkmaz.
+  if (sel.brakeWheelDiaMm > 0 && sel.motorCouplingWheelDiaMm > 0) {
+    checks.push({
+      id: `${which}.motorCoupling.brakeWheelMatch`,
+      label: "Kaplin Kasnağı = Fren Kasnağı",
+      min: sel.brakeWheelDiaMm, max: sel.brakeWheelDiaMm,
+      provided: sel.motorCouplingWheelDiaMm, unit: "mm", op: "range",
+      pass: sel.motorCouplingWheelDiaMm === sel.brakeWheelDiaMm,
+      kind: "firma", severity: "uyari",
+    });
+  }
 
   // --- 2.7 Tambur kaplini --------------------------------------------------
   const drumCouplingDesignTorqueNm = (drumTorqueKnm * 1000) / inp.drumCouplingDivisor;

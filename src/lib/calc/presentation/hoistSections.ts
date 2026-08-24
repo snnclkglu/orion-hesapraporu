@@ -822,7 +822,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         subst: (x) => `${n(x.sel.brakeQty)} · ${n(num(x.c["brake.actualSafety"]))}`,
       },
     ],
-    checkSuffixes: ["brake.torque"],
+    checkSuffixes: ["brake.torque", "brake.torqueModel", "brake.wheelModel"],
   },
   {
     id: "2.6",
@@ -848,7 +848,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         subst: (x) => `${n(x.sel.motorCouplingTorqueNm)} / ${n(num(x.c["motor.shaftTorque"]))}`,
       },
     ],
-    checkSuffixes: ["motorCoupling.torque", "motorCoupling.bore"],
+    checkSuffixes: ["motorCoupling.torque", "motorCoupling.bore", "motorCoupling.brakeWheelMatch"],
   },
   {
     id: "2.7",

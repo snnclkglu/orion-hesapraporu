@@ -82,7 +82,14 @@ import type { AnyCheck } from "../types";
 //   değil, gereken oranın kendisidir; sapma sıfır çıktığı için eski uyarı
 //   sessiz kalıyordu. Yeni kontrol o boşluğu kapatır ve 5.5'teki
 //   `gearbox.requiredRatio` satırına bağlanır.
-const EXPECTED_CHECK_COUNT = 289;
+// 301 = 289 + 12 (fren/kaplin SEÇİM tutarlılığı, kullanıcı kararı 2026-08-24):
+//   dört kaldırma grubunun (ana/yardımcı/iki monoray) her birinde ÜÇ yeni
+//   `uyari`: (1) fren torku seçilen modelin ayar aralığında mı
+//   (`brake.torqueModel`, 2.5), (2) fren kasnağı modelin kasnak çapına eşit
+//   mi (`brake.wheelModel`, 2.5), (3) kaplin kasnağı fren kasnağına eşit mi
+//   (`motorCoupling.brakeWheelMatch`, 2.6). Yanlış/eski bir fren seçimi
+//   bölümü "uygun değil" gösterir; yayını sert bloklamaz (severity uyari).
+const EXPECTED_CHECK_COUNT = 301;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 

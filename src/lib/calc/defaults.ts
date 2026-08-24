@@ -446,6 +446,10 @@ const NEW_WORK_HOIST_INPUTS: HoistInputs = {
 
 const NEW_WORK_HOIST_SELECTIONS: HoistSelections = {
   ...V5_MAIN_HOIST_SELECTIONS,
+  // Fren kasnağı = kaplin kasnağı olmalı (servis freni kaplinin kasnağı
+  // üzerinde oturur; brake.wheelMatch uyarısı). Fren kasnağı Ø250 olduğundan
+  // kaplin kasnağı da Ø250 gelir — yeni iş tutarlı başlasın.
+  motorCouplingWheelDiaMm: 250,
   ropeWeightKgPerM: 1.33,
   drumGrooveLengthText: "2 x 380",   // 2/4 donanım, 10 m, Ø400 → otomatik
   shaftMaterial: "S355JR",
@@ -475,6 +479,11 @@ const NEW_WORK_AUX_HOIST_INPUTS: HoistInputs = {
 
 const NEW_WORK_AUX_HOIST_SELECTIONS: HoistSelections = {
   ...V5_AUX_HOIST_SELECTIONS,
+  // Fren seçimi kendi içinde tutarlı gelir: TE200/30/5 (kasnak Ø200, ayar
+  // 85..400 Nm) → kasnak 200 mm, tork 350 Nm aralıkta. Kaplin kasnağı da 200
+  // (V5_MAIN'den devralınır). Böylece yeni iş fren/kaplin uyarısı üretmez.
+  brakeModel: "TE200/30/5",
+  brakeWheelDiaMm: 200,
   ropeWeightKgPerM: 0.59,
   drumGrooveLengthText: "2 x 336",   // 24 tam yiv × 14 mm hatve
   shaftMaterial: "S355JR",
