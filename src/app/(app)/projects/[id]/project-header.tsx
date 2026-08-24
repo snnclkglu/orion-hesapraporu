@@ -74,7 +74,7 @@ export function ProjectDetailHeader({
        içeriden — ne sola ne sağa dayalı — asılı kalıyordu. */
     <div className="grid gap-2 sm:gap-3">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:gap-y-3">
-        <div className="min-w-0 basis-full sm:flex-1 sm:basis-0">
+        <div className="min-w-0 basis-full lg:flex-1 lg:basis-0">
           <div className="text-sm text-muted-foreground">
             {job ? (
               <>
@@ -106,7 +106,7 @@ export function ProjectDetailHeader({
             "Düzenlemeye Devam" elle yazılmış bir bağlantıyken h-9, yanındaki
             "Yeni Revizyon" Button'u h-10 idi — bitişik iki düğme 4px kaçıktı;
             `asChild` ikisini de aynı boy/varyant belirtecinden geçirir. */}
-        <div className="flex w-full flex-col gap-1 sm:w-auto sm:shrink-0 sm:items-end">
+        <div className="flex w-full flex-col gap-1 lg:w-auto lg:shrink-0 lg:items-end">
           <div className="flex flex-wrap gap-2">
             {hasDraft && latestRev && (
               <Button asChild>
@@ -125,7 +125,7 @@ export function ProjectDetailHeader({
               belirlememeli: eski düzende tam da bu metin (~380px tek satır)
               sağ sütunu şişirip alt satıra düşürüyordu. Kelepçe sarmasına izin
               verir, ölçüyü düğmelere bırakır. */}
-          <p className="max-w-[26rem] text-xs text-muted-foreground sm:text-right">
+          <p className="hidden max-w-[26rem] text-xs text-muted-foreground lg:block lg:text-right">
             {isFirstRevision
               ? "İlk hesap raporu şablondan kopyalanarak açılır — boş sayfayla başlamazsınız."
               : "Yeni revizyon, son revizyonun kopyasıyla açılır — sıfırdan başlamaz."}
@@ -142,14 +142,16 @@ export function ProjectDetailHeader({
           className="oc-tap inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
         >
           <GitCompare className="size-3.5 text-muted-foreground" />
-          Revizyonları Karşılaştır
+          <span className="sm:hidden">Karşılaştır</span>
+          <span className="hidden sm:inline">Revizyonları Karşılaştır</span>
         </Link>
         <Link
           href={`/projects/${project.id}/audit`}
           className="oc-tap inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
         >
           <ScrollText className="size-3.5 text-muted-foreground" />
-          İşlem Kaydı
+          <span className="sm:hidden">Kayıt</span>
+          <span className="hidden sm:inline">İşlem Kaydı</span>
         </Link>
         {/* ŞARTNAME EYLEM ŞERİDİNDEDİR ve YOKSA KIRMIZIDIR (kullanıcı isteği,
             19.08.2026). Renk bir süs değil: hesap raporu şartnameye cevap

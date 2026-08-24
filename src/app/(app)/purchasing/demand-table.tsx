@@ -884,6 +884,7 @@ function Satir({
   return (
     <>
       <TableRow
+        data-mobile-demand-row
         className={
           // SEÇİM DURUMDAN ÖNCE GELİR: seçili satır bir eylemin içindedir ve
           // onu durum rengiyle boyamak "hangi satırları seçtim" sorusunu
@@ -892,11 +893,11 @@ function Satir({
         }
       >
         {canWrite && (
-          <TableCell data-mobile-hide-label className="p-0 align-top">
+          <TableCell data-mobile-selection data-mobile-hide-label className="p-0 align-top">
             <SecimKutusu checked={secili} onChange={onSec} label={`${s.tanim} kalemini seç`} />
           </TableCell>
         )}
-        <TableCell data-mobile-hide-label className="p-0 align-top">
+        <TableCell data-mobile-disclosure data-mobile-hide-label className="p-0 align-top">
           <button
             type="button"
             onClick={onGenislet}
@@ -945,6 +946,8 @@ function Satir({
         <TableCell
           data-label="Talep"
           data-mobile-span="full"
+          data-mobile-primary
+          data-mobile-hide-label
           className="max-w-[22rem] min-w-0 align-top break-words whitespace-normal"
         >
           <span className="flex items-start gap-1.5">
@@ -1087,7 +1090,7 @@ function Satir({
 
         {/* DURUM BİR DÜĞMEDİR (md. 4): bekliyor/teklifli iken basınca sipariş
             penceresi açılır — satınalmacının en sık yaptığı hareket budur. */}
-        <TableCell data-label="Durum ve İşlem" data-mobile-span="full" className="align-top">
+        <TableCell data-label="Durum ve İşlem" data-mobile-span="full" data-mobile-status data-mobile-hide-label className="align-top">
           <DurumCipi
             durum={g.durum}
             onClick={canWrite && (g.durum === "bekliyor" || g.durum === "teklifli") ? onSiparis : undefined}

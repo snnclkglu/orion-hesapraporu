@@ -47,9 +47,9 @@ import { TabsList, TabsTrigger } from "@/components/ui/tabs";
  * çizgisi negatif kenar boşluğuna gerek kalmadan onun tam üstüne oturur.
  */
 const RAIL_BOX =
-  "px-2 py-2 md:px-1 md:pt-1 md:pb-2.5 md:pointer-coarse:pt-2.5 md:pointer-coarse:pb-4";
+  "px-1.5 py-1.5 lg:px-1 lg:pt-1 lg:pb-2.5 lg:pointer-coarse:pt-2.5 lg:pointer-coarse:pb-4";
 
-const TAB = `h-auto min-h-11 min-w-0 flex-none justify-center rounded-none border border-border bg-card ${RAIL_BOX} text-center text-[13px] leading-tight font-medium whitespace-normal text-muted-foreground after:hidden hover:bg-muted hover:text-foreground data-active:border-primary data-active:bg-primary/[0.08] data-active:text-foreground data-active:shadow-[inset_0_-3px_0_var(--primary)] max-md:w-full md:min-h-0 md:justify-start md:border-0 md:border-b-2 md:border-transparent md:bg-transparent md:text-left md:text-[15px] md:leading-normal md:whitespace-nowrap md:hover:bg-transparent md:data-active:border-primary md:data-active:bg-transparent md:data-active:shadow-none`;
+const TAB = `h-auto min-h-11 min-w-0 flex-none justify-center rounded-none border border-border bg-card ${RAIL_BOX} text-center text-[12px] leading-tight font-medium whitespace-normal text-muted-foreground after:hidden hover:bg-muted hover:text-foreground data-active:border-primary data-active:bg-primary/[0.08] data-active:text-foreground data-active:shadow-[inset_0_-3px_0_var(--primary)] max-lg:w-full lg:min-h-0 lg:justify-start lg:border-0 lg:border-b-2 lg:border-transparent lg:bg-transparent lg:text-left lg:text-[15px] lg:leading-normal lg:whitespace-nowrap lg:hover:bg-transparent lg:data-active:border-primary lg:data-active:bg-transparent lg:data-active:shadow-none`;
 
 /** Sekmedeki sayaç rozeti — etiketin ağırlığını bozmayan ince bir sayı. */
 const COUNT =
@@ -91,36 +91,36 @@ export function ProjectTabsNav({
         // Telefon 320px'te iki, 360px üstünde üç sütunlu görünür kutular
         // kullanır; `md` üstünde iş akışı rayı yeniden yatay ve saran düzene
         // döner.
-        className="grid h-auto w-full grid-cols-2 items-stretch gap-2 rounded-none p-0 group-data-horizontal/tabs:h-auto group-data-horizontal/tabs:pointer-coarse:h-auto min-[360px]:grid-cols-3 md:flex md:flex-wrap md:items-center md:gap-x-5 md:gap-y-0"
+        className="grid h-auto w-full grid-cols-2 items-stretch gap-1.5 rounded-none p-0 group-data-horizontal/tabs:h-auto group-data-horizontal/tabs:pointer-coarse:h-auto min-[360px]:grid-cols-3 lg:flex lg:flex-wrap lg:items-center lg:gap-x-5 lg:gap-y-0"
       >
         <TabsTrigger value="report" className={TAB}>
           <FileSpreadsheet className="size-4" />
-          <span className="md:hidden">Hesap</span>
-          <span className="hidden md:inline">Hesap Raporu</span>
+          <span className="lg:hidden">Hesap</span>
+          <span className="hidden lg:inline">Hesap Raporu</span>
           {revisionCount > 0 && <span className={COUNT}>{revisionCount}</span>}
         </TabsTrigger>
         <TabsTrigger value="equipment" className={TAB}>
           <FileDown className="size-4" />
-          <span className="md:hidden">Ekipman</span>
-          <span className="hidden md:inline">Ekipman Listeleri</span>
+          <span className="lg:hidden">Ekipman</span>
+          <span className="hidden lg:inline">Ekipman Listeleri</span>
           {equipmentCount > 0 && <span className={COUNT}>{equipmentCount}</span>}
         </TabsTrigger>
         <TabsTrigger value="electrical" className={TAB}>
           <Zap className="size-4" />
-          <span className="md:hidden">Elektrik</span>
-          <span className="hidden md:inline">Elektrik Projesi</span>
+          <span className="lg:hidden">Elektrik</span>
+          <span className="hidden lg:inline">Elektrik Projesi</span>
           {electricalPartCount > 0 && <span className={COUNT}>{electricalPartCount}</span>}
         </TabsTrigger>
         <TabsTrigger value="drawings" className={TAB}>
           <Ruler className="size-4" />
-          <span className="md:hidden">Resimler</span>
-          <span className="hidden md:inline">Teknik Resim Takibi</span>
+          <span className="lg:hidden">Resimler</span>
+          <span className="hidden lg:inline">Teknik Resim Takibi</span>
           {drawingPlanCount > 0 && <span className={COUNT}>{drawingPlanCount}</span>}
         </TabsTrigger>
         <TabsTrigger value="manual" className={TAB}>
           <BookOpen className="size-4" />
-          <span className="md:hidden">El Kitabı</span>
-          <span className="hidden md:inline">İşletme ve Bakım El Kitabı</span>
+          <span className="lg:hidden">El Kitabı</span>
+          <span className="hidden lg:inline">İşletme ve Bakım El Kitabı</span>
           {manualRevisionCount > 0 && <span className={COUNT}>{manualRevisionCount}</span>}
         </TabsTrigger>
       </TabsList>

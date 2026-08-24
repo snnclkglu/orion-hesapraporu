@@ -351,8 +351,124 @@
     }
 
     .oc-sales-table td:nth-child(1)::before,
-    .oc-sales-table td:nth-child(2)::before {
+    .oc-sales-table td:nth-child(2)::before,
+    .oc-sales-table td:nth-child(3)::before,
+    .oc-sales-table td:nth-child(9)::before {
       display: none;
+    }
+
+    /* Mühendislik proje defteri: kimlik · durum · menü üstte, proje ve
+       metaveri altta. Genel iki sütunlu kart kuralı aynı dört bilgiyi üç ayrı
+       etiket katmanına ayırıp tek kaydı yaklaşık 200px'e çıkarıyordu. */
+    .oc-engineering-projects-table tr {
+      grid-template-columns: minmax(5.25rem, 0.8fr) minmax(0, 1fr);
+      align-items: start;
+      padding-right: 3rem;
+    }
+
+    .oc-engineering-projects-table td[data-mobile-doc] {
+      grid-column: 1;
+      grid-row: 1;
+      width: auto;
+    }
+
+    .oc-engineering-projects-table td[data-mobile-status] {
+      grid-column: 2;
+      grid-row: 1;
+      width: auto;
+      justify-self: end;
+    }
+
+    .oc-engineering-projects-table td[data-mobile-actions] {
+      position: absolute;
+      top: 0.25rem;
+      right: 0.125rem;
+      z-index: 2;
+      display: grid;
+      width: 2.75rem;
+      height: 2.75rem;
+      place-items: center;
+    }
+
+    .oc-engineering-projects-table td[data-mobile-primary][data-mobile-span="full"] {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+
+    /* Hesap revizyonu artık ayrı alan kartları değil tek yoğun defter
+       satırıdır. Etiket iki satıra çıkabilir; kimlik, durum ve silme işlemi
+       yerini değiştirmez. */
+    .oc-engineering-revisions-table tr {
+      grid-template-columns: 3.25rem minmax(0, 1fr) auto auto;
+      align-items: center;
+    }
+
+    .oc-engineering-revisions-table td[data-mobile-revision] {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .oc-engineering-revisions-table td[data-mobile-primary][data-mobile-span="full"] {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .oc-engineering-revisions-table td[data-mobile-status] {
+      grid-column: 3;
+      grid-row: 1;
+    }
+
+    .oc-engineering-revisions-table td[data-mobile-actions] {
+      grid-column: 4;
+      grid-row: 1;
+      justify-self: end;
+    }
+
+    /* Ekipman defteri de aynı sürümün iki ayrı belge bağlantısını ve durumu
+       tek satırda gösterir. */
+    .oc-engineering-ledger-table tr {
+      grid-template-columns: minmax(0, 1.2fr) minmax(4.5rem, 0.8fr) auto;
+      align-items: center;
+    }
+
+    .oc-engineering-ledger-table td[data-mobile-primary][data-mobile-span="full"] {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .oc-engineering-ledger-table td:nth-child(2) {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .oc-engineering-ledger-table td[data-mobile-status] {
+      grid-column: 3;
+      grid-row: 1;
+    }
+
+    /* İş emrindeki kalemler: kırmızı kalem no ve rapor bağı aynı üst satırda,
+       ürün adı + adet tek alt satırda. Alan adları renk ve içerikten zaten
+       okunabildiği için tekrar basılmaz. */
+    .oc-job-items-table tr {
+      grid-template-columns: minmax(5.25rem, 0.75fr) minmax(0, 1.25fr);
+      align-items: start;
+    }
+
+    .oc-job-items-table td[data-mobile-item-no] {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .oc-job-items-table td[data-mobile-report][data-mobile-span="full"] {
+      grid-column: 2;
+      grid-row: 1;
+      justify-items: end;
+      text-align: right;
+    }
+
+    .oc-job-items-table td[data-mobile-primary][data-mobile-span="full"] {
+      grid-column: 1 / -1;
+      grid-row: 2;
     }
   }
 
@@ -514,6 +630,128 @@
     .oc-tablet-table.oc-sales-table td:nth-child(1)::before,
     .oc-tablet-table.oc-sales-table td:nth-child(2)::before {
       display: none;
+    }
+
+    /* Mühendislik defterleri tablette masaüstü sütunlarını zorlamaz. Telefonla
+       aynı bilgi hiyerarşisini, daha geniş satır ölçüsüyle sürdürür. */
+    .oc-tablet-table.oc-engineering-projects-table tr {
+      grid-template-columns: minmax(6rem, 0.8fr) minmax(0, 1fr);
+      align-items: start;
+      padding-right: 3rem;
+    }
+
+    .oc-tablet-table.oc-engineering-projects-table td[data-mobile-doc] {
+      grid-column: 1;
+      grid-row: 1;
+      width: auto;
+    }
+
+    .oc-tablet-table.oc-engineering-projects-table td[data-mobile-primary][data-mobile-span="full"] {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+
+    .oc-tablet-table.oc-engineering-projects-table td[data-mobile-actions] {
+      position: absolute;
+      top: 0.25rem;
+      right: 0.125rem;
+      z-index: 2;
+      display: grid;
+      width: 2.75rem;
+      height: 2.75rem;
+      place-items: center;
+    }
+
+    .oc-tablet-table.oc-engineering-revisions-table tr {
+      grid-template-columns: 3.25rem minmax(0, 1fr) auto auto;
+      align-items: center;
+    }
+
+    .oc-tablet-table.oc-engineering-revisions-table td[data-mobile-revision] {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .oc-tablet-table.oc-engineering-revisions-table td[data-mobile-primary][data-mobile-span="full"] {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .oc-tablet-table.oc-engineering-revisions-table td[data-mobile-status] {
+      grid-column: 3;
+      grid-row: 1;
+    }
+
+    .oc-tablet-table.oc-engineering-revisions-table td[data-mobile-actions] {
+      grid-column: 4;
+      grid-row: 1;
+      justify-self: end;
+    }
+
+    .oc-tablet-table.oc-engineering-ledger-table tr {
+      grid-template-columns: minmax(0, 1.2fr) minmax(6rem, 0.8fr) auto;
+      align-items: center;
+    }
+
+    .oc-tablet-table.oc-engineering-ledger-table td[data-mobile-primary][data-mobile-span="full"] {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .oc-tablet-table.oc-engineering-ledger-table td:nth-child(2) {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .oc-tablet-table.oc-engineering-ledger-table td[data-mobile-status] {
+      grid-column: 3;
+      grid-row: 1;
+    }
+
+    /* Satın alma talep kartında seçim ve ayrıntı oku bilgi satırı değildir;
+       kartın iki köşe denetimidir. Durum, alttaki Teklif eylemiyle aynı hatta
+       sabitlenir. Böylece ilk boş satır ve tam genişlikteki durum bloğu kalkar. */
+    .oc-tablet-table.oc-purchasing-table tr[data-mobile-demand-row] {
+      display: block;
+      min-height: 0;
+      padding: 0.625rem 2.5rem 0.625rem 2.5rem;
+    }
+
+    .oc-tablet-table.oc-purchasing-table tr[data-mobile-demand-row] td[data-mobile-selection] {
+      position: absolute;
+      top: 0.45rem;
+      left: 0.25rem;
+      z-index: 1;
+      display: block !important;
+      width: 2.25rem;
+    }
+
+    .oc-tablet-table.oc-purchasing-table tr[data-mobile-demand-row] td[data-mobile-primary] {
+      display: block;
+      width: 100%;
+      padding-right: 0.25rem;
+    }
+
+    .oc-tablet-table.oc-purchasing-table tr[data-mobile-demand-row] td[data-mobile-status] {
+      position: absolute;
+      right: 0.625rem;
+      bottom: 0.625rem;
+      z-index: 1;
+      display: block;
+      width: auto;
+    }
+
+    .oc-tablet-table.oc-purchasing-table tr[data-mobile-demand-row] td[data-mobile-status] > * {
+      justify-self: start;
+    }
+  }
+
+  /* Tablet portre/yatay aralığında mühendislik proje kartları tek uzun kolon
+     olarak ekranı aşağı itmez. Her kart hâlâ kendi içinde kaymasızdır; yalnız
+     tabletin gerçek genişliği iki kayıt kolonu olarak değerlendirilir. */
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .oc-tablet-table.oc-engineering-projects-table tbody {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 

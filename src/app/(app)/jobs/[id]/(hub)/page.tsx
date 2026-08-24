@@ -190,7 +190,7 @@ export default async function JobPage({
              mobilde İş Kalemi No · Ürün Adı · Hesap Raporu kalır.
              Yüzde genişlikler `table-layout: auto` altında nowrap içerik
              karşısında etkisizdi; mutlak değere çevrildi. */
-          <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
+          <Table className="oc-mobile-table oc-compact-mobile-table oc-job-items-table" containerClassName="oc-mobile-table-wrap">
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
                 <TableHead className="hidden w-10 sm:table-cell">#</TableHead>
@@ -204,10 +204,10 @@ export default async function JobPage({
               {itemList.map((it, i) => (
                 <TableRow key={i}>
                   <TableCell data-label="Sıra" className="hidden font-mono tabular-nums text-muted-foreground sm:table-cell">{i + 1}</TableCell>
-                  <TableCell data-label="İş Kalemi No" className="font-mono text-sm text-primary">{it.item_no || "—"}</TableCell>
+                  <TableCell data-label="İş Kalemi No" data-mobile-item-no data-mobile-hide-label className="font-mono text-sm text-primary">{it.item_no || "—"}</TableCell>
                   {/* `break-words`: ürün adı veriden gelir; boşluksuz uzun bir
                       jeton telefonda hücreyi kendi genişliğine çekmesin. */}
-                  <TableCell data-label="Ürün Adı" data-mobile-span="full" className="font-medium break-words whitespace-normal">
+                  <TableCell data-label="Ürün Adı" data-mobile-span="full" data-mobile-primary data-mobile-hide-label className="font-medium break-words whitespace-normal">
                     {it.product_name}
                     {/* Gizlenen adet sütununun mobil karşılığı. Alan serbest
                         metindir ("3", "3 Adet", "Muhtelif"); değerin sonuna
@@ -217,7 +217,7 @@ export default async function JobPage({
                     </div>
                   </TableCell>
                   <TableCell data-label="Adet" className="hidden font-mono tabular-nums md:table-cell">{it.quantity || "—"}</TableCell>
-                  <TableCell data-label="Hesap Raporu" data-mobile-span="full">
+                  <TableCell data-label="Hesap Raporu" data-mobile-span="full" data-mobile-report data-mobile-hide-label>
                     <ReportCell
                       report={(it.projects as unknown as LinkedReport | null) ?? null}
                     />

@@ -312,8 +312,8 @@ export function ProjectsTable({
           sütun arasına sıkışmaz. Masaüstünde aynı işaretleme tablo ve yapışkan
           başlık olarak çalışmayı sürdürür. */}
       <Table
-        containerClassName="oc-mobile-table-wrap oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
-        className="oc-mobile-table oc-compact-mobile-table"
+        containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
+        className="oc-mobile-table oc-tablet-table oc-compact-mobile-table oc-engineering-projects-table"
       >
           <TableHeader className="oc-sticky-head">
             {/* SÜTUN ÖNCELİKLENDİRME — sekiz sütunluk satır telefonda kabın
@@ -386,6 +386,8 @@ export function ProjectsTable({
                   </TableCell>
                   <TableCell
                     data-label="Doküman No"
+                    data-mobile-doc
+                    data-mobile-hide-label
                     className={cn(CIVI, "font-mono text-sm font-medium text-primary")}
                   >
                     <Link href={`/projects/${p.id}`} className="after:absolute after:inset-0">
@@ -401,6 +403,8 @@ export function ProjectsTable({
                   <TableCell
                     data-label="Proje"
                     data-mobile-span="full"
+                    data-mobile-primary
+                    data-mobile-hide-label
                     className={cn(
                       AD_KELEPCE,
                       // `max-sm:[overflow-wrap:anywhere]` — kabuk kuralı 15'in
@@ -451,6 +455,9 @@ export function ProjectsTable({
                           {` · V${p.lastRevNo} ${revisionStatusLabel(p.lastRevStatus ?? "")}`}
                         </span>
                       ) : null}
+                      <span className="md:hidden">
+                        {` · ${p.status === ARCHIVED ? "Arşiv" : "Aktif"}`}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell
@@ -479,7 +486,7 @@ export function ProjectsTable({
                       <span className="text-sm text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell data-label="Durum" className={CIVI}>
+                  <TableCell data-label="Durum" data-mobile-status data-mobile-hide-label data-mobile-hidden className={CIVI}>
                     <span className="inline-flex items-center gap-1.5 text-sm">
                       <span
                         className={cn(
@@ -490,7 +497,7 @@ export function ProjectsTable({
                       {p.status === ARCHIVED ? "Arşiv" : "Aktif"}
                     </span>
                   </TableCell>
-                  <TableCell data-label="İşlem" data-mobile-actions className="text-right">
+                  <TableCell data-label="İşlem" data-mobile-actions data-mobile-hide-label className="text-right">
                     <ProjectRowActions
                       project={{
                         id: p.id,

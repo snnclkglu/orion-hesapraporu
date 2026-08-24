@@ -236,7 +236,7 @@ export default function ProjectPreviewPage() {
         />
 
         <div className="relative overflow-hidden rounded-lg border bg-card">
-          <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table">
+          <Table containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap" className="oc-mobile-table oc-tablet-table oc-compact-mobile-table oc-engineering-revisions-table">
             <TableHeader>
               {/* Sütun önceliklendirmesi gerçek sayfadakiyle AYNI olmalı
                   (projects/[id]/page.tsx): önizleme dar ekran davranışını
@@ -254,12 +254,14 @@ export default function ProjectPreviewPage() {
             <TableBody>
               {REVISIONS.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell data-label="Revizyon" className="font-mono text-primary">
+                  <TableCell data-label="Revizyon" data-mobile-revision data-mobile-hide-label className="font-mono text-primary">
                     V{r.rev_no}
                   </TableCell>
                   <TableCell
                     data-label="Etiket"
                     data-mobile-span="full"
+                    data-mobile-primary
+                    data-mobile-hide-label
                     className="whitespace-normal"
                   >
                     {r.label}
@@ -267,7 +269,7 @@ export default function ProjectPreviewPage() {
                       {r.date} · {r.who}
                     </div>
                   </TableCell>
-                  <TableCell data-label="Durum">
+                  <TableCell data-label="Durum" data-mobile-status data-mobile-hide-label>
                     <Badge variant={revisionStatusVariant(r.status)}>
                       {revisionStatusLabel(r.status)}
                     </Badge>
@@ -292,6 +294,7 @@ export default function ProjectPreviewPage() {
                     data-mobile-span="full"
                     data-mobile-hidden={r.status !== "draft" || undefined}
                     data-mobile-actions
+                    data-mobile-hide-label
                     className="text-right"
                   >
                     {/* Yayınlanmış satırda düğme HİÇ görünmez. */}

@@ -55,7 +55,7 @@ export function ProjectSignatoryCard({
     <Select value={value} onValueChange={onChange}>
       {/* Sabit 240px: etiketle birlikte ~310px tutuyor, 360px telefonda kartın
           iç genişliği (296px) yetmiyor ve kutu kartı taşırıyordu. */}
-      <SelectTrigger id={id} size="sm" className="w-full min-w-0 sm:w-[15rem]">
+      <SelectTrigger id={id} size="sm" className="w-full min-w-0 lg:w-[15rem]">
         <SelectValue placeholder="Kişi Seçin" />
       </SelectTrigger>
       <SelectContent>
@@ -73,30 +73,32 @@ export function ProjectSignatoryCard({
   // ipucuna (title) taşındı.
   return (
     <section
-      className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border bg-card px-2.5 py-2 sm:gap-x-4 sm:gap-y-2 sm:px-4 sm:py-2.5"
+      className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-x-2 gap-y-1.5 rounded-lg border bg-card px-2.5 py-2 lg:flex lg:flex-wrap lg:gap-x-4 lg:gap-y-2 lg:px-4 lg:py-2.5"
       title="PDF raporun kapağında hazırlayan ve kontrol eden olarak görünür."
     >
-      <span className="oc-kicker text-muted-foreground">Rapor Sorumluları</span>
-      <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+      <div className="col-span-2 flex min-w-0 items-center justify-between gap-2 lg:contents">
+        <span className="oc-kicker min-w-0 text-muted-foreground">Rapor Sorumluları</span>
+        <Button
+          size="sm"
+          className="h-8 shrink-0 px-2.5 lg:order-last lg:ml-auto"
+          disabled={!dirty || pending}
+          onClick={save}
+        >
+          {pending ? "Kaydediliyor..." : "Kaydet"}
+        </Button>
+      </div>
+      <div className="col-span-2 grid min-w-0 grid-cols-subgrid items-center lg:flex lg:w-auto lg:gap-2">
         <Label htmlFor="prepared_by" className="shrink-0 text-xs text-muted-foreground">
           Hazırlayan
         </Label>
         {personSelect("prepared_by", preparedById, setPreparedById)}
       </div>
-      <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+      <div className="col-span-2 grid min-w-0 grid-cols-subgrid items-center lg:flex lg:w-auto lg:gap-2">
         <Label htmlFor="checked_by" className="shrink-0 text-xs text-muted-foreground">
           Kontrol
         </Label>
         {personSelect("checked_by", checkedById, setCheckedById)}
       </div>
-      <Button
-        size="sm"
-        className="w-full sm:ml-auto sm:w-auto"
-        disabled={!dirty || pending}
-        onClick={save}
-      >
-        {pending ? "Kaydediliyor..." : "Kaydet"}
-      </Button>
     </section>
   );
 }

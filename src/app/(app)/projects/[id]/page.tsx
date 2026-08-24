@@ -275,7 +275,7 @@ export default async function ProjectPage({
         {/* ------------------------------------------------ Hesap Raporu */}
         <TabsContent value="report">
           <div className="relative overflow-hidden rounded-lg border bg-card">
-            <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table oc-compact-mobile-table">
+            <Table containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap" className="oc-mobile-table oc-tablet-table oc-compact-mobile-table oc-engineering-revisions-table">
               <TableHeader>
                 {/* SÜTUN ÖNCELİKLENDİRME — yedi sütunda en sağdaki "İşlem"
                     (taslak silme) telefonda ekranın dışında kalıyordu.
@@ -294,7 +294,7 @@ export default async function ProjectPage({
               <TableBody>
                 {revisionList.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell data-label="Revizyon" className="font-mono">
+                    <TableCell data-label="Revizyon" data-mobile-revision data-mobile-hide-label className="font-mono">
                       <Link
                         href={`/projects/${project.id}/revisions/${r.id}`}
                         className="oc-tap inline-flex items-center text-primary hover:underline"
@@ -307,6 +307,8 @@ export default async function ProjectPage({
                     <TableCell
                       data-label="Etiket"
                       data-mobile-span="full"
+                      data-mobile-primary
+                      data-mobile-hide-label
                       className="break-words whitespace-normal"
                     >
                       {r.label}
@@ -317,7 +319,7 @@ export default async function ProjectPage({
                         {(r.profiles as unknown as { full_name: string } | null)?.full_name ?? "—"}
                       </div>
                     </TableCell>
-                    <TableCell data-label="Durum">
+                    <TableCell data-label="Durum" data-mobile-status data-mobile-hide-label>
                       <Badge variant={revisionStatusVariant(r.status)}>
                         {revisionStatusLabel(r.status)}
                       </Badge>
@@ -342,6 +344,7 @@ export default async function ProjectPage({
                       data-mobile-span="full"
                       data-mobile-hidden={!(canDeleteRevision && r.status === "draft") || undefined}
                       data-mobile-actions
+                      data-mobile-hide-label
                       className="text-right"
                     >
                       {/* Silme YALNIZ taslakta: yayınlanmış revizyon teslim

@@ -37,7 +37,7 @@ export function EquipmentRevisionsTable({
       <div className="border-b bg-muted/30 px-3 py-2 text-xs text-muted-foreground sm:px-4">
         Her ekipman listesi, aynı sürüm numarasındaki hesap raporundan otomatik oluşur.
       </div>
-      <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table oc-compact-mobile-table">
+      <Table containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap" className="oc-mobile-table oc-tablet-table oc-compact-mobile-table oc-engineering-ledger-table">
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
             <TableHead className="max-sm:whitespace-normal">Ekipman Listesi</TableHead>
@@ -73,6 +73,8 @@ export function EquipmentRevisionsTable({
                 <TableCell
                   data-label="Ekipman Listesi"
                   data-mobile-span="full"
+                  data-mobile-primary
+                  data-mobile-hide-label
                   className="font-medium whitespace-normal"
                 >
                   <Link
@@ -85,7 +87,7 @@ export function EquipmentRevisionsTable({
                     {revision.label || "Etiketsiz"} · {revision.createdBy || "—"}
                   </div>
                 </TableCell>
-                <TableCell data-label="Bağlı Hesap" className="font-mono whitespace-normal">
+                <TableCell data-label="Bağlı Hesap" data-mobile-hide-label className="font-mono whitespace-normal">
                   <Link
                     href={`/projects/${projectId}/revisions/${revision.id}`}
                     className="oc-tap inline-flex items-center text-primary hover:underline"
@@ -99,7 +101,7 @@ export function EquipmentRevisionsTable({
                 >
                   {revision.label || "—"}
                 </TableCell>
-                <TableCell data-label="Rapor Durumu">
+                <TableCell data-label="Rapor Durumu" data-mobile-status data-mobile-hide-label>
                   <Badge variant={revisionStatusVariant(revision.status)}>
                     {revisionStatusLabel(revision.status)}
                   </Badge>
