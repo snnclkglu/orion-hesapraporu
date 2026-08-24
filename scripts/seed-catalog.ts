@@ -623,6 +623,37 @@ function compressionStrokeMm(
   }
 }
 
+// ------------------------------------------------------- wedge sockets (halat soketi)
+// Halat dengeleme düzeninde (traversi/makarası) halat ucunu bağlayan kama
+// soketi. Halat çapına göre otomatik seçilir; socket_type Normal/Uzun.
+{
+  const { meta, items } = readJson("wedge_sockets/greenpin.json");
+  const brand = String(meta.brand);
+  for (const it of items) {
+    const a = cleanAttrs(it);
+    a.series = a.series ?? meta.series;
+    const model = String(a.model ?? "");
+    delete a.model;
+    push("wedge_socket", brand, model, a);
+  }
+}
+
+// ------------------------------------------------------- load cells (yük hücresi)
+// Denge traversi/makarasında halat yükünü ölçen pim tipi loadcell. Yük =
+// halat yükü × sabitlenen halat adedi; seçici gerekli yükün üstündeki en
+// küçük kapasiteyi önerir. Markalar: Esit PLC, Kobastar LPW1.
+for (const file of ["load_cells/esit_plc.json", "load_cells/kobastar_lpw1.json"]) {
+  const { meta, items } = readJson(file);
+  const brand = String(meta.brand);
+  for (const it of items) {
+    const a = cleanAttrs(it);
+    a.series = a.series ?? meta.series;
+    const model = String(a.model ?? "");
+    delete a.model;
+    push("load_cell", brand, model, a);
+  }
+}
+
 // ------------------------------------------------------------------ SQL üretimi
 
 const esc = (s: string): string => s.replace(/'/g, "''");
