@@ -437,6 +437,75 @@ export const MOTOR_EFFICIENCY_CLASSES = [
 export const MOTOR_ENCODER_OPTIONS = ["Yok", "Var"] as const;
 
 /**
+ * Sargı yalıtım sınıfı — IEC 60034-1. Sınıf, sargı yalıtımının SÜREKLİ
+ * dayanabileceği en yüksek sıcaklıktır; motorun anlık ısınma payı değil.
+ * ORION standardı F'tir (kullanıcı kararı, 24.08.2026).
+ */
+export const MOTOR_INSULATION_CLASSES = ["B", "F", "H"] as const;
+/** Sınıf → sargının dayandığı en yüksek sıcaklık [°C] (IEC 60034-1). */
+export const MOTOR_INSULATION_MAX_TEMP_C: Record<string, number> = {
+  B: 130, F: 155, H: 180,
+};
+export const MOTOR_INSULATION_CLASS_LABELS: Record<string, string> =
+  Object.fromEntries(
+    MOTOR_INSULATION_CLASSES.map((c) => [
+      c, `${c} — ${MOTOR_INSULATION_MAX_TEMP_C[c]} °C`,
+    ])
+  );
+
+/**
+ * Çalışma sınıfı (duty type) — IEC 60034-1 S1…S10. Motorun yük/dinlenme
+ * rejimini tanımlar ve TERMAL BOYUTLANDIRMAYI belirler: aynı güçteki bir motor
+ * S1'de sürekli çalışırken S4'te kalkış ısısı yüzünden daha büyük seçilir.
+ * Katalog etiket değeri S1'dir ve ORION standardı da S1'dir (kullanıcı kararı,
+ * 24.08.2026); vinç tahriklerinin gerçek rejimi çoğu kez S3/S4'tür ve o
+ * seçildiğinde siparişte AÇIKÇA belirtilmelidir.
+ */
+export const MOTOR_DUTY_TYPES = [
+  "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10",
+] as const;
+/** Çalışma sınıflarının kısa tanımı — seçim kutusunda ve bilgi tablosunda. */
+export const MOTOR_DUTY_TYPE_INFO: Record<string, string> = {
+  S1: "Sürekli çalışma — termal denge kurulana kadar sabit yük. Pompa, fan, konveyör. Standart etiket değeri.",
+  S2: "Kısa süreli çalışma — belirli süre yük, sonra tam soğuma (ör. S2 30 dk). Baraj kapağı, kriko.",
+  S3: "Kesintili periyodik — yük/duruş çevrimi, kalkış akımı ihmal edilebilir. Devrede kalma oranı %'yle verilir (ör. S3 %40). Asansör, pres.",
+  S4: "S3 + kalkışın termal etkisi önemli (sık start). Vinç, kaldırma.",
+  S5: "S4 + elektriksel frenleme içerir.",
+  S6: "Kesintili sürekli — duruş yok, yüksüz (rölanti) çalışma var. Takım tezgâhı.",
+  S7: "S6 + frenlemeli, boşta çalışma yok.",
+  S8: "Değişken yük ve devirli periyodik çalışma.",
+  S9: "Yük ve devir periyodik olmayan şekilde değişir.",
+  S10: "Ayrık sabit yük/devir kademeleri, her kademede farklı termal durum.",
+};
+export const MOTOR_DUTY_TYPE_LABELS: Record<string, string> = {
+  S1: "S1 — Sürekli",
+  S2: "S2 — Kısa Süreli",
+  S3: "S3 — Kesintili Periyodik",
+  S4: "S4 — Kesintili + Kalkış Etkili",
+  S5: "S5 — Kesintili + Frenlemeli",
+  S6: "S6 — Kesintili Sürekli",
+  S7: "S7 — Kesintili Sürekli + Frenlemeli",
+  S8: "S8 — Değişken Yük ve Devir",
+  S9: "S9 — Periyodik Olmayan Değişim",
+  S10: "S10 — Ayrık Yük/Devir Kademeleri",
+};
+
+/**
+ * Sargı sıcaklık koruma elemanı. PTC termistör bir EŞİK anahtarıdır (sıcaklık
+ * aşılınca direnci sıçrar), PT100 ise sıcaklığı ÖLÇER — biri koruma rölesine,
+ * öteki göstergeye/sürücüye bağlanır. "3PTC" üç sargıya ayrı ayrı yerleştirilen
+ * seri bağlı üçlü settir. Varsayılan "Yok" (kullanıcı kararı, 24.08.2026):
+ * istenmeyen bir koruma elemanını sipariş etmek, olmayanı eklemekten kolaydır.
+ */
+export const MOTOR_THERMAL_PROTECTIONS = ["PTC", "3PTC", "PT100", "Yok"] as const;
+export const MOTOR_THERMAL_PROTECTION_LABELS: Record<string, string> = {
+  PTC: "PTC — Termistör (eşik anahtarı)",
+  "3PTC": "3PTC — Üç sargıda seri PTC seti",
+  PT100: "PT100 — Direnç termometresi (ölçer)",
+  Yok: "Yok",
+};
+
+/**
  * Rulman markaları — atölyenin kullandığı markalar. Çoklu seçim (bir veya
  * daha fazla): kabul edilen markalar virgülle ayrık string olarak saklanır
  * (ör. "SKF, FAG"). "DİĞER" serbest marka için işarettir.
@@ -491,6 +560,62 @@ export const CONTROL_TYPES = [
 /** Fren tipleri — hem kaldırma hem yürütme grupları: manyetik / eldro / disk */
 export const HOIST_BRAKE_TYPES = ["Manyetik Fren", "Eldro Fren", "Disk Fren"] as const;
 export const TRAVEL_BRAKE_TYPES = ["Manyetik Fren", "Eldro Fren", "Disk Fren"] as const;
+
+/**
+ * Servis freninin SİPARİŞ OPSİYONLARI — çoklu seçim (kullanıcı kararı,
+ * 24.08.2026). Hem kasnak (manyetik/eldro) hem disk freninde sorulur; bunlar
+ * frenin hesabını değiştirmez, hangi donanımla sipariş edileceğini söyler.
+ *
+ * İlk üçü MEKANİK yapıyı, kalan beşi FRENİN ÜSTÜNDEKİ SENSÖRLERİ tanımlar.
+ * Yay yönü bir opsiyon değil frenin kendi tasarımıdır ama siparişte ayrıca
+ * bildirilir: içten yaylı frende yay gövdenin içinde, dıştan yaylıda dışarıda
+ * durur ve bakım erişimi ile ayar yöntemi değişir.
+ */
+export const BRAKE_OPTIONS = [
+  "İçten Yaylı",
+  "Dıştan Yaylı",
+  "Elle Açma Kolu",
+  "Fren Açık Sensörü",
+  "Fren Kapalı Sensörü",
+  "Balata Aşınma Sensörü",
+  "Balata Sıcaklık Sensörü",
+  "Tork Sensörü",
+] as const;
+/**
+ * Redüktörün SİPARİŞ OPSİYONLARI — çoklu seçim (kullanıcı kararı, 24.08.2026).
+ * Hesabı değiştirmez; hangi donanımla sipariş edileceğini söyler. "Yok"
+ * seçiliyken ekipman listesine yazılmaz.
+ */
+export const GEARBOX_OPTIONS = [
+  "Yok",
+  "Yağ Göstergesi",
+  "Titreşim Sensörü",
+  "Sıcaklık Sensörü",
+] as const;
+export const GEARBOX_OPTIONS_HINT =
+  "Redüktörün sipariş donanımı — bir veya daha fazla seçilebilir. " +
+  "\"Yok\" seçiliyken ekipman listesine yazılmaz.";
+
+/**
+ * Kaplin keçe tipi. STANDART OLAN YAZILMAZ: "Standart O-Ring" zaten her
+ * siparişin varsayılanıdır ve ekipman listesine yazmak satırı hiçbir şey
+ * söylemeyen bir tekrarla uzatır. "Keçeli" ayrıca istenen bir donanımdır ve
+ * listede görünür (kullanıcı kararı, 24.08.2026).
+ */
+export const COUPLING_SEAL_TYPES = ["Standart O-Ring", "Keçeli"] as const;
+export const COUPLING_SEAL_TYPE_STANDARD = "Standart O-Ring";
+
+/**
+ * Tambur kaplininde balata/diş AŞINMASINI gösteren indikatör var mı.
+ * Keçe tipiyle aynı kural: standart olan ekipman listesine yazılmaz.
+ */
+export const COUPLING_WEAR_DETECTIONS = ["Standart", "İndikatörlü"] as const;
+export const COUPLING_WEAR_DETECTION_STANDARD = "Standart";
+
+export const BRAKE_OPTIONS_HINT =
+  "Frenin sipariş donanımı — bir veya daha fazla seçilebilir. İlk üçü mekanik " +
+  "yapı, kalanlar frenin üstündeki sensörlerdir. Hesabı değiştirmez; ekipman " +
+  "listesine ve siparişe yazılır.";
 export const YES_NO = ["Var", "Yok"] as const;
 
 /**
@@ -1163,6 +1288,11 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
     standardRef: "Redüktör Montaj Pozisyonları",
     hint: "Redüktörün montaj konumu (YILMAZ D serisi M1…M6). Sipariş için raporda görünür.",
   },
+  {
+    key: "gearboxOptions", label: "Redüktör Opsiyonları", type: "multiselect",
+    options: GEARBOX_OPTIONS as unknown as string[],
+    hint: GEARBOX_OPTIONS_HINT,
+  },
   { key: "gearboxRatio", label: "Çevrim Oranı", type: "number" },
   { key: "gearboxNominalTorqueKnm", label: "Redüktör Nominal Torku", unit: "kNm", type: "number" },
   { key: "gearboxInputShaftMm", label: "Redüktör Giriş Mili", unit: "mm", type: "number", diameter: true },
@@ -1245,6 +1375,26 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
     hint: "Motorda enkoder var mı (hız/konum geri beslemesi).",
   },
   {
+    key: "motorInsulationClass", label: "Yalıtım Sınıfı", type: "select",
+    options: MOTOR_INSULATION_CLASSES as unknown as string[],
+    optionLabels: MOTOR_INSULATION_CLASS_LABELS,
+    standardRef: "IEC 60034-1 Yalıtım Sınıfı",
+    hint: "Sargı yalıtımının sürekli dayandığı en yüksek sıcaklık. ORION standardı F (155 °C).",
+  },
+  {
+    key: "motorDutyType", label: "Çalışma Sınıfı", type: "select",
+    options: MOTOR_DUTY_TYPES as unknown as string[],
+    optionLabels: MOTOR_DUTY_TYPE_LABELS,
+    standardRef: "IEC 60034-1 Çalışma Sınıfı",
+    hint: "Yük/dinlenme rejimi (S1…S10) — motorun termal boyutlandırmasını belirler. Standart S1.",
+  },
+  {
+    key: "motorThermalProtection", label: "Sargı Koruma (PTC/PT100)", type: "select",
+    options: MOTOR_THERMAL_PROTECTIONS as unknown as string[],
+    optionLabels: MOTOR_THERMAL_PROTECTION_LABELS,
+    hint: "PTC eşik anahtarıdır, PT100 sıcaklığı ölçer. Siparişte ayrıca istenir; standart Yok.",
+  },
+  {
     key: "motorCount", label: "Motor Adedi", type: "select",
     options: ["1", "2", "4"], numeric: true,
   },
@@ -1253,16 +1403,36 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "brakeTorqueNm", label: "Fren Torku", unit: "Nm", type: "number" },
   { key: "brakeWheelDiaMm", label: "Fren Kasnak Çapı", unit: "mm", type: "number", diameter: true },
   { key: "brakeQty", label: "Fren Adedi", type: "number" },
+  {
+    key: "brakeOptions", label: "Fren Opsiyonları", type: "multiselect",
+    options: BRAKE_OPTIONS as unknown as string[],
+    hint: BRAKE_OPTIONS_HINT,
+  },
   { key: "motorCouplingBrand", label: "Motor Kaplini Markası", type: "text" },
   { key: "motorCouplingModel", label: "Motor Kaplini Modeli", type: "text" },
   { key: "motorCouplingWheelDiaMm", label: "Motor Kaplini Kasnak Çapı", unit: "mm", type: "number", diameter: true },
   { key: "motorCouplingTorqueNm", label: "Motor Kaplini Torku", unit: "Nm", type: "number" },
   { key: "motorCouplingDmaxMm", label: "Motor Kaplini Dmax", unit: "mm", type: "number", diameter: true },
+  {
+    key: "motorCouplingSealType", label: "Keçe Tipi", type: "select",
+    options: COUPLING_SEAL_TYPES as unknown as string[],
+    hint: "Standart O-Ring ekipman listesine yazılmaz; Keçeli ayrıca belirtilir.",
+  },
   { key: "drumCouplingBrand", label: "Tambur Kaplini Markası", type: "text" },
   { key: "drumCouplingModel", label: "Tambur Kaplini Modeli", type: "text" },
   { key: "drumCouplingTorqueNm", label: "Tambur Kaplini Torku", unit: "Nm", type: "number" },
   { key: "drumCouplingRadialN", label: "Tambur Kaplini Radyal Yükü", unit: "N", type: "number" },
   { key: "drumCouplingDmaxMm", label: "Tambur Kaplini Dmax", unit: "mm", type: "number", diameter: true },
+  {
+    key: "drumCouplingSealType", label: "Keçe Tipi", type: "select",
+    options: COUPLING_SEAL_TYPES as unknown as string[],
+    hint: "Standart O-Ring ekipman listesine yazılmaz; Keçeli ayrıca belirtilir.",
+  },
+  {
+    key: "drumCouplingWearDetection", label: "Aşınma Algılama", type: "select",
+    options: COUPLING_WEAR_DETECTIONS as unknown as string[],
+    hint: "İndikatörlü kaplin diş aşınmasını gösterir. Standart olan ekipman listesine yazılmaz.",
+  },
   {
     key: "safetyBrakeModel", label: "Emniyet Freni Modeli", type: "select",
     options: SAFETY_BRAKE_CODES, standardRef: "SIBRE SHI",

@@ -570,7 +570,16 @@ const HOIST_HEADLINES: Record<string, AdapterHeadline> = {
   },
   "2.5": {
     ...CAPACITY_BAND,
-    checks: [{ suffix: "brake.torque", label: "Fren torku" }],
+    checks: [
+      { suffix: "brake.torque", label: "Fren torku" },
+      // Katalog modelinin AYAR ARALIĞI gerçek bir sayısal yargıdır (alt ve üst
+      // sınırı farklıdır) ve şeride girer: ayarlanan tork modelin bandının
+      // dışındaysa fren o torka kurulamaz.
+      {
+        suffix: "brake.torqueModel", label: "Model ayar aralığı",
+        computedLabel: "Ayarlanan", limitLabel: "Katalog bandı",
+      },
+    ],
   },
   "2.6": { ...CAPACITY_BAND, checks: COUPLING_CHECKS("motorCoupling") },
   "2.7": {
@@ -582,6 +591,28 @@ const HOIST_HEADLINES: Record<string, AdapterHeadline> = {
         suffix: "drumCoupling.bore", label: "Delik çapı",
         computedLabel: "Mil çapı", limitLabel: "Katalog Dmaks",
       },
+    ],
+  },
+  // 2.9 / 2.10 Halat dengeleme — traversli ve makaralı düzen aynı yükü taşır;
+  // yalnız üçüncü satır ayrışır (traversde soketin kırılma yükü, makarada
+  // FEM'in istediği en küçük çap). İkisi de "gereken ≤ seçilen" okunur.
+  "2.9": {
+    ...CAPACITY_BAND,
+    checks: [
+      { suffix: "balance.socketMbl", label: "Soket kırılma yükü" },
+      { suffix: "balance.loadcell", label: "Loadcell kapasitesi" },
+      { suffix: "balance.bearing", label: "Rulman statik yükü C₀" },
+    ],
+  },
+  "2.10": {
+    ...CAPACITY_BAND,
+    checks: [
+      {
+        suffix: "balance.sheaveDia", label: "Denge makarası çapı",
+        computedLabel: "Gereken", limitLabel: "Seçilen",
+      },
+      { suffix: "balance.loadcell", label: "Loadcell kapasitesi" },
+      { suffix: "balance.bearing", label: "Rulman statik yükü C₀" },
     ],
   },
   "2.8": {

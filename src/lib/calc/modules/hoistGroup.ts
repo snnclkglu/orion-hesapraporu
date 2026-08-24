@@ -768,6 +768,8 @@ export interface HoistSelections {
   gearboxShaftDirection?: string;
   /** Redüktör montaj pozisyonu (M1…M6) — sipariş/rapor için */
   gearboxMountingPosition?: string;
+  /** Redüktörün sipariş opsiyonları (çoklu, virgülle ayrık). "Yok" = donanımsız. */
+  gearboxOptions?: string;
   gearboxRatio: number;
   gearboxNominalTorqueKnm: number;
   gearboxInputShaftMm: number;
@@ -788,17 +790,27 @@ export interface HoistSelections {
   motorEfficiencyClass?: string;
   /** Enkoder: "Yok" | "Var" */
   motorEncoder?: string;
+  /** IEC 60034-1 sargı yalıtım sınıfı (B/F/H) — ORION standardı F */
+  motorInsulationClass?: string;
+  /** IEC 60034-1 çalışma sınıfı (S1…S10) — ORION standardı S1 */
+  motorDutyType?: string;
+  /** Sargı sıcaklık koruması: "PTC" | "3PTC" | "PT100" | "Yok" */
+  motorThermalProtection?: string;
   motorCount: number;
   brakeBrand: string;
   brakeModel: string;
   brakeTorqueNm: number;
   brakeWheelDiaMm: number;
   brakeQty: number;
+  /** Frenin sipariş opsiyonları (çoklu, virgülle ayrık: "İçten Yaylı, Elle Açma Kolu") */
+  brakeOptions?: string;
   motorCouplingBrand: string;
   motorCouplingModel: string;
   motorCouplingWheelDiaMm: number;
   motorCouplingTorqueNm: number;
   motorCouplingDmaxMm: number;
+  /** Kaplin keçe tipi: "Standart O-Ring" | "Keçeli" (standart olan listeye yazılmaz) */
+  motorCouplingSealType?: string;
   // --- Halat dengeleme düzeni (denge traversi / denge makarası) ---
   /** Halat soketi tipi: "Normal" | "Uzun" (model halat çapından otomatik). */
   balanceSocketType?: string;
@@ -817,6 +829,10 @@ export interface HoistSelections {
   drumCouplingTorqueNm: number;
   drumCouplingRadialN: number;
   drumCouplingDmaxMm: number;
+  /** Kaplin keçe tipi: "Standart O-Ring" | "Keçeli" (standart olan listeye yazılmaz) */
+  drumCouplingSealType?: string;
+  /** Tambur kaplininde aşınma indikatörü: "Standart" | "İndikatörlü" */
+  drumCouplingWearDetection?: string;
   /** Emniyet freni katalog tipi (SIBRE SHI) */
   safetyBrakeModel: string;
   /** Ayarlanan hava aralığı c [mm] — sıkma kuvveti buna göre değişir */

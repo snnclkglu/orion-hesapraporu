@@ -358,7 +358,12 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       "applicationClass", "serviceFactorKs", "accelTorqueFactorKt",
       "accelerationMs2", "tempFactor",
     ],
-    selectionKeys: ["motorBrand", "motorModel", "motorMountType", "motorBrakeType", "motorEfficiencyClass", "motorEncoder", "motorPowerKw", "motorRpm", "motorCount", "motorShaftMm"],
+    selectionKeys: [
+      "motorBrand", "motorModel", "motorMountType", "motorBrakeType",
+      "motorEfficiencyClass", "motorInsulationClass", "motorDutyType",
+      "motorThermalProtection", "motorEncoder", "motorPowerKw", "motorRpm",
+      "motorCount", "motorShaftMm",
+    ],
     rows: [
       {
         key: "weight.movingTonnes", label: "Hareket Eden Toplam Kütle ΣG",
@@ -440,8 +445,11 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     equipmentSlugs: ["gearbox"],
     inputKeys: ["gearboxServiceFactor", "reducerStages"],
     selectionKeys: [
-      "gearboxModel", "gearboxOutputFeature", "gearboxShaftDirection",
-      "gearboxMountingPosition",
+      // MİL YÖNLERİ KUTUSU YÜRÜTMEDE YOKTUR (kullanıcı kararı, 24.08.2026):
+      // yürütme redüktörü teker miline sabit bir düzende oturur, yön bir
+      // sipariş sorusu değildir.
+      "gearboxModel", "gearboxOutputFeature",
+      "gearboxMountingPosition", "gearboxOptions",
       "gearboxRatio", "gearboxOutputTorqueKnm",
       "gearboxInputShaftMm", "gearboxOutputShaftMm",
     ],
@@ -498,7 +506,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     bridgeOnly: true,
     equipmentSlugs: ["brake"],
     inputKeys: ["brakeServiceFactor"],
-    selectionKeys: ["brakeBrand", "brakeTorqueNm", "brakeWheelDiaMm"],
+    selectionKeys: ["brakeBrand", "brakeTorqueNm", "brakeWheelDiaMm", "brakeOptions"],
     rows: [
       {
         key: "brake.requiredTorque", label: "Gerekli Fren Tork Kapasitesi",
@@ -515,7 +523,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     inputKeys: ["motorCouplingServiceFactor"],
     selectionKeys: [
       "motorCouplingBrand", "motorCouplingModel",
-      "motorCouplingTorqueNm", "motorCouplingDmaxMm",
+      "motorCouplingTorqueNm", "motorCouplingDmaxMm", "motorCouplingSealType",
     ],
     rows: [
       {
@@ -545,7 +553,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     inputKeys: ["wheelCouplingServiceFactor"],
     selectionKeys: [
       "wheelShaftDiaMm", "wheelCouplingBrand", "wheelCouplingModel",
-      "wheelCouplingTorqueNm", "wheelCouplingDmaxMm",
+      "wheelCouplingTorqueNm", "wheelCouplingDmaxMm", "wheelCouplingSealType",
     ],
     rows: [
       {

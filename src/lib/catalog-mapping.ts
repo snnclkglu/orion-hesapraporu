@@ -888,11 +888,30 @@ const DRUM_COUPLING_TYPES: string[] = ["drum", "barrel"];
 const MOTOR_COUPLING_TYPES: string[] = ["gear", "flexible", "pin", "disc", "brake"];
 
 /**
+ * Denge elemanı rulmanının katalog serileri (`attrs.type`).
+ *
+ * Liste `catalog_data/bearings/skf.json`taki seri adlarıyla BİREBİR aynıdır;
+ * bir harf sapması süzgeci sessizce boşaltır (katalog "kayıt yok" der ve
+ * mühendis rulmanı seçemez, hata da görmez).
+ */
+const BALANCE_BEARING_SERIES: string[] = [
+  "NA 49xx İğneli Makaralı (İç Bilezikli)",
+  "NA 49xx İğneli Makaralı (Contalı)",
+  "NA 69xx İğneli Makaralı (İç Bilezikli)",
+  "NNF 50xx Silindirik Makaralı (Çift Sıra Tam Donanımlı)",
+];
+
+/**
  * Halat dengeleme rulmanı eşlemesi — denge traversi (2.9) ve denge makarası
  * (2.10) bölümlerinde ORTAKTIR.
  */
 const BALANCE_BEARING_MAP: SectionCatalogMapping = {
   kind: "bearing",
+  // Denge elemanının rulmanı NA ya da NNF tipidir: kesit yüksekliği düşük,
+  // radyal yük kapasitesi yüksek olmalıdır (bölüm açıklaması da bunu söyler).
+  // Süzgeç KİLİTLİDİR — bu kutuya küresel makaralı bir tambur rulmanı
+  // seçilebilmesi, bölümün sorusunu yanlış cevaplatmaktır.
+  lockedFacets: { type: BALANCE_BEARING_SERIES },
   fields: [
     { sel: "balanceBearingType", from: { attr: "type" } },
     { sel: "balanceBearingCode", from: "model" },

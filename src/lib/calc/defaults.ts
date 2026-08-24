@@ -456,6 +456,18 @@ const NEW_WORK_HOIST_INPUTS: HoistInputs = {
 
 const NEW_WORK_HOIST_SELECTIONS: HoistSelections = {
   ...V5_MAIN_HOIST_SELECTIONS,
+  // KAPLİN VE REDÜKTÖR SİPARİŞ STANDARTLARI (kullanıcı kararı, 24.08.2026):
+  // keçe standart O-Ring, tambur kaplini aşınma indikatörsüz, redüktör
+  // opsiyonsuz. Üçü de standart olduğu sürece ekipman listesine YAZILMAZ.
+  motorCouplingSealType: "Standart O-Ring",
+  drumCouplingSealType: "Standart O-Ring",
+  drumCouplingWearDetection: "Standart",
+  // MOTOR SİPARİŞ STANDARTLARI (kullanıcı kararı, 24.08.2026): yalıtım F,
+  // çalışma sınıfı S1, sargı koruması yok. Üçü de kutudan değiştirilebilir;
+  // burada duran şey firmanın varsayılan siparişidir.
+  motorInsulationClass: "F",
+  motorDutyType: "S1",
+  motorThermalProtection: "Yok",
   // Fren kasnağı = kaplin kasnağı olmalı (servis freni kaplinin kasnağı
   // üzerinde oturur; brake.wheelMatch uyarısı). Fren kasnağı Ø250 olduğundan
   // kaplin kasnağı da Ø250 gelir — yeni iş tutarlı başlasın.
@@ -494,6 +506,18 @@ const NEW_WORK_AUX_HOIST_INPUTS: HoistInputs = {
 
 const NEW_WORK_AUX_HOIST_SELECTIONS: HoistSelections = {
   ...V5_AUX_HOIST_SELECTIONS,
+  // KAPLİN VE REDÜKTÖR SİPARİŞ STANDARTLARI (kullanıcı kararı, 24.08.2026):
+  // keçe standart O-Ring, tambur kaplini aşınma indikatörsüz, redüktör
+  // opsiyonsuz. Üçü de standart olduğu sürece ekipman listesine YAZILMAZ.
+  motorCouplingSealType: "Standart O-Ring",
+  drumCouplingSealType: "Standart O-Ring",
+  drumCouplingWearDetection: "Standart",
+  // MOTOR SİPARİŞ STANDARTLARI (kullanıcı kararı, 24.08.2026): yalıtım F,
+  // çalışma sınıfı S1, sargı koruması yok. Üçü de kutudan değiştirilebilir;
+  // burada duran şey firmanın varsayılan siparişidir.
+  motorInsulationClass: "F",
+  motorDutyType: "S1",
+  motorThermalProtection: "Yok",
   // Fren seçimi kendi içinde tutarlı gelir: TE200/30/5 (kasnak Ø200, ayar
   // 85..400 Nm) → kasnak 200 mm, tork 350 Nm aralıkta. Kaplin kasnağı da 200
   // (V5_MAIN'den devralınır). Böylece yeni iş fren/kaplin uyarısı üretmez.
@@ -595,7 +619,18 @@ const NEW_WORK_BRIDGE_INPUTS = {
  */
 const NEW_WORK_TROLLEY_SELECTIONS = {
   ...V5_TROLLEY_SELECTIONS,
+  // KAPLİN VE REDÜKTÖR SİPARİŞ STANDARTLARI (kullanıcı kararı, 24.08.2026):
+  // keçe standart O-Ring, tambur kaplini aşınma indikatörsüz, redüktör
+  // opsiyonsuz. Üçü de standart olduğu sürece ekipman listesine YAZILMAZ.
+  motorCouplingSealType: "Standart O-Ring",
+  wheelCouplingSealType: "Standart O-Ring",
   motorCount: 2,
+  // MOTOR SİPARİŞ STANDARTLARI (kullanıcı kararı, 24.08.2026): yalıtım F,
+  // çalışma sınıfı S1, sargı koruması yok. Üçü de kutudan değiştirilebilir;
+  // burada duran şey firmanın varsayılan siparişidir.
+  motorInsulationClass: "F",
+  motorDutyType: "S1",
+  motorThermalProtection: "Yok",
   gearboxRatio: 58.1195,
   // Kauçuk tampon seçilirse gövde malzemesi varsayılan N (doğal kauçuk).
   bufferRubberQuality: "N",
@@ -609,7 +644,18 @@ const NEW_WORK_TROLLEY_SELECTIONS = {
  */
 const NEW_WORK_BRIDGE_SELECTIONS = {
   ...V5_BRIDGE_SELECTIONS,
+  // KAPLİN VE REDÜKTÖR SİPARİŞ STANDARTLARI (kullanıcı kararı, 24.08.2026):
+  // keçe standart O-Ring, tambur kaplini aşınma indikatörsüz, redüktör
+  // opsiyonsuz. Üçü de standart olduğu sürece ekipman listesine YAZILMAZ.
+  motorCouplingSealType: "Standart O-Ring",
+  wheelCouplingSealType: "Standart O-Ring",
   motorPowerKw: 4,
+  // MOTOR SİPARİŞ STANDARTLARI (kullanıcı kararı, 24.08.2026): yalıtım F,
+  // çalışma sınıfı S1, sargı koruması yok. Üçü de kutudan değiştirilebilir;
+  // burada duran şey firmanın varsayılan siparişidir.
+  motorInsulationClass: "F",
+  motorDutyType: "S1",
+  motorThermalProtection: "Yok",
   gearboxRatio: 48.8203,
   bufferRubberQuality: "N",
 };

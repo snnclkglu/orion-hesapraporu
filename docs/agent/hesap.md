@@ -1114,3 +1114,57 @@ JSX içermez**. Şemada içi boş daire geçme deliği (FF), dolu daire dişli d
 Verim sınıfı listesi tek sınıflarla sınırlı değildir: bazı üreticiler gövdeyi
 iki sınıf arasında bir bantta beyan eder ve sipariş metni de öyle yazılır, bu
 yüzden **IE2/IE3** ve **IE3/IE4** de seçilebilir.
+
+## HESAP-30 — Motor, fren, redüktör ve kaplin kutuları SİPARİŞİN sorusunu sorar; standart olan yazılmaz.
+
+Kullanıcı kararı (24.08.2026). Bu kutuların hiçbiri hesabı değiştirmez — ekipman
+listesine ve siparişe gider. Ortak kural: **STANDART OLAN DEĞER EKİPMAN
+LİSTESİNE YAZILMAZ.** Standart zaten her siparişte geçerlidir; satıra yazmak
+listeyi hiçbir şey söylemeyen tekrarlarla doldurur. Yalnız standart DIŞINDAKİ
+seçim görünür, çünkü onu ayrıca sipariş etmek gerekir (`nonDefaultNote`).
+
+**MOTOR** (kaldırma + yürütme): yalıtım sınıfı (IEC 60034-1 — B/F/H, standart
+**F**), çalışma sınıfı (S1…S10, standart **S1**) ve sargı koruması
+(PTC / 3PTC / PT100 / **Yok**). İlk ikisi standart rozetiyle tam tabloyu açar
+(`IEC 60034-1 Yalıtım Sınıfı` ve `IEC 60034-1 Çalışma Sınıfı`). Yalıtım ve
+çalışma sınıfı ekipman satırına HER ZAMAN yazılır — satıcı motoru bu ikisi
+olmadan teklif edemez; PTC yalnız "Yok" değilken yazılır.
+
+**FREN** (servis freni, kasnak ve disk): çoklu `brakeOptions` — üçü mekanik
+yapı (içten/dıştan yaylı, elle açma kolu), beşi frenin üstündeki sensör (fren
+açık/kapalı, balata aşınma/sıcaklık, tork).
+
+**REDÜKTÖR**: çoklu `gearboxOptions` (Yok · yağ göstergesi · titreşim sensörü ·
+sıcaklık sensörü). **MİL YÖNLERİ KUTUSU YÜRÜTMEDE YOKTUR** — yürütme redüktörü
+teker miline sabit bir düzende oturur, yön bir sipariş sorusu değildir; kutu ve
+ekipman satırındaki notu kaldırılmıştır. Kaldırmada kutu ve şeması durur.
+
+**REDÜKTÖRÜN MARKASI MODEL ALANININ İÇİNDEDİR** ve ekipman listesinin marka
+sütunu bu yüzden boş kalıyordu. Katalog eşlemesi redüktörü tek birleşik alandan
+okur (`from: "brand_model"` → "Yılmaz Redüktör HT0823") çünkü marka adında
+boşluk olan üründe metni ikiye bölmek sessizce yanlış eşleme üretir.
+`gearboxIdentity` ayrıştırmayı TAHMİNLE YAPMAZ: metin yalnız BİLİNEN marka
+adlarıyla karşılaştırılır, en uzun eşleşme kazanır ("Yılmaz Redüktör",
+"Yılmaz"dan önce) ve eski kısa yazımlar kataloğun kendi adına çevrilir
+(`YILMAZ` → `Yılmaz Redüktör`). Tanınmayan önek markaya SAYILMAZ — metin
+olduğu gibi modelde kalır, marka boş görünür (md. 4).
+
+**KAPLİN**: keçe tipi (**Standart O-Ring** / Keçeli) motor, tambur ve teker
+kaplininde; tambur kaplininde ayrıca aşınma algılama (**Standart** /
+İndikatörlü). İkisi de standart değerle açılır ve standartken listeye yazılmaz.
+
+**MİL YÖNLERİ ŞEMASI ÜRETİCİNİN ÖLÇÜ RESMİNE GÖREDİR** (`Redüktör Yönleri.dxf`).
+Fark süsleme değil GEOMETRİDİR: paralel milli redüktörde çıkış ve giriş mili
+birbirine DİK DEĞİLDİR, ikisi de aynı yöne bakar ve yalnız gövdenin uzun ekseni
+boyunca kaçıktır (çıkış üst üçte birde, giriş alta yakın). Gövde üst görünüşte
+uzun kenarı millere dik duran bir dikdörtgendir; kontrol kapağı, cıvata halkası,
+havalandırma tapası ve delikli bağlantı kulakları çizilir. Yön kodu bütün
+figürü döndürür: çizim önce yerel çerçevede kurulur (çıkış sağa bakar), sonra
+tek dönüşümle yerine oturur — dört yön için dört ayrı çizim bakımı yapılmaz.
+
+**UYGUNLUK ŞERİDİNE GİRMEYEN ÜÇÜNCÜ TÜR: EŞLEŞME KONTROLÜ.** İki SEÇİLMİŞ
+değerin aynı olup olmadığını soran kontroller (`brake.wheelModel`,
+`motorCoupling.brakeWheelMatch`) `op: "range"` taşır ama alt ve üst sınırları
+AYNIDIR; şeritte "250 ≤ 250 ≤ 250" diye görünürler — bir yargı değil totoloji.
+Bunlar `BAND_DISI_SONEKLER`e girer. Modelin AYAR ARALIĞI (`brake.torqueModel`)
+ise gerçek bir bant kontrolüdür ve şeritte durur.

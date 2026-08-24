@@ -719,7 +719,12 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     equipmentSlugs: ["gearbox"],
     description: "Tambur torku, gerekli çevrim oranı ve redüktör seçimi.",
     inputKeys: ["drumCount", "gearboxServiceFactor", "reducerStages", "stageEfficiency"],
-    selectionKeys: ["gearboxModel", "gearboxOutputFeature", "gearboxShaftDirection", "gearboxMountingPosition", "gearboxRatio", "gearboxNominalTorqueKnm", "gearboxInputShaftMm", "gearboxOutputShaftMm", "gearboxAllowedRadialKn"],
+    selectionKeys: [
+      "gearboxModel", "gearboxOutputFeature", "gearboxShaftDirection",
+      "gearboxMountingPosition", "gearboxOptions", "gearboxRatio",
+      "gearboxNominalTorqueKnm", "gearboxInputShaftMm", "gearboxOutputShaftMm",
+      "gearboxAllowedRadialKn",
+    ],
     rows: [
       {
         key: "drum.torque", label: "Tambur Torku", formula: "M_t = r · n_tah · F_kN",
@@ -771,7 +776,12 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     equipmentSlugs: ["motor"],
     description: "Motor giriş torku ve gerekli güç (CMAA 70).",
     inputKeys: ["tempFactor", "motorDivisor"],
-    selectionKeys: ["motorBrand", "motorModel", "motorMountType", "motorBrakeType", "motorEfficiencyClass", "motorEncoder", "motorPowerKw", "motorRpm", "motorShaftMm", "motorCount"],
+    selectionKeys: [
+      "motorBrand", "motorModel", "motorMountType", "motorBrakeType",
+      "motorEfficiencyClass", "motorInsulationClass", "motorDutyType",
+      "motorThermalProtection", "motorEncoder", "motorPowerKw", "motorRpm",
+      "motorShaftMm", "motorCount",
+    ],
     rows: [
       {
         key: "gearbox.outputTorque", label: "Redüktör Çıkış Torku", formula: "M_ç = M_t · 1000",
@@ -802,7 +812,10 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     title: "Fren",
     equipmentSlugs: ["brake"],
     inputKeys: ["brakeServiceFactor"],
-    selectionKeys: ["brakeBrand", "brakeModel", "brakeTorqueNm", "brakeWheelDiaMm", "brakeQty"],
+    selectionKeys: [
+      "brakeBrand", "brakeModel", "brakeTorqueNm", "brakeWheelDiaMm", "brakeQty",
+      "brakeOptions",
+    ],
     rows: [
       {
         key: "motor.shaftTorque", label: "Fren Miline Gelen Tork", formula: "M_f = M_m / adet",
@@ -829,7 +842,10 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     title: "Motor — Redüktör Kaplini",
     equipmentSlugs: ["motorCoupling"],
     inputKeys: ["motorCouplingServiceFactor"],
-    selectionKeys: ["motorCouplingBrand", "motorCouplingModel", "motorCouplingWheelDiaMm", "motorCouplingTorqueNm", "motorCouplingDmaxMm"],
+    selectionKeys: [
+      "motorCouplingBrand", "motorCouplingModel", "motorCouplingWheelDiaMm",
+      "motorCouplingTorqueNm", "motorCouplingDmaxMm", "motorCouplingSealType",
+    ],
     rows: [
       {
         key: "motorCoupling.requiredTorque", label: "Gerekli Kaplin Kapasitesi",
@@ -855,7 +871,11 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     title: "Tambur Kaplini",
     equipmentSlugs: ["drumCoupling"],
     inputKeys: ["drumCouplingServiceFactor"],
-    selectionKeys: ["drumCouplingBrand", "drumCouplingModel", "drumCouplingTorqueNm", "drumCouplingRadialN", "drumCouplingDmaxMm"],
+    selectionKeys: [
+      "drumCouplingBrand", "drumCouplingModel", "drumCouplingTorqueNm",
+      "drumCouplingRadialN", "drumCouplingDmaxMm", "drumCouplingSealType",
+      "drumCouplingWearDetection",
+    ],
     rows: [
       {
         key: "drumCoupling.requiredTorque", label: "Gerekli Kaplin Kapasitesi",

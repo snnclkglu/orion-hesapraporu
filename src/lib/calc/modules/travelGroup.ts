@@ -297,6 +297,12 @@ export interface TravelSelections {
   motorEfficiencyClass?: string;
   /** Enkoder: "Yok" | "Var" */
   motorEncoder?: string;
+  /** IEC 60034-1 sargı yalıtım sınıfı (B/F/H) — ORION standardı F */
+  motorInsulationClass?: string;
+  /** IEC 60034-1 çalışma sınıfı (S1…S10) — ORION standardı S1 */
+  motorDutyType?: string;
+  /** Sargı sıcaklık koruması: "PTC" | "3PTC" | "PT100" | "Yok" */
+  motorThermalProtection?: string;
   motorPowerKw: number;
   motorRpm: number;
   motorCount: number;
@@ -308,12 +314,16 @@ export interface TravelSelections {
   gearboxShaftDirection?: string;
   /** Redüktör montaj pozisyonu (M1…M6) — sipariş/rapor için */
   gearboxMountingPosition?: string;
+  /** Redüktörün sipariş opsiyonları (çoklu, virgülle ayrık). "Yok" = donanımsız. */
+  gearboxOptions?: string;
   gearboxRatio: number;
   gearboxOutputTorqueKnm: number;
   gearboxInputShaftText: string;
   /** Redüktör giriş mili çapı [mm]; yeni katalog seçimlerinde doğrudan dolar. */
   gearboxInputShaftMm?: number;
   gearboxOutputShaftMm: number;
+  /** Frenin sipariş opsiyonları (çoklu, virgülle ayrık: "İçten Yaylı, Elle Açma Kolu") */
+  brakeOptions?: string;
   brakeBrand: string;           // yürütme freni (sadece köprü)
   brakeTorqueNm: number;
   brakeWheelDiaMm: number;
@@ -324,11 +334,15 @@ export interface TravelSelections {
   motorCouplingModel: string;
   motorCouplingTorqueNm: number;
   motorCouplingDmaxMm: number;
+  /** Kaplin keçe tipi: "Standart O-Ring" | "Keçeli" (standart olan listeye yazılmaz) */
+  motorCouplingSealType?: string;
   wheelShaftDiaMm: number;      // kapline bağlanan teker mili çapı [mm]
   wheelCouplingBrand: string;
   wheelCouplingModel: string;
   wheelCouplingTorqueNm: number;
   wheelCouplingDmaxMm: number;
+  /** Kaplin keçe tipi: "Standart O-Ring" | "Keçeli" (standart olan listeye yazılmaz) */
+  wheelCouplingSealType?: string;
   // --- Feston (kablo taşıyıcı) sistemi -------------------------------------
   // Katalogdan (kind = "festoon") gelir. Kablo formu da SEÇİMLE gelir: aynı
   // seri yassı ve yuvarlak kabloda farklı araba kodu ve farklı taşıyıcı yükü

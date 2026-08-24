@@ -32,6 +32,15 @@ import type { ModuleKey } from "@/lib/calc/presentation/module-family";
  * "tepki yapıya aktarılmaz") bir yargı değil, bir nottur.
  */
 const BAND_DISI_SONEKLER = new Set([
+  // EŞLEŞME kontrolleri: iki SEÇİLMİŞ değerin aynı olup olmadığını sorarlar,
+  // hesaplanan bir büyüklüğü bir sınıra karşı tartmazlar. `op: "range"`
+  // taşırlar ama alt ve üst sınırları AYNIDIR, yani şeritte "250 ≤ 250 ≤ 250"
+  // diye görünürler — bir yargı değil, bir totoloji. Kararın kendisi zaten
+  // kutunun yanındaki uyarı satırındadır.
+  //   · brake.wheelModel — fren kasnağı = seçilen fren modelinin kasnağı
+  //   · motorCoupling.brakeWheelMatch — kaplin kasnağı = fren kasnağı
+  "brake.wheelModel",
+  "motorCoupling.brakeWheelMatch",
   "measurements.confirmed",
   "loads.measurements.confirmed",
   "gearbox.selected",

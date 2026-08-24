@@ -17,14 +17,23 @@ import {
   GEARBOX_OUTPUT_FEATURES,
   GEARBOX_OUTPUT_FEATURE_LABELS,
   GEARBOX_MOUNTING_POSITIONS,
-  GEARBOX_SHAFT_DIRECTIONS,
-  GEARBOX_SHAFT_DIRECTION_LABELS,
   MOTOR_MOUNT_INFO_TEXT,
   MOTOR_MOUNT_TYPES,
   MOTOR_MOUNT_TYPE_LABELS,
   MOTOR_BRAKE_OPTIONS,
   MOTOR_EFFICIENCY_CLASSES,
   MOTOR_ENCODER_OPTIONS,
+  MOTOR_INSULATION_CLASSES,
+  MOTOR_INSULATION_CLASS_LABELS,
+  MOTOR_DUTY_TYPES,
+  MOTOR_DUTY_TYPE_LABELS,
+  MOTOR_THERMAL_PROTECTIONS,
+  MOTOR_THERMAL_PROTECTION_LABELS,
+  BRAKE_OPTIONS,
+  BRAKE_OPTIONS_HINT,
+  GEARBOX_OPTIONS,
+  GEARBOX_OPTIONS_HINT,
+  COUPLING_SEAL_TYPES,
   BEARING_BRANDS,
   BEARING_BRAND_HINT,
   type FieldDef,
@@ -344,6 +353,26 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
     options: MOTOR_ENCODER_OPTIONS as unknown as string[],
     hint: "Motorda enkoder var mı.",
   },
+  {
+    key: "motorInsulationClass", label: "Yalıtım Sınıfı", type: "select",
+    options: MOTOR_INSULATION_CLASSES as unknown as string[],
+    optionLabels: MOTOR_INSULATION_CLASS_LABELS,
+    standardRef: "IEC 60034-1 Yalıtım Sınıfı",
+    hint: "Sargı yalıtımının sürekli dayandığı en yüksek sıcaklık. ORION standardı F (155 °C).",
+  },
+  {
+    key: "motorDutyType", label: "Çalışma Sınıfı", type: "select",
+    options: MOTOR_DUTY_TYPES as unknown as string[],
+    optionLabels: MOTOR_DUTY_TYPE_LABELS,
+    standardRef: "IEC 60034-1 Çalışma Sınıfı",
+    hint: "Yük/dinlenme rejimi (S1…S10) — motorun termal boyutlandırmasını belirler. Standart S1.",
+  },
+  {
+    key: "motorThermalProtection", label: "Sargı Koruma (PTC/PT100)", type: "select",
+    options: MOTOR_THERMAL_PROTECTIONS as unknown as string[],
+    optionLabels: MOTOR_THERMAL_PROTECTION_LABELS,
+    hint: "PTC eşik anahtarıdır, PT100 sıcaklığı ölçer. Siparişte ayrıca istenir; standart Yok.",
+  },
   { key: "gearboxModel", label: "Seçilen Dişli Kutusu", type: "text" },
   {
     key: "gearboxOutputFeature", label: "Redüktör Özelliği (Çıkış)", type: "select",
@@ -352,17 +381,15 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
     hint: "Sipariş kodunun son parçası (ör. DT472.03). Delik milli, flanşlı vb.",
   },
   {
-    key: "gearboxShaftDirection", label: "Redüktör Mil Yönleri", type: "select",
-    options: GEARBOX_SHAFT_DIRECTIONS as unknown as string[],
-    optionLabels: GEARBOX_SHAFT_DIRECTION_LABELS,
-    standardRef: "Redüktör Mil Yönleri",
-    hint: "R sağ · L sol · U üst · V alt. Sonek 1: tek giriş mili, 2: çift giriş mili.",
-  },
-  {
     key: "gearboxMountingPosition", label: "Redüktör Montaj Pozisyonu", type: "select",
     options: GEARBOX_MOUNTING_POSITIONS as unknown as string[],
     standardRef: "Redüktör Montaj Pozisyonları",
     hint: "Redüktörün montaj konumu (YILMAZ D serisi M1…M6). Sipariş için raporda görünür.",
+  },
+  {
+    key: "gearboxOptions", label: "Redüktör Opsiyonları", type: "multiselect",
+    options: GEARBOX_OPTIONS as unknown as string[],
+    hint: GEARBOX_OPTIONS_HINT,
   },
   {
     key: "gearboxRatio", label: "Tahvil Oranı", type: "number",
@@ -387,16 +414,31 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   { key: "gearboxOutputShaftMm", label: "Çıkış Mil Çapı", unit: "mm", type: "number", diameter: true },
   { key: "brakeBrand", label: "Seçilen Fren", type: "text" },                            // sadece köprü
   { key: "brakeTorqueNm", label: "Fren Torku", unit: "Nm", type: "number" },              // sadece köprü
+  {
+    key: "brakeOptions", label: "Fren Opsiyonları", type: "multiselect",                  // sadece köprü
+    options: BRAKE_OPTIONS as unknown as string[],
+    hint: BRAKE_OPTIONS_HINT,
+  },
   { key: "brakeWheelDiaMm", label: "Fren Kasnak / Disk Çapı", unit: "mm", type: "number", diameter: true }, // sadece köprü
   { key: "motorCouplingBrand", label: "Motor Kaplini Markası", type: "text" },
   { key: "motorCouplingModel", label: "Seçilen Motor Kaplini", type: "text" },
   { key: "motorCouplingTorqueNm", label: "Motor Kaplini Tork Kapasitesi", unit: "Nm", type: "number" },
   { key: "motorCouplingDmaxMm", label: "Motor Kaplini Azami Mil Çapı", unit: "mm", type: "number", diameter: true },
+  {
+    key: "motorCouplingSealType", label: "Keçe Tipi", type: "select",
+    options: COUPLING_SEAL_TYPES as unknown as string[],
+    hint: "Standart O-Ring ekipman listesine yazılmaz; Keçeli ayrıca belirtilir.",
+  },
   { key: "wheelShaftDiaMm", label: "Teker Mili Çapı (Kaplin)", unit: "mm", type: "number", diameter: true },
   { key: "wheelCouplingBrand", label: "Teker Kaplini Markası", type: "text" },
   { key: "wheelCouplingModel", label: "Seçilen Teker Kaplini", type: "text" },
   { key: "wheelCouplingTorqueNm", label: "Teker Kaplini Tork Kapasitesi", unit: "Nm", type: "number" },
   { key: "wheelCouplingDmaxMm", label: "Teker Kaplini Azami Mil Çapı", unit: "mm", type: "number", diameter: true },
+  {
+    key: "wheelCouplingSealType", label: "Keçe Tipi", type: "select",
+    options: COUPLING_SEAL_TYPES as unknown as string[],
+    hint: "Standart O-Ring ekipman listesine yazılmaz; Keçeli ayrıca belirtilir.",
+  },
   { key: "bufferModel", label: "Seçilen Tampon", type: "text" },
   {
     // Kauçuk tampon gövde malzemesi kalitesi (Conductix). Yalnız KAUÇUK

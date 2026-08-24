@@ -33,6 +33,10 @@ import {
   type HookBlockKey,
   type ModuleKey,
 } from "@/lib/calc/presentation/module-family";
+import {
+  COUPLING_SEAL_TYPE_STANDARD,
+  COUPLING_WEAR_DETECTION_STANDARD,
+} from "@/lib/calc/fields";
 import { splitAltKey, type RevisionAlts } from "@/lib/revision-load";
 import { HOIST_SECTIONS } from "@/lib/calc/presentation/hoistSections";
 import { HOOKBLOCK_SECTIONS } from "@/lib/calc/presentation/hookBlockSections";
@@ -125,11 +129,68 @@ const textOr = (s: string | null | undefined, fallback = "-"): string =>
  * DT472.03). Özellik seçilmemişse yalın model döner (eski kayıt uyumu).
  */
 const gearboxOrderCode = (model: unknown, feature: unknown): string => {
-  const m = typeof model === "string" ? model.trim() : "";
+  const m = gearboxIdentity(model).model;
   const f = typeof feature === "string" ? feature.trim() : "";
   if (!m) return "-";
   return f ? `${m}.${f}` : m;
 };
+
+/**
+ * REDÜKTÖRÜN MARKASI MODEL ALANININ İÇİNDEDİR.
+ *
+ * Katalog eşlemesi redüktörü tek bir birleşik alandan okur
+ * (`from: "brand_model"` → "Yılmaz Redüktör HT0823"), çünkü marka adında
+ * boşluk olan ürünlerde metni ikiye bölmek sessizce yanlış eşleme üretir
+ * (bkz. `catalogIdentityFields`). Ekipman listesinin MARKA sütunu bu yüzden
+ * boş kalıyordu (kullanıcı bildirimi, 24.08.2026).
+ *
+ * Ayrıştırma TAHMİNLE YAPILMAZ: metin yalnız BİLİNEN marka adlarıyla
+ * karşılaştırılır ve en uzun eşleşme kazanır ("Yılmaz Redüktör", "Yılmaz"dan
+ * önce gelmelidir). Tanınmayan bir önek varsa metin OLDUĞU GİBİ modele
+ * bırakılır ve marka boş kalır — yanlış bir marka basmaktansa boş bırakmak
+ * doğrudur (md. 4).
+ */
+const GEARBOX_BRANDS: readonly string[] = [
+  "Yılmaz Redüktör",
+  "FLENDER",
+  "SEW-EURODRIVE",
+  "POLAT (PGR)",
+  "Siemens",
+];
+
+/**
+ * ESKİ KAYITLARDAKİ KISA YAZIMLAR kataloğun kendi marka adına çevrilir.
+ * Ekipman listesinin marka sütunu satın almaya ve katalog sayfası defterine
+ * gider; oralarda marka `cat_equipment.brand` ile BİREBİR eşleşmelidir.
+ */
+const GEARBOX_BRAND_ALIASES: Record<string, string> = {
+  YILMAZ: "Yılmaz Redüktör",
+  "YILMAZ REDÜKTÖR": "Yılmaz Redüktör",
+  POLAT: "POLAT (PGR)",
+  "SEW EURODRIVE": "SEW-EURODRIVE",
+  SEW: "SEW-EURODRIVE",
+};
+
+/** Aranacak önekler: gerçek markalar + eski yazımlar, uzundan kısaya. */
+const GEARBOX_BRAND_PREFIXES = [
+  ...GEARBOX_BRANDS,
+  ...Object.keys(GEARBOX_BRAND_ALIASES),
+].sort((a, b) => b.length - a.length);
+
+export function gearboxIdentity(combined: unknown): { brand: string; model: string } {
+  const text = typeof combined === "string" ? combined.trim() : "";
+  if (!text) return { brand: "", model: "" };
+  const upper = text.toLocaleUpperCase("tr-TR");
+  for (const prefix of GEARBOX_BRAND_PREFIXES) {
+    const p = prefix.toLocaleUpperCase("tr-TR");
+    const brand = GEARBOX_BRAND_ALIASES[p] ?? prefix;
+    if (upper === p) return { brand, model: "" };
+    if (upper.startsWith(`${p} `)) {
+      return { brand, model: text.slice(prefix.length).trim() };
+    }
+  }
+  return { brand: "", model: text };
+}
 
 /** Montaj pozisyonu ve mil yönü varsa spec'e ek metin, yoksa boş. */
 const gearboxMountingNote = (pos: unknown, dir?: unknown): string => {
@@ -143,6 +204,29 @@ const gearboxMountingNote = (pos: unknown, dir?: unknown): string => {
  * kendinden frenli, verim sınıfı, enkoder. Yalnız GİRİLMİŞ olanlar yazılır —
  * boş alan uydurma değer üretmez (md. 4).
  */
+/**
+ * Redüktörün sipariş opsiyonları (çoklu seçim) spec metnine eklenir. "Yok"
+ * bir donanım değildir ve satırda yer kaplamaz.
+ */
+const gearboxOptionsNote = (options: unknown): string => {
+  const t = typeof options === "string" ? options.trim() : "";
+  if (!t || t === "Yok") return "";
+  return `, ${t}`;
+};
+
+/**
+ * SESSİZ VARSAYILAN: bir seçim STANDART olduğunda ekipman satırına yazılmaz.
+ *
+ * Kaplin keçe tipi ve tambur kaplini aşınma algılaması böyledir (kullanıcı
+ * kararı, 24.08.2026): standart değer zaten her siparişte geçerlidir, satıra
+ * yazmak listeyi hiçbir şey söylemeyen tekrarlarla doldurur. Yalnız standart
+ * DIŞINDAKİ seçim görünür — çünkü onu ayrıca sipariş etmek gerekir.
+ */
+const nonDefaultNote = (value: unknown, standard: string): string => {
+  const t = typeof value === "string" ? value.trim() : "";
+  return t && t !== standard ? `, ${t}` : "";
+};
+
 /** Rulman spec'ine tip önekini ekler ("222XX Küresel Makaralı · "). */
 const bearingTypePrefix = (type: unknown): string => {
   const t = typeof type === "string" ? type.trim() : "";
@@ -152,14 +236,34 @@ const bearingTypePrefix = (type: unknown): string => {
 const motorAttributesNote = (sel: {
   motorMountType?: unknown; motorBrakeType?: unknown;
   motorEfficiencyClass?: unknown; motorEncoder?: unknown;
+  motorInsulationClass?: unknown; motorDutyType?: unknown;
+  motorThermalProtection?: unknown;
 }): string => {
   const parts: string[] = [];
   const t = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   if (t(sel.motorMountType)) parts.push(t(sel.motorMountType));
   if (t(sel.motorBrakeType) === "Kendinden Frenli") parts.push("kendinden frenli");
   if (t(sel.motorEfficiencyClass)) parts.push(t(sel.motorEfficiencyClass));
+  // Yalıtım ve çalışma sınıfı SİPARİŞ BİLGİSİDİR: satıcı motoru bu ikisi
+  // olmadan teklif edemez. Sınıf harfi tek başına okunmaz ("F" neyin F'i
+  // olduğu belli değildir), önekle basılır.
+  if (t(sel.motorInsulationClass)) parts.push(`${t(sel.motorInsulationClass)} yalıtım`);
+  if (t(sel.motorDutyType)) parts.push(t(sel.motorDutyType));
+  // "Yok" bir donanım değildir; satırda yer kaplamaz.
+  const ptc = t(sel.motorThermalProtection);
+  if (ptc && ptc !== "Yok") parts.push(ptc);
   if (t(sel.motorEncoder) === "Var") parts.push("enkoderli");
   return parts.length ? `, ${parts.join(", ")}` : "";
+};
+
+/**
+ * Frenin sipariş opsiyonları (çoklu seçim) ekipman satırının teknik özellik
+ * metnine eklenir: fren ancak bu donanımla birlikte sipariş edilebilir.
+ * Hiçbiri seçilmemişse satır kısalır — boş bir "opsiyon:" eki yazılmaz.
+ */
+const brakeOptionsNote = (options: unknown): string => {
+  const t = typeof options === "string" ? options.trim() : "";
+  return t ? `, ${t}` : "";
 };
 
 const THIN_BORDER: Partial<ExcelJS.Borders> = {
@@ -438,9 +542,11 @@ function hoistRows(
       rowKey: rk("gearbox"),
       kind: "gearbox",
       component: "Redüktör",
-      brand: "-",
+      // Marka model alanının içindedir ("Yılmaz Redüktör HT0823"); sütun
+      // ayrıştırılmadığı için boş kalıyordu (bkz. `gearboxIdentity`).
+      brand: textOr(gearboxIdentity(sel.gearboxModel).brand),
       model: gearboxOrderCode(sel.gearboxModel, sel.gearboxOutputFeature),
-      spec: `i = ${fmt(sel.gearboxRatio, 2)}, nominal tork ${fmt(sel.gearboxNominalTorqueKnm, 1)} kNm, giriş mili Ø${fmt(sel.gearboxInputShaftMm)} / çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition, sel.gearboxShaftDirection)}`,
+      spec: `i = ${fmt(sel.gearboxRatio, 2)}, nominal tork ${fmt(sel.gearboxNominalTorqueKnm, 1)} kNm, giriş mili Ø${fmt(sel.gearboxInputShaftMm)} / çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition, sel.gearboxShaftDirection)}${gearboxOptionsNote(sel.gearboxOptions)}`,
       // Çift tamburun ikisini de ortadaki TEK redüktör taşır.
       qty: 1,
     },
@@ -459,7 +565,7 @@ function hoistRows(
       component: "Fren",
       brand: textOr(sel.brakeBrand),
       model: textOr(sel.brakeModel),
-      spec: `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm`,
+      spec: `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm${brakeOptionsNote(sel.brakeOptions)}`,
       qty: sel.brakeQty,
     },
     {
@@ -477,7 +583,7 @@ function hoistRows(
       component: "Tambur kaplini",
       brand: textOr(sel.drumCouplingBrand),
       model: textOr(sel.drumCouplingModel),
-      spec: `tork ${fmt(sel.drumCouplingTorqueNm)} Nm, radyal yük ${fmt(sel.drumCouplingRadialN)} N, Dmaks Ø${fmt(sel.drumCouplingDmaxMm)} mm`,
+      spec: `tork ${fmt(sel.drumCouplingTorqueNm)} Nm, radyal yük ${fmt(sel.drumCouplingRadialN)} N, Dmaks Ø${fmt(sel.drumCouplingDmaxMm)} mm${nonDefaultNote(sel.drumCouplingSealType, COUPLING_SEAL_TYPE_STANDARD)}${nonDefaultNote(sel.drumCouplingWearDetection, COUPLING_WEAR_DETECTION_STANDARD)}`,
       qty: doubleDrum ? 2 : 1,
     },
     ...balanceRows(moduleKey, inp, sel, specs),
@@ -529,9 +635,13 @@ function travelRows(
       rowKey: rk("gearbox"),
       kind: "gearbox",
       component: "Redüktör",
-      brand: "-",
+      // Marka model alanının içindedir ("Yılmaz Redüktör HT0823"); sütun
+      // ayrıştırılmadığı için boş kalıyordu (bkz. `gearboxIdentity`).
+      brand: textOr(gearboxIdentity(sel.gearboxModel).brand),
       model: gearboxOrderCode(sel.gearboxModel, sel.gearboxOutputFeature),
-      spec: `i = ${fmt(sel.gearboxRatio, 2)}, çıkış torku ${fmt(sel.gearboxOutputTorqueKnm, 2)} kNm, çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition, sel.gearboxShaftDirection)}`,
+      // YÜRÜTMEDE MİL YÖNÜ SORULMAZ (kullanıcı kararı, 24.08.2026): kutu
+      // kaldırıldı, spec de onu basmaz.
+      spec: `i = ${fmt(sel.gearboxRatio, 2)}, çıkış torku ${fmt(sel.gearboxOutputTorqueKnm, 2)} kNm, çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition)}${gearboxOptionsNote(sel.gearboxOptions)}`,
       qty: sel.motorCount,
     },
   ];
@@ -549,7 +659,7 @@ function travelRows(
       catalogModel: sel.brakeBrand,
       spec:
         sel.brakeTorqueNm > 0
-          ? `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm`
+          ? `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm${brakeOptionsNote(sel.brakeOptions)}`
           : "Seçim yapılmadı",
       qty: sel.brakeTorqueNm > 0 ? sel.motorCount : "-",
     });
@@ -562,7 +672,7 @@ function travelRows(
       component: "Motor kaplini",
       brand: textOr(sel.motorCouplingBrand),
       model: textOr(sel.motorCouplingModel),
-      spec: `tork ${fmt(sel.motorCouplingTorqueNm)} Nm, Dmaks Ø${fmt(sel.motorCouplingDmaxMm)} mm`,
+      spec: `tork ${fmt(sel.motorCouplingTorqueNm)} Nm, Dmaks Ø${fmt(sel.motorCouplingDmaxMm)} mm${nonDefaultNote(sel.motorCouplingSealType, COUPLING_SEAL_TYPE_STANDARD)}`,
       qty: sel.motorCount,
     },
     {
@@ -571,7 +681,7 @@ function travelRows(
       component: "Teker kaplini",
       brand: textOr(sel.wheelCouplingBrand),
       model: textOr(sel.wheelCouplingModel),
-      spec: `tork ${fmt(sel.wheelCouplingTorqueNm)} Nm, teker mili Ø${fmt(sel.wheelShaftDiaMm)} mm, Dmaks Ø${fmt(sel.wheelCouplingDmaxMm)} mm`,
+      spec: `tork ${fmt(sel.wheelCouplingTorqueNm)} Nm, teker mili Ø${fmt(sel.wheelShaftDiaMm)} mm, Dmaks Ø${fmt(sel.wheelCouplingDmaxMm)} mm${nonDefaultNote(sel.wheelCouplingSealType, COUPLING_SEAL_TYPE_STANDARD)}`,
       qty: sel.motorCount,
     },
     {

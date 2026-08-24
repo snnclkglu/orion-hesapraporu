@@ -2057,6 +2057,72 @@ const MANUF_REFS: Record<string, StandardRef> = {
     ],
   },
 
+  "IEC 60034-1 Yalıtım Sınıfı": {
+    code: "IEC 60034-1",
+    title: "Sargı yalıtım sınıfı (B / F / H)",
+    source: "IEC 60034-1 — Dönen elektrik makineleri: anma değerleri ve çalışma özellikleri",
+    clause: "Termal sınıflar",
+    summary:
+      "Yalıtım sınıfı, motor sargı yalıtımının SÜREKLİ dayanabileceği en " +
+      "yüksek sıcaklığı belirtir. Sınıf bir dayanım sınırıdır, bir çalışma " +
+      "sıcaklığı değildir: motor normalde sınıfının altında ısınır ve aradaki " +
+      "fark ömür payıdır.",
+    tables: [
+      {
+        headers: ["Sınıf", "Maks. sargı sıcaklığı"],
+        rows: [
+          ["B", "130 °C"],
+          ["F", "155 °C"],
+          ["H", "180 °C"],
+        ],
+        footnote: "ORION standardı F sınıfıdır.",
+      },
+    ],
+    notes: [
+      "Yaygın uygulama F yalıtım / B sıcaklık artışıdır: sargı F'e göre " +
+        "yalıtılır ama B sınırında çalıştırılır; aradaki 25 K, sıcak ortamda " +
+        "ve ağır rejimde harcanan ömür payıdır.",
+      "Ortam sıcaklığı üst sınırı 40 °C'yi aşıyorsa motorun anma gücü " +
+        "düşürülür (derating) — yalıtım sınıfını yükseltmek bunun yerine geçmez.",
+    ],
+  },
+
+  "IEC 60034-1 Çalışma Sınıfı": {
+    code: "IEC 60034-1",
+    title: "Çalışma sınıfları — duty types (S1…S10)",
+    source: "IEC 60034-1 — Dönen elektrik makineleri: anma değerleri ve çalışma özellikleri",
+    clause: "Çalışma biçimleri (duty types)",
+    summary:
+      "Çalışma sınıfı motorun yük/dinlenme rejimini tanımlar ve TERMAL " +
+      "BOYUTLANDIRMAYI belirler. Katalog etiket değeri S1'dir; vinç " +
+      "tahriklerinin gerçek rejimi çoğu kez S3/S4'tür ve o seçildiğinde " +
+      "siparişte açıkça belirtilmelidir.",
+    tables: [
+      {
+        headers: ["Tip", "Açıklama"],
+        rows: [
+          ["S1", "Sürekli çalışma — termal denge kurulana kadar sabit yük. Pompa, fan, konveyör. Standart etiket değeri."],
+          ["S2", "Kısa süreli çalışma — belirli süre yük, sonra tam soğuma (ör. S2 30 dk). Baraj kapağı, kriko."],
+          ["S3", "Kesintili periyodik — yük/duruş çevrimi, kalkış akımı ihmal edilebilir. Devrede kalma oranı %'yle verilir (ör. S3 %40). Asansör, pres."],
+          ["S4", "S3 + kalkışın termal etkisi önemli (sık start). Vinç, kaldırma."],
+          ["S5", "S4 + elektriksel frenleme içerir."],
+          ["S6", "Kesintili sürekli — duruş yok, yüksüz (rölanti) çalışma var. Takım tezgâhı."],
+          ["S7", "S6 + frenlemeli, boşta çalışma yok."],
+          ["S8", "Değişken yük ve devirli periyodik çalışma."],
+          ["S9", "Yük ve devir periyodik olmayan şekilde değişir."],
+          ["S10", "Ayrık sabit yük/devir kademeleri, her kademede farklı termal durum."],
+        ],
+        footnote: "ORION standardı S1'dir; rejim farklıysa kutu değiştirilir.",
+      },
+    ],
+    notes: [
+      "Vinç kaldırma ve yürütme mekanizmalarının fiziksel rejimi S4'tür " +
+        "(sık kalkış, kalkış ısısı belirleyici). Motor S1 etiketiyle sipariş " +
+        "edilse de mekanizmanın FEM sınıfı (M/T) hesabın termal payını zaten " +
+        "taşır; iki sınıflandırma birbirinin yerine geçmez.",
+    ],
+  },
+
   "Redüktör Montaj Pozisyonları": {
     code: "Redüktör Montaj Pozisyonları",
     title: "Redüktör montaj pozisyonları (M1…M6)",

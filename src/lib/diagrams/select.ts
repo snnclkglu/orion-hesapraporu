@@ -483,12 +483,14 @@ export function diagramForSection(
     // Redüktör mil yönleri şeması — kaldırma 2.3 / yürütme 5.5. Yalnız mil
     // yönü seçiliyken çizilir (üst görünüş; çıkış özelliği + yön koduna göre).
     if (
-      (isHoistKey(moduleKey as ModuleKey) && rawSectionId === "2.3") ||
-      (isTravelKey(moduleKey as ModuleKey) && rawSectionId === "5.5")
+      // ŞEMA YALNIZ KALDIRMA REDÜKTÖRÜNDEDİR. Yürütmede mil yönü kutusu
+      // kaldırıldı (kullanıcı kararı, 24.08.2026): yürütme redüktörü teker
+      // miline sabit bir düzende oturur, yön bir sipariş sorusu değildir.
+      // Kutusu olmayan bir alanın şemasını çizmek, eski kayıtlarda kalmış bir
+      // değeri düzenlenemez bir resim olarak basmak olurdu.
+      isHoistKey(moduleKey as ModuleKey) && rawSectionId === "2.3"
     ) {
-      const st = isHoistKey(moduleKey as ModuleKey)
-        ? input[HOIST_FIELD[moduleKey as HoistKey]]
-        : input[moduleKey as TravelKey];
+      const st = input[HOIST_FIELD[moduleKey as HoistKey]];
       const sel = st?.selections as
         | {
             gearboxOutputFeature?: string;
