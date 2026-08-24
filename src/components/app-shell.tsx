@@ -541,14 +541,23 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
             <button
               type="button"
               onClick={() => setOpen(true)}
-              // 40px dokunma hedefi (eskiden 28px). Telefonda ve 768px tablet
-              // portrede gezinmenin TEK yolu bu düğme; negatif marj ile optik
-              // hizası korunurken tıklama alanı şeridin tamamına yayılır.
-              className="-ml-2 rounded-md p-2.5 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+              // MOBİL MARKA DÜĞMESİ. Telefonda ve 768px tablet portrede
+              // gezinmenin tek yolu olduğu için nötr bir hamburger gibi değil,
+              // Orion kırmızısı yüzey + beyaz marka sembolü olarak görünür.
+              // Görsel kutu 40px, `.oc-tap-square` kaba işaretleyicide hedefi
+              // görünmez biçimde 44px'e tamamlar; üst şeridin ritmi büyümez.
+              className="oc-tap-square -ml-2 inline-flex size-10 items-center justify-center bg-sidebar-primary text-sidebar-primary-foreground shadow-sm transition-colors hover:bg-sidebar-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:hidden"
               aria-label="Menüyü aç"
               aria-expanded={open}
             >
-              <BrandIcon name="menu" className="size-5" />
+              {/* Düğme adı erişilebilir etikettedir; sembol dekoratiftir. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand/orion-symbol-white.svg"
+                alt=""
+                aria-hidden="true"
+                className="h-5 w-auto"
+              />
             </button>
             {/* Daralt/genişlet — yalnız masaüstünde anlamlı */}
             <button

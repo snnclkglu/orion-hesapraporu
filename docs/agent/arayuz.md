@@ -294,3 +294,16 @@ Bu kural gerçek matrisleri, dönem eksenli karşılaştırmaları, grafikleri v
 teknik çizimleri kapsamaz. Bunlar genişlik bilgisini kaybedemez; kendi
 `oc-scrollx` kabında ve görünür kenar ipucuyla kayar. Sayfanın kendisi hiçbir
 koşulda yatay kaymaz.
+
+## MOBIL-20 — MOBİL MENÜ AÇICI BİR MARKA DÜĞMESİDİR.
+
+Kullanıcı kararı (24.08.2026): dar ekranda uygulamanın ana gezinmesini açan
+üst-sol düğme nötr hamburger değildir; **Orion kırmızısı** yüzey üzerinde
+**beyaz Orion sembolü** taşır. Renk elle HEX yazılmaz, koyu temada mercana
+açılmayan menü marka değişkenleri `bg-sidebar-primary` ve
+`text-sidebar-primary-foreground` üzerinden okunur. Sembol mevcut vektör
+varlıktan (`/brand/orion-symbol-white.svg`) gelir; yeniden çizilmez.
+
+Görsel kutu 40 × 40 px ve köşelidir; `.oc-tap-square` kaba işaretleyicide
+dokunma hedefini 44 × 44 px'e tamamlar. Sembol dekoratiftir (`alt=""` /
+`aria-hidden`), düğmenin erişilebilir adı hâlâ eylemi söyler: “Menüyü aç”.
