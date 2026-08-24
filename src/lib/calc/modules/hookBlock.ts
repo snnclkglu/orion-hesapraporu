@@ -263,6 +263,14 @@ export interface HookBlockInputs {
   hookDesignationAuto?: boolean;
   /** Makara adedi donanımdan (toplam halat sayısı / 2) otomatik türetilsin mi? */
   sheaveCountAuto?: boolean;
+  /**
+   * Rulman markası kutuları ORTAK markaya bağlı mı (bkz. `bearing-brand.ts`).
+   * Açıkken kutu, otomatik olan bütün rulman kutularıyla aynı markayı
+   * gösterir; kapatılınca o kutu bağdan çıkar ve kendi markasını tutar.
+   */
+  sheaveBearingBrandAuto?: boolean;
+  /** Kanca rulmanı markası ortak markaya bağlı mı (bkz. `sheaveBearingBrandAuto`). */
+  hookBearingBrandAuto?: boolean;
 }
 
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */
@@ -310,6 +318,8 @@ export interface HookBlockSelections {
   sheaveBearingBoreMm?: number;
   /** Mil malzemesi */
   shaftMaterial: HookShaftMaterial;
+  /** Kabul edilen kanca rulmanı markaları (çoklu, virgülle ayrık) */
+  hookBearingBrand?: string;
   hookBearingType: string;
   hookBearingCode: string;
   /** Kanca rulmanı statik yük katsayısı C0 [kN] */

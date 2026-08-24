@@ -2,7 +2,9 @@
 // key'ler motor tiplerinin (HookBlockInputs, HookBlockSelections) alan
 // adlarıyla birebir aynıdır.
 
-import { DRUM_DIA_SERIES_MM, BEARING_BRANDS, type FieldDef } from "../fields";
+import {
+  BEARING_BRANDS, BEARING_BRAND_HINT, DRUM_DIA_SERIES_MM, type FieldDef,
+} from "../fields";
 import {
   HOOK_NUMBERS,
   HOOK_STRENGTH_CLASSES,
@@ -180,7 +182,7 @@ export const HOOKBLOCK_SELECTION_FIELDS: FieldDef<HookBlockSelections>[] = [
   {
     key: "sheaveBearingBrand", label: "Makara Rulmanı Markası", type: "multiselect",
     options: BEARING_BRANDS as unknown as string[],
-    hint: "Kabul edilen marka(lar) — bir veya daha fazla (SKF/FAG/TIMKEN/DİĞER).",
+    hint: BEARING_BRAND_HINT,
   },
   { key: "sheaveBearingType", label: "Makara Rulmanı Tipi", type: "text" },
   { key: "sheaveBearingCode", label: "Makara Rulmanı Kodu", type: "text" },
@@ -188,6 +190,14 @@ export const HOOKBLOCK_SELECTION_FIELDS: FieldDef<HookBlockSelections>[] = [
   { key: "sheaveBearingStatC0Kn", label: "Makara Rulmanı Statik Yük C0", unit: "kN", type: "number" },
   { key: "sheaveBearingBoreMm", label: "Makara Rulmanı İç Çapı", unit: "mm", type: "number", diameter: true, hint: "Mil çapı D1 ile eşleşmelidir." },
   { key: "shaftMaterial", label: "Mil Malzemesi", type: "select", options: HOOK_SHAFT_MATERIALS },
+  {
+    // Kanca rulmanı kutusu marka SORMUYORDU (kullanıcı bildirimi, 24.08.2026):
+    // ekipman listesi bu yüzden marka sütununa rulman TİPİNİ basıyordu. Kutu
+    // öteki dört rulman kutusuyla aynı ortak markaya bağlıdır.
+    key: "hookBearingBrand", label: "Kanca Rulmanı Markası", type: "multiselect",
+    options: BEARING_BRANDS as unknown as string[],
+    hint: BEARING_BRAND_HINT,
+  },
   { key: "hookBearingType", label: "Kanca Rulmanı Tipi", type: "text" },
   { key: "hookBearingCode", label: "Kanca Rulmanı Kodu", type: "text" },
   { key: "hookBearingStatC0Kn", label: "Kanca Rulmanı Statik Yük C0", unit: "kN", type: "number" },

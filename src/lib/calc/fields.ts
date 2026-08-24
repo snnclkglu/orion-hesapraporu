@@ -89,6 +89,12 @@ export interface FieldDef<T> {
   hint?: string;
   /** Etiket yanındaki bilgi düğmesinde açılan ayrıntılı tasarım notu. */
   info?: string;
+  /**
+   * Bilgi açılırında METNİN ÜSTÜNE çizilecek ŞEMA. Değer bir çizim adıdır;
+   * çizimin kendisi sunum katmanındadır (`components/field-guides.tsx`) —
+   * alan tanımları SAF kalır, JSX içermez. Seçili değer şemada vurgulanır.
+   */
+  infoGuide?: "motorMount";
   /** Teknik özellikteki seçimlere bağlı olarak alanı göster/gizle. */
   visible?: (specs: TechnicalSpecs) => boolean;
   /**
@@ -353,10 +359,80 @@ export const MOTOR_MOUNT_TYPE_LABELS: Record<string, string> = {
   B35: "B35 — Ayaklı + Büyük Flanşlı",
   B34: "B34 — Ayaklı + Yüz Flanşlı",
 };
+
+/**
+ * Motor bağlantı biçiminin IEC 60034-7 SAYISAL kodu (IM ....). Sipariş
+ * yazışmasında üretici çoğu kez harfli kısaltmayı değil bu kodu ister; iki
+ * gösterim aynı montaj biçiminin iki adıdır.
+ */
+export const MOTOR_MOUNT_TYPE_IM_CODES: Record<string, string> = {
+  B3: "IM 1001",
+  B5: "IM 3001",
+  B14: "IM 3601",
+  B35: "IM 2001",
+  B34: "IM 2101",
+};
+
+/**
+ * Montaj biçimlerinin şematik bilgi açılırındaki açıklamaları (IEC 60034-7 /
+ * IEC 60072-1). Sunum katmanı şemayı bu sözlükle birlikte çizer — metin ve
+ * çizim tek kaynaktan gelir.
+ *
+ * FLANŞ AYRIMI KRİTİKTİR: FF flanşın delikleri DÜZ geçme deliğidir, cıvata
+ * motor tarafından geçirilir ve karşı gövdeye diş açılır; FT flanşın delikleri
+ * DİŞLİDİR, cıvata karşı makine tarafından motorun flanşına vidalanır. Aynı
+ * gövde boyunda FT flanşın çapı FF'ten küçüktür — biri diğerinin yerine
+ * sipariş edilemez.
+ */
+export const MOTOR_MOUNT_TYPE_INFO: Record<string, string> = {
+  B3:
+    "Yalnız AYAK. Motor dört ayağından şaseye cıvatalanır; flanşı yoktur. " +
+    "Mil yatay, ayaklar altta. Tahrik kaplinle aktarılır ve eksen ayarı " +
+    "montajda yapılır.",
+  B5:
+    "Yalnız BÜYÜK FLANŞ (FF). Ayak yoktur; motorun bütün ağırlığını mil " +
+    "tarafındaki flanş taşır. Flanş delikleri DÜZ geçme deliğidir — cıvata " +
+    "motor tarafından geçirilir. Redüktör/pompa gövdesine doğrudan bağlanır, " +
+    "merkezleme çapı eksen ayarını kendiliğinden verir.",
+  B14:
+    "Yalnız YÜZ FLANŞI (FT). Ayak yoktur; flanş B5'e göre KÜÇÜK ÇAPLIDIR ve " +
+    "delikleri DİŞLİDİR — cıvata karşı makineden motora vidalanır. Küçük " +
+    "güçlerde ve dar hacimli redüktör bağlantılarında kullanılır.",
+  B35:
+    "AYAK + BÜYÜK FLANŞ (B3 + B5). Ağır motorlarda tercih edilir: yük hem " +
+    "flanştan hem ayaklardan taşınır, gerekirse yalnız biri kullanılır. " +
+    "Vinç tahriklerinde en yaygın biçim budur.",
+  B34:
+    "AYAK + YÜZ FLANŞI (B3 + B14). B35'in küçük dişli delikli flanşlı " +
+    "karşılığıdır; motor ayaklarına oturur, flanş ikinci bağlantı yüzeyidir.",
+};
+
+/**
+ * Bağlantı biçimi bilgi açılırının metni — şemanın altında görünür. Kaldırma
+ * ve yürütme alan tanımları AYNI metni kullanır (iki yerde ayrı yazılmış bir
+ * açıklama, birinde güncellenip ötekinde eskimenin en kısa yoludur).
+ */
+export const MOTOR_MOUNT_INFO_TEXT =
+  "IEC 60034-7 montaj biçimi. Harfli kısaltmanın yanındaki IM kodu aynı " +
+  "biçimin sayısal adıdır; üretici siparişte çoğu kez onu ister.\n\n" +
+  "FF (B5/B35) flanşın delikleri DÜZ geçme deliğidir: cıvata motor tarafından " +
+  "geçirilir. FT (B14/B34) flanşın delikleri DİŞLİDİR: cıvata karşı makineden " +
+  "motorun flanşına vidalanır ve flanş çapı aynı gövde boyunda daha küçüktür. " +
+  "İki flanş birbirinin yerine sipariş edilemez.\n\n" +
+  "Vinç tahriklerinde en yaygın biçim B35'tir (ayak + büyük flanş): yük hem " +
+  "flanştan hem ayaklardan taşınır.";
+
 /** Motor kendinden frenli mi (fren motoru). Sipariş/rapor için. */
 export const MOTOR_BRAKE_OPTIONS = ["Frensiz", "Kendinden Frenli"] as const;
-/** IEC verim sınıfı. */
-export const MOTOR_EFFICIENCY_CLASSES = ["IE1", "IE2", "IE3", "IE4"] as const;
+/**
+ * IEC verim sınıfı. Tek sınıfların yanında İKİ SINIFLI seçenekler de vardır:
+ * bazı üreticiler aynı gövdeyi iki sınıf arasında bir bantta beyan eder ve
+ * sipariş/teklif metni de öyle yazılır ("IE2/IE3"). Kullanıcı kararı
+ * (24.08.2026). Sıra artan verimdedir; ara seçenek iki komşusunun arasındadır.
+ */
+export const MOTOR_EFFICIENCY_CLASSES = [
+  "IE1", "IE2", "IE2/IE3", "IE3", "IE3/IE4", "IE4",
+] as const;
 /** Encoder (enkoder) var mı. */
 export const MOTOR_ENCODER_OPTIONS = ["Yok", "Var"] as const;
 
@@ -366,6 +442,17 @@ export const MOTOR_ENCODER_OPTIONS = ["Yok", "Var"] as const;
  * (ör. "SKF, FAG"). "DİĞER" serbest marka için işarettir.
  */
 export const BEARING_BRANDS = ["SKF", "FAG", "TIMKEN", "DİĞER"] as const;
+
+/**
+ * Rulman markası kutularının ORTAK ipucu. Kutular birbirine bağlıdır
+ * (bkz. `bearing-brand.ts`): otomatiği açık olanlar aynı markayı gösterir,
+ * biri kapatılırsa yalnız o kutu ayrışır. Metin tek yerdedir — beş kutuda
+ * ayrı yazılmış bir açıklama, birinde güncellenip dördünde eskir.
+ */
+export const BEARING_BRAND_HINT =
+  "Kabul edilen marka(lar) — bir veya daha fazla (SKF/FAG/TIMKEN/DİĞER). " +
+  "OTOMATİK açıkken bütün rulman kutuları aynı markayı gösterir; " +
+  "anahtarı kapatılan kutu kendi markasını tutar.";
 
 /** Halat soketi tipi (Van Beest Green Pin). Model halat çapından otomatik. */
 export const BALANCE_SOCKET_TYPES = ["Normal", "Uzun"] as const;
@@ -1038,7 +1125,7 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   {
     key: "bearingBrand", label: "Rulman Markası", type: "multiselect",
     options: BEARING_BRANDS as unknown as string[],
-    hint: "Kabul edilen marka(lar) — bir veya daha fazla seçilebilir (SKF/FAG/TIMKEN/DİĞER).",
+    hint: BEARING_BRAND_HINT,
   },
   { key: "bearingType", label: "Rulman Tipi", type: "text" },
   { key: "bearingCode", label: "Rulman Kodu", type: "text" },
@@ -1096,13 +1183,25 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   {
     key: "balanceBearingBrand", label: "Denge Rulmanı Markası", type: "multiselect",
     options: BEARING_BRANDS as unknown as string[],
-    hint: "Bir veya daha fazla (SKF/FAG/TIMKEN/DİĞER). NA/NNF tipi rulman.",
+    hint: `NA/NNF tipi rulman. ${BEARING_BRAND_HINT}`,
   },
   { key: "balanceBearingType", label: "Denge Rulmanı Tipi", type: "text", hint: "NA veya NNF tipi." },
   { key: "balanceBearingCode", label: "Denge Rulmanı Kodu", type: "text" },
   { key: "balanceBearingDynCKn", label: "Denge Rulmanı Dinamik Yük C", unit: "kN", type: "number" },
   { key: "balanceBearingStatC0Kn", label: "Denge Rulmanı Statik Yük C0", unit: "kN", type: "number" },
-  { key: "balanceSheaveDiaMm", label: "Denge Makarası Çapı", unit: "mm", type: "number", diameter: true, hint: "Yalnız denge makaralı düzende." },
+  {
+    // Denge makarası da KANCA MAKARASIYLA aynı standart seriden seçilir
+    // (`DRUM_DIA_SERIES_MM` — tambur ve kanca makarası zaten oradan gelir):
+    // atölyede üçüncü bir çap dünyası açmak, aynı imalata üç ayrı kalıp
+    // demektir. Liste bir ÖNERİDİR; ara bir çap "Elle Gir…" ile yazılabilir.
+    key: "balanceSheaveDiaMm", label: "Denge Makarası Çapı", unit: "mm",
+    type: "select", options: DRUM_DIA_SERIES_MM, numeric: true,
+    diameter: true, allowCustom: true,
+    standardRef: "FEM 1.001 T.4.2.3.1.1",
+    hint:
+      "Yalnız denge makaralı düzende. Seri, tambur ve kanca makarasıyla " +
+      "aynıdır; FEM'in istediği D_min dengeleme makarası katsayısından gelir.",
+  },
   {
     key: "motorPowerKw", label: "Motor Gücü", unit: "kW", type: "select",
     options: HOIST_MOTOR_POWERS.options, optionLabels: HOIST_MOTOR_POWERS.optionLabels,
@@ -1127,6 +1226,8 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
     key: "motorMountType", label: "Motor Bağlantı Biçimi", type: "select",
     options: MOTOR_MOUNT_TYPES as unknown as string[], optionLabels: MOTOR_MOUNT_TYPE_LABELS,
     hint: "IEC montaj biçimi (B5 büyük flanşlı, B14 yüz flanşlı). Sipariş için gerekli.",
+    infoGuide: "motorMount",
+    info: MOTOR_MOUNT_INFO_TEXT,
   },
   {
     key: "motorBrakeType", label: "Motor Freni", type: "select",
@@ -1136,7 +1237,7 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   {
     key: "motorEfficiencyClass", label: "Verim Sınıfı", type: "select",
     options: MOTOR_EFFICIENCY_CLASSES as unknown as string[],
-    hint: "IEC verim sınıfı (IE1…IE4).",
+    hint: "IEC verim sınıfı (IE1…IE4). İki sınıflı beyanlar için IE2/IE3 ve IE3/IE4 de seçilebilir.",
   },
   {
     key: "motorEncoder", label: "Enkoder", type: "select",

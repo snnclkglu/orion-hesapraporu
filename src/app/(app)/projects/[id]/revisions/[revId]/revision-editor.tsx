@@ -34,6 +34,11 @@ import { drumBrakeSpec, drumBrakeWeightText } from "@/lib/calc/drum-brake";
 import { travelBufferCatalogTypes, travelSpecView } from "@/lib/calc/modules/travelGroup";
 import { parseHoistLoadClass } from "@/lib/calc/types";
 import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
+import {
+  applyBearingBrand,
+  bearingBrandFieldOf,
+  bearingBrandFields,
+} from "@/lib/calc/bearing-brand";
 import { FIELD_GROUPS, FIELD_GROUP_ORDER } from "@/lib/calc/field-groups";
 import {
   ctxFor as buildCtx,
@@ -111,6 +116,7 @@ import { CatalogSheetButton } from "@/components/catalog-sheet-dialog";
 import { SectionDiagram } from "@/components/diagrams/section-diagram";
 import { diagramsForSection } from "@/lib/diagrams/select";
 import { FestoonSchematic } from "@/components/festoon-schematic";
+import { FieldGuide } from "@/components/field-guides";
 import {
   BufferArrangementSchematic,
   BufferCalculationGuide,
@@ -234,6 +240,16 @@ interface AutoFieldState {
    * `danger` kutuyu KIRMIZI basar — mavi bir kutu "tamam" derdi.
    */
   tone?: "danger";
+  /**
+   * OTOMATİK ALANI KİLİTLEMEZ.
+   *
+   * Çoğu otomatik alan TÜRETİLİR: değeri hesap koyar, kutu salt-okunurdur.
+   * Rulman markası öyle değildir — anahtar orada "türetildi" değil BAĞLI
+   * demektir (bkz. `calc/bearing-brand.ts`): kutu açık kalırken de seçilir,
+   * seçim bağdaki bütün kutulara yayılır. Kilitlenseydi kullanıcı markayı
+   * ancak bağı bozarak seçebilirdi.
+   */
+  linked?: true;
 }
 
 /**
@@ -280,7 +296,7 @@ function Field({
 }) {
   const v = (value as Record<string, unknown>)[def.key];
   const id = `f-${def.key}`;
-  const locked = disabled || auto?.on === true;
+  const locked = disabled || (auto?.on === true && auto.linked !== true);
   // Sayı alanı güvenliği: yazım sırasındaki ham metin lokalde tutulur; state'e
   // yalnız GEÇERLİ sayı yazılır (boş/geçersiz girdi sessizce 0 OLMAZ — hesap son
   // geçerli değerle koşar, alan hata gösterir). TR ondalık virgül desteklenir.
@@ -332,7 +348,7 @@ function Field({
               </>
             ) : null}
           </span>
-          {def.info && (
+          {(def.info || def.infoGuide) && (
             <Popover>
               <PopoverTrigger asChild>
                 <button
@@ -348,9 +364,15 @@ function Field({
                 <div className="mb-2 text-xs font-semibold text-foreground">
                   {fieldLabel(def, specs)} · Bilgi Notu
                 </div>
-                <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
-                  {def.info}
-                </p>
+                {/* ŞEMA METNİN ÜSTÜNDEDİR: bağlantı biçimi gibi kutularda
+                    cevabı veren şey çizimdir, metin onu tamamlar. Seçili
+                    değer şemada vurgulanır. */}
+                {def.infoGuide && <FieldGuide guide={def.infoGuide} value={v} />}
+                {def.info && (
+                  <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+                    {def.info}
+                  </p>
+                )}
               </PopoverContent>
             </Popover>
           )}
@@ -366,7 +388,11 @@ function Field({
               if (!auto.fixed) auto.onToggle(!auto.on);
             }}
             title={
-              auto.fixed
+              auto.linked
+                ? auto.on
+                  ? "Bütün rulman kutuları aynı markayı gösteriyor — bu kutuyu ayırmak için kapatın"
+                  : "Bu kutuyu ortak markaya bağla (kutudaki marka varsa hepsine yayılır)"
+                : auto.fixed
                 ? "Halat donanımı seçiminden otomatik doldurulur"
                 : auto.on && auto.tone === "danger"
                 ? "Değer gereken orana EŞİTLENMİŞ durumda — seçim bekliyor. Katalogdan seçin ya da anahtarı kapatıp elle girin."
@@ -1660,12 +1686,115 @@ export function RevisionEditor({
       // (bkz. `reArmGearboxRatioAuto`). Kural kararı SAF tarafta durur;
       // burası yalnız uygular.
       const inputs = reArmGearboxRatioAuto(key, prior, selections, m[key].inputs);
-      return writeModule(
+      const written = writeModule(
         m,
         key,
         inputs ? { selections, inputs } : { selections }
       );
+      // OTOMATİK BİR RULMAN MARKASI KUTUSU DEĞİŞTİYSE HEPSİ DEĞİŞİR.
+      // Marka bölüm bölüm verilen bir karar değildir (bkz.
+      // `calc/bearing-brand.ts`); yayılım bölüm sınırını aştığı için
+      // modülün kendi türetmesinde yapılamaz, tek yazma yolu burasıdır.
+      const brand = changedBearingBrand(key, prior, selections, written[key].inputs);
+      if (brand === undefined) return written;
+      const spread = applyBearingBrand(written, brand);
+      // Bağdaki başka kutu yoksa yayılım hiçbir şey değiştirmez; boşuna bir
+      // türetme turu açmayalım.
+      return spread === written ? written : withDerivedModules(spread, specs);
     });
+  }
+
+  /**
+   * Bu yazımda OTOMATİK bir rulman markası kutusu değiştiyse yeni ortak
+   * markayı döndürür (yoksa `undefined`).
+   *
+   * Anahtarı KAPALI kutunun değişimi yayılmaz — kutu bağdan çıkmıştır ve
+   * kendi markasını tutar; onu yaymak, kullanıcının ayırdığı kutuyu
+   * ötekilere zorlamak olurdu.
+   */
+  function changedBearingBrand(
+    key: ModuleKey,
+    prior: object,
+    next: object,
+    inputs: object
+  ): string | undefined {
+    const before = prior as Record<string, unknown>;
+    const after = next as Record<string, unknown>;
+    const flags = inputs as Record<string, unknown>;
+    for (const f of bearingBrandFields(key)) {
+      if (flags[f.flag] !== true) continue;
+      const value = after[f.selection];
+      if (value === before[f.selection]) continue;
+      return typeof value === "string" ? value : "";
+    }
+    return undefined;
+  }
+
+  /**
+   * Bir rulman markası kutusunun OTOMATİK anahtarı.
+   *
+   * Açmak kutuyu ortak markaya bağlar: kutunun kendi markası doluysa ORTAK
+   * MARKA O OLUR ve öteki otomatik kutulara yayılır ("seçip otomatiğe
+   * bastığımda hepsi aynı olsun"), boşsa kutu bağdaki markayı devralır.
+   * Kapatmak yalnız o kutuyu bağdan çıkarır; değeri olduğu gibi kalır.
+   */
+  function bearingBrandAutoState(
+    key: ModuleKey,
+    fieldKey: string,
+    inputs: object,
+    selections: object
+  ): AutoFieldState | undefined {
+    const field = bearingBrandFieldOf(key, fieldKey);
+    if (!field) return undefined;
+    const on = (inputs as Record<string, unknown>)[field.flag] === true;
+    return {
+      on,
+      linked: true,
+      onToggle: (nextOn) =>
+        setMods((m) => {
+          const armed: ModulesState = {
+            ...m,
+            [key]: {
+              ...m[key],
+              inputs: { ...(m[key].inputs as object), [field.flag]: nextOn },
+            },
+          };
+          if (!nextOn) return armed;
+          const own = (selections as Record<string, unknown>)[field.selection];
+          const brand = typeof own === "string" && own.trim() !== ""
+            ? own
+            : sharedBearingBrand(armed, key);
+          if (brand === undefined) return armed;
+          const withOwn: ModulesState = {
+            ...armed,
+            [key]: {
+              ...armed[key],
+              selections: { ...(armed[key].selections as object), [field.selection]: brand },
+            },
+          };
+          return withDerivedModules(applyBearingBrand(withOwn, brand), specs);
+        }),
+    };
+  }
+
+  /**
+   * Bağdaki ORTAK marka: anahtarı açık kutulardan ilk DOLU olanın markası.
+   * Hiçbiri dolu değilse bağ boştur ve yazılacak bir şey yoktur.
+   */
+  function sharedBearingBrand(m: ModulesState, skip: ModuleKey): string | undefined {
+    for (const k of MODULE_ORDER) {
+      if (k === skip) continue;
+      const st = m[k];
+      if (!st) continue;
+      const inputs = st.inputs as Record<string, unknown>;
+      const selections = st.selections as Record<string, unknown>;
+      for (const f of bearingBrandFields(k)) {
+        if (inputs[f.flag] !== true) continue;
+        const v = selections[f.selection];
+        if (typeof v === "string" && v.trim() !== "") return v;
+      }
+    }
+    return undefined;
   }
 
   /**
@@ -2247,6 +2376,11 @@ export function RevisionEditor({
 
     /** Katalog seçimi ızgarasındaki alanın otomatik anahtarı (yiv boyu). */
     function autoSelectionStateFor(fieldKey: string): AutoFieldState | undefined {
+      // Rulman markası anahtarı BÖLÜM SINIRINI AŞAR: açılınca yalnız bu
+      // kutuyu değil bağdaki bütün kutuları yazar (bkz. `bearing-brand.ts`),
+      // bu yüzden ortak `autoStateFrom` yolunu kullanmaz.
+      const brand = bearingBrandAutoState(key, fieldKey, inputs, sel);
+      if (brand) return brand;
       const state = autoStateFrom(autoSelectionFlag(key, fieldKey), fieldKey);
       if (!state) return undefined;
       // Redüktör tahvil oranı açıkken BEKLEYEN BİR KARARDIR, tamamlanmış bir

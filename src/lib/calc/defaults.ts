@@ -447,6 +447,11 @@ const NEW_WORK_HOIST_INPUTS: HoistInputs = {
   // Otomatik türetmenin bu şablon için verdiği değer — şablon kendi içinde
   // tutarlı olsun (editör açılmadan üretilen PDF/Excel de aynı sayıyı görsün).
   drumWeightKg: 460,
+  // Rulman markası kutuları ORTAK markaya bağlı açılır (bkz.
+  // `calc/bearing-brand.ts`): mühendis markayı bir kez seçer, bütün rulman
+  // kutuları onu gösterir. Bir kutunun anahtarı kapatılarak ayrıştırılabilir.
+  bearingBrandAuto: true,
+  balanceBearingBrandAuto: true,
 };
 
 const NEW_WORK_HOIST_SELECTIONS: HoistSelections = {
@@ -480,6 +485,11 @@ const NEW_WORK_AUX_HOIST_INPUTS: HoistInputs = {
   drumCouplingServiceFactor: 1.5,
   drumCouplingServiceFactorAuto: true,
   drumWeightKg: 270,
+  // Rulman markası kutuları ORTAK markaya bağlı açılır (bkz.
+  // `calc/bearing-brand.ts`): mühendis markayı bir kez seçer, bütün rulman
+  // kutuları onu gösterir. Bir kutunun anahtarı kapatılarak ayrıştırılabilir.
+  bearingBrandAuto: true,
+  balanceBearingBrandAuto: true,
 };
 
 const NEW_WORK_AUX_HOIST_SELECTIONS: HoistSelections = {
@@ -499,6 +509,11 @@ const NEW_WORK_HOOKBLOCK_INPUTS = {
   ...V5_HOOKBLOCK_INPUTS,
   shaftSupportOffsetMm: 125,
   shaftSheaveOffsetsText: "75",
+  // Rulman markası kutuları ORTAK markaya bağlı açılır (bkz.
+  // `calc/bearing-brand.ts`): mühendis markayı bir kez seçer, bütün rulman
+  // kutuları onu gösterir. Bir kutunun anahtarı kapatılarak ayrıştırılabilir.
+  sheaveBearingBrandAuto: true,
+  hookBearingBrandAuto: true,
 };
 
 const NEW_WORK_HOOKBLOCK_SELECTIONS = {
@@ -540,6 +555,10 @@ const NEW_WORK_TROLLEY_INPUTS = {
   // TAHVİL ORANI SEÇİM BEKLİYOR: kutu gereken orana eşitlenir, kırmızı basar
   // ve 5.5 bölümü redüktör seçilene kadar UYGUN DEĞİLDİR (`gearboxRatioAuto`).
   gearboxRatioAuto: true,
+  // Rulman markası kutuları ORTAK markaya bağlı açılır (bkz.
+  // `calc/bearing-brand.ts`): mühendis markayı bir kez seçer, bütün rulman
+  // kutuları onu gösterir. Bir kutunun anahtarı kapatılarak ayrıştırılabilir.
+  bearingBrandAuto: true,
 };
 
 const NEW_WORK_BRIDGE_INPUTS = {
@@ -555,6 +574,10 @@ const NEW_WORK_BRIDGE_INPUTS = {
   accelerationMs2: 0.15,
   accelerationAuto: true,
   gearboxRatioAuto: true,
+  // Rulman markası kutuları ORTAK markaya bağlı açılır (bkz.
+  // `calc/bearing-brand.ts`): mühendis markayı bir kez seçer, bütün rulman
+  // kutuları onu gösterir. Bir kutunun anahtarı kapatılarak ayrıştırılabilir.
+  bearingBrandAuto: true,
 };
 
 /**

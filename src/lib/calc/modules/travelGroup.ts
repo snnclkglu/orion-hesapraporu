@@ -252,6 +252,13 @@ export interface TravelInputs {
   festoonCablePackageWeightKg?: number;
   /** İzin verilen azami sarkma (loop) yüksekliği [m] — şemada gösterilir. */
   festoonLoopHeightM?: number;
+
+  /**
+   * Rulman markası kutusu ORTAK markaya bağlı mı (bkz. `bearing-brand.ts`).
+   * Açıkken kutu, otomatik olan bütün rulman kutularıyla aynı markayı
+   * gösterir; kapatılınca o kutu bağdan çıkar ve kendi markasını tutar.
+   */
+  bearingBrandAuto?: boolean;
 }
 
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */

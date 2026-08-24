@@ -192,6 +192,8 @@ export interface AnyFieldDef {
   hint?: string;
   /** Etiket yanındaki bilgi düğmesinde açılan ayrıntılı tasarım notu. */
   info?: string;
+  /** Bilgi açılırında metnin üstüne çizilecek şema (bkz. `FieldDef.infoGuide`). */
+  infoGuide?: "motorMount";
   /**
    * Alan bir ÇAP büyüklüğüdür: değer "Ø" işaretiyle gösterilir (arayüz + PDF).
    * Bayrağı sunum katmanı (fields.ts / *Fields.ts) koyar; burada yalnız okunur.

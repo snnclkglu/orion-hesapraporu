@@ -715,6 +715,14 @@ export interface HoistInputs {
    * borunun ağırlığı × 1,3 (bkz. `derive.ts` → `deriveDrumWeightKg`).
    */
   drumWeightAuto?: boolean;
+  /**
+   * Rulman markası kutuları ORTAK markaya bağlı mı (bkz. `bearing-brand.ts`).
+   * Açıkken kutu, otomatik olan bütün rulman kutularıyla aynı markayı
+   * gösterir; kapatılınca o kutu bağdan çıkar ve kendi markasını tutar.
+   */
+  bearingBrandAuto?: boolean;
+  /** Denge rulmanı markası ortak markaya bağlı mı (bkz. `bearingBrandAuto`). */
+  balanceBearingBrandAuto?: boolean;
 }
 
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */

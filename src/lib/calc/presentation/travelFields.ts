@@ -19,12 +19,14 @@ import {
   GEARBOX_MOUNTING_POSITIONS,
   GEARBOX_SHAFT_DIRECTIONS,
   GEARBOX_SHAFT_DIRECTION_LABELS,
+  MOTOR_MOUNT_INFO_TEXT,
   MOTOR_MOUNT_TYPES,
   MOTOR_MOUNT_TYPE_LABELS,
   MOTOR_BRAKE_OPTIONS,
   MOTOR_EFFICIENCY_CLASSES,
   MOTOR_ENCODER_OPTIONS,
   BEARING_BRANDS,
+  BEARING_BRAND_HINT,
   type FieldDef,
 } from "../fields";
 import { TRAVEL_NO, TRAVEL_YES } from "../modules/travelGroup";
@@ -290,7 +292,7 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   {
     key: "bearingBrand", label: "Rulman Markası", type: "multiselect",
     options: BEARING_BRANDS as unknown as string[],
-    hint: "Kabul edilen marka(lar) — bir veya daha fazla (SKF/FAG/TIMKEN/DİĞER).",
+    hint: BEARING_BRAND_HINT,
   },
   { key: "bearingType", label: "Rulman Tipi", type: "text" },
   { key: "bearingCode", label: "Rulman Kodu", type: "text" },
@@ -324,6 +326,8 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
     key: "motorMountType", label: "Motor Bağlantı Biçimi", type: "select",
     options: MOTOR_MOUNT_TYPES as unknown as string[], optionLabels: MOTOR_MOUNT_TYPE_LABELS,
     hint: "IEC montaj biçimi (B5 büyük flanşlı, B14 yüz flanşlı). Sipariş için gerekli.",
+    infoGuide: "motorMount",
+    info: MOTOR_MOUNT_INFO_TEXT,
   },
   {
     key: "motorBrakeType", label: "Motor Freni", type: "select",
@@ -333,7 +337,7 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   {
     key: "motorEfficiencyClass", label: "Verim Sınıfı", type: "select",
     options: MOTOR_EFFICIENCY_CLASSES as unknown as string[],
-    hint: "IEC verim sınıfı (IE1…IE4).",
+    hint: "IEC verim sınıfı (IE1…IE4). İki sınıflı beyanlar için IE2/IE3 ve IE3/IE4 de seçilebilir.",
   },
   {
     key: "motorEncoder", label: "Enkoder", type: "select",

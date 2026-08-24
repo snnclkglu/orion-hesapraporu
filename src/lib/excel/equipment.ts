@@ -742,9 +742,12 @@ function hookBlockRows(
           rowKey: rk("hookBearing"),
           kind: "bearing",
           component: "Kanca (eksenel) rulmanı",
-          brand: textOr(sel.hookBearingType),
+          // MARKA SÜTUNU MARKAYI BASAR: kutu marka sormadığı sürece buraya
+          // rulman TİPİ yazılıyordu ("Eksenel Bilyalı Rulman" bir marka
+          // değildir). Tip artık teknik özellik metnindedir.
+          brand: textOr(sel.hookBearingBrand),
           model: textOr(sel.hookBearingCode),
-          spec: `C0 = ${fmt(sel.hookBearingStatC0Kn, 1)} kN`,
+          spec: `${bearingTypePrefix(sel.hookBearingType)}C0 = ${fmt(sel.hookBearingStatC0Kn, 1)} kN`,
           qty: blockQuantity,
         }]),
     {

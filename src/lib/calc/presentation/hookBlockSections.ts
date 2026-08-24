@@ -515,7 +515,9 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
     description: "Eksenel rulman statik kontrolü.",
     equipmentSlugs: ["hookBearing"],
     inputKeys: [],
-    selectionKeys: ["hookBearingType", "hookBearingCode", "hookBearingStatC0Kn"],
+    selectionKeys: [
+      "hookBearingBrand", "hookBearingType", "hookBearingCode", "hookBearingStatC0Kn",
+    ],
     rows: [
       {
         key: "hookBearing.axialLoad", label: "Rulman Eksenel Yükü",

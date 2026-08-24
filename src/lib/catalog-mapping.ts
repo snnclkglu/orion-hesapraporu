@@ -887,6 +887,20 @@ const DRUM_COUPLING_TYPES: string[] = ["drum", "barrel"];
  */
 const MOTOR_COUPLING_TYPES: string[] = ["gear", "flexible", "pin", "disc", "brake"];
 
+/**
+ * Halat dengeleme rulmanı eşlemesi — denge traversi (2.9) ve denge makarası
+ * (2.10) bölümlerinde ORTAKTIR.
+ */
+const BALANCE_BEARING_MAP: SectionCatalogMapping = {
+  kind: "bearing",
+  fields: [
+    { sel: "balanceBearingType", from: { attr: "type" } },
+    { sel: "balanceBearingCode", from: "model" },
+    { sel: "balanceBearingDynCKn", from: { attr: "dynamic_load_kn" } },
+    { sel: "balanceBearingStatC0Kn", from: { attr: "static_load_kn" } },
+  ],
+};
+
 /** Kaldırma grupları (ana 2.x / yrd 3.x — rawId 2.x) */
 const HOIST_MAP: Record<string, SectionCatalogMapping> = {
   // 2.1 Halat
@@ -988,6 +1002,17 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "motorCouplingDmaxMm", from: { attr: "max_shaft_dia_mm" } },
     ],
   },
+  // 2.9 / 2.10 Halat dengeleme rulmanı — denge TRAVERSİ ve denge MAKARASI
+  // aynı rulmanı taşır (NA/NNF), yalnız bölümün geri kalanı ayrışır; iki
+  // bölüm bu yüzden AYNI eşlemeyi kullanır. Rulman buraya kadar ELLE
+  // giriliyordu, oysa öteki dört rulman bölümü katalogtan seçiliyordu
+  // (kullanıcı bildirimi, 24.08.2026).
+  //
+  // İÇ ÇAP EŞLEMESİ YOKTUR: denge elemanının mil çapı bu bölümde sorulmaz,
+  // dolayısıyla yazılacak bir kutu da yoktur — `applyCatalogPick` eşlemesi
+  // olmayan alanı zaten atlar.
+  "2.9": BALANCE_BEARING_MAP,
+  "2.10": BALANCE_BEARING_MAP,
   // 2.7 Tambur kaplini
   "2.7": {
     kind: "coupling",

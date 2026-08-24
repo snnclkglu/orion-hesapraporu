@@ -416,6 +416,14 @@ const AUTO_FLAGS = [
   "hookTopPositionAuto",
   "bridgeAxleSpacingAuto",
   "wheelContactTAuto",
+  // Rulman markası bağı YENİDİR (bkz. `calc/bearing-brand.ts`): eski
+  // revizyonlarda anahtar yoktur ve o kayıtlarda her kutunun markası ELLE
+  // seçilmiştir. Şablondan `true` miras kalırsa yayınlanmış bir raporun
+  // markaları ilk açılışta birbirine eşitlenirdi.
+  "bearingBrandAuto",
+  "balanceBearingBrandAuto",
+  "sheaveBearingBrandAuto",
+  "hookBearingBrandAuto",
 ] as const;
 
 function keepManualValues<T extends object>(stored: T | null | undefined, merged: T): T {

@@ -1066,3 +1066,51 @@ Koruma ölçümü `/dev/projects-preview`, `/dev/project-preview`,
 yapılır. Editör için yalnız ilk ekran yeterli değildir: 52 adımın tamamında
 `document.scrollWidth === document.clientWidth` ve kart kabında iç taşma
 olmadığı doğrulanır.
+
+## HESAP-29 — Rulman markası bir bölümün değil VİNCİN kararıdır; sipariş kutuları şemayla anlatılır.
+
+Kullanıcı kararı (24.08.2026).
+
+**RULMAN MARKASI KUTULARI BİRBİRİNE BAĞLIDIR.** Atölye hangi markaları kabul
+ediyorsa tambur, denge, makara, kanca ve teker rulmanlarının hepsi onları
+kullanır; marka bölüm bölüm verilen bir karar değildir. Bağın tanımı
+`calc/bearing-brand.ts`tedir (SAF): hangi seçim alanının hangi `*BrandAuto`
+anahtarına bağlı olduğu ve yayılımın kuralı orada durur, state'i editör yazar.
+
+- Anahtarı AÇIK bir kutuda marka değişirse yayılım anahtarı açık BÜTÜN kutulara
+  gider — **başlatan bölüm dahil**: kaldırma grubunda iki kutu vardır (tambur +
+  denge) ve başlatan bölümü atlamak ikincisini bağın dışında bırakırdı.
+- Anahtarı KAPATILAN kutu bağdan çıkar ve kendi markasını tutar; yayılım ona
+  dokunmaz.
+- Anahtar yeniden AÇILIRSA kutudaki marka doluysa **ortak marka o olur** ve
+  hepsine yayılır; boşsa kutu bağdaki markayı devralır.
+- Anahtar burada "türetildi" DEĞİL **bağlı** demektir: kutu açıkken de
+  seçilebilir (`AutoFieldState.linked`). Kilitlenseydi marka ancak bağ
+  bozularak seçilebilirdi.
+- Anahtarlar `revision-load.ts`teki `AUTO_FLAGS` listesindedir: eski
+  revizyonlarda anahtar yoktur, markalar ELLE seçilmiştir ve yayınlanmış bir
+  rapor ilk açılışta kendi kendini eşitleyemez.
+
+Kanca (eksenel) rulmanının marka kutusu YOKTU; ekipman listesi bu yüzden marka
+sütununa rulman TİPİNİ basıyordu ("Eksenel Bilyalı Rulman" bir marka değildir).
+Kutu eklendi, tip teknik özellik metnine taşındı.
+
+**HALAT DENGELEME BÖLÜMÜ ÖTEKİ RULMAN BÖLÜMLERİYLE AYNI YOLU KULLANIR.** Denge
+rulmanı elle giriliyordu; artık katalogtan seçilir (`2.9` traversi ve `2.10`
+makarası AYNI eşlemeyi paylaşır — iki bölüm de aynı NA/NNF rulmanı taşır).
+Denge makarası çapı da serbest sayı değil, tambur ve kanca makarasıyla **aynı
+standart seriden** açılır listedir (`DRUM_DIA_SERIES_MM`, `allowCustom`); atölyede
+üçüncü bir çap dünyası açmak aynı imalata üçüncü bir kalıp demektir.
+
+**SİPARİŞ KUTULARI ŞEMA TAŞIYABİLİR.** Motor bağlantı biçiminde B5 ile B14'ün
+farkı flanşın çapı ve deliklerinin dişli olup olmadığıdır — yanlışını sipariş
+etmek motoru redüktöre takılamaz hâle getirir. Alan tanımı `infoGuide` taşır;
+bilgi açılırı metnin üstüne biçimin şemasını çizer ve seçili biçimi vurgular
+(`components/field-guides.tsx`). Kodlar, IM karşılıkları (IEC 60034-7) ve
+açıklamalar `fields.ts`teki sözlüklerden okunur — **alan tanımları saf kalır,
+JSX içermez**. Şemada içi boş daire geçme deliği (FF), dolu daire dişli deliktir
+(FT); büyük flanş ayak düzlemine kadar iner, zemini delmez.
+
+Verim sınıfı listesi tek sınıflarla sınırlı değildir: bazı üreticiler gövdeyi
+iki sınıf arasında bir bantta beyan eder ve sipariş metni de öyle yazılır, bu
+yüzden **IE2/IE3** ve **IE3/IE4** de seçilebilir.
