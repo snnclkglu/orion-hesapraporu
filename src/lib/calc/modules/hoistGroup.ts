@@ -421,13 +421,19 @@ export function drumGrooveRequirement(
   return { grooves, lengthMm: grooves * pitchMm, pitchMm };
 }
 
-/** Halatın üstte nasıl dengelendiği; yeni işlerde denge traversi esastır. */
-export const ROPE_BALANCING_TYPES = ["equalizerBeam", "equalizerSheave"] as const;
+/**
+ * Halatın üstte nasıl dengelendiği; yeni işlerde denge traversi esastır.
+ * "none" (Yok): üstte denge elemanı YOKTUR. Halat sipariş matematiğinde denge
+ * traversi gibi ele alınır (ayrı sağ/sol helis); farkı SUNUMDADIR — denge
+ * ekipmanı bölümü (soket/loadcell/rulman veya makara) hiç açılmaz.
+ */
+export const ROPE_BALANCING_TYPES = ["equalizerBeam", "equalizerSheave", "none"] as const;
 export type RopeBalancingType = (typeof ROPE_BALANCING_TYPES)[number];
 
 export const ROPE_BALANCING_TYPE_LABELS: Record<RopeBalancingType, string> = {
   equalizerBeam: "Denge Traversli",
   equalizerSheave: "Denge Makaralı",
+  none: "Yok",
 };
 
 export type RopeLay = "right" | "left";

@@ -169,7 +169,9 @@ export function reevingDiagram(p: ReevingParams): Diagram {
     `HALAT DONANIMI · ${fmtN(nd, 0)}/${fmtN(nf, 0)}`,
     balancingType === "equalizerBeam"
       ? "Tambur · Denge Traversi · Kanca Bloğu"
-      : "Tambur · Denge Makarası · Kanca Bloğu"
+      : balancingType === "none"
+        ? "Tambur · Kanca Bloğu"
+        : "Tambur · Denge Makarası · Kanca Bloğu"
   );
 
   if (!(p.totalFalls > 0)) {

@@ -864,7 +864,8 @@ export const HOIST_INPUT_FIELDS: FieldDef<HoistInputs>[] = [
     hint: "Yeni işlerde standart seçim Denge Traversli'dir.",
     info:
       "Denge Traversli: her tambur yivi için ayrı halat kullanılır; sağ ve sol helis halatlar ayrı sipariş satırlarıdır.\n\n" +
-      "Denge Makaralı: iki yivin halatı üst denge makarasından sürekli geçer; iki yiv tek sağ helis halat parçası olur.",
+      "Denge Makaralı: iki yivin halatı üst denge makarasından sürekli geçer; iki yiv tek sağ helis halat parçası olur.\n\n" +
+      "Yok: üstte denge elemanı bulunmaz; halat dengeleme ekipmanı (soket/loadcell/rulman ya da denge makarası) bölümü hesap raporunda açılmaz.",
   },
   { key: "drumWallThicknessMm", label: "Tambur Yiv Dibi Et Kalınlığı", unit: "mm", type: "number" },
   {
