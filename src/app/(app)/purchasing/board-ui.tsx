@@ -27,14 +27,14 @@ export function PanoKabugu({
 }) {
   return (
     <section className={cn("min-w-0 border bg-card", className)}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-1.5 border-b bg-muted/40 px-2 py-1.5 sm:gap-2 sm:px-3 sm:py-2">
         <h2 className="text-sm font-medium">{baslik}</h2>
         <span className="flex items-center gap-2">
           {alt && <span className="font-mono text-[11px] text-muted-foreground">{alt}</span>}
           {eylem}
         </span>
       </div>
-      <div className="p-3">{children}</div>
+      <div className="p-2 sm:p-3">{children}</div>
     </section>
   );
 }
@@ -111,7 +111,7 @@ export function Bant({
         : "bg-muted/50";
   return (
     <section className={cn("border bg-card", kenar)}>
-      <div className={cn("flex flex-wrap items-baseline justify-between gap-2 px-3 py-2", zemin)}>
+      <div className={cn("flex flex-wrap items-baseline justify-between gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3 sm:py-2", zemin)}>
         <h2 className="text-sm font-medium">{baslik}</h2>
         <p className="font-mono text-[11px] text-muted-foreground">{alt}</p>
       </div>

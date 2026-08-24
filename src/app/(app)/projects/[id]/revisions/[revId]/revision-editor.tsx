@@ -3389,24 +3389,39 @@ export function RevisionEditor({
             yoktur: şerit uzun bölüm kartının en dibinde kalıyor ve her geçişte
             sayfanın sonuna kaydırmak gerekiyordu; orada ekranın altına
             SABİTLENİR. */}
-        <div className="sticky bottom-0 z-20 shrink-0 rounded-lg border bg-card px-3 py-2 sm:px-4 sm:py-2.5 lg:static">
-          {/* Telefonda üç düğme + ilerleme tek satıra sığmıyor (bölüm adına
-              ~30px kalıyordu): bilgi satırı üste, düğmeler alta iner. */}
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="sticky bottom-0 z-20 shrink-0 overflow-hidden rounded-lg border bg-card px-1.5 py-1.5 sm:px-4 sm:py-2.5 lg:static">
+          {/* Telefonda bölüm gezgini ve Geri/Kaydet/İleri aynı sabit sıradadır.
+              İlerleme çizgisi alan çalmadan çubuğun üst kenarında durur. */}
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-muted sm:hidden">
+            <div
+              className="h-full bg-primary transition-[width] duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <div
+            className={cn(
+              "grid items-center gap-1 sm:flex sm:flex-wrap sm:justify-between sm:gap-x-3 sm:gap-y-2",
+              readOnly
+                ? "grid-cols-[2rem_minmax(0,1fr)_2rem]"
+                : "grid-cols-[2rem_minmax(0,1fr)_auto_2rem]"
+            )}
+          >
             <Button
               variant="outline"
               size="sm"
+              className="max-sm:size-8 max-sm:px-0"
+              aria-label="Önceki bölüm"
               disabled={activeStepIndex === 0}
               onClick={() => setStepIndex(Math.max(0, activeStepIndex - 1))}
             >
               <span aria-hidden="true" className="font-mono">←</span>
-              Geri
+              <span className="hidden sm:inline">Geri</span>
             </Button>
 
             {/* İlerleme + bulunulan bölüm: eskiden üstteki durum çubuğundaydı,
                 şimdi adım bilgisiyle aynı yerde duruyor. */}
-            <div className="order-first flex min-w-0 grow basis-full items-center gap-2.5 sm:order-none sm:basis-0">
-              <div className="h-1 min-w-8 flex-1 overflow-hidden bg-muted">
+            <div className="flex min-w-0 items-center sm:grow sm:basis-0 sm:gap-2.5">
+              <div className="hidden h-1 min-w-8 flex-1 overflow-hidden bg-muted sm:block">
                 <div
                   className="h-full bg-primary transition-[width] duration-300"
                   style={{ width: `${progressPct}%` }}
@@ -3427,7 +3442,7 @@ export function RevisionEditor({
                 aria-expanded={navOpenMobile}
                 aria-controls={NAV_PANEL_ID}
                 title={`${activeStepIndex + 1}/${STEPS.length} · ${step.title}`}
-                className="oc-tap flex max-w-[60%] min-w-0 shrink items-center gap-1.5 rounded-md text-left font-mono text-[11px] tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:pointer-events-none lg:hover:bg-transparent"
+                className="oc-tap flex w-full min-w-0 items-center gap-1 rounded-md px-1 text-left font-mono text-[10px] tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:w-auto sm:max-w-[60%] sm:shrink sm:gap-1.5 sm:px-0 sm:text-[11px] lg:pointer-events-none lg:hover:bg-transparent"
               >
                 <span aria-hidden className="shrink-0 leading-none lg:hidden">
                   ☰
@@ -3461,7 +3476,7 @@ export function RevisionEditor({
                 size="sm"
                 onClick={handleSave}
                 disabled={pending}
-                className="lg:hidden"
+                className="px-1.5 text-[10px] sm:px-3 sm:text-sm lg:hidden"
               >
                 {pending ? "Kaydediliyor..." : "Kaydet"}
               </Button>
@@ -3469,10 +3484,12 @@ export function RevisionEditor({
 
             <Button
               size="sm"
+              className="max-sm:size-8 max-sm:px-0"
+              aria-label="Sonraki bölüm"
               disabled={activeStepIndex === STEPS.length - 1}
               onClick={() => setStepIndex(Math.min(STEPS.length - 1, activeStepIndex + 1))}
             >
-              İleri
+              <span className="hidden sm:inline">İleri</span>
               <span aria-hidden="true" className="font-mono">→</span>
             </Button>
           </div>

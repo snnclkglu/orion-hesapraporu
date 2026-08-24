@@ -594,7 +594,7 @@ export function RawTable({
         </div>
       ) : (
         <Table
-          className="oc-tablet-table"
+          className="oc-tablet-table oc-purchasing-table"
           containerClassName="oc-tablet-table-wrap oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]"
         >
             <TableHeader className="oc-sticky-head">
@@ -1665,15 +1665,15 @@ function OzetSeridi({
   const bekleyen = gorunumler.filter((g) => g.durum === "bekliyor").length;
 
   const kutu = (baslik: string, deger: string, alt?: string) => (
-    <div className="min-w-0 flex-1 border-l border-border/60 px-3 first:border-l-0 first:pl-0">
-      <p className="oc-kicker text-[10px] text-muted-foreground">{baslik}</p>
-      <p className="font-mono text-base font-medium tabular-nums">{deger}</p>
-      {alt && <p className="text-[11px] text-muted-foreground">{alt}</p>}
+    <div className="min-w-0 border-l border-border/60 px-1.5 first:border-l-0 first:pl-0 sm:flex-1 sm:px-3">
+      <p className="oc-kicker truncate text-[9px] text-muted-foreground sm:text-[10px]" title={baslik}>{baslik}</p>
+      <p className="truncate font-mono text-xs font-medium tabular-nums sm:text-base" title={deger}>{deger}</p>
+      {alt && <p className="hidden truncate text-[11px] text-muted-foreground sm:block" title={alt}>{alt}</p>}
     </div>
   );
 
   return (
-    <section className="flex flex-wrap gap-y-2 border bg-card p-3">
+    <section className="oc-purchasing-summary grid grid-cols-3 gap-y-1.5 border bg-card p-2 sm:flex sm:flex-wrap sm:gap-y-2 sm:p-3">
       {kutu("Stok Kalemi", formatNum(havuz.toplamKalem), `${formatNum(bekleyen)} bekliyor`)}
       {kutu("Toplam Ağırlık", `${formatNum(Math.round(havuz.toplamAgirlikKg))} kg`)}
       {kutu("Standart Boy", formatNum(boy), "profil · ray · boru")}

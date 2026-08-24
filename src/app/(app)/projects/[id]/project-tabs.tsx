@@ -46,9 +46,10 @@ import { TabsList, TabsTrigger } from "@/components/ui/tabs";
  * GÖLGEDİR — gölge dolgu kutusunun içine boyanır, yani aktif sekmenin kırmızı
  * çizgisi negatif kenar boşluğuna gerek kalmadan onun tam üstüne oturur.
  */
-const RAIL_BOX = "px-1 pt-1 pb-2.5 pointer-coarse:pt-2.5 pointer-coarse:pb-4";
+const RAIL_BOX =
+  "px-2 py-2 md:px-1 md:pt-1 md:pb-2.5 md:pointer-coarse:pt-2.5 md:pointer-coarse:pb-4";
 
-const TAB = `h-auto min-w-0 flex-none justify-start rounded-none border-0 border-b-2 border-transparent ${RAIL_BOX} text-[15px] font-medium text-muted-foreground after:hidden hover:text-foreground data-active:border-primary data-active:text-foreground max-md:w-full`;
+const TAB = `h-auto min-h-11 min-w-0 flex-none justify-center rounded-none border border-border bg-card ${RAIL_BOX} text-center text-[13px] leading-tight font-medium whitespace-normal text-muted-foreground after:hidden hover:bg-muted hover:text-foreground data-active:border-primary data-active:bg-primary/[0.08] data-active:text-foreground data-active:shadow-[inset_0_-3px_0_var(--primary)] max-md:w-full md:min-h-0 md:justify-start md:border-0 md:border-b-2 md:border-transparent md:bg-transparent md:text-left md:text-[15px] md:leading-normal md:whitespace-nowrap md:hover:bg-transparent md:data-active:border-primary md:data-active:bg-transparent md:data-active:shadow-none`;
 
 /** Sekmedeki sayaç rozeti — etiketin ağırlığını bozmayan ince bir sayı. */
 const COUNT =
@@ -87,9 +88,10 @@ export function ProjectTabsNav({
         // Taban şerit yüksekliğini `group-data-horizontal/tabs:h-9` ile
         // veriyor; düz bir `h-auto` onu YENMEZ (aynı özgüllük, sıraya kalır).
         // Ezme AYNI belirteçle yazılır ki tailwind-merge çakışmayı görsün.
-        // Telefon iki sütun + tam genişlikte El Kitabı kullanır; `md` üstünde
-        // iş akışı rayı yeniden yatay ve saran düzene döner.
-        className="grid h-auto w-full grid-cols-2 gap-x-2 rounded-none p-0 group-data-horizontal/tabs:h-auto group-data-horizontal/tabs:pointer-coarse:h-auto md:flex md:flex-wrap md:gap-x-5"
+        // Telefon 320px'te iki, 360px üstünde üç sütunlu görünür kutular
+        // kullanır; `md` üstünde iş akışı rayı yeniden yatay ve saran düzene
+        // döner.
+        className="grid h-auto w-full grid-cols-2 items-stretch gap-2 rounded-none p-0 group-data-horizontal/tabs:h-auto group-data-horizontal/tabs:pointer-coarse:h-auto min-[360px]:grid-cols-3 md:flex md:flex-wrap md:items-center md:gap-x-5 md:gap-y-0"
       >
         <TabsTrigger value="report" className={TAB}>
           <FileSpreadsheet className="size-4" />
@@ -115,7 +117,7 @@ export function ProjectTabsNav({
           <span className="hidden md:inline">Teknik Resim Takibi</span>
           {drawingPlanCount > 0 && <span className={COUNT}>{drawingPlanCount}</span>}
         </TabsTrigger>
-        <TabsTrigger value="manual" className={`${TAB} max-md:col-span-2`}>
+        <TabsTrigger value="manual" className={TAB}>
           <BookOpen className="size-4" />
           <span className="md:hidden">El Kitabı</span>
           <span className="hidden md:inline">İşletme ve Bakım El Kitabı</span>

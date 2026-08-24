@@ -374,7 +374,7 @@ export default function PurchasingPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
 
   return (
-    <div className="grid gap-6 p-4">
+    <div className="oc-purchasing-surface grid gap-3 p-3 sm:gap-6 sm:p-4">
       <section className="grid gap-3">
         <h2 className="oc-kicker text-muted-foreground">Bölüm Rayı — Proje | Sarf Ayracı</h2>
         {/* Rozet fikstürü: gecikmiş > 0 hâli ancak burada görülür. */}

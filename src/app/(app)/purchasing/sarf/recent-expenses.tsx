@@ -30,9 +30,8 @@ export function RecentExpenses({ rows }: { rows: ConsumableExpenseRow[] }) {
         </Button>
       </div>
 
-      {/* YATAY KAYDIRMA GÖRÜNÜR OLMALI (kabuk kuralı 8). */}
-      <div className="oc-scrollx border bg-card [--oc-scroll-bg:var(--card)]">
-        <Table>
+      <div className="oc-mobile-table-wrap oc-tablet-table-wrap border bg-card">
+        <Table className="oc-mobile-table oc-tablet-table oc-compact-mobile-table oc-purchasing-table">
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               {/* Telefonda tarih Malzeme alt satırına iner (yatay kaydırma
@@ -50,7 +49,7 @@ export function RecentExpenses({ rows }: { rows: ConsumableExpenseRow[] }) {
                 <TableCell className="hidden font-mono text-xs whitespace-nowrap sm:table-cell">
                   {tarihGoster(row.expenseDate)}
                 </TableCell>
-                <TableCell className="min-w-0 whitespace-normal">
+                <TableCell data-label="Malzeme" data-mobile-span="full" className="min-w-0 whitespace-normal">
                   <div className="flex items-start gap-1.5">
                     {row.qualityFlags.length > 0 && (
                       <AlertTriangle
@@ -78,14 +77,14 @@ export function RecentExpenses({ rows }: { rows: ConsumableExpenseRow[] }) {
                 <TableCell className="hidden font-mono text-xs whitespace-nowrap lg:table-cell">
                   {fmtNum(row.quantity)} {row.unit}
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm font-medium whitespace-nowrap tabular-nums">
+                <TableCell data-label="Tutar (€)" data-mobile-span="full" className="text-right font-mono text-sm font-medium whitespace-nowrap tabular-nums">
                   {fmtMoney(row.amountEur, "EUR")}
                 </TableCell>
               </TableRow>
             ))}
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={5} data-mobile-span="full" data-mobile-hide-label className="h-24 text-center text-muted-foreground">
                   Henüz sarf gideri yok.
                 </TableCell>
               </TableRow>

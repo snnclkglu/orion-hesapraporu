@@ -391,7 +391,7 @@ export function OrdersView({
 
   return (
     <div className="grid gap-3">
-      <section className="grid gap-2 border bg-card p-3 sm:grid-cols-3 lg:grid-cols-5">
+      <section className="oc-purchasing-summary grid grid-cols-3 gap-1.5 border bg-card p-2 sm:grid-cols-3 sm:gap-2 sm:p-3 lg:grid-cols-5">
         <Ozet baslik="Açık Sipariş" deger={formatNum(acikSiparis.length)} />
         <Ozet
           baslik="Teslim Bekleyen"
@@ -593,7 +593,7 @@ export function OrdersView({
         </div>
       ) : (
         <Table
-          className="oc-tablet-table"
+          className="oc-tablet-table oc-purchasing-table"
           containerClassName="oc-tablet-table-wrap oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]"
         >
             <TableHeader className="oc-sticky-head">
@@ -1163,12 +1163,12 @@ const Cip = forwardRef<
 
 function Ozet({ baslik, deger, alt }: { baslik: string; deger: string; alt?: string }) {
   return (
-    <div>
-      <span className="oc-kicker block text-muted-foreground">{baslik}</span>
-      <span className="block font-mono text-lg tabular-nums">{deger}</span>
+    <div className="min-w-0">
+      <span className="oc-kicker block truncate text-[9px] text-muted-foreground sm:text-[11px]" title={baslik}>{baslik}</span>
+      <span className="block truncate font-mono text-xs tabular-nums sm:text-lg" title={deger}>{deger}</span>
       {/* ALT SATIR SAYININ KAPSAMINI SÖYLER: "56.213 kg" tek başına "hepsi bu
           mu" sorusunu cevaplamaz; kilo dışı birimdeki satırlar orada yazar. */}
-      {alt && <span className="block text-[11px] text-muted-foreground">{alt}</span>}
+      {alt && <span className="hidden truncate text-[11px] text-muted-foreground sm:block" title={alt}>{alt}</span>}
     </div>
   );
 }

@@ -222,7 +222,7 @@ export default async function ProjectPage({
   ];
 
   return (
-    <div className="grid min-w-0 max-w-full gap-6 overflow-x-hidden">
+    <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden sm:gap-4 lg:gap-6">
       {/* Sayfanın kimliği kabuğun yapışkan üst şeridine de çıkar; künye bloğu
           (aşağıda) ayrıntıyı taşımaya devam eder. `xl` altında geri oku
           kırıntı yolunun yerini tutar — telefonda projeden çıkmanın tek yolu
@@ -275,7 +275,7 @@ export default async function ProjectPage({
         {/* ------------------------------------------------ Hesap Raporu */}
         <TabsContent value="report">
           <div className="relative overflow-hidden rounded-lg border bg-card">
-            <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table">
+            <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table oc-compact-mobile-table">
               <TableHeader>
                 {/* SÜTUN ÖNCELİKLENDİRME — yedi sütunda en sağdaki "İşlem"
                     (taslak silme) telefonda ekranın dışında kalıyordu.
@@ -470,7 +470,7 @@ export default async function ProjectPage({
                     Eski Çizim Defteri · Arşiv
                   </span>
                 </div>
-                <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table">
+                <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table oc-compact-mobile-table">
                   <TableHeader>
                     {/* SÜTUN ÖNCELİKLENDİRME — "İşlem" sütunu defterle birlikte
                         kalktı. Mobilde Çizim No · Ad kalır; kategori, revizyon,

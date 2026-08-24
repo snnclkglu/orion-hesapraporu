@@ -164,9 +164,9 @@ export function OfferPanel({
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       {/* ————————————————————————————————————————————— künye */}
-      <div className="grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border bg-card p-3 lg:grid-cols-4 lg:gap-3 lg:p-4">
         <Kunye etiket="Teklif No">
           <span className="font-mono">{offerDocLine(offer.offer_no, guncel?.rev_no ?? 0)}</span>
         </Kunye>
@@ -220,7 +220,7 @@ export function OfferPanel({
         <Kunye etiket="Güncel Tutar">
           {guncel?.total_amount == null ? "—" : fmtMoney(Number(guncel.total_amount), offer.currency)}
         </Kunye>
-        <Kunye etiket="Konu" className="sm:col-span-2 lg:col-span-1">
+        <Kunye etiket="Konu" className="col-span-2 lg:col-span-1">
           {offer.subject || "—"}
         </Kunye>
       </div>
@@ -253,7 +253,7 @@ export function OfferPanel({
 
       {/* ————————————————————————————————————————————— revizyonlar */}
       <div className="rounded-lg border">
-        <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
+        <Table className="oc-mobile-table oc-compact-mobile-table" containerClassName="oc-mobile-table-wrap">
           <TableHeader>
             <TableRow>
               <TableHead className="w-24">Revizyon</TableHead>
@@ -284,7 +284,7 @@ export function OfferPanel({
                     {fmtOfferDate(rev.updated_at)}
                   </TableCell>
                   <TableCell data-label="Belge ve İşlemler" data-mobile-span="full">
-                    <div className="flex flex-wrap items-center justify-end gap-1.5" data-mobile-actions>
+                    <div className="oc-revision-actions flex flex-wrap items-center justify-end gap-1.5" data-mobile-actions>
                       <Button asChild variant="outline" size="sm" className="oc-tap">
                         <Link href={`/offers/${offer.id}/revisions/${rev.id}`}>
                           {taslak ? <Pencil className="size-3.5" /> : <Eye className="size-3.5" />}
@@ -309,7 +309,7 @@ export function OfferPanel({
 
                       <Button asChild variant="outline" size="sm" className="oc-tap">
                         <PdfDownloadLink href={pdfUrl(offer.id, rev.id)} shareTitle="Teklif">
-                          <Download className="size-3.5" /> Teklifi İndir
+                          <Download className="size-3.5" /> İndir
                         </PdfDownloadLink>
                       </Button>
 
@@ -322,7 +322,7 @@ export function OfferPanel({
                           onClick={() => yayimlaVeIndir(rev.id)}
                           title="Revizyonu kilitler, arşive yazar ve gönderim tarihini bugüne çeker"
                         >
-                          <Send className="size-3.5" /> Teklifi İndir ve Yayımla
+                          <Send className="size-3.5" /> İndir ve Yayımla
                         </Button>
                       ) : yonetici ? (
                         // YAYIMLANMIŞI GERİ ÇEKMEK YALNIZ YÖNETİCİDEDİR
@@ -419,8 +419,8 @@ function Kunye({
 }) {
   return (
     <div className={className}>
-      <div className="text-xs text-muted-foreground">{etiket}</div>
-      <div className="mt-0.5 text-sm font-medium">{children}</div>
+      <div className="oc-kicker truncate text-[9px] tracking-[0.14em] text-muted-foreground lg:text-[11px]" title={etiket}>{etiket}</div>
+      <div className="mt-0.5 min-w-0 truncate text-xs font-medium lg:text-sm">{children}</div>
     </div>
   );
 }

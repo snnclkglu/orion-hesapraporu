@@ -24,6 +24,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
 
 // TALEP HAVUZU İKİYE BÖLÜNDÜ (kullanıcı kararı, 15.08.2026): *"Satın alma
@@ -57,41 +58,57 @@ export function PurchasingNav({
   gecikmis?: number;
 }) {
   const pathname = usePathname() ?? "";
+  const activeHref =
+    TABS.find((t) => (t.exact ? pathname === t.href : pathname.startsWith(t.href)))
+      ?.href ?? TABS[0].href;
+  const gecikmeRozeti = () =>
+    gecikmis > 0 ? (
+      <span
+        className="inline-flex min-w-4 items-center justify-center border border-destructive/40 bg-destructive/10 px-1 font-mono text-[11px] leading-4 text-destructive tabular-nums"
+        title={`${gecikmis} siparişin termini geçti`}
+      >
+        {gecikmis}
+      </span>
+    ) : null;
 
   return (
-    <nav
-      className="flex flex-wrap items-center gap-x-3 border-b"
-      aria-label="Satın Alma bölümleri"
-    >
-      {TABS.map((t, i) => {
-        const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
-        const grupSiniri = t.sarf && !TABS[i - 1]?.sarf;
-        return (
-          <span key={t.href} className="flex shrink-0 items-center gap-3">
-            {grupSiniri && <span aria-hidden className="h-4 w-px shrink-0 bg-border" />}
-            <Link
-              href={t.href}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex shrink-0 items-center gap-1.5 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
-                active
-                  ? "font-medium text-foreground shadow-[inset_0_-2px_0_var(--primary)]"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {t.label}
-              {t.href === "/purchasing/teslimat" && gecikmis > 0 && (
-                <span
-                  className="inline-flex min-w-4 items-center justify-center border border-destructive/40 bg-destructive/10 px-1 font-mono text-[11px] leading-4 text-destructive tabular-nums"
-                  title={`${gecikmis} siparişin termini geçti`}
-                >
-                  {gecikmis}
-                </span>
-              )}
-            </Link>
-          </span>
-        );
-      })}
-    </nav>
+    <>
+      <MobileRouteGrid
+        className="md:hidden"
+        value={activeHref}
+        options={TABS.map((t) => ({
+          ...t,
+          badge: t.href === "/purchasing/teslimat" ? gecikmeRozeti() : undefined,
+        }))}
+        label="Satın Alma bölümleri"
+      />
+      <nav
+        className="hidden flex-wrap items-center gap-x-3 border-b md:flex"
+        aria-label="Satın Alma bölümleri"
+      >
+        {TABS.map((t, i) => {
+          const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
+          const grupSiniri = t.sarf && !TABS[i - 1]?.sarf;
+          return (
+            <span key={t.href} className="flex shrink-0 items-center gap-3">
+              {grupSiniri && <span aria-hidden className="h-4 w-px shrink-0 bg-border" />}
+              <Link
+                href={t.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
+                  active
+                    ? "font-medium text-foreground shadow-[inset_0_-2px_0_var(--primary)]"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {t.label}
+                {t.href === "/purchasing/teslimat" && gecikmeRozeti()}
+              </Link>
+            </span>
+          );
+        })}
+      </nav>
+    </>
   );
 }

@@ -12,6 +12,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
 
 // SIRA İŞ AKIŞIDIR: ne lazım (havuz) → kaç plaka (yerleşim) → kimden (teklif)
@@ -34,35 +35,41 @@ const TABS = [
 
 export function HammaddeNav() {
   const pathname = usePathname() ?? "";
+  const activeHref =
+    TABS.find((t) => (t.exact ? pathname === t.eslesme : pathname.startsWith(t.eslesme)))
+      ?.href ?? TABS[0].href;
+
   return (
-    <nav
-      // RAY KAYMAZ, SARAR (16.08.2026 — üst rayın kuralı): beş sekme telefonda
-      // iki satıra iner, hepsi her an görünür.
-      className="flex flex-wrap items-center gap-2"
-      aria-label="Hammadde ekranları"
-    >
-      {TABS.map((t) => {
-        const active = t.exact ? pathname === t.eslesme : pathname.startsWith(t.eslesme);
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            aria-current={active ? "page" : undefined}
-            // `.oc-tap` YOK: görünmez dokunma katmanı `overflow-x` veren bu
-            // şeritte dikey taşma ve yalancı bir kaydırma çubuğu doğurur
-            // (dokunmatik MOBIL-14). Pay kutunun kendi dolgusundan gelir —
-            // `PurchasingNav`ın çözümünün aynısı.
-            className={cn(
-              "shrink-0 border px-3 py-2 text-[13px] whitespace-nowrap transition-colors pointer-coarse:py-2.5",
-              active
-                ? "border-primary/50 bg-primary/[0.08] font-medium text-foreground"
-                : "border-border text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {t.label}
-          </Link>
-        );
-      })}
-    </nav>
+    <>
+      <MobileRouteGrid
+        className="md:hidden"
+        value={activeHref}
+        options={TABS}
+        label="Hammadde ekranları"
+      />
+      <nav
+        className="hidden flex-wrap items-center gap-2 md:flex"
+        aria-label="Hammadde ekranları"
+      >
+        {TABS.map((t) => {
+          const active = t.exact ? pathname === t.eslesme : pathname.startsWith(t.eslesme);
+          return (
+            <Link
+              key={t.href}
+              href={t.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "shrink-0 border px-3 py-2 text-[13px] whitespace-nowrap transition-colors pointer-coarse:py-2.5",
+                active
+                  ? "border-primary/50 bg-primary/[0.08] font-medium text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }

@@ -73,7 +73,7 @@ export function ProjectSignatoryCard({
   // ipucuna (title) taşındı.
   return (
     <section
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-card px-4 py-2.5"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border bg-card px-2.5 py-2 sm:gap-x-4 sm:gap-y-2 sm:px-4 sm:py-2.5"
       title="PDF raporun kapağında hazırlayan ve kontrol eden olarak görünür."
     >
       <span className="oc-kicker text-muted-foreground">Rapor Sorumluları</span>

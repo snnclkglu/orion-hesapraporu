@@ -30,6 +30,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { CustomerTag, ScopeTag } from "@/components/tags";
+import { StatCard } from "@/components/stat-card";
 import { customerTag, scopeLabel } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 
@@ -93,38 +94,6 @@ const SORT_VALUE: Record<SortKey, (r: SaleRow) => string | number> = {
   eurAmount: (r) => r.eurAmount ?? -1,
   totalWeightKg: (r) => r.totalWeightKg ?? -1,
 };
-
-/**
- * Özet kartı.
- *
- * `tone="warn"` VARYANTI KALKTI: tek kullanıcısı "Kuru Eksik" kartıydı ve o
- * kart, olmaması gereken bir durumun sayacıydı (kullanıcı kararı, 11.08.2026).
- * Kur artık kayıt anında zorunludur (`sale-dialog.tsx`), yani sayılacak bir
- * eksik kalmıyor.
- */
-function StatCard({
-  label, value, hint, icon: Icon,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <div className="flex items-start gap-3 rounded-lg border bg-card p-4">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Icon className="size-4" />
-      </span>
-      <div className="min-w-0 leading-tight">
-        <div className="oc-kicker text-muted-foreground">{label}</div>
-        <div className="mt-0.5 font-mono text-xl font-semibold tabular-nums tracking-tight">
-          {value}
-        </div>
-        {hint && <div className="mt-0.5 truncate text-[11px] text-foreground/70">{hint}</div>}
-      </div>
-    </div>
-  );
-}
 
 function SortHead({
   label, sortKey, active, dir, onSort, className, align = "left",
@@ -286,12 +255,13 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
     <div className="grid gap-4">
       {/* ÜÇ KART, dört değil: "Kuru Eksik" kaldırıldı (madde 22). Dördüncü bir
           kutuyu doldurmak için ölçü uydurulmadı — sayılacak yeni bir şey yok. */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
         <StatCard
           label="Ciro (Avro)"
           value={fmtCompactEur(summary.eur)}
           hint={`${summary.byCustomer.length} Müşteri`}
           icon={Coins}
+          responsiveCompact
         />
         <StatCard
           label="Fiyatlanan Kalem"
@@ -302,19 +272,20 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
               : "Tamamı Fiyatlandı"
           }
           icon={Package}
+          responsiveCompact
         />
         <StatCard
           label="Toplam Ağırlık"
           value={`${fmtNum(Math.round(summary.weight))} kg`}
           hint="Süzgeçten Geçen Kalemler"
           icon={Scale}
+          responsiveCompact
         />
       </div>
 
-      {/* Süzgeçler — beş sabit genişlikli tetikleyici 820px istiyordu; telefonda
-          ikişerli ızgara, `sm` üstünde eski sarmalı şerit. */}
-      <div className="grid grid-cols-2 items-center gap-2 rounded-lg border bg-card px-3 py-2 sm:flex sm:flex-wrap">
-        <span className="oc-kicker col-span-2 text-muted-foreground sm:mr-1">Filtre</span>
+      {/* Süzgeçler telefonda üçlü ızgara, `sm` üstünde sarmalı şerittir. */}
+      <div className="grid grid-cols-3 items-center gap-2 rounded-lg border bg-card px-2 py-2 sm:flex sm:flex-wrap sm:px-3">
+        <span className="oc-kicker col-span-3 text-muted-foreground sm:mr-1">Filtre</span>
 
         <Select value={year} onValueChange={setYear}>
           <SelectTrigger size="sm" className="w-full sm:w-[120px]">
@@ -383,10 +354,10 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Kalem No, Ürün, Müşteri veya Kapsam Ara…"
-          className="col-span-2 h-8 w-full flex-1 pointer-coarse:h-10 sm:col-span-1 sm:w-auto sm:min-w-[200px]"
+          className="col-span-3 h-8 w-full flex-1 pointer-coarse:h-10 sm:col-span-1 sm:w-auto sm:min-w-[200px]"
         />
 
-        <div className="col-span-2 flex flex-wrap items-center gap-2 sm:contents">
+        <div className="col-span-3 flex flex-wrap items-center gap-2 sm:contents">
           <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
             {filtered.length} / {rows.length}
           </span>
@@ -408,7 +379,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           70dvh'ye kelepçelenir ve başlık yapışır — overflow-hidden kalsaydı
           kelepçenin dikey kaydırmasını da kırpardı. */}
       <Table
-        className="oc-mobile-table oc-tablet-table"
+        className="oc-mobile-table oc-tablet-table oc-compact-mobile-table oc-sales-table"
         containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
       >
           <TableHeader className="oc-sticky-head">
@@ -456,12 +427,12 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                   <TableCell data-label="Kalem No" className="align-top font-mono text-sm font-medium text-primary md:align-middle">
                     {r.itemNo || "—"}
                   </TableCell>
-                  <TableCell data-label="Ürün" data-mobile-span="full" className="font-medium break-words whitespace-normal md:whitespace-nowrap">
-                    <span className={cn("block", URUN_GENISLIK)} title={r.productName}>
+                  <TableCell data-label="Ürün" data-mobile-span="full" className="min-w-0 font-medium md:whitespace-nowrap">
+                    <span className={cn("block max-sm:truncate", URUN_GENISLIK)} title={r.productName}>
                       {r.productName}
                     </span>
                     {/* Telefonda düşen sütunların kritik olanları burada durur. */}
-                    <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground lg:hidden">
+                    <span className="mt-0.5 block truncate text-[10px] font-normal text-muted-foreground lg:hidden">
                       {[
                         customerTag({ name: r.customer, shortName: r.customerShort }).short,
                         r.sale.scope.trim() ? scopeLabel(r.sale.scope) : "",

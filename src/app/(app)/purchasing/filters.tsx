@@ -81,12 +81,12 @@ export function CokluSuzgec({
           variant="outline"
           size="sm"
           className={cn(
-            "h-9 min-w-[7.5rem] justify-between gap-1 text-base font-normal pointer-fine:text-sm",
+            "h-9 min-w-[7.5rem] max-w-full justify-between gap-1 overflow-hidden px-2 text-base font-normal pointer-fine:text-sm",
             küme.size > 0 && "border-primary/50 bg-primary/[0.06]",
             className
           )}
         >
-          <span className="truncate">{etiket}</span>
+          <span className="min-w-0 flex-1 truncate text-left" title={etiket}>{etiket}</span>
           <ChevronDown className="size-3.5 shrink-0 opacity-60" />
         </Button>
       </DropdownMenuTrigger>

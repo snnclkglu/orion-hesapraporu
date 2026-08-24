@@ -2,9 +2,9 @@
 
 // Teklif bölümü rayı — Teklifler · Tanımlar.
 //
-// TELEFONDA RAY YOKTUR: beş bölüm tek, tam genişlikli seçicide açılır. Böylece
-// sekmeler ikinci satıra dağılmaz ve yatay kaydırma/gizli sekme oluşmaz.
-// Masaüstünde bölüm rayı görünmeye devam eder.
+// TELEFONDA AÇILIR LİSTE YOKTUR: beş bölüm yan yana kutularla görünür ve
+// 360px üstünde üç sütun × iki satıra yerleşir. Kullanıcı nereye gideceğini
+// listeyi açmadan görür; masaüstünde bölüm rayı görünmeye devam eder.
 //
 // RAY TEKLİFİN İÇİNDE GİZLENİR: editör ekranlarında (`/offers/…/revisions/…`
 // ve `/offers/…/costs/…`) çizilmez. Mühendislik editöründeki kuralın aynısı —
@@ -14,8 +14,8 @@
 // sayısı değişir ve zincir yine kopardı.
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { usePathname } from "next/navigation";
+import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -31,7 +31,6 @@ const TABS = [
 
 export function OffersNav() {
   const pathname = usePathname() ?? "";
-  const router = useRouter();
   if (pathname.includes("/revisions/") || pathname.includes("/costs/")) return null;
 
   const aktifSekme = TABS.find((t) =>
@@ -40,22 +39,12 @@ export function OffersNav() {
 
   return (
     <>
-      {/* Telefonda beş sekmeyi dar bir rayda sıkıştırmak ya da ikinci satıra
-          taşımak yerine bölüm adı tek, tam genişlikli seçicide görünür. */}
-      <div className="md:hidden">
-        <Select value={aktifSekme} onValueChange={(href) => router.push(href)}>
-          <SelectTrigger className="w-full min-w-0" aria-label="Teklif bölümü">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {TABS.map((t) => (
-              <SelectItem key={t.href} value={t.href}>
-                {t.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <MobileRouteGrid
+        className="md:hidden"
+        value={aktifSekme}
+        options={TABS}
+        label="Teklif bölümü"
+      />
 
       <nav className="hidden flex-wrap items-center gap-x-3 border-b md:flex" aria-label="Teklif bölümleri">
         {TABS.map((t) => {

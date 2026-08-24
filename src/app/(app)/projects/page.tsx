@@ -87,24 +87,27 @@ export default async function ProjectsPage() {
           Dördüncü kart ARŞİVDİR — "arşivlediğim proje nereye gitti?"
           sorusunun cevabı budur (kullanıcı sorusu, 11.08.2026): hiçbir yere
           gitmez, aynı listede kalır ve Durum süzgeciyle ayrı görülür. */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
         <StatCard
           label="Toplam Proje"
           value={String(list.length)}
           hint={`${list.length - archivedCount} Aktif`}
           icon={FolderKanban}
+          responsiveCompact
         />
         <StatCard
           label="Taslak Revizyon"
           value={String(draftCount)}
           hint="Düzenlemeye Açık"
           icon={Clock3}
+          responsiveCompact
         />
         <StatCard
           label="Yayınlanan Revizyon"
           value={String(issuedCount)}
           hint="Kilitli Snapshot"
           icon={CircleCheck}
+          responsiveCompact
         />
         <StatCard
           label="Arşivlenen Proje"
@@ -115,6 +118,7 @@ export default async function ProjectsPage() {
               : "Arşivlenmiş proje yok"
           }
           icon={Archive}
+          responsiveCompact
         />
       </div>
 

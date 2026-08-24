@@ -137,16 +137,16 @@ export function OffersTable({
   return (
     <div className="grid gap-4">
       {/* ————————————————————————————————————————————— özet şeridi */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Teklif" value={fmtNum(ozet.toplam)} hint="Süzgeçten geçen" icon={FileText} dense />
+      <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
+        <StatCard label="Teklif" value={fmtNum(ozet.toplam)} hint="Süzgeçten geçen" icon={FileText} responsiveCompact />
         <StatCard
           label="Bekleyen"
           value={fmtNum(ozet.bekleyen)}
           hint={ozet.gecikmis > 0 ? `${ozet.gecikmis} tanesi 2 haftadan eski` : "Gönderildi, cevap bekliyor"}
           icon={ozet.gecikmis > 0 ? BellRing : Send}
-          dense
+          responsiveCompact
         />
-        <StatCard label="Kazanılan" value={fmtNum(ozet.kazanilan)} icon={Trophy} dense />
+        <StatCard label="Kazanılan" value={fmtNum(ozet.kazanilan)} icon={Trophy} responsiveCompact />
         <StatCard
           label="Toplam (Avro)"
           value={ozet.avroAdet ? fmtMoney(ozet.avroTutar, "EUR") : "—"}
@@ -156,13 +156,13 @@ export function OffersTable({
               : `${ozet.avroAdet} teklif`
           }
           icon={FileText}
-          dense
+          responsiveCompact
         />
       </div>
 
       {/* ————————————————————————————————————————————— süzgeçler */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[12rem] flex-1 sm:max-w-xs">
+      <div className="grid grid-cols-3 items-center gap-2 max-sm:[&>*]:min-w-0 max-sm:[&>*]:w-full sm:flex sm:flex-wrap">
+        <div className="relative col-span-3 min-w-0 flex-1 sm:max-w-xs">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={filtre.q}
@@ -217,7 +217,7 @@ export function OffersTable({
             type="button"
             variant="ghost"
             size="sm"
-            className="oc-tap h-9"
+            className="oc-tap h-9 min-w-0 truncate px-2"
             onClick={() => setFiltre({ ...EMPTY_OFFER_FILTER, bugun })}
           >
             <X className="size-3.5" /> Temizle

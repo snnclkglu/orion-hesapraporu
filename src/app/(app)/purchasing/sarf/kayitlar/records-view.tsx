@@ -354,15 +354,14 @@ export function ConsumableRecordsView({
         {transitioning && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
       </FilterBar>
 
-      {/* YATAY KAYDIRMA GÖRÜNÜR OLMALI (kabuk kuralı 8): tablo telefonda taşar
-          ve `.oc-scrollx` kenar gölgesiyle bunu söyler. */}
+      {/* Kayıtlar telefonda/tablette kompakt karta katlanır. */}
       <div
         className={
-          "oc-scrollx oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]" +
+          "oc-mobile-table-wrap oc-tablet-table-wrap oc-table-clamp border bg-card" +
           (transitioning ? " opacity-60 transition-opacity" : "")
         }
       >
-        <Table>
+        <Table className="oc-mobile-table oc-tablet-table oc-compact-mobile-table oc-purchasing-table">
           <TableHeader className="oc-sticky-head">
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               {/* Telefonda tarih Malzeme alt satırına iner (yatay kaydırma
@@ -381,7 +380,7 @@ export function ConsumableRecordsView({
             {result.rows.map((row) => (
               <TableRow key={row.id}>
                 <TableCell className="hidden font-mono text-xs whitespace-nowrap sm:table-cell">{tarihGoster(row.expenseDate)}</TableCell>
-                <TableCell className="max-w-[25rem] whitespace-normal">
+                <TableCell data-label="Malzeme" data-mobile-span="full" className="max-w-[25rem] whitespace-normal">
                   <div className="flex items-start gap-1.5">
                     {row.qualityFlags.length > 0 && <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-destructive" aria-label={`İnceleme: ${row.qualityFlags.join(", ")}`} />}
                     <div className="min-w-0">
@@ -401,10 +400,10 @@ export function ConsumableRecordsView({
                 <TableCell className="hidden whitespace-normal lg:table-cell">{row.groupName || "—"}</TableCell>
                 <TableCell className="hidden max-w-[18rem] whitespace-normal md:table-cell">{row.supplierName || "—"}</TableCell>
                 <TableCell className="hidden text-right font-mono text-xs whitespace-nowrap tabular-nums xl:table-cell">{fmtMoney(row.amount, row.currency)}</TableCell>
-                <TableCell className="text-right font-mono text-sm font-medium whitespace-nowrap tabular-nums">{fmtMoney(row.amountEur, "EUR")}</TableCell>
+                <TableCell data-label="Tutar (€)" className="text-right font-mono text-sm font-medium whitespace-nowrap tabular-nums">{fmtMoney(row.amountEur, "EUR")}</TableCell>
                 <TableCell className="hidden font-mono text-xs 2xl:table-cell">{row.documentNo || "—"}</TableCell>
                 {canEdit && (
-                  <TableCell>
+                  <TableCell data-label="İşlem">
                     <div className="flex justify-end gap-1">
                       <Button size="icon-sm" variant="ghost" onClick={() => setEditing(row)} aria-label="Düzenle"><Pencil /></Button>
                       <Button size="icon-sm" variant="ghost" className="text-destructive" disabled={deleting} onClick={() => setRemoving(row)} aria-label="Sil"><Trash2 /></Button>
@@ -414,7 +413,7 @@ export function ConsumableRecordsView({
               </TableRow>
             ))}
             {result.rows.length === 0 && (
-              <TableRow><TableCell colSpan={canEdit ? 8 : 7} className="h-28 text-center text-muted-foreground">Bu süzgeçlerle eşleşen sarf kaydı yok.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={canEdit ? 8 : 7} data-mobile-span="full" data-mobile-hide-label className="h-28 text-center text-muted-foreground">Bu süzgeçlerle eşleşen sarf kaydı yok.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

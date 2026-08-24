@@ -110,16 +110,16 @@ export function FilterBar({
   children: React.ReactNode;
 }) {
   return (
-    <div className="oc-scrollx flex flex-wrap items-center gap-2 border bg-card px-3 py-2 [--oc-scroll-bg:var(--card)]">
+    <div className="grid grid-cols-3 items-center gap-2 border bg-card px-2 py-2 sm:flex sm:flex-wrap sm:px-3 max-sm:[&>*]:!w-full max-sm:[&>*]:!min-w-0 max-sm:[&>*]:max-w-full">
       {children}
-      <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+      <span className="min-w-0 truncate text-center font-mono text-[10px] text-muted-foreground tabular-nums sm:ml-auto sm:shrink-0 sm:text-left sm:text-[11px]">
         {gorunen === toplam
           ? `${toplam.toLocaleString("tr-TR")} Satır`
           : `${gorunen.toLocaleString("tr-TR")} / ${toplam.toLocaleString("tr-TR")} Satır`}
       </span>
       {!temiz && (
-        <Button type="button" variant="ghost" size="xs" onClick={onTemizle}>
-          Süzgeci temizle
+        <Button type="button" variant="ghost" size="xs" className="truncate px-1.5" onClick={onTemizle}>
+          Temizle
         </Button>
       )}
     </div>

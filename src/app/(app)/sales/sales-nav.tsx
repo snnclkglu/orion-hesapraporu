@@ -9,7 +9,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MobileRouteSelect } from "@/components/mobile-route-select";
+import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -26,7 +26,7 @@ export function SalesNav() {
 
   return (
     <>
-      <MobileRouteSelect
+      <MobileRouteGrid
         className="md:hidden"
         value={activeHref}
         options={TABS}

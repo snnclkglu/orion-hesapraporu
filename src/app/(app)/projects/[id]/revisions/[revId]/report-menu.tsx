@@ -45,10 +45,10 @@ export function ReportMenu({ projectId, revisionId }: { projectId: string; revis
   return (
     <DropdownMenu>
       {/* Dokunmatikte 32px'lik tetikleyici parmakla tutulmuyordu (sözleşme §2) */}
-      <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10">
+      <DropdownMenuTrigger className="oc-tap inline-flex h-8 w-full min-w-0 items-center justify-center gap-1 rounded-md border bg-card px-1.5 text-xs hover:bg-muted lg:w-auto lg:gap-1.5 lg:px-3 lg:text-sm">
         <FileText className="size-3.5 text-muted-foreground" />
-        PDF Rapor
-        <ChevronDown className="size-3.5 text-muted-foreground" />
+        <span className="truncate">PDF Rapor</span>
+        <ChevronDown className="hidden size-3.5 text-muted-foreground sm:block" />
       </DropdownMenuTrigger>
       {/* w-56 dardı: açıklamalar üç satıra sarıyor ve seviyeler birbirine
           giriyordu. Genişlik dokunmatik sözleşmesi §5'e uyar — 18rem, 375px'lik

@@ -51,12 +51,13 @@ export default async function DrawingsPage() {
         title="Teknik Resimler"
         hint="Teknik ressamın klasörü olduğu gibi yüklenir; sistem içindekini okur ve neyi anlayamadığını söyler"
       />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
         <StatCard
           label="Paket"
           value={String(paketler.length)}
           hint={`${paketler.filter((p) => p.status === "aktif").length} aktif`}
           icon={Layers}
+          responsiveCompact
         />
         <StatCard
           label="Depodaki Dosya"
@@ -67,18 +68,21 @@ export default async function DrawingsPage() {
               : `${formatBytes(toplamBayt)} · ${formatNum(beklenenDosya)} Bekleniyor`
           }
           icon={FolderTree}
+          responsiveCompact
         />
         <StatCard
           label="Eksik Bulgu"
           value={formatNum(toplamEksik)}
           hint="insanın bakması gereken"
           icon={TriangleAlert}
+          responsiveCompact
         />
         <StatCard
           label="Eşleşmemiş"
           value={String(eslesmemis.length)}
           hint="iş kalemine bağlanmamış paket"
           icon={PackageSearch}
+          responsiveCompact
         />
       </div>
 

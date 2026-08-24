@@ -72,8 +72,8 @@ export function ProjectDetailHeader({
        toplam 1088px'lik içerik genişliğini aşıyor, sağ sütun alt satıra
        düşüyor ve orada `items-end` yüzünden metnin sağ ucuna hizalanıp ~38px
        içeriden — ne sola ne sağa dayalı — asılı kalıyordu. */
-    <div className="grid gap-3">
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+    <div className="grid gap-2 sm:gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:gap-y-3">
         <div className="min-w-0 basis-full sm:flex-1 sm:basis-0">
           <div className="text-sm text-muted-foreground">
             {job ? (
@@ -91,7 +91,7 @@ export function ProjectDetailHeader({
             <span className="font-mono">{itemNo?.trim() || project.doc_no}</span>
           </div>
           {/* `h2`: sayfanın `h1`i kabuğun üst şeridindedir (PageHeader). */}
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight">{project.name}</h2>
+          <h2 className="mt-0.5 truncate text-lg font-semibold tracking-tight sm:mt-1 sm:text-2xl" title={project.name}>{project.name}</h2>
           <p className="text-sm text-muted-foreground">
             {project.customer} · {project.crane_type}
           </p>

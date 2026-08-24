@@ -104,10 +104,10 @@ export function FilterBar({
 
   return (
     // Beş sabit genişlikli süzgeç 735px istiyordu; 360px'te şerit altı satıra
-    // dağılıp ekranın dörtte birini yiyordu. Telefonda süzgeçler ikişerli bir
+    // dağılıp ekranın dörtte birini yiyordu. Telefonda süzgeçler üçlü bir
     // ızgaradır, `sm` üstünde eski sarmalı şerit geri gelir.
-    <div className="grid grid-cols-2 items-center gap-2 rounded-lg border bg-card px-3 py-2 sm:flex sm:flex-wrap">
-      <span className="oc-kicker col-span-2 text-muted-foreground sm:mr-1">Filtre</span>
+    <div className="grid grid-cols-3 items-center gap-2 rounded-lg border bg-card px-2 py-2 sm:flex sm:flex-wrap sm:px-3">
+      <span className="oc-kicker col-span-3 text-muted-foreground sm:mr-1">Filtre</span>
 
       <Select
         value={presetValue}
@@ -153,7 +153,7 @@ export function FilterBar({
           satırın sonunda askıda kalıyordu. İkili kendi sarmalayıcısında durur
           ve kutular kalan yeri paylaşır. */}
       {(customOpen || preset === "custom") && (
-        <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
+        <div className="col-span-3 flex min-w-0 items-center gap-2 sm:col-span-1">
           <Input
             type="date"
             value={filters.from}
@@ -238,12 +238,12 @@ export function FilterBar({
         value={filters.query}
         onChange={(e) => set({ query: e.target.value })}
         placeholder="Kalem, Ürün, Parça veya Not Ara…"
-        className="col-span-2 h-8 w-full flex-1 pointer-coarse:h-10 sm:col-span-1 sm:w-auto sm:min-w-[160px]"
+        className="col-span-3 h-8 w-full flex-1 pointer-coarse:h-10 sm:col-span-1 sm:w-auto sm:min-w-[160px]"
       />
 
       {/* Sayaç + Temizle + dış eylemler telefonda tek satırda toplanır;
           `sm:contents` ile şerit kipinde sarmalayıcı yok olur. */}
-      <div className="col-span-2 flex flex-wrap items-center gap-2 sm:contents">
+      <div className="col-span-3 flex flex-wrap items-center gap-2 sm:contents">
         <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
           {shown} / {total}
         </span>

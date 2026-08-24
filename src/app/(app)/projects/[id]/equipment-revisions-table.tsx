@@ -37,7 +37,7 @@ export function EquipmentRevisionsTable({
       <div className="border-b bg-muted/30 px-3 py-2 text-xs text-muted-foreground sm:px-4">
         Her ekipman listesi, aynı sürüm numarasındaki hesap raporundan otomatik oluşur.
       </div>
-      <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table">
+      <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table oc-compact-mobile-table">
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
             <TableHead className="max-sm:whitespace-normal">Ekipman Listesi</TableHead>

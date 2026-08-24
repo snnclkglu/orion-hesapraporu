@@ -34,6 +34,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { EditableCombobox } from "@/components/editable-combobox";
+import { MobileSectionGrid } from "@/components/mobile-nav-grid";
 import { PdfDownloadLink, downloadPdfFromApp } from "@/components/pdf-download-link";
 import { SayiKutusu } from "@/components/sayi-kutusu";
 import { Button } from "@/components/ui/button";
@@ -413,7 +414,7 @@ export function OfferEditor({
     // kabı taşırırdı.
     <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
       {/* ————————————————————————————————————————————— üst şerit */}
-      <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-lg border bg-card p-3">
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 rounded-lg border bg-card p-2 sm:gap-2 sm:p-3">
         <div className="min-w-0">
           <div className="font-mono text-sm">{offerDocLine(offerNo, revNo)}</div>
           <div className="text-xs text-muted-foreground">
@@ -425,8 +426,8 @@ export function OfferEditor({
         {/* TEKLİF ↔ MALİYET GEÇİŞİ (kullanıcı isteği, 17.08.2026: *"teklifin
             içine girildiğinde sayfa ikiye ayrılacak"*). Maliyet çalışması
             yoksa düğme onu AÇAR — ayrı bir sayfaya gidip aramak gerekmez. */}
-        <div className="flex items-center gap-1 rounded-md border p-0.5">
-          <span className="oc-tap inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-sm font-medium">
+        <div className="flex items-center gap-0.5 rounded-md border p-0.5">
+          <span className="oc-tap inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium sm:px-3 sm:py-1.5 sm:text-sm">
             <FileText className="size-3.5" /> Teklif
           </span>
           {cost ? (
@@ -456,8 +457,8 @@ export function OfferEditor({
           )}
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <span className="font-mono text-sm">
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 font-mono text-xs sm:text-sm">
             {toplam === null ? "—" : fmtMoney(toplam, payload.pricing.currency || currency)}
           </span>
           {/* ÖNİZLEME SON KAYDEDİLENİ GÖSTERİR (PDF ucu veritabanından okur).
@@ -467,17 +468,18 @@ export function OfferEditor({
           <Button
             type="button"
             variant="outline"
+            size="sm"
             className="oc-tap"
             onClick={() => void kaydet().then(() => setOnizleme(true))}
           >
             <Eye className="size-4" /> Önizle
           </Button>
-          <Button asChild variant="outline" className="oc-tap">
+          <Button asChild variant="outline" size="sm" className="oc-tap">
             <PdfDownloadLink
               href={`/offers/${offerId}/revisions/${revisionId}/pdf`}
               shareTitle="Teklif"
             >
-              <Download className="size-4" /> Teklifi İndir
+              <Download className="size-4" /> İndir
             </PdfDownloadLink>
           </Button>
           {readOnly ? null : (
@@ -494,6 +496,7 @@ export function OfferEditor({
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
                 className="oc-tap"
                 onClick={() => void kaydet()}
                 disabled={durum === "kaydediliyor" || durum === "temiz" || durum === "kaydedildi"}
@@ -504,12 +507,13 @@ export function OfferEditor({
               <Button
                 type="button"
                 variant="default"
-                className="oc-tap"
+                size="sm"
+                className="oc-tap max-sm:px-2"
                 disabled={pending}
                 onClick={yayimlaVeIndir}
                 title="Kaydeder, revizyonu kilitler ve gönderim tarihini bugüne çeker"
               >
-                <Send className="size-4" /> Teklifi İndir ve Yayımla
+                <Send className="size-4" /> İndir ve Yayımla
               </Button>
             </>
           )}
@@ -546,19 +550,13 @@ export function OfferEditor({
       <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[13rem_minmax(0,1fr)]">
         {/* ————————————————————————————————————————————— bölüm rayı */}
         <div className="grid min-w-0 gap-2 lg:hidden">
-          <Label htmlFor="mobil-teklif-bolumu">Teklif Bölümü</Label>
-          <Select value={aktif} onValueChange={setAktif}>
-            <SelectTrigger id="mobil-teklif-bolumu" className="w-full min-w-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {bolumler.map((b) => (
-                <SelectItem key={b.key} value={b.key}>
-                  {b.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <p className="text-sm font-medium">Teklif Bölümü</p>
+          <MobileSectionGrid
+            value={aktif}
+            options={bolumler.map((b) => ({ value: b.key, label: b.label }))}
+            label="Teklif bölümleri"
+            onValueChange={setAktif}
+          />
           {readOnly ? null : (
             <Button
               type="button"

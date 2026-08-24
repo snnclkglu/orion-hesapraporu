@@ -48,7 +48,7 @@ export default async function PurchasingLayout({
     .lt("due_at", bugunISO());
 
   return (
-    <div className="grid gap-3">
+    <div className="oc-purchasing-surface grid gap-2 sm:gap-3">
       {/* YETKİ ROZETİ ÜST BARDADIR (kullanıcı kararı, 14.08.2026: "üst bara
           alalım, bu bölümde yer kaybetmemiş oluruz"). Önce sayfanın içinde ayrı
           bir satırdaydı ve bir künye olduğu için oraya konmuştu; ama o satır

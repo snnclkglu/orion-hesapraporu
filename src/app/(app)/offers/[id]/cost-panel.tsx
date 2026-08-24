@@ -113,7 +113,7 @@ export function CostPanel({
         </p>
       ) : (
         <div className="rounded-lg border">
-          <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
+          <Table className="oc-mobile-table oc-compact-mobile-table" containerClassName="oc-mobile-table-wrap">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-24">Revizyon</TableHead>
@@ -145,7 +145,7 @@ export function CostPanel({
                       {fmtOfferDate(c.updated_at)}
                     </TableCell>
                     <TableCell data-label="Belge ve İşlemler" data-mobile-span="full">
-                      <div className="flex flex-wrap items-center justify-end gap-1.5" data-mobile-actions>
+                      <div className="oc-revision-actions flex flex-wrap items-center justify-end gap-1.5" data-mobile-actions>
                         <Button asChild variant="outline" size="sm" className="oc-tap">
                           <Link href={`/offers/${offerId}/costs/${c.id}`}>
                             {taslak ? <Pencil className="size-3.5" /> : <Eye className="size-3.5" />}

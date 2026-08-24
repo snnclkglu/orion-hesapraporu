@@ -307,3 +307,57 @@ varlıktan (`/brand/orion-symbol-white.svg`) gelir; yeniden çizilmez.
 Görsel kutu 40 × 40 px ve köşelidir; `.oc-tap-square` kaba işaretleyicide
 dokunma hedefini 44 × 44 px'e tamamlar. Sembol dekoratiftir (`alt=""` /
 `aria-hidden`), düğmenin erişilebilir adı hâlâ eylemi söyler: “Menüyü aç”.
+
+## MOBIL-21 — BÖLÜM İÇİ GEZİNME AÇILIR LİSTE DEĞİL, GÖRÜNÜR KUTU IZGARASIDIR.
+
+Kullanıcı kararı (24.08.2026): mobilde sayfa ya da editör bölümü değiştiren
+seçimler bir açılır listenin arkasına saklanmaz. Bütün hedefler aynı anda
+görünen, yan yana kutulardır; sayfa gezinmesi `MobileRouteGrid`, aynı editör
+içindeki panel seçimi `MobileSectionGrid` ile kurulur. Aktif kutu kırmızı
+çerçeve, hafif kırmızı zemin ve iç alt çizgiyle belirginleşir. Rota bağlantısı
+ve panel düğmesi `aria-current="page"` taşır.
+
+Izgara 320–359 px'te iki sütundur. Beş-altı hedef 360 px'ten itibaren üç
+sütun × iki satıra yerleşir; daha yoğun Yönetim, Satın Alma ve Teklif
+gezintileri gereken kadar doğal satır açar. Kutular en az 44 px yüksekliğinde,
+metinleri ortalı ve kırılabilir olur. Yatay kaydırma ve `whitespace-nowrap`
+kullanılmaz. `md` ve üstünde mevcut masaüstü rayları korunabilir; Yönetim
+rayının masaüstü eşiği `lg`dir.
+
+Bu kural yalnız **adres/panel gezinmesine** aittir. Yıl, müşteri, para birimi,
+durum, malzeme gibi veri ya da süzgeç seçen `Select` alanları açılır liste
+olarak kalır; onları kutu ızgarasına çevirmek bilgi mimarisini bozar.
+
+## MOBIL-22 — TABLO SÜZGEÇLERİ TELEFONDA ÜÇLÜ IZGARADIR.
+
+Kullanıcı kararı (24.08.2026): tablo süzgeçleri 360–375 px telefonda yatayda
+üç kutu taşır; arama alanı gerektiğinde üç sütunun tamamını kaplar. Ortak
+`FilterBar` çocuklarına mobilde `min-width: 0` ve tam hücre genişliği verir.
+`SelectValue` ile çoklu süzgeç etiketi dar hücreyi büyütmez; tek satırda
+üç noktayla kırpılır ve tam metin seçenek listesinde kalır. Süzgeç yüzeyi
+sayfaya yatay kaydırma ekleyemez.
+
+## MOBIL-23 — ÖZET VE OPERASYON KARTLARI BİLGİYİ KAYBETMEDEN YOĞUNLAŞIR.
+
+Mühendislik, Teknik Resimler ve Satış'ın üst özetleri telefonda tek sıradır.
+`StatCard.responsiveCompact` mobilde ikonu ve ikincil ipucunu kaldırır, etiketi
+ve değeri üç noktayla sınırlar; `sm` üstünde normal kart ritmi geri gelir.
+Operasyon tablolarında `oc-compact-mobile-table`, satın alma tablolarında ek
+olarak `oc-purchasing-table` kullanılır. Bu sınıflar hücreyi silmez; yalnız
+kart dolgusu, satır aralığı ve etiket boyunu azaltır.
+
+## MOBIL-24 — HESAP EDİTÖRÜNÜN ALT ÇUBUĞU TEK SATIRLIK KUMANDADIR.
+
+Hesap raporu editöründe telefon alt çubuğu ekranın altında yapışkan kalır ve
+tek sırada Önceki · bölüm seçici · Kaydet · Sonraki denetimlerini taşır. Bölüm
+seçici mevcut alt tabaka listesini açar; ayrı bir gezinme kopyası oluşturmaz.
+İlerleme çizgisi kumandaların üst kenarındaki 2 px banttır. Dar ekranda geri ve
+ileri metni saklanır ama erişilebilir adları korunur; çubuk yatay kaymaz.
+
+## MOBIL-25 — PDF PAYLAŞIMININ VARSAYILANI GERÇEK DOSYADIR.
+
+Mobil PDF bağlantısı belgeyi önce `application/pdf` türünde gerçek bir `File`
+olarak indirir. Paylaş eylemi yalnız tarayıcı `navigator.canShare({ files })`
+ile bu dosyayı açıkça kabul ediyorsa gösterilir ve “PDF Paylaş” diye adlandırılır.
+Yalnız `navigator.share` bulunması dosya desteği sayılmaz; aksi hâlde bazı
+WebView'lar `files` alanını atıp açık sayfanın bağlantısını gönderebilir.

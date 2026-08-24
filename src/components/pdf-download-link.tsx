@@ -27,7 +27,9 @@ export interface PdfDownloadLinkProps
  * Düz `<a>` bağlantısı iOS/Android'de `Content-Disposition: attachment` olsa
  * bile PDF görüntüleyicisini açabiliyor. Bu bağlantı aynı uçtan dosya baytını
  * alır, gerçek `.pdf` dosyası olarak İndirilenler/Dosyalar'a bırakır ve dosya
- * paylaşımını destekleyen cihazlarda bildirim üzerinde “Paylaş” sunar.
+ * paylaşımını gerçekten destekleyen cihazlarda bildirim üzerinde “PDF Paylaş”
+ * sunar. Yalnız `navigator.share` bulunması yeterli sayılmaz: bazı mobil web
+ * görünümleri dosyayı yok sayıp sayfa bağlantısını paylaşır.
  *
  * `href` yine gerçek bağlantıdır: JavaScript yüklenmezse sunucunun attachment
  * davranışı çalışır. Ctrl/Cmd tıklaması da tarayıcının doğal davranışına
@@ -208,11 +210,11 @@ export async function downloadPdfFromApp(
       id: toastId,
       duration: canShare ? 20_000 : 6_000,
       description: canShare
-        ? "Dosya hazır. Telefona kaydedildi veya şimdi paylaşılabilir."
+        ? "PDF dosyası seçili. İsterseniz doğrudan dosya olarak paylaşabilirsiniz."
         : "Dosyalar / İndirilenler klasörüne kaydedildi.",
       action: canShare
         ? {
-            label: "Paylaş",
+            label: "PDF Paylaş",
             onClick: () => void shareFile(file, options.shareTitle),
           }
         : undefined,
@@ -229,7 +231,9 @@ export async function downloadPdfFromApp(
 
 function canShareFile(file: File): boolean {
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") return false;
-  if (typeof navigator.canShare !== "function") return true;
+  // `canShare({files})` yoksa dosya paylaşımını varsaymayız. Aksi hâlde bazı
+  // WebView'lar `files` alanını sessizce atıp açık sayfanın bağlantısını yollar.
+  if (typeof navigator.canShare !== "function") return false;
   try {
     return navigator.canShare({ files: [file] });
   } catch {

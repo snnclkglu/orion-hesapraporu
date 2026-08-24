@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MobileRouteSelect } from "@/components/mobile-route-select";
+import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
@@ -35,7 +35,7 @@ export function AdminNav() {
 
   return (
     <>
-      <MobileRouteSelect
+      <MobileRouteGrid
         className="lg:hidden"
         value={activeHref}
         options={ITEMS}

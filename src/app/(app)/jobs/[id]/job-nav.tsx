@@ -13,7 +13,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MobileRouteSelect } from "@/components/mobile-route-select";
+import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
 
 export function JobNav({ jobId }: { jobId: string }) {
@@ -31,7 +31,7 @@ export function JobNav({ jobId }: { jobId: string }) {
 
   return (
     <>
-      <MobileRouteSelect
+      <MobileRouteGrid
         className="md:hidden"
         value={aktifHref}
         options={sekmeler}

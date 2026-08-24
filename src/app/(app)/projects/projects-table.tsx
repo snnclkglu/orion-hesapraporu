@@ -230,7 +230,7 @@ export function ProjectsTable({
       <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
         <span className="oc-kicker mr-1 hidden text-muted-foreground sm:inline">Filtre</span>
 
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
+        <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center">
           <Select value={year} onValueChange={setYear}>
             <SelectTrigger size="sm" className="w-full sm:w-[120px]">
               <SelectValue placeholder="Yıl" />
@@ -313,7 +313,7 @@ export function ProjectsTable({
           başlık olarak çalışmayı sürdürür. */}
       <Table
         containerClassName="oc-mobile-table-wrap oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
-        className="oc-mobile-table"
+        className="oc-mobile-table oc-compact-mobile-table"
       >
           <TableHeader className="oc-sticky-head">
             {/* SÜTUN ÖNCELİKLENDİRME — sekiz sütunluk satır telefonda kabın

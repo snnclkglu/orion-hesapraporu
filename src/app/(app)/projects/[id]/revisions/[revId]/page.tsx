@@ -95,30 +95,31 @@ export default async function RevisionPage({
           </>
         }
       >
+        <div className="grid w-full grid-cols-4 items-stretch gap-1.5 lg:flex lg:w-auto lg:items-center lg:gap-2">
           {/* Kontrol özeti + Kaydet buraya, PDF Rapor'un SOLUNA gelir; editör
               onları bu yuvaya portalla taşır (bkz. EDITOR_STATUS_SLOT_ID).
               Böylece çalışma alanı üstteki durum kartından kurtulur.
 
-              `flex-wrap` DEĞİL `shrink-0`: eylem şeridi dar ekranda yatay
-              KAYAR, sarmaz. Sarma orada satırı ikiye bölüp kaydırmayı anlamsız
-              kılıyordu. */}
-          <div id={EDITOR_STATUS_SLOT_ID} className="flex shrink-0 items-center gap-2" />
+              Telefonda bu dört temel öğe görünür bir ızgaradır; kontrol özeti
+              masaüstünde aynı yuvadaki yerini korur. */}
+          <div id={EDITOR_STATUS_SLOT_ID} className="hidden shrink-0 items-center gap-2 lg:flex" />
           <ReportMenu projectId={id} revisionId={revision.id} />
           {/* Boy `size="sm"`in kendisinden gelir: elle yazılan `h-8` dokunmatik
               payını eziyordu (AGENTS MOBIL-1). */}
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="min-w-0 px-1.5 text-xs lg:px-3 lg:text-sm">
             <a
               href={`/projects/${id}/revisions/${revision.id}/equipment`}
               title="Ekipman listesi panelini aç (tablo görünümü + Excel/PDF indirme)"
             >
               <FileSpreadsheet className="size-3.5 text-muted-foreground" />
-              Ekipman Listesi
+              <span className="truncate lg:hidden">Ekipman</span>
+              <span className="hidden lg:inline">Ekipman Listesi</span>
             </a>
           </Button>
           {revision.is_template && (
-            <Badge variant="outline" className="shrink-0 border-primary/40 text-primary">ŞABLON</Badge>
+            <Badge variant="outline" className="hidden shrink-0 border-primary/40 text-primary lg:inline-flex">ŞABLON</Badge>
           )}
-          <Badge variant={revisionStatusVariant(revision.status)} className="shrink-0">
+          <Badge variant={revisionStatusVariant(revision.status)} className="min-w-0 shrink-0 justify-center truncate px-1.5 text-[10px] lg:px-2.5 lg:text-xs">
             {revisionStatusLabel(revision.status)}
           </Badge>
           {isAdmin && revision.status === "issued" && (
@@ -139,8 +140,10 @@ export default async function RevisionPage({
                   ?.allChecks ?? [])
                   .filter((c) => !c.pass && !(c.id && hiddenCheckIds.has(c.id))).length
               }
+              className="w-full min-w-0 px-1.5 text-xs lg:w-auto lg:px-3 lg:text-sm"
             />
           )}
+        </div>
       </PageHeader>
 
       <RevisionEditor

@@ -267,30 +267,30 @@ export function DeliveryBoard({
 
   return (
     <div className="grid gap-3">
-      <section className="flex flex-wrap items-center gap-4 border bg-card p-3">
-        <div>
+      <section className="oc-purchasing-summary grid grid-cols-3 items-center gap-2 border bg-card p-2 sm:flex sm:flex-wrap sm:gap-4 sm:p-3">
+        <div className="col-span-3 min-w-0 sm:col-span-1">
           <span className="oc-kicker block text-muted-foreground">Teslim Bekleyen</span>
-          <span className="block font-mono text-lg tabular-nums">
+          <span className="block truncate font-mono text-sm tabular-nums sm:text-lg">
             {formatNum(gorunen.length)} sipariş · {fmtMoney(bekleyenEur, "EUR")}
           </span>
         </div>
         {gecikmis.length > 0 && (
-          <div>
+          <div className="min-w-0">
             <span className="oc-kicker block text-muted-foreground">Gecikmiş</span>
-            <span className="block font-mono text-lg text-destructive tabular-nums">
+            <span className="block font-mono text-sm text-destructive tabular-nums sm:text-lg">
               {formatNum(gecikmis.length)}
             </span>
           </div>
         )}
         {terminsiz.length > 0 && (
-          <div>
+          <div className="min-w-0">
             <span className="oc-kicker block text-muted-foreground">Termini Yok</span>
-            <span className="block font-mono text-lg text-amber-700 tabular-nums dark:text-amber-400">
+            <span className="block font-mono text-sm text-amber-700 tabular-nums sm:text-lg dark:text-amber-400">
               {formatNum(terminsiz.length)}
             </span>
           </div>
         )}
-        <span className="ml-auto flex items-center gap-2">
+        <span className="col-span-3 ml-auto flex items-center gap-2 sm:col-span-1">
           <KipSecici kip={kip} onChange={setKip} />
           <Button
             type="button"

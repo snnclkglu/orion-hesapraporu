@@ -519,7 +519,7 @@ export function DemandTable({
         </div>
       ) : (
         <Table
-          className="oc-tablet-table"
+          className="oc-tablet-table oc-purchasing-table"
           containerClassName="oc-tablet-table-wrap oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]"
         >
             <TableHeader className="oc-sticky-head">
@@ -1374,7 +1374,7 @@ function SummaryStrip({
   const teklifOran = toplam > 0 ? Math.round((teklifli / toplam) * 100) : 0;
 
   return (
-    <section className="border bg-card p-3">
+    <section className="oc-purchasing-summary border bg-card p-2 sm:p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-medium">Talep Durumu</h2>
         <p className="font-mono text-[11px] text-muted-foreground">
@@ -1390,7 +1390,7 @@ function SummaryStrip({
       {/* ÇİP BİR SÜZGEÇTİR (durum çipi kuralının aynısı): satınalmacı dağılıma
           bakıp "rulmanlara bakayım" diyor ve cevap iki tık uzakta olmamalı.
           Aynı kümeyi Kategori süzgeci de yazar — iki denetim tek durumu okur. */}
-      <ul className="oc-scrollx mt-2 flex flex-wrap items-center gap-1.5 [--oc-scroll-bg:var(--card)]">
+      <ul className="mt-1.5 flex flex-wrap items-center gap-1 sm:mt-2 sm:gap-1.5">
         {havuz.siniflar.map((s) => {
           const secili = aktifSiniflar.includes(s.sinif);
           return (
@@ -1415,7 +1415,7 @@ function SummaryStrip({
         })}
       </ul>
 
-      <p className="mt-2 text-[12px] text-muted-foreground">
+      <p className="mt-1.5 line-clamp-2 text-[11px] text-muted-foreground sm:mt-2 sm:text-[12px]">
         {formatNum(havuz.paketSayisi)} paketin {formatNum(havuz.kaynakSatiri)} satırı{" "}
         {formatNum(havuz.toplamKalem)} kaleme indi
         {havuz.cokIsliKalem > 0 &&

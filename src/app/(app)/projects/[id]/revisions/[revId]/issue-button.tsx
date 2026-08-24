@@ -13,15 +13,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 export function IssueRevisionButton({
-  projectId, revisionId, revNo, defaultLabel, failingChecks,
+  projectId, revisionId, revNo, defaultLabel, failingChecks, className,
 }: {
   projectId: string;
   revisionId: string;
   revNo: number;
   defaultLabel: string;
   failingChecks: number;
+  className?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -45,7 +47,7 @@ export function IssueRevisionButton({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="default" size="sm">Yayınla</Button>
+        <Button variant="default" size="sm" className={cn(className)}>Yayınla</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

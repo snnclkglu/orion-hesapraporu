@@ -251,11 +251,10 @@ export function PriceArchive({
         </div>
       ) : (
         <div className={"border bg-card" + (gecis ? " opacity-60 transition-opacity" : "")}>
-          {/* YATAY KAYDIRMA GÖRÜNÜR OLMALI (kabuk kuralı 8): tablo telefonda
-              taşar ve `.oc-scrollx` kenar gölgesiyle bunu söyler. Sayfa şeridi
-              kabın DIŞINDA kalır — kayan içerikle birlikte kaybolmamalı. */}
-          <div className="oc-scrollx oc-table-clamp [--oc-scroll-bg:var(--card)]">
-          <Table>
+          {/* Operasyon tablosu telefonda/tablette kompakt kartlara katlanır;
+              fiyat matrisi ayrıntı açıldığında kendi içinde kayabilir. */}
+          <div className="oc-mobile-table-wrap oc-tablet-table-wrap oc-table-clamp">
+          <Table className="oc-mobile-table oc-tablet-table oc-compact-mobile-table oc-purchasing-table">
             <TableHeader className="oc-sticky-head">
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableHead className="w-8 p-0" />
@@ -278,7 +277,7 @@ export function PriceArchive({
                   // düzeltmesiyle aynı): içteki satır anahtarı yetmiyordu.
                   <Fragment key={s.matchKey}>
                     <TableRow>
-                      <TableCell className="p-0 align-top">
+                      <TableCell data-mobile-disclosure data-mobile-hide-label className="p-0 align-top">
                         <button
                           type="button"
                           onClick={() => ac(s)}
@@ -296,7 +295,7 @@ export function PriceArchive({
 
                       {/* UZUNLUĞU VERİDEN GELEN SÜTUN KELEPÇELENİR (md. 7):
                           devralınan tanımlar çok satırlı olabiliyor. */}
-                      <TableCell className="max-w-[18rem] align-top whitespace-normal 2xl:max-w-[34rem]">
+                      <TableCell data-label="Ürün" data-mobile-span="full" className="max-w-[18rem] align-top whitespace-normal 2xl:max-w-[34rem]">
                         <span className="line-clamp-2 text-[13px]" title={s.sample}>
                           {s.sample || s.matchKey}
                         </span>
@@ -309,7 +308,7 @@ export function PriceArchive({
                         </span>
                       </TableCell>
 
-                      <TableCell className="align-top text-right font-mono text-sm tabular-nums">
+                      <TableCell data-label="Son Alış (€)" data-mobile-span="full" className="align-top text-right font-mono text-sm tabular-nums">
                         {s.sonAlisEur == null ? (
                           <span className="text-muted-foreground">—</span>
                         ) : (
@@ -350,7 +349,7 @@ export function PriceArchive({
 
                     {genis && (
                       <TableRow key={`${s.matchKey}-ayrinti`} className="bg-muted/30 hover:bg-muted/30">
-                        <TableCell colSpan={sutunSayisi} className="p-0 whitespace-normal">
+                        <TableCell colSpan={sutunSayisi} data-mobile-span="full" data-mobile-hide-label className="p-0 whitespace-normal">
                           <div className="oc-scrollx px-3 py-2 [--oc-scroll-bg:var(--muted)]">
                             <table className="w-full text-[12px]">
                               <thead className="text-muted-foreground">
