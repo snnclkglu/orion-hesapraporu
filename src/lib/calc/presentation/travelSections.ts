@@ -440,7 +440,8 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     equipmentSlugs: ["gearbox"],
     inputKeys: ["gearboxServiceFactor", "reducerStages"],
     selectionKeys: [
-      "gearboxModel", "gearboxOutputFeature", "gearboxMountingPosition",
+      "gearboxModel", "gearboxOutputFeature", "gearboxShaftDirection",
+      "gearboxMountingPosition",
       "gearboxRatio", "gearboxOutputTorqueKnm",
       "gearboxInputShaftMm", "gearboxOutputShaftMm",
     ],

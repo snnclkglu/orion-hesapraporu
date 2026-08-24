@@ -2023,6 +2023,69 @@ const MANUF_REFS: Record<string, StandardRef> = {
         "tablo yön göstericidir, kesin şartname değildir.",
     ],
   },
+
+  "Redüktör Mil Yönleri": {
+    code: "Redüktör Mil Yönleri",
+    title: "Redüktör mil ve flanş yönleri (R / L / U / V)",
+    source: "YILMAZ Redüktör — Mil ve Flanş Pozisyonları kataloğu",
+    clause: "Çıkış özelliğine (00…08) göre geçerli yönler",
+    summary:
+      "Çıkış mili/flanş yönü: R sağ, L sol, U üst, V alt. Bazı çıkış " +
+      "özelliklerinde U ve V geçersizdir (delik milli 00 ve çift çıkış 04). " +
+      "Kod sonu giriş mili (küçük mil) adedini gösterir: 1 tek, 2 çift " +
+      "(ör. R1 sağ/tek giriş, R2 sağ/çift giriş).",
+    tables: [
+      {
+        headers: ["Çıkış Özelliği", "R (Sağ)", "L (Sol)", "U (Üst)", "V (Alt)"],
+        rows: [
+          ["00 Delik Milli", "✓", "✓", "—", "—"],
+          ["01 Mil Çıkışlı", "✓", "✓", "✓", "✓"],
+          ["02 Mil Çıkışlı + Flanşlı", "✓", "✓", "✓", "✓"],
+          ["03 Delik Milli + Flanşlı", "✓", "✓", "✓", "✓"],
+          ["04 Çift Çıkış Milli", "✓", "✓", "—", "—"],
+          ["05 Çift Mil + Flanşlı", "✓", "✓", "✓", "✓"],
+          ["08 Delik Milli + Çift Flanşlı", "✓", "✓", "✓", "✓"],
+        ],
+        footnote: "✓ geçerli · — geçersiz (o özellikte o yön üretilmez).",
+      },
+    ],
+    notes: [
+      "Giriş mili (küçük mil) ÇİFT olabilir: her iki uçtan giriş için '2' " +
+        "soneki kullanılır (R2/L2/U2/V2). Tek giriş milli için '1' (R1/L1/U1/V1).",
+      "Yönler redüktöre ÜSTTEN bakışa göredir. Kesin geçerlilik ve ölçüler " +
+        "üretici kataloğundan doğrulanır.",
+    ],
+  },
+
+  "Redüktör Montaj Pozisyonları": {
+    code: "Redüktör Montaj Pozisyonları",
+    title: "Redüktör montaj pozisyonları (M1…M6)",
+    source: "YILMAZ Redüktör — Montaj Pozisyonları kataloğu",
+    clause: "Uzaydaki montaj yönü",
+    summary:
+      "Montaj pozisyonu redüktörün uzaydaki yönünü belirler; yağ seviyesi, " +
+      "havalandırma tapası ve yağ tahliye tapasının yeri buna göre değişir. " +
+      "Siparişte pozisyon bildirilmezse üretici M1 (yatay standart) kabul eder.",
+    tables: [
+      {
+        headers: ["Pozisyon", "Yön"],
+        rows: [
+          ["M1", "Yatay — standart (ayaklar altta)"],
+          ["M2", "Dikey — çıkış mili aşağı"],
+          ["M3", "Yatay — ters (ayaklar üstte)"],
+          ["M4", "Dikey — çıkış mili yukarı"],
+          ["M5", "Yatay — bir yan üzerinde"],
+          ["M6", "Yatay — diğer yan üzerinde"],
+        ],
+        footnote: "Yönler tipiktir; kesin oryantasyon üretici kataloğundaki şemaya göredir.",
+      },
+    ],
+    notes: [
+      "Montaj pozisyonu YAĞLAMA açısından kritiktir: yanlış pozisyon yağ " +
+        "seviyesini ve tapaların yerini değiştirir. Standart dışı pozisyon " +
+        "siparişte AÇIKÇA belirtilmelidir.",
+    ],
+  },
 };
 
 const REGISTRY: Record<string, StandardRef> = {

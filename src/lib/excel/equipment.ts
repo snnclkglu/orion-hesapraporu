@@ -131,10 +131,11 @@ const gearboxOrderCode = (model: unknown, feature: unknown): string => {
   return f ? `${m}.${f}` : m;
 };
 
-/** Montaj pozisyonu varsa spec'e ek metin ("· montaj M1"), yoksa boş. */
-const gearboxMountingNote = (pos: unknown): string => {
+/** Montaj pozisyonu ve mil yönü varsa spec'e ek metin, yoksa boş. */
+const gearboxMountingNote = (pos: unknown, dir?: unknown): string => {
   const p = typeof pos === "string" ? pos.trim() : "";
-  return p ? `, montaj ${p}` : "";
+  const d = typeof dir === "string" ? dir.trim() : "";
+  return `${d ? `, mil yönü ${d}` : ""}${p ? `, montaj ${p}` : ""}`;
 };
 
 /**
@@ -439,7 +440,7 @@ function hoistRows(
       component: "Redüktör",
       brand: "-",
       model: gearboxOrderCode(sel.gearboxModel, sel.gearboxOutputFeature),
-      spec: `i = ${fmt(sel.gearboxRatio, 2)}, nominal tork ${fmt(sel.gearboxNominalTorqueKnm, 1)} kNm, giriş mili Ø${fmt(sel.gearboxInputShaftMm)} / çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition)}`,
+      spec: `i = ${fmt(sel.gearboxRatio, 2)}, nominal tork ${fmt(sel.gearboxNominalTorqueKnm, 1)} kNm, giriş mili Ø${fmt(sel.gearboxInputShaftMm)} / çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition, sel.gearboxShaftDirection)}`,
       // Çift tamburun ikisini de ortadaki TEK redüktör taşır.
       qty: 1,
     },
@@ -530,7 +531,7 @@ function travelRows(
       component: "Redüktör",
       brand: "-",
       model: gearboxOrderCode(sel.gearboxModel, sel.gearboxOutputFeature),
-      spec: `i = ${fmt(sel.gearboxRatio, 2)}, çıkış torku ${fmt(sel.gearboxOutputTorqueKnm, 2)} kNm, çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition)}`,
+      spec: `i = ${fmt(sel.gearboxRatio, 2)}, çıkış torku ${fmt(sel.gearboxOutputTorqueKnm, 2)} kNm, çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition, sel.gearboxShaftDirection)}`,
       qty: sel.motorCount,
     },
   ];
@@ -1641,6 +1642,9 @@ export function buildSummarySections(
       // Teker mili şeması: hesap raporundaki 5.2 ile AYNI üreticiden.
       diagram: diagramsForSection(key, "5.2", input, result)[0],
     });
+    // Redüktör mil yönleri şeması (5.5) — sipariş için; yalnız mil yönü seçiliyse.
+    const gbDir = diagramsForSection(key, "5.5", input, result)[0];
+    if (gbDir) sections.push({ name: `Redüktör Mil Yönleri · ${ad}`, rows: [], diagram: gbDir });
   }
 
   // ---------------------------------------------------------------- Tamburlar
@@ -1729,6 +1733,11 @@ export function buildSummarySections(
     const shaftDiagram = diagramsForSection(key, "2.2.3", input, result)[0];
     if (shaftDiagram) {
       sections.push({ name: `Tambur Mili · ${ad}`, rows: [], diagram: shaftDiagram });
+    }
+    // Redüktör mil yönleri şeması (2.3) — sipariş için; yalnız mil yönü seçiliyse.
+    const gbDirDiagram = diagramsForSection(key, "2.3", input, result)[0];
+    if (gbDirDiagram) {
+      sections.push({ name: `Redüktör Mil Yönleri · ${ad}`, rows: [], diagram: gbDirDiagram });
     }
   }
 

@@ -311,16 +311,38 @@ export const SHAFT_MATERIALS = ["S355JR", "C25", "C30", "C35", "4140+QT", "4140"
  * Kod redüktör modeline nokta ile eklenir. Kaldırma ve yürütme redüktörleri
  * aynı listeyi kullanır (YILMAZ D serisi tip anahtarı).
  */
-export const GEARBOX_OUTPUT_FEATURES = ["00", "01", "02", "03", "0S"] as const;
+export const GEARBOX_OUTPUT_FEATURES = ["00", "01", "02", "03", "04", "05", "08", "0S"] as const;
 export const GEARBOX_OUTPUT_FEATURE_LABELS: Record<string, string> = {
   "00": "00 — Delik Milli",
   "01": "01 — Mil Çıkışlı",
-  "02": "02 — Flanşlı, Mil Çıkışlı",
-  "03": "03 — Flanşlı, Delik Milli",
-  "0S": "0S — Sıkma Bilezikli",
+  "02": "02 — Mil Çıkışlı ve Flanşlı",
+  "03": "03 — Delik Milli ve Flanşlı",
+  "04": "04 — Çift Çıkış Milli",
+  "05": "05 — Çift Mil ve Flanşlı",
+  "08": "08 — Delik Milli ve Çift Flanşlı",
+  "0S": "0S — Sıkma Bilezik",
 };
 /** Redüktör montaj pozisyonu (YILMAZ D serisi: M1…M6). Sipariş ve rapor için. */
 export const GEARBOX_MOUNTING_POSITIONS = ["M1", "M2", "M3", "M4", "M5", "M6"] as const;
+
+/**
+ * Redüktör MİL YÖNLERİ — çıkış mili/flanş konumu (R/L/U/V) + giriş mili adedi
+ * (1: tek, 2: çift). R sağ, L sol, U üst, V alt. Çift giriş milli (küçük mil
+ * iki uçlu) için "2" soneki kullanılır. Sipariş ve mil yönleri şeması için.
+ */
+export const GEARBOX_SHAFT_DIRECTIONS = [
+  "R1", "L1", "U1", "V1", "R2", "L2", "U2", "V2",
+] as const;
+export const GEARBOX_SHAFT_DIRECTION_LABELS: Record<string, string> = {
+  R1: "R1 — Sağ · tek giriş mili",
+  L1: "L1 — Sol · tek giriş mili",
+  U1: "U1 — Üst · tek giriş mili",
+  V1: "V1 — Alt · tek giriş mili",
+  R2: "R2 — Sağ · çift giriş mili",
+  L2: "L2 — Sol · çift giriş mili",
+  U2: "U2 — Üst · çift giriş mili",
+  V2: "V2 — Alt · çift giriş mili",
+};
 
 /** Motor bağlantı (montaj) biçimi — IEC. Sipariş için: B5/B14 ayrımı kritik. */
 export const MOTOR_MOUNT_TYPES = ["B3", "B5", "B14", "B35", "B34"] as const;
@@ -1040,8 +1062,18 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
     hint: "Sipariş kodunun son parçası (ör. DT472.03). Delik milli, flanşlı vb.",
   },
   {
+    // Çıkış mili/flanş yönü (R/L/U/V) + giriş mili adedi (1 tek, 2 çift).
+    // Rozet mil ve flanş yönleri tablosunu açar; şema seçime göre çizilir.
+    key: "gearboxShaftDirection", label: "Redüktör Mil Yönleri", type: "select",
+    options: GEARBOX_SHAFT_DIRECTIONS as unknown as string[],
+    optionLabels: GEARBOX_SHAFT_DIRECTION_LABELS,
+    standardRef: "Redüktör Mil Yönleri",
+    hint: "R sağ · L sol · U üst · V alt. Sonek 1: tek giriş mili, 2: çift giriş mili.",
+  },
+  {
     key: "gearboxMountingPosition", label: "Redüktör Montaj Pozisyonu", type: "select",
     options: GEARBOX_MOUNTING_POSITIONS as unknown as string[],
+    standardRef: "Redüktör Montaj Pozisyonları",
     hint: "Redüktörün montaj konumu (YILMAZ D serisi M1…M6). Sipariş için raporda görünür.",
   },
   { key: "gearboxRatio", label: "Çevrim Oranı", type: "number" },

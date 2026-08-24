@@ -72,6 +72,8 @@ import { drumDiagram } from "./drum";
 import { drumShaftDiagram } from "./drumShaft";
 import { shaftWeldDiagram } from "./shaftWeld";
 import { balanceDiagram } from "./balance";
+import { gearboxShaftDiagram } from "./gearboxShaft";
+import { GEARBOX_OUTPUT_FEATURE_LABELS } from "@/lib/calc/fields";
 import { hookBlockShaftDiagram } from "./hookBlockShaft";
 import {
   liftingBeamDiagram,
@@ -475,6 +477,37 @@ export function diagramForSection(
         maxMomentKgCm: v?.maxMomentKgCm,
         loadBandCm: v?.shaftLoadBandCm,
         loadIntensityKgPerCm: v?.shaftLoadIntensityKgPerCm,
+      });
+    }
+
+    // Redüktör mil yönleri şeması — kaldırma 2.3 / yürütme 5.5. Yalnız mil
+    // yönü seçiliyken çizilir (üst görünüş; çıkış özelliği + yön koduna göre).
+    if (
+      (isHoistKey(moduleKey as ModuleKey) && rawSectionId === "2.3") ||
+      (isTravelKey(moduleKey as ModuleKey) && rawSectionId === "5.5")
+    ) {
+      const st = isHoistKey(moduleKey as ModuleKey)
+        ? input[HOIST_FIELD[moduleKey as HoistKey]]
+        : input[moduleKey as TravelKey];
+      const sel = st?.selections as
+        | {
+            gearboxOutputFeature?: string;
+            gearboxShaftDirection?: string;
+            gearboxInputShaftMm?: number;
+            gearboxOutputShaftMm?: number;
+            gearboxModel?: string;
+          }
+        | undefined;
+      if (!sel || !sel.gearboxShaftDirection) return null;
+      return gearboxShaftDiagram({
+        feature: sel.gearboxOutputFeature,
+        direction: sel.gearboxShaftDirection,
+        inputShaftMm: sel.gearboxInputShaftMm,
+        outputShaftMm: sel.gearboxOutputShaftMm,
+        model: sel.gearboxModel,
+        featureLabel: sel.gearboxOutputFeature
+          ? GEARBOX_OUTPUT_FEATURE_LABELS[sel.gearboxOutputFeature]
+          : undefined,
       });
     }
 

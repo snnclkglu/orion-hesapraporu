@@ -719,7 +719,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     equipmentSlugs: ["gearbox"],
     description: "Tambur torku, gerekli çevrim oranı ve redüktör seçimi.",
     inputKeys: ["drumCount", "gearboxServiceFactor", "reducerStages", "stageEfficiency"],
-    selectionKeys: ["gearboxModel", "gearboxOutputFeature", "gearboxMountingPosition", "gearboxRatio", "gearboxNominalTorqueKnm", "gearboxInputShaftMm", "gearboxOutputShaftMm", "gearboxAllowedRadialKn"],
+    selectionKeys: ["gearboxModel", "gearboxOutputFeature", "gearboxShaftDirection", "gearboxMountingPosition", "gearboxRatio", "gearboxNominalTorqueKnm", "gearboxInputShaftMm", "gearboxOutputShaftMm", "gearboxAllowedRadialKn"],
     rows: [
       {
         key: "drum.torque", label: "Tambur Torku", formula: "M_t = r · n_tah · F_kN",

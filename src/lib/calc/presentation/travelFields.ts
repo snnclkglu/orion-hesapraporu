@@ -17,6 +17,8 @@ import {
   GEARBOX_OUTPUT_FEATURES,
   GEARBOX_OUTPUT_FEATURE_LABELS,
   GEARBOX_MOUNTING_POSITIONS,
+  GEARBOX_SHAFT_DIRECTIONS,
+  GEARBOX_SHAFT_DIRECTION_LABELS,
   MOTOR_MOUNT_TYPES,
   MOTOR_MOUNT_TYPE_LABELS,
   MOTOR_BRAKE_OPTIONS,
@@ -346,8 +348,16 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
     hint: "Sipariş kodunun son parçası (ör. DT472.03). Delik milli, flanşlı vb.",
   },
   {
+    key: "gearboxShaftDirection", label: "Redüktör Mil Yönleri", type: "select",
+    options: GEARBOX_SHAFT_DIRECTIONS as unknown as string[],
+    optionLabels: GEARBOX_SHAFT_DIRECTION_LABELS,
+    standardRef: "Redüktör Mil Yönleri",
+    hint: "R sağ · L sol · U üst · V alt. Sonek 1: tek giriş mili, 2: çift giriş mili.",
+  },
+  {
     key: "gearboxMountingPosition", label: "Redüktör Montaj Pozisyonu", type: "select",
     options: GEARBOX_MOUNTING_POSITIONS as unknown as string[],
+    standardRef: "Redüktör Montaj Pozisyonları",
     hint: "Redüktörün montaj konumu (YILMAZ D serisi M1…M6). Sipariş için raporda görünür.",
   },
   {

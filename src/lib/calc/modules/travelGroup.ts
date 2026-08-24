@@ -297,6 +297,8 @@ export interface TravelSelections {
   gearboxModel: string;
   /** Redüktör çıkış özelliği sipariş kodu (00/01/02/03/0S) → DT472.03 */
   gearboxOutputFeature?: string;
+  /** Redüktör çıkış mili/flanş yönü + giriş mili adedi (R1/L1/…/V2) */
+  gearboxShaftDirection?: string;
   /** Redüktör montaj pozisyonu (M1…M6) — sipariş/rapor için */
   gearboxMountingPosition?: string;
   gearboxRatio: number;
