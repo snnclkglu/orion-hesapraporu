@@ -28,6 +28,23 @@ import {
   railNominalHeadWidthMm,
 } from "../tables";
 
+/**
+ * Kauçuk tampon gövde malzemesi kaliteleri (Conductix-Wampfler). N ve S
+ * standart, diğerleri özel kalitedir (yalnız büyük siparişte). Tam özellik
+ * tablosu standarts registry'de "Conductix Kauçuk Kaliteleri" kaydındadır.
+ */
+export const BUFFER_RUBBER_QUALITIES: readonly string[] = [
+  "N", "S", "SBR", "EPDM", "NBR", "VMQ",
+];
+export const BUFFER_RUBBER_QUALITY_LABELS: Record<string, string> = {
+  N: "N — NR (Doğal Kauçuk)",
+  S: "S — CR (Kloropren)",
+  SBR: "SBR — Stiren-Bütadien (özel)",
+  EPDM: "EPDM — Etilen-Propilen (özel)",
+  NBR: "NBR — Nitril-Bütadien (özel)",
+  VMQ: "VMQ — Silikon (özel)",
+};
+
 /** Teker çapı FEM standart serisi [mm] */
 export const WHEEL_DIA_SERIES_MM = [
   "200", "250", "315", "400", "500", "630", "710", "800", "900", "1000", "1120", "1250",
@@ -322,6 +339,19 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   { key: "wheelCouplingTorqueNm", label: "Teker Kaplini Tork Kapasitesi", unit: "Nm", type: "number" },
   { key: "wheelCouplingDmaxMm", label: "Teker Kaplini Azami Mil Çapı", unit: "mm", type: "number", diameter: true },
   { key: "bufferModel", label: "Seçilen Tampon", type: "text" },
+  {
+    // Kauçuk tampon gövde malzemesi kalitesi (Conductix). Yalnız KAUÇUK
+    // seçildiğinde görünür (`bufferCatalogType` = "kauçuk"); hücresel/hidrolikte
+    // gizli. Hesaba girmez — sipariş ve rapor için taşınır. Varsayılan N.
+    key: "bufferRubberQuality", label: "Kauçuk Cinsi", type: "select",
+    options: BUFFER_RUBBER_QUALITIES,
+    optionLabels: BUFFER_RUBBER_QUALITY_LABELS,
+    standardRef: "Conductix Kauçuk Kaliteleri",
+    hint: "Kauçuk tamponun gövde malzemesi. Standart: N (doğal kauçuk).",
+    visibleWhen: (sel) =>
+      String((sel as { bufferCatalogType?: unknown }).bufferCatalogType ?? "")
+        .toLocaleLowerCase("tr-TR") === "kauçuk",
+  },
   {
     key: "bufferCatalogType", label: "Seçilen Tampon Alt Türü", type: "text",
     hint: "Katalog satırından gelir; Kauçuk ailesinde kauçuk veya hücresel poliüretan olabilir.",

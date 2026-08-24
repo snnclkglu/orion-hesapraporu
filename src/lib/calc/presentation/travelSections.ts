@@ -588,7 +588,8 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       "bufferFrequentEndApproach",
     ],
     selectionKeys: [
-      "bufferModel", "bufferCatalogType", "bufferStrokeMm", "bufferEnergyKj", "bufferLoadKn",
+      "bufferModel", "bufferCatalogType", "bufferRubberQuality",
+      "bufferStrokeMm", "bufferEnergyKj", "bufferLoadKn",
     ],
     rows: [
       {

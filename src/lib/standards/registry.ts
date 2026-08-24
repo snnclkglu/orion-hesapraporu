@@ -1972,10 +1972,64 @@ const DIN_REFS: Record<string, StandardRef> = {
 // ------------------------------------------------------------------ birleştirme
 
 /** Ana defter — anahtar, hesap satırındaki `standard` dizesinin birebir kendisi. */
+/**
+ * Üretici referansları (standart değil, KATALOG bilgisi). Alan yanındaki rozet
+ * bu kaydı açar; mühendis seçim yaparken kaynağı görür.
+ */
+const MANUF_REFS: Record<string, StandardRef> = {
+  "Conductix Kauçuk Kaliteleri": {
+    code: "Conductix Kauçuk Kaliteleri",
+    title: "Kauçuk tampon malzeme kalite dereceleri",
+    source:
+      "Conductix-Wampfler — Rubber and Cellular Buffers (KAT0170-0002-EN), " +
+      "'Quality Degrees of the Most Common Materials'",
+    clause: "En yaygın malzemeler",
+    summary:
+      "Kauçuk tamponun gövde malzemesi kalite derecesi. Standart kaliteler N " +
+      "(NR · doğal kauçuk) ve S (CR · kloropren); özel kaliteler (SBR, EPDM, " +
+      "NBR, VMQ) yalnız büyük siparişlerde temin edilir. Değerler ortam " +
+      "sıcaklığına göre değişebilir.",
+    tables: [
+      {
+        headers: ["Özellik", "N · NR", "S · CR", "SBR", "EPDM", "NBR", "VMQ"],
+        rows: [
+          ["Aşınma direnci", "++", "++", "++", "+", "++", "--"],
+          ["Kopma uzaması", "+++", "++", "++", "+", "++", "○"],
+          ["Yırtılma direnci", "++", "++", "+", "+", "+", "---"],
+          ["Geri sekme (rebound)", "++", "+", "+", "+", "+", "+"],
+          ["Çekme muk. (takviyesiz)", "+++", "+", "--", "--", "--", "---"],
+          ["Çekme muk. (takviyeli)", "+++", "++", "++", "+", "++", "○"],
+          ["Sıcaklık — sıcak hava", "+90°C", "+120°C", "+100°C", "+150°C", "+130°C", "+200°C"],
+          ["Sıcaklık — soğuk", "−50°C", "−30°C", "−40°C", "−40°C", "−40°C", "−80°C"],
+          ["Alkali direnci", "+", "++", "+", "++", "+", "--"],
+          ["Yaşlanma direnci", "+", "++", "+", "+++", "+", "+++"],
+          ["Benzin direnci", "---", "++", "○", "--", "+++", "--"],
+          ["Elektrik yalıtım direnci", "+++", "+", "++", "++", "+", "+++"],
+          ["Yağ ve gres direnci", "---", "++", "--", "○", "+++", "+++"],
+          ["Ozon direnci", "○", "++", "○", "+++", "+", "+++"],
+          ["Asit direnci", "+", "++", "+", "+++", "○", "--"],
+          ["Sıcak su", "+", "+", "++", "++", "+", "--"],
+        ],
+        footnote:
+          "+++ çok iyi · ++ iyi · + yeterli · ○ orta · -- zayıf · --- yetersiz. " +
+          "NBR elektrik yalıtımı kaynak katalogda belirsiz basılıdır. " +
+          "Toleranslar ISO 3302-1M.",
+      },
+    ],
+    notes: [
+      "N (NR) ve S (CR) standart kalitelerdir; özel kaliteler (SBR, EPDM, NBR, " +
+        "VMQ) yalnız büyük sipariş adetlerinde temin edilir — üretici teyidi alın.",
+      "Kalite derecesi malzeme etkileşimine ve maruz kalma süresine göre değişir; " +
+        "tablo yön göstericidir, kesin şartname değildir.",
+    ],
+  },
+};
+
 const REGISTRY: Record<string, StandardRef> = {
   ...FEM_REFS,
   ...CMAA_REFS,
   ...DIN_REFS,
+  ...MANUF_REFS,
 };
 
 /** Aynı içeriğe işaret eden alternatif yazımlar. */

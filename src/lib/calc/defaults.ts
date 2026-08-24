@@ -569,6 +569,8 @@ const NEW_WORK_TROLLEY_SELECTIONS = {
   ...V5_TROLLEY_SELECTIONS,
   motorCount: 2,
   gearboxRatio: 58.1195,
+  // Kauçuk tampon seçilirse gövde malzemesi varsayılan N (doğal kauçuk).
+  bufferRubberQuality: "N",
 };
 
 /**
@@ -581,6 +583,7 @@ const NEW_WORK_BRIDGE_SELECTIONS = {
   ...V5_BRIDGE_SELECTIONS,
   motorPowerKw: 4,
   gearboxRatio: 48.8203,
+  bufferRubberQuality: "N",
 };
 
 /**

@@ -329,6 +329,12 @@ export interface TravelSelections {
    */
   bufferCatalogType?: string;
   /**
+   * KAUÇUK tamponun gövde malzemesi kalite derecesi (Conductix): N (NR), S
+   * (CR), SBR, EPDM, NBR, VMQ. Yalnız kauçuk ailesinde anlamlıdır; hesabı
+   * etkilemez, sipariş/rapor için taşınır. Varsayılan "N".
+   */
+  bufferRubberQuality?: string;
+  /**
    * HİDROLİKTE tam strok s [mm]; KAUÇUKTA tamponun GÖVDE YÜKSEKLİĞİ h [mm]
    * (sıkışma yolu f′ = sıkışma% · h / 100 olarak eğriden çıkar).
    */
