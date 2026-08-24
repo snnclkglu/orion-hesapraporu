@@ -84,7 +84,9 @@ import type {
   HookBlockSelections,
   HookBlockValues,
 } from "@/lib/calc/modules/hookBlock";
-import { travelHasFestoon, travelSpecView } from "@/lib/calc/modules/travelGroup";
+import {
+  bufferOrderQty, travelHasFestoon, travelSpecView,
+} from "@/lib/calc/modules/travelGroup";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
 import { railTProfile } from "@/lib/calc/modules/mainGirder";
 import type { GirderInputs } from "@/lib/calc/modules/mainGirder";
@@ -693,7 +695,10 @@ function travelRows(
       brand: "-",
       model: textOr(sel.bufferModel),
       spec: `${textOr(sel.bufferCatalogType, "tip belirtilmemiş")}, strok ${fmt(sel.bufferStrokeMm)} mm, enerji ${fmt(sel.bufferEnergyKj, 2)} kJ, yük ${fmt(sel.bufferLoadKn, 1)} kN`,
-      qty: 2,
+      // ADET SABİT DEĞİL, KURULU TAMPON ADEDİNDEN TÜRER: kutuda 2 seçiliyken
+      // liste yine 2 basıyordu, oysa vinç tamponu her iki uçta taşır
+      // (bkz. `bufferOrderQty`).
+      qty: bufferOrderQty(inp.bufferCount),
     }
   );
 

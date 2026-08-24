@@ -592,11 +592,36 @@ export function activeBufferCountForImpact(installedCount: number | undefined): 
   return count === 2 ? 2 : 1;
 }
 
-/** Kullanıcı arayüzünün desteklediği kurulu tampon seçeneklerini tekilleştirir. */
-function installedBufferCountOr(value: number | undefined): 1 | 2 | 4 {
+/**
+ * Kullanıcı arayüzünün desteklediği kurulu tampon seçeneklerini tekilleştirir.
+ *
+ * DIŞA VERİLİR: ekipman listesi sipariş adedini bu sayıdan türetir
+ * (bkz. `bufferOrderQty`) ve iki yüzey aynı "kurulu adet" tanımını okumalıdır —
+ * eski revizyonlarda alan hiç bulunmaz ve varsayılan 2'dir.
+ */
+export function installedBufferCountOr(value: number | undefined): 1 | 2 | 4 {
   const count = Math.round(posOr(value, 2));
   if (count >= 4) return 4;
   return count === 1 ? 1 : 2;
+}
+
+/**
+ * TAMPONUN SİPARİŞ ADEDİ = kurulu tampon adedi × 2.
+ *
+ * "Kurulu Tampon Adedi" kutusu HESABIN sorusunu cevaplar: bir çarpmada yükü
+ * kaç tampon paylaşır (KAT0170 s.6 yerleşimi). Vinç ise tamponu HER İKİ
+ * UÇTA taşır — bir uçtaki düzen ötekinde birebir tekrarlanır. Ekipman listesi
+ * bu yüzden hesabın adedini değil, ikiye katlanmışını sipariş eder (kullanıcı
+ * bildirimi, 24.08.2026: liste eksik adet basıyordu).
+ *
+ * Adet SAF tarafta durur çünkü hem Excel hem PDF ekipman listesi aynı sayıyı
+ * basar; iki yerde ayrı yazılmış bir çarpan, birinde düzeltilip ötekinde
+ * eskimenin en kısa yoludur.
+ */
+export const BUFFER_ENDS_PER_AXIS = 2;
+
+export function bufferOrderQty(installedCount: number | undefined): number {
+  return installedBufferCountOr(installedCount) * BUFFER_ENDS_PER_AXIS;
 }
 
 /** Geçerli bir tampon tipi mi (eski revizyonlarda alan hiç bulunmaz). */

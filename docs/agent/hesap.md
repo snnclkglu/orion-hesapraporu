@@ -1168,3 +1168,11 @@ değerin aynı olup olmadığını soran kontroller (`brake.wheelModel`,
 AYNIDIR; şeritte "250 ≤ 250 ≤ 250" diye görünürler — bir yargı değil totoloji.
 Bunlar `BAND_DISI_SONEKLER`e girer. Modelin AYAR ARALIĞI (`brake.torqueModel`)
 ise gerçek bir bant kontrolüdür ve şeritte durur.
+
+**TAMPONUN SİPARİŞ ADEDİ HESABIN ADEDİ DEĞİLDİR.** "Kurulu Tampon Adedi"
+kutusu hesabın sorusunu cevaplar — bir çarpmada yükü kaç tampon paylaşır
+(KAT0170 s.6 yerleşimi, `activeBufferCountForImpact`). Vinç ise tamponu HER İKİ
+UÇTA taşır ve bir uçtaki düzen ötekinde birebir tekrarlanır; ekipman listesi bu
+yüzden `bufferOrderQty` = kurulu adet × 2 basar. Liste eskiden SABİT 2
+yazıyordu, kutuda ne seçilirse seçilsin (kullanıcı bildirimi, 24.08.2026).
+Çarpan saf tarafta tek yerdedir — Excel ve PDF aynı sayıyı okur.
