@@ -323,7 +323,8 @@ describe("kalem bazında iskonto", () => {
     const satirlarSonrasi = offerTotal(props.payload.pricing.lines)!;
     props.payload.pricing.discountTotal = Math.ceil(satirlarSonrasi * 0.9);
     const metin = duz(await pdfMetni(props));
-    expect(metin).toContain(duz("İSKONTO %12,5"));
+    expect(metin).toContain(duz("%12,5"));
+    expect(metin).not.toContain(duz("İSKONTO %12,5"));
     expect(metin).toContain(duz("İSKONTO (%"));
   });
 

@@ -744,13 +744,14 @@ const S = StyleSheet.create({
   },
   /** İki katmanlı fiyat hücresi: eski rakam üstte, geçerli rakam altında. */
   fiyatYigin: { alignItems: "flex-end" },
+  /** Geçerli birim fiyat ve kısa iskonto oranı aynı satırda kalır. */
+  fiyatGecerliSatir: { flexDirection: "row", alignItems: "baseline", gap: 3 },
   fiyatIskonto: {
     fontFamily: FONTS.mono,
     fontSize: 5.25,
     fontWeight: 600,
     lineHeight: 1.2,
     color: BRAND.red,
-    marginTop: 1,
   },
   // ---- toplam şeritleri
   //
@@ -2032,12 +2033,14 @@ function FiyatTablosu({
                   return indirimli ? (
                     <View key={s.key} style={[S.fiyatYigin, yerlesim]}>
                       <Text style={S.fiyatEski}>{fmtMoney(line.unitPrice, currency)}</Text>
-                      <Text style={S.fiyatVeri}>{fmtMoney(indirimli.unitPrice, currency)}</Text>
-                      {indirimli.discountPercent !== null ? (
-                        <Text style={S.fiyatIskonto}>
-                          İSKONTO %{String(indirimli.discountPercent).replace(".", ",")}
-                        </Text>
-                      ) : null}
+                      <View style={S.fiyatGecerliSatir}>
+                        <Text style={S.fiyatVeri}>{fmtMoney(indirimli.unitPrice, currency)}</Text>
+                        {indirimli.discountPercent !== null ? (
+                          <Text style={S.fiyatIskonto}>
+                            %{String(indirimli.discountPercent).replace(".", ",")}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
                   ) : (
                     <Text key={s.key} style={[S.fiyatVeri, yerlesim]}>

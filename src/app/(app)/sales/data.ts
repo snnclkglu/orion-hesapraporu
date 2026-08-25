@@ -47,10 +47,30 @@ interface JobJoin {
   delivery_date: string | null;
   workshop_exit_date: string | null;
   shipping_address: string | null;
-  shipping_country: string | null;
+  shipping_country?: string | null;
   customers: CustomerJoin | CustomerJoin[] | null;
   /** İş emrinin sözleşme PDF'i — İŞ BAŞINA tek satır (`job_contracts`). */
   job_contracts: ContractJoin | ContractJoin[] | null;
+}
+
+const SALE_ROWS_SELECT = `id, item_no, product_name, sort,
+       jobs!inner(id, job_no, customer, status, contract_date, work_order_date,
+                  delivery_date, workshop_exit_date, shipping_address, shipping_country,
+                  customers(short_name, color_hue),
+                  job_contracts(file_path, file_name)),
+       job_item_sales(scope, due_date, shipment_date, quantity, unit, unit_weight_kg,
+                      unit_price, currency, fx_rate, shipment_place, notes,
+                      total_weight_kg, total_price, eur_amount)`;
+
+/**
+ * `shipping_country` geçişi uygulanmadan önceki veritabanları için aynı sorgu.
+ * Alan yokken bütün satış listesini kaybetmek yerine ülke aşağıda Türkiye olur.
+ */
+const LEGACY_SALE_ROWS_SELECT = SALE_ROWS_SELECT.replace(", shipping_country", "");
+
+function shippingCountryColumnMissing(error: { code?: string; message?: string } | null): boolean {
+  if (!error || !String(error.message ?? "").includes("shipping_country")) return false;
+  return error.code === "42703" || error.code === "PGRST204";
 }
 
 interface ContractJoin {
@@ -74,21 +94,28 @@ function num(v: number | string | null | undefined): number | null {
  * fonksiyon yalnız okur.
  */
 export async function loadSaleRows(supabase: SupabaseClient): Promise<SaleRow[]> {
-  const { data: items } = await supabase
+  const ilkSorgu = await supabase
     .from("job_items")
-    .select(
-      `id, item_no, product_name, sort,
-       jobs!inner(id, job_no, customer, status, contract_date, work_order_date,
-                  delivery_date, workshop_exit_date, shipping_address, shipping_country,
-                  customers(short_name, color_hue),
-                  job_contracts(file_path, file_name)),
-       job_item_sales(scope, due_date, shipment_date, quantity, unit, unit_weight_kg,
-                      unit_price, currency, fx_rate, shipment_place, notes,
-                      total_weight_kg, total_price, eur_amount)`
-    )
+    .select(SALE_ROWS_SELECT)
     .order("item_no", { ascending: false });
 
-  return (items ?? []).map((it) => {
+  let items = ilkSorgu.data as unknown[] | null;
+  if (ilkSorgu.error) {
+    if (!shippingCountryColumnMissing(ilkSorgu.error)) {
+      throw new Error(`Satış takibi verileri okunamadı: ${ilkSorgu.error.message}`);
+    }
+    const eskiSemaSorgusu = await supabase
+      .from("job_items")
+      .select(LEGACY_SALE_ROWS_SELECT)
+      .order("item_no", { ascending: false });
+    if (eskiSemaSorgusu.error) {
+      throw new Error(`Satış takibi verileri okunamadı: ${eskiSemaSorgusu.error.message}`);
+    }
+    items = eskiSemaSorgusu.data as unknown[] | null;
+  }
+
+  return (items ?? []).map((raw) => {
+    const it = raw as Record<string, unknown>;
     const job = one<JobJoin>(it.jobs as unknown as JobJoin | JobJoin[]);
     const s = one<SaleJoin>(it.job_item_sales as unknown as SaleJoin | SaleJoin[]);
     const book = one<CustomerJoin>(job?.customers);
