@@ -78,7 +78,7 @@ export async function ProjectPageView({
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, status, created_at, job_id, prepared_by, checked_by, report_context, jobs:job_id(id, job_no, title)")
+    .select("id, doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, status, created_at, job_id, prepared_by, checked_by, checked_by_name, report_context, jobs:job_id(id, job_no, title)")
     .eq("id", id)
     .single();
 
@@ -297,6 +297,7 @@ export async function ProjectPageView({
         people={signatoryPeople}
         preparedBy={(project.prepared_by as string | null) ?? null}
         checkedBy={(project.checked_by as string | null) ?? null}
+        checkedByName={(project.checked_by_name as string | null) ?? null}
       />
 
       <Tabs defaultValue="report">

@@ -48,7 +48,7 @@ export async function GET(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, prepared_by, checked_by")
+    .select("doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, prepared_by, checked_by, checked_by_name")
     .eq("id", id)
     .single();
   if (!project) return new Response("Proje bulunamadı", { status: 404 });
@@ -90,7 +90,7 @@ export async function GET(
       updated_at: revision.updated_at,
     },
     preparedBy: nameOf(preparedById),
-    checkedBy: nameOf(project.checked_by),
+    checkedBy: project.checked_by_name?.trim() || nameOf(project.checked_by),
     reportBrand: coverIdentity.reportBrand,
     endCustomerLogo: coverIdentity.endCustomerLogo,
     input,

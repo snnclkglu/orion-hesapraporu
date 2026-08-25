@@ -249,6 +249,8 @@ export interface PageFrameProps {
   orientation?: "portrait" | "landscape";
   /** Kapak dışındaki sayfalarda üst sağ güvenli alanda tekrarlanan firma logosu. */
   topRightLogo?: BrandBandLogo;
+  /** Her fiziksel yaprakta tekrarlanan sabit antet. */
+  repeatedHeader?: React.ReactNode;
   /**
    * TAM KANAMA SAYFA — kapak gibi kenardan kenara boyanan yapraklar için.
    *
@@ -318,6 +320,7 @@ export function BrandPage({
   hidePageNumber,
   orientation = "portrait",
   topRightLogo,
+  repeatedHeader,
   bleed,
   brandFooter,
   style,
@@ -331,7 +334,7 @@ export function BrandPage({
         fontSize: 8.5,
         color: BRAND.ink,
         backgroundColor: BRAND.white,
-        paddingTop: bleed ? 0 : PAGE.marginTop,
+        paddingTop: bleed || repeatedHeader ? 0 : PAGE.marginTop,
         paddingBottom: bleed ? 0 : PAGE.marginBottom + 14 + (company ? COMPANY_FOOTER_HEIGHT : 0),
         paddingLeft: bleed ? 0 : PAGE.contentLeft,
         paddingRight: bleed ? 0 : PAGE.marginOuter,
@@ -393,7 +396,22 @@ export function BrandPage({
           </Text>
         </View>
       ) : null}
-      {children}
+      {repeatedHeader ?? null}
+      {repeatedHeader ? (
+        /* react-pdf devam yaprağında Page.paddingTop'u sıfırlar. Gövdeyi her
+           fiziksel parçada aynı dönüşümle aşağı alıp oransal küçülterek antet
+           alanını gerçek anlamda boş bırakırız; genişliği ters oranda açmak,
+           ölçek sonrası içerik ve başlık kurallarını aynı sağ eksende tutar. */
+        <View
+          style={{
+            width: "107.1429%",
+            transform: "translateY(56) scale(0.933333)",
+            transformOrigin: "top left",
+          }}
+        >
+          {children}
+        </View>
+      ) : children}
       {/* TAM KANAMADA OMURGA EN SONDA: boyama sırası akış sırasıdır ve
           kenardan kenara bir bant, önce çizilmiş omurganın üstünü örterdi. */}
       {bleed ? <Spine /> : null}
@@ -684,6 +702,7 @@ export function PageHeader({
   meta,
   metaAlign = "right",
   logo,
+  fixed = false,
 }: {
   kicker: string;
   title: string;
@@ -692,13 +711,28 @@ export function PageHeader({
   metaAlign?: "right" | "center";
   /** İç sayfa başlığına gömülü kurum logosu; ayrı üst satır açmaz. */
   logo?: BrandBandLogo;
+  /** Uzun içerik yeni yaprağa aktığında anteti devam sayfalarında da tekrarlar. */
+  fixed?: boolean;
 }) {
   const logoRatio = logo && Number.isFinite(logo.ratio) && logo.ratio > 0 ? logo.ratio : 1;
   // Önceki 72 × 18 pt yuvanın tam %25 büyütülmüş karşılığı.
   const logoWidth = Math.min(90, 22.5 / logoRatio);
   const logoHeight = Math.min(22.5, 90 * logoRatio);
   return (
-    <View style={{ marginBottom: 10 }}>
+    <View
+      fixed={fixed}
+      style={{
+        marginBottom: 10,
+        ...(fixed
+          ? {
+              position: "absolute",
+              top: 12,
+              left: PAGE.contentLeft,
+              right: PAGE.marginOuter,
+            }
+          : {}),
+      }}
+    >
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 12 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={T.kicker}>{trUpper(kicker)}</Text>
@@ -714,10 +748,12 @@ export function PageHeader({
         ) : null}
         {meta && metaAlign === "right" ? (
           <Text
+            wrap={false}
             style={{
               ...T.data,
-              width: 132,
-              fontSize: 7.5,
+              width: 154,
+              fontSize: 6.8,
+              letterSpacing: 0.15,
               color: BRAND.gray500,
               textAlign: "right",
               flexShrink: 0,

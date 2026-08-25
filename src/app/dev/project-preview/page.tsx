@@ -173,6 +173,7 @@ export default function ProjectPreviewPage() {
           people={PEOPLE}
           preparedBy="p1"
           checkedBy="p2"
+          checkedByName="Alkım Kelleci"
         />
 
         {/* Bölüm rayı ve ekipman sürüm defteri GERÇEK bileşenlerdir. Ekipman

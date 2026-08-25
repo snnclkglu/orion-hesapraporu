@@ -68,7 +68,7 @@ export async function GET(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("doc_no, name, customer, prepared_by, checked_by")
+    .select("doc_no, name, customer, prepared_by, checked_by, checked_by_name")
     .eq("id", id)
     .single();
   if (!project) return new Response("Proje bulunamadı", { status: 404 });
@@ -139,7 +139,7 @@ export async function GET(
     revNo: revision.rev_no,
     date: new Date().toLocaleDateString("tr-TR"),
     preparedBy: nameOf(preparedById),
-    checkedBy: nameOf(project.checked_by),
+    checkedBy: project.checked_by_name?.trim() || nameOf(project.checked_by),
   };
 
   // `Uint8Array<ArrayBuffer>` — çıplak `Uint8Array` DEĞİL: TS 5.7'den beri

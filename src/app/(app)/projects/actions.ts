@@ -324,6 +324,7 @@ export async function updateProjectDetails(
 const projectSignatoriesSchema = z.object({
   prepared_by: z.uuid().nullable(),
   checked_by: z.uuid().nullable(),
+  checked_by_name: z.string().trim().max(120),
 });
 
 export type ProjectSignatoriesInput = z.infer<typeof projectSignatoriesSchema>;
@@ -362,7 +363,7 @@ export async function updateProjectSignatories(
 
   const { data: current } = await supabase
     .from("projects")
-    .select("prepared_by, checked_by")
+    .select("prepared_by, checked_by, checked_by_name")
     .eq("id", parsedId.data)
     .maybeSingle();
   if (!current) return { error: "Hesap raporu bulunamadı" };
@@ -380,8 +381,10 @@ export async function updateProjectSignatories(
     detail: {
       previous_prepared_by: current.prepared_by,
       previous_checked_by: current.checked_by,
+      previous_checked_by_name: current.checked_by_name,
       prepared_by: parsed.data.prepared_by,
       checked_by: parsed.data.checked_by,
+      checked_by_name: parsed.data.checked_by_name,
     },
   });
 

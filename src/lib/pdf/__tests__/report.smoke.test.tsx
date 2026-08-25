@@ -185,6 +185,19 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
     expect(ozet.all).toContain("KARÇEL KARDEMİR ÇELİK YAPI İMALAT");
     expect(ozet.all).not.toContain("RAPORU HAZIRLAYAN FİRMA");
     expect(ozet.all.toLocaleLowerCase("tr-TR")).not.toContain("partner");
+    expect(ozet.squeezed).not.toContain("TASARIMHESAPRAPORU");
+  }, 300_000);
+
+  it("uzun hesap bölümlerinin anteti devam sayfalarında da tekrarlanır", async () => {
+    const detayli = await pagesOf(await atLevel("detayli"));
+    const mainHeaderPages = detayli.pages.filter((page) =>
+      page.replace(/\s+/g, "").includes("BÖLÜM02ANAKALDIRMA")
+    );
+
+    expect(mainHeaderPages.length).toBeGreaterThan(1);
+    for (const page of mainHeaderPages) {
+      expect(page).toContain("FEM 1.001 · DIN 15018 · CMAA 70");
+    }
   }, 300_000);
 
   it("kontrol özeti yalnız DETAYLI raporda basılır", async () => {

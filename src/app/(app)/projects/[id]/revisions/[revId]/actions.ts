@@ -56,7 +56,7 @@ export async function issueRevision(
     const [{ data: project }, { data: profile }] = await Promise.all([
       supabase
         .from("projects")
-        .select("doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, prepared_by, checked_by")
+        .select("doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, prepared_by, checked_by, checked_by_name")
         .eq("id", projectId)
         .single(),
       supabase.from("profiles").select("full_name").eq("id", user.id).single(),
@@ -92,7 +92,7 @@ export async function issueRevision(
           updated_at: revision.updated_at,
         },
         preparedBy: nameOf(preparedById) || profile?.full_name || "—",
-        checkedBy: nameOf(project.checked_by) || "—",
+        checkedBy: project.checked_by_name?.trim() || nameOf(project.checked_by) || "—",
         reportBrand: coverIdentity.reportBrand,
         endCustomerLogo: coverIdentity.endCustomerLogo,
         input,

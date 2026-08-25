@@ -191,9 +191,16 @@ function fmt(v: number | string | null | undefined, digits = 2): string {
   return v.toLocaleString("tr-TR", { maximumFractionDigits: digits });
 }
 
-/** Müşteri logoları yüklemede 900 × 240 standart tuvale normalize edilir. */
+/** PNG'nin IHDR alanından yükseklik/genişlik oranı; hatada standart tuvale döner. */
 function customerLogo(src: Buffer | null | undefined) {
-  return src ? { src, ratio: 240 / 900 } : undefined;
+  if (!src) return undefined;
+  try {
+    const width = src.readUInt32BE(16);
+    const height = src.readUInt32BE(20);
+    return { src, ratio: width > 0 && height > 0 ? height / width : 240 / 900 };
+  } catch {
+    return { src, ratio: 240 / 900 };
+  }
 }
 
 /** Girdi/seçim değerleri: sayılar tr-TR, hassasiyet kaybını önlemek için 4 hane */
@@ -1189,6 +1196,8 @@ function CoverPage(props: ReportProps) {
   const docCode = docCodeFor(project, revision);
   const reportBrandMark = customerLogo(reportBrand?.logo);
   const endCustomerMark = customerLogo(endCustomerLogo);
+  const reportBrandWidth = reportBrandMark ? Math.min(164, 44 / reportBrandMark.ratio) : 0;
+  const endCustomerWidth = endCustomerMark ? Math.min(205, 52.5 / endCustomerMark.ratio) : 0;
   return (
     // Künye ALTBİLGİNİN İÇİNDE: ayrı bir blok olarak akışın sonuna konduğunda
     // künye ile sayfa altbilgisi arasında doldurulmamış bir şerit kalıyordu
@@ -1225,7 +1234,11 @@ function CoverPage(props: ReportProps) {
           {reportBrandMark ? (
             <Image
               src={reportBrandMark.src}
-              style={{ width: 164, height: 44, objectFit: "contain" }}
+              style={{
+                width: reportBrandWidth,
+                height: reportBrandWidth * reportBrandMark.ratio,
+                objectFit: "contain",
+              }}
             />
           ) : null}
           <View
@@ -1253,7 +1266,11 @@ function CoverPage(props: ReportProps) {
           <View style={{ marginTop: 8, height: 53, alignItems: "flex-start", justifyContent: "center" }}>
             <Image
               src={endCustomerMark.src}
-              style={{ width: 205, height: 52.5, objectFit: "contain" }}
+              style={{
+                width: endCustomerWidth,
+                height: endCustomerWidth * endCustomerMark.ratio,
+                objectFit: "contain",
+              }}
             />
           </View>
         ) : null}
@@ -1372,12 +1389,15 @@ function TocPage({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
+      repeatedHeader={(
+        <PageHeader
+          kicker="ORION CRANES · HESAP RAPORU"
+          title="İçindekiler"
+          logo={customerLogo(reportBrand?.logo)}
+          fixed
+        />
+      )}
     >
-      <PageHeader
-        kicker="ORION CRANES · HESAP RAPORU"
-        title="İçindekiler"
-        logo={customerLogo(reportBrand?.logo)}
-      />
       {entries.map((e) => (
         // Satırın tamamı tıklanabilir: PDF okuyucuda ilgili sayfaya atlar.
         <Link key={e.anchor} src={`#${e.anchor}`} style={s.tocLink}>
@@ -1627,15 +1647,16 @@ function SummarySection({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
+      repeatedHeader={(
+        <PageHeader
+          kicker="ORION CRANES · ÖZET"
+          title="Özet Hesap Raporu"
+          logo={customerLogo(reportBrand?.logo)}
+          fixed
+        />
+      )}
     >
       <PageProbe anchor={anchorFor("ozet")} collect={collect} />
-      <PageHeader
-        kicker="ORION CRANES · ÖZET"
-        title="Özet Hesap Raporu"
-        meta="TASARIM HESAP RAPORU"
-        metaAlign="center"
-        logo={customerLogo(reportBrand?.logo)}
-      />
 
       <View id={anchorFor("specs")}>
         <PageProbe anchor={anchorFor("specs")} collect={collect} />
@@ -1769,14 +1790,17 @@ function ChecksSummarySection({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
+      repeatedHeader={(
+        <PageHeader
+          kicker="ORION CRANES · KONTROLLER"
+          title="Kontrol Özeti"
+          meta={`${total} KONTROL · ${failed === 0 ? "TÜMÜ UYGUN" : `${failed} UYGUN DEĞİL`}`}
+          logo={customerLogo(reportBrand?.logo)}
+          fixed
+        />
+      )}
     >
       <PageProbe anchor={anchorFor("kontroller")} collect={collect} />
-      <PageHeader
-        kicker="ORION CRANES · KONTROLLER"
-        title="Kontrol Özeti"
-        meta={`${total} KONTROL · ${failed === 0 ? "TÜMÜ UYGUN" : `${failed} UYGUN DEĞİL`}`}
-        logo={customerLogo(reportBrand?.logo)}
-      />
       <Text style={s.chkLead}>
         Soldaki numara kontrolün dayandığı hesabın geçtiği sayfadır; numaraya
         tıklayarak o bölüme gidebilirsiniz.
@@ -2169,12 +2193,15 @@ function SourcesSection({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
+      repeatedHeader={(
+        <PageHeader
+          kicker="EK"
+          title="Kaynaklar ve Standartlar"
+          logo={customerLogo(reportBrand?.logo)}
+          fixed
+        />
+      )}
     >
-      <PageHeader
-        kicker="EK"
-        title="Kaynaklar ve Standartlar"
-        logo={customerLogo(reportBrand?.logo)}
-      />
       <Text style={{ ...T.caption, marginBottom: 10 }}>
         Hesap raporunda başvurulan kaynak dokümanlar.
       </Text>
@@ -2250,14 +2277,17 @@ function ModulePage({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
+      repeatedHeader={(
+        <PageHeader
+          kicker={`BÖLÜM ${no}`}
+          title={rest.join(" · ")}
+          meta="FEM 1.001 · DIN 15018 · CMAA 70"
+          logo={customerLogo(props.reportBrand?.logo)}
+          fixed
+        />
+      )}
     >
       <PageProbe anchor={anchorFor(adapter.key)} collect={collect} />
-      <PageHeader
-        kicker={`BÖLÜM ${no}`}
-        title={rest.join(" · ")}
-        meta="FEM 1.001 · DIN 15018 · CMAA 70"
-        logo={customerLogo(props.reportBrand?.logo)}
-      />
       {adapter.sections
         .filter(sectionPrinted)
         .map((section, si) => {

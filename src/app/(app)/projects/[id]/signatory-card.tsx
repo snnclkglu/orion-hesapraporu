@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Combobox, type ComboOption } from "@/components/combobox";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -23,30 +25,56 @@ export function ProjectSignatoryCard({
   people,
   preparedBy,
   checkedBy,
+  checkedByName,
 }: {
   projectId: string;
   people: SignatoryOption[];
   preparedBy: string | null;
   checkedBy: string | null;
+  checkedByName: string | null;
 }) {
+  const router = useRouter();
   const [preparedById, setPreparedById] = useState(preparedBy ?? NONE);
-  const [checkedById, setCheckedById] = useState(checkedBy ?? NONE);
+  const initialCheckedByName =
+    checkedByName?.trim() || people.find((person) => person.id === checkedBy)?.full_name || "";
+  const [checkedByValue, setCheckedByValue] = useState(initialCheckedByName);
   const [pending, startTransition] = useTransition();
-  const dirty = preparedById !== (preparedBy ?? NONE) || checkedById !== (checkedBy ?? NONE);
+  const dirty =
+    preparedById !== (preparedBy ?? NONE) || checkedByValue.trim() !== initialCheckedByName;
+
+  const checkedOptions = useMemo<ComboOption[]>(() => {
+    const options: ComboOption[] = people.map((person) => ({
+      value: person.full_name,
+      label: personLabel(person),
+      keywords: [person.full_name, roleLabel(person.role)],
+    }));
+    const custom = checkedByValue.trim();
+    if (custom && !people.some((person) => person.full_name === custom)) {
+      options.unshift({ value: custom, label: custom, hint: "Elle girilen isim" });
+    }
+    return options;
+  }, [checkedByValue, people]);
 
   function save() {
     startTransition(async () => {
+      const checkedName = checkedByValue.trim();
+      const checkedPerson = people.find((person) => person.full_name === checkedName);
       const result = await updateProjectSignatories(projectId, {
         prepared_by: preparedById === NONE ? null : preparedById,
-        checked_by: checkedById === NONE ? null : checkedById,
+        checked_by: checkedPerson?.id ?? null,
+        checked_by_name: checkedName,
       });
       if (result.error) toast.error(result.error);
-      else toast.success("Rapor sorumluları güncellendi.");
+      else {
+        toast.success("Rapor sorumluları güncellendi.");
+        router.refresh();
+      }
     });
   }
 
-  const personLabel = (person: SignatoryOption) =>
-    `${person.full_name || "İsimsiz kullanıcı"} · ${roleLabel(person.role)}`;
+  function personLabel(person: SignatoryOption) {
+    return `${person.full_name || "İsimsiz kullanıcı"} · ${roleLabel(person.role)}`;
+  }
 
   const personSelect = (
     id: string,
@@ -98,7 +126,17 @@ export function ProjectSignatoryCard({
         <Label htmlFor="checked_by" className="shrink-0 text-xs text-muted-foreground">
           Kontrol Eden
         </Label>
-        {personSelect("checked_by", checkedById, setCheckedById)}
+        <Combobox
+          options={checkedOptions}
+          value={checkedByValue || null}
+          onChange={setCheckedByValue}
+          onCreate={setCheckedByValue}
+          placeholder="Seçilmedi"
+          searchPlaceholder="Kullanıcı seçin veya isim yazın…"
+          emptyText="İsim yazıp aşağıdaki seçeneği kullanın."
+          createLabel="Bu adı kullan"
+          className="h-8 lg:w-[15rem]"
+        />
       </div>
     </section>
   );
