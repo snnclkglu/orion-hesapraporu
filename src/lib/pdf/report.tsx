@@ -1248,16 +1248,16 @@ function CoverPage(props: ReportProps) {
       {/* Başlık bloğu */}
       <View style={{ marginTop: reportBrand ? 20 : 84 }}>
         <Text style={T.kicker}>ORION CRANES · HESAP RAPORU</Text>
+        <RuleRed width={22} />
         {endCustomerMark ? (
-          <View style={{ marginTop: 8, height: 42, alignItems: "flex-start", justifyContent: "center" }}>
+          <View style={{ marginTop: 8, height: 53, alignItems: "flex-start", justifyContent: "center" }}>
             <Image
               src={endCustomerMark.src}
-              style={{ width: 164, height: 42, objectFit: "contain" }}
+              style={{ width: 205, height: 52.5, objectFit: "contain" }}
             />
           </View>
         ) : null}
-        <RuleRed width={22} />
-        <Text style={{ ...T.display, marginTop: 12 }}>
+        <Text style={{ ...T.display, marginTop: endCustomerMark ? 9 : 12 }}>
           {project.name.toLocaleUpperCase("tr-TR")}
         </Text>
         <Text style={{ ...T.caption, marginTop: 6 }}>{project.crane_type}</Text>
@@ -1372,9 +1372,12 @@ function TocPage({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
-      topRightLogo={customerLogo(reportBrand?.logo)}
     >
-      <PageHeader kicker="ORION CRANES · HESAP RAPORU" title="İçindekiler" />
+      <PageHeader
+        kicker="ORION CRANES · HESAP RAPORU"
+        title="İçindekiler"
+        logo={customerLogo(reportBrand?.logo)}
+      />
       {entries.map((e) => (
         // Satırın tamamı tıklanabilir: PDF okuyucuda ilgili sayfaya atlar.
         <Link key={e.anchor} src={`#${e.anchor}`} style={s.tocLink}>
@@ -1624,13 +1627,14 @@ function SummarySection({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
-      topRightLogo={customerLogo(reportBrand?.logo)}
     >
       <PageProbe anchor={anchorFor("ozet")} collect={collect} />
       <PageHeader
         kicker="ORION CRANES · ÖZET"
         title="Özet Hesap Raporu"
         meta="TASARIM HESAP RAPORU"
+        metaAlign="center"
+        logo={customerLogo(reportBrand?.logo)}
       />
 
       <View id={anchorFor("specs")}>
@@ -1765,13 +1769,13 @@ function ChecksSummarySection({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
-      topRightLogo={customerLogo(reportBrand?.logo)}
     >
       <PageProbe anchor={anchorFor("kontroller")} collect={collect} />
       <PageHeader
         kicker="ORION CRANES · KONTROLLER"
         title="Kontrol Özeti"
         meta={`${total} KONTROL · ${failed === 0 ? "TÜMÜ UYGUN" : `${failed} UYGUN DEĞİL`}`}
+        logo={customerLogo(reportBrand?.logo)}
       />
       <Text style={s.chkLead}>
         Soldaki numara kontrolün dayandığı hesabın geçtiği sayfadır; numaraya
@@ -2018,11 +2022,19 @@ interface LegalParagraph {
  * DETAYLI raporun tam gizlilik ve kullanım metni (kullanıcı tarafından
  * yazılmıştır; sözcükleri DEĞİŞTİRİLMEZ — hukukî bir beyandır).
  */
-const LEGAL_TERMS_FULL: readonly LegalParagraph[] = [
+function legalAuthorLabel(reportBrand: ReportProps["reportBrand"]): string {
+  const reportBrandName = reportBrand?.name.trim();
+  return reportBrandName
+    ? `${LEGAL_ENTITY} (“ORION CRANES”) ve ${reportBrandName.toLocaleUpperCase("tr-TR")}`
+    : `${LEGAL_ENTITY} (“ORION CRANES”)`;
+}
+
+function legalTermsFull(reportBrand: ReportProps["reportBrand"]): readonly LegalParagraph[] {
+  return [
   {
     lead: "Mülkiyet.",
     text:
-      `Bu rapor ${LEGAL_ENTITY} (“ORION CRANES”) tarafından kapakta belirtilen proje için ` +
+      `Bu rapor ${legalAuthorLabel(reportBrand)} tarafından kapakta belirtilen proje için ` +
       "hazırlanmıştır. Raporda yer alan özgün hesap düzeni, tasarım kabulleri, mühendislik " +
       "çözümleri ve seçim metodolojisi ORION CRANES'e ait fikri haklar ile gizli teknik bilgi " +
       "ve know-how içermektedir. Üçüncü kişilere ait standart, katalog ve ürün verileri " +
@@ -2046,7 +2058,7 @@ const LEGAL_TERMS_FULL: readonly LegalParagraph[] = [
       "geliştirilmesinde referans olarak kullanılamaz.",
   },
   {
-    lead: "Teknik geçerlilik.",
+    lead: "Teknik Geçerlilik.",
     text:
       "Hesaplar yalnızca raporda tanımlanan proje parametreleri ve tasarım kabulleri için " +
       "geçerlidir. Rapor, doküman numarası ve revizyonuyla bir bütündür; münferit bölümler " +
@@ -2059,18 +2071,20 @@ const LEGAL_TERMS_FULL: readonly LegalParagraph[] = [
       "Taraflar arasındaki sözleşme ve gizlilik anlaşmaları saklıdır; çelişki hâlinde sözleşme " +
       "hükümleri uygulanır. ORION CRANES'in yürürlükteki mevzuattan doğan hakları saklıdır.",
   },
-];
+  ];
+}
 
 /**
  * STANDART raporun kısaltılmış metni (kullanıcı kararı: *"Standart rapor için
  * bunu da kısaltalım"*). Tam metnin dört başlığı iki paragrafa indirilir;
  * hiçbir koşul GEVŞETİLMEZ, yalnız aynı koşullar daha az sözcükle söylenir.
  */
-const LEGAL_TERMS_SHORT: readonly LegalParagraph[] = [
+function legalTermsShort(reportBrand: ReportProps["reportBrand"]): readonly LegalParagraph[] {
+  return [
   {
-    lead: "Mülkiyet ve gizlilik.",
+    lead: "Mülkiyet ve Gizlilik.",
     text:
-      `Bu rapor ${LEGAL_ENTITY} (“ORION CRANES”) tarafından kapakta belirtilen proje ve Müşteri ` +
+      `Bu rapor ${legalAuthorLabel(reportBrand)} tarafından kapakta belirtilen proje ve Müşteri ` +
       "için hazırlanmıştır; özgün hesap düzeni, tasarım kabulleri ve mühendislik çözümleri ORION " +
       "CRANES'e ait fikri haklar ile gizli teknik bilgi içerir. Rapor yalnızca ilgili projenin " +
       "teknik değerlendirme, onay ve uygulama süreçlerinde kullanılır; başka bir üretici, " +
@@ -2079,14 +2093,15 @@ const LEGAL_TERMS_SHORT: readonly LegalParagraph[] = [
       "zorunlu açıklamalar ile bağımsız muayene ve belgelendirme süreçleri bu kapsamın dışındadır.",
   },
   {
-    lead: "Teknik geçerlilik.",
+    lead: "Teknik Geçerlilik.",
     text:
       "Hesaplar yalnızca raporda tanımlanan proje parametreleri ve tasarım kabulleri için " +
       "geçerlidir; rapor doküman numarası ve revizyonuyla bir bütündür ve münferit bölümleri " +
       "bağlamından koparılarak kullanılamaz. Taraflar arasındaki sözleşme ve gizlilik anlaşmaları " +
       "saklıdır.",
   },
-];
+  ];
+}
 
 /**
  * GİZLİLİK VE KULLANIM KOŞULLARI — Ek'in (Kaynaklar) ALTINDA, aynı yaprakta.
@@ -2102,8 +2117,16 @@ const LEGAL_TERMS_SHORT: readonly LegalParagraph[] = [
  * ama sığmadığı bir gün gelirse (kaynak listesi büyürse) metnin kırpılması
  * değil taşması doğrudur — hukukî beyan yarım basılamaz.
  */
-function LegalTermsBlock({ level }: { level: ReportLevel }) {
-  const paragraphs = level === "detayli" ? LEGAL_TERMS_FULL : LEGAL_TERMS_SHORT;
+function LegalTermsBlock({
+  level,
+  reportBrand,
+}: {
+  level: ReportLevel;
+  reportBrand: ReportProps["reportBrand"];
+}) {
+  const paragraphs = level === "detayli"
+    ? legalTermsFull(reportBrand)
+    : legalTermsShort(reportBrand);
   return (
     <View style={{ marginTop: 18, borderTopWidth: 0.75, borderTopColor: BRAND.line300, paddingTop: 8 }}>
       <Text style={{ ...T.kickerInk, fontSize: 6.5, color: BRAND.gray450, marginBottom: 5 }}>
@@ -2146,9 +2169,12 @@ function SourcesSection({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
-      topRightLogo={customerLogo(reportBrand?.logo)}
     >
-      <PageHeader kicker="EK" title="Kaynaklar ve Standartlar" />
+      <PageHeader
+        kicker="EK"
+        title="Kaynaklar ve Standartlar"
+        logo={customerLogo(reportBrand?.logo)}
+      />
       <Text style={{ ...T.caption, marginBottom: 10 }}>
         Hesap raporunda başvurulan kaynak dokümanlar.
       </Text>
@@ -2163,7 +2189,7 @@ function SourcesSection({
           </View>
         ))}
       </View>
-      <LegalTermsBlock level={level} />
+      <LegalTermsBlock level={level} reportBrand={reportBrand} />
     </BrandPage>
   );
 }
@@ -2224,13 +2250,13 @@ function ModulePage({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
-      topRightLogo={customerLogo(props.reportBrand?.logo)}
     >
       <PageProbe anchor={anchorFor(adapter.key)} collect={collect} />
       <PageHeader
         kicker={`BÖLÜM ${no}`}
         title={rest.join(" · ")}
         meta="FEM 1.001 · DIN 15018 · CMAA 70"
+        logo={customerLogo(props.reportBrand?.logo)}
       />
       {adapter.sections
         .filter(sectionPrinted)

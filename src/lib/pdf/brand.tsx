@@ -678,17 +678,61 @@ export function CompanyBlock({
  * Kicker ve başlık Türkçe kurala göre (`trUpper`) büyütülür — şablonlar
  * metni Title Case verebilir.
  */
-export function PageHeader({ kicker, title, meta }: { kicker: string; title: string; meta?: string }) {
+export function PageHeader({
+  kicker,
+  title,
+  meta,
+  metaAlign = "right",
+  logo,
+}: {
+  kicker: string;
+  title: string;
+  meta?: string;
+  /** Özet kapağındaki belge türü gibi orta sütunda okunması gereken kısa bilgi. */
+  metaAlign?: "right" | "center";
+  /** İç sayfa başlığına gömülü kurum logosu; ayrı üst satır açmaz. */
+  logo?: BrandBandLogo;
+}) {
+  const logoRatio = logo && Number.isFinite(logo.ratio) && logo.ratio > 0 ? logo.ratio : 1;
+  // Önceki 72 × 18 pt yuvanın tam %25 büyütülmüş karşılığı.
+  const logoWidth = Math.min(90, 22.5 / logoRatio);
+  const logoHeight = Math.min(22.5, 90 * logoRatio);
   return (
     <View style={{ marginBottom: 10 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: 12 }}>
-        <View style={{ flexShrink: 1 }}>
+      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 12 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={T.kicker}>{trUpper(kicker)}</Text>
           <RuleRed />
           <Text style={{ ...T.heading, marginTop: 5 }}>{trUpper(title)}</Text>
         </View>
-        {meta ? (
-          <Text style={{ ...T.data, fontSize: 7.5, color: BRAND.gray500, flexShrink: 0 }}>{meta}</Text>
+        {meta && metaAlign === "center" ? (
+          <View style={{ width: 126, alignItems: "center", justifyContent: "flex-end", paddingBottom: 1 }}>
+            <Text style={{ ...T.data, fontSize: 7.5, color: BRAND.gray500, textAlign: "center" }}>
+              {meta}
+            </Text>
+          </View>
+        ) : null}
+        {meta && metaAlign === "right" ? (
+          <Text
+            style={{
+              ...T.data,
+              width: 132,
+              fontSize: 7.5,
+              color: BRAND.gray500,
+              textAlign: "right",
+              flexShrink: 0,
+            }}
+          >
+            {meta}
+          </Text>
+        ) : null}
+        {logo ? (
+          <View style={{ width: 90, height: 28, alignItems: "flex-end", justifyContent: "flex-end", flexShrink: 0 }}>
+            <Image
+              src={logo.src}
+              style={{ width: logoWidth, height: logoHeight, objectFit: "contain" }}
+            />
+          </View>
         ) : null}
       </View>
       <View style={{ height: 1.4, backgroundColor: BRAND.ink, marginTop: 5 }} />

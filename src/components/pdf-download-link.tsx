@@ -208,7 +208,10 @@ export async function downloadPdfFromApp(
     const canShare = canShareFile(file);
     toast.success("PDF indirildi", {
       id: toastId,
-      duration: canShare ? 20_000 : 6_000,
+      // Paylaş düğmesi okunacak kadar kalır; bildirimin ekranda asılı kalması
+      // engellenir. İsteyen kullanıcı sağ üstteki × ile hemen kapatabilir.
+      duration: 10_000,
+      closeButton: true,
       description: canShare
         ? "PDF dosyası seçili. İsterseniz doğrudan dosya olarak paylaşabilirsiniz."
         : "Dosyalar / İndirilenler klasörüne kaydedildi.",

@@ -27,6 +27,7 @@ import type { ElectricalPart, ElectricalSheet } from "@/lib/electrical/types";
 const PEOPLE: SignatoryOption[] = [
   { id: "p1", full_name: "Alkım Kelleci", role: "engineer" },
   { id: "p2", full_name: "Sinan Çolakoğlu", role: "admin" },
+  { id: "p3", full_name: "Salih Ergüven", role: "manager" },
 ];
 
 // Başlık bloğu gerçek sayfadakiyle AYNI genişlik kabında ölçülmelidir:
@@ -245,7 +246,7 @@ export default function ProjectPreviewPage() {
                 <TableHead>Revizyon</TableHead>
                 <TableHead>Etiket</TableHead>
                 <TableHead>Durum</TableHead>
-                <TableHead className="hidden md:table-cell">Oluşturan</TableHead>
+                <TableHead className="hidden md:table-cell">Revizyonu Açan</TableHead>
                 <TableHead className="hidden md:table-cell">Tarih</TableHead>
                 <TableHead className="hidden lg:table-cell">Motor</TableHead>
                 <TableHead className="w-12 text-right">İşlem</TableHead>
@@ -274,7 +275,7 @@ export default function ProjectPreviewPage() {
                       {revisionStatusLabel(r.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell data-label="Oluşturan" className="hidden text-sm md:table-cell">
+                  <TableCell data-label="Revizyonu Açan" className="hidden text-sm md:table-cell">
                     {r.who}
                   </TableCell>
                   <TableCell

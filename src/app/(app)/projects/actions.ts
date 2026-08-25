@@ -330,8 +330,8 @@ export type ProjectSignatoriesInput = z.infer<typeof projectSignatoriesSchema>;
 
 /**
  * Rapor kapağında yer alan hazırlayan ve kontrol eden kişileri proje bazında
- * saklar. Seçim yalnızca hesap raporu üreten rollerle (admin / engineer)
- * sınırlıdır; istemciden gelen UUID'ye güvenilmez.
+ * saklar. Seçim Yönetim > Kullanıcılar defterindeki bütün profillerden
+ * yapılabilir; istemciden gelen UUID'ye güvenilmez ve profil yeniden okunur.
  */
 export async function updateProjectSignatories(
   projectId: string,
@@ -354,10 +354,9 @@ export async function updateProjectSignatories(
     const { data: eligible } = await supabase
       .from("profiles")
       .select("id")
-      .in("id", selectedIds)
-      .in("role", ["admin", "engineer"]);
+      .in("id", selectedIds);
     if ((eligible ?? []).length !== new Set(selectedIds).size) {
-      return { error: "Hazırlayan ve kontrol eden yalnızca Admin veya Mühendis olabilir" };
+      return { error: "Seçilen oluşturan veya kontrol eden kullanıcı bulunamadı" };
     }
   }
 
@@ -387,6 +386,7 @@ export async function updateProjectSignatories(
   });
 
   revalidatePath(`/projects/${parsedId.data}`);
+  revalidatePath(`/offers/hesap-raporlari/${parsedId.data}`);
   return {};
 }
 

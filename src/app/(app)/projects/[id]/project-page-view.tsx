@@ -125,7 +125,6 @@ export async function ProjectPageView({
       supabase
         .from("profiles")
         .select("id, full_name, role")
-        .in("role", ["admin", "engineer"])
         .order("full_name", { ascending: true }),
       supabase
         .from("customers")
@@ -293,14 +292,12 @@ export async function ProjectPageView({
         reportContext={reportContext}
       />
 
-      {!offerContext && (
-        <ProjectSignatoryCard
-          projectId={project.id}
-          people={signatoryPeople}
-          preparedBy={(project.prepared_by as string | null) ?? null}
-          checkedBy={(project.checked_by as string | null) ?? null}
-        />
-      )}
+      <ProjectSignatoryCard
+        projectId={project.id}
+        people={signatoryPeople}
+        preparedBy={(project.prepared_by as string | null) ?? null}
+        checkedBy={(project.checked_by as string | null) ?? null}
+      />
 
       <Tabs defaultValue="report">
         {/* Bölüm rayı kendi dosyasındadır (`project-tabs.tsx`) ki
@@ -327,7 +324,7 @@ export async function ProjectPageView({
                   <TableHead>Revizyon</TableHead>
                   <TableHead>Etiket</TableHead>
                   <TableHead>Durum</TableHead>
-                  <TableHead className="hidden md:table-cell">Oluşturan</TableHead>
+                  <TableHead className="hidden md:table-cell">Revizyonu Açan</TableHead>
                   <TableHead className="hidden md:table-cell">Tarih</TableHead>
                   <TableHead className="hidden lg:table-cell">Motor</TableHead>
                   <TableHead className="w-12 text-right">İşlem</TableHead>
@@ -366,7 +363,7 @@ export async function ProjectPageView({
                         {revisionStatusLabel(r.status)}
                       </Badge>
                     </TableCell>
-                    <TableCell data-label="Oluşturan" className="hidden text-sm md:table-cell">
+                    <TableCell data-label="Revizyonu Açan" className="hidden text-sm md:table-cell">
                       {(r.profiles as unknown as { full_name: string } | null)?.full_name ?? "—"}
                     </TableCell>
                     <TableCell

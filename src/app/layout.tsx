@@ -103,9 +103,16 @@ export default function RootLayout({
         */}
         <Toaster
           richColors
+          closeButton
           position="top-center"
           offset={{ top: "calc(var(--app-header-h, 48px) + 12px)" }}
           mobileOffset={{ top: "calc(var(--app-header-h, 48px) + 8px)" }}
+          toastOptions={{
+            closeButtonAriaLabel: "Bildirimi kapat",
+            classNames: {
+              closeButton: "!top-2 !right-2 !left-auto !translate-x-0 !translate-y-0",
+            },
+          }}
         />
         </ThemeProvider>
       </body>

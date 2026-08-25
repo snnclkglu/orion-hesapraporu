@@ -214,6 +214,9 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
     expect(standart.squeezed).toContain("KAYNAKLARVESTANDARTLAR");
     expect(standart.squeezed).toContain("GİZLİLİKVEKULLANIMKOŞULLARI");
     // Kısa metinde olan / olmayan paragraflar
+    expect(standart.all).toContain("Mülkiyet ve Gizlilik.");
+    expect(standart.all).toContain("Teknik Geçerlilik.");
+    expect(standart.all).toContain("KARÇEL KARDEMİR ÇELİK YAPI İMALAT");
     expect(standart.all).toContain("Taraflar arasındaki sözleşme ve gizlilik anlaşmaları saklıdır.");
     expect(standart.all).not.toContain("Teknik bilginin kullanımı.");
     expect(standart.all).not.toContain("know-how içermektedir");
@@ -226,11 +229,12 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
       "Mülkiyet.",
       "Kullanım ve gizlilik.",
       "Teknik bilginin kullanımı.",
-      "Teknik geçerlilik.",
+      "Teknik Geçerlilik.",
     ]) {
       expect(detayli.all, `«${lead}» paragrafı`).toContain(lead);
     }
     expect(detayli.all).toContain("ORION VİNÇ MÜHENDİSLİK SAN. VE TİC. LTD. ŞTİ.");
+    expect(detayli.all).toContain("ve KARÇEL KARDEMİR ÇELİK YAPI İMALAT");
     expect(detayli.all).toContain("mevzuattan doğan hakları saklıdır.");
   }, 300_000);
 
