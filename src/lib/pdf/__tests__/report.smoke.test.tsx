@@ -32,7 +32,7 @@ const props: ReportProps = {
   revision: { rev_no: 3, label: "V3", issued_at: "2026-07-01T00:00:00.000Z" },
   preparedBy: "Sinan Çolakoğlu",
   reportBrand: {
-    name: "Örnek Mühendislik",
+    name: "Karçel Kardemir Çelik Yapı İmalat San. ve Tic. Ltd. Şti.",
     logo: fs.readFileSync(path.join(process.cwd(), "public", "brand", "orion-logo-ink.png")),
   },
   endCustomerLogo: fs.readFileSync(
@@ -182,7 +182,8 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
     const ozet = await pagesOf(await atLevel("ozet"));
     expect(ozet.all).toContain("İskenderun Üretim Sahası".toLocaleUpperCase("tr-TR"));
     expect(ozet.all).toContain(input.specs.hoistLoadClass);
-    expect(ozet.all).toContain("ÖRNEK MÜHENDİSLİK");
+    expect(ozet.all).toContain("KARÇEL KARDEMİR ÇELİK YAPI İMALAT");
+    expect(ozet.all).not.toContain("RAPORU HAZIRLAYAN FİRMA");
     expect(ozet.all.toLocaleLowerCase("tr-TR")).not.toContain("partner");
   }, 300_000);
 

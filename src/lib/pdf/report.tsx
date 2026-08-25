@@ -1215,22 +1215,30 @@ function CoverPage(props: ReportProps) {
       {reportBrand ? (
         <View
           style={{
-            marginTop: 24,
-            height: 42,
+            marginTop: 20,
+            height: 52,
             flexDirection: "row",
             alignItems: "center",
-            gap: 14,
+            gap: 16,
           }}
         >
           {reportBrandMark ? (
             <Image
               src={reportBrandMark.src}
-              style={{ width: 118, height: 31, objectFit: "contain" }}
+              style={{ width: 164, height: 44, objectFit: "contain" }}
             />
           ) : null}
-          <View style={{ flex: 1 }}>
-            <Text style={{ ...T.micro, color: BRAND.gray500 }}>RAPORU HAZIRLAYAN FİRMA</Text>
-            <Text style={{ ...T.heading, fontSize: 11, marginTop: 3 }}>
+          <View
+            style={{
+              flex: 1,
+              minHeight: 34,
+              justifyContent: "center",
+              borderLeftWidth: 0.7,
+              borderLeftColor: BRAND.line300,
+              paddingLeft: 16,
+            }}
+          >
+            <Text style={{ ...T.heading, fontSize: 11.5, lineHeight: 1.18 }}>
               {reportBrand.name.toLocaleUpperCase("tr-TR")}
             </Text>
           </View>
@@ -1238,13 +1246,13 @@ function CoverPage(props: ReportProps) {
       ) : null}
 
       {/* Başlık bloğu */}
-      <View style={{ marginTop: reportBrand ? 26 : 84 }}>
+      <View style={{ marginTop: reportBrand ? 20 : 84 }}>
         <Text style={T.kicker}>ORION CRANES · HESAP RAPORU</Text>
         {endCustomerMark ? (
-          <View style={{ marginTop: 7, height: 28, alignItems: "flex-start", justifyContent: "center" }}>
+          <View style={{ marginTop: 8, height: 42, alignItems: "flex-start", justifyContent: "center" }}>
             <Image
               src={endCustomerMark.src}
-              style={{ width: 112, height: 28, objectFit: "contain" }}
+              style={{ width: 164, height: 42, objectFit: "contain" }}
             />
           </View>
         ) : null}
