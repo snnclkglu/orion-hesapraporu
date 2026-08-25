@@ -491,9 +491,6 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   els.push(txt(panelX + 12, 377, "YAKLAŞIK ANA KİRİŞ AĞIRLIĞI", 8.5, {
     fill: DCOL.accent, bold: true,
   }));
-  els.push(txt(panelX + 12, 395, "G · L · 1,15 (Yaklaşık Perde Payı)", 8, {
-    fill: DCOL.muted,
-  }));
   els.push(txt(770, 411, `${fmtN(p.approxGirderWeightKg, 0)} kg`, 11, {
     anchor: "end", bold: true, fill: DCOL.accent,
   }));

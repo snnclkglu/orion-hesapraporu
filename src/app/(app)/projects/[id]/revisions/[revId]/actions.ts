@@ -17,6 +17,7 @@ import {
 import { MODULE_ORDER } from "@/lib/calc/presentation/module-family";
 import { renderReportPdf } from "@/lib/pdf/report";
 import { getReportSettings } from "@/lib/settings";
+import { loadReportCoverIdentity } from "@/lib/report-cover-identity-server";
 
 export type SaveResult = { error?: string; ok?: boolean };
 
@@ -55,7 +56,7 @@ export async function issueRevision(
     const [{ data: project }, { data: profile }] = await Promise.all([
       supabase
         .from("projects")
-        .select("doc_no, name, customer, crane_type, prepared_by, checked_by")
+        .select("doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, prepared_by, checked_by")
         .eq("id", projectId)
         .single(),
       supabase.from("profiles").select("full_name").eq("id", user.id).single(),
@@ -73,7 +74,14 @@ export async function issueRevision(
         revision.selections as RevisionSelectionsJson
       );
       const result = runCalc(input);
-      const reportSettings = await getReportSettings(supabase);
+      const [reportSettings, coverIdentity] = await Promise.all([
+        getReportSettings(supabase),
+        loadReportCoverIdentity(
+          supabase,
+          project.report_brand_customer_id,
+          project.end_customer_id
+        ),
+      ]);
       const buffer = await renderReportPdf({
         settings: reportSettings,
         project,
@@ -85,6 +93,8 @@ export async function issueRevision(
         },
         preparedBy: nameOf(preparedById) || profile?.full_name || "—",
         checkedBy: nameOf(project.checked_by) || "—",
+        reportBrand: coverIdentity.reportBrand,
+        endCustomerLogo: coverIdentity.endCustomerLogo,
         input,
         result,
         level: "detayli", // yayın arşivi her zaman tam (detaylı) rapor saklar

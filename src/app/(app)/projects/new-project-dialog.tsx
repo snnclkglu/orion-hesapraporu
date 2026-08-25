@@ -55,21 +55,33 @@ export interface JobOption {
   job_no: string;
   title: string;
   customer: string;
+  customer_id?: string | null;
   items?: JobItemOption[];
+}
+
+export interface CustomerOption {
+  id: string;
+  name: string;
+  short_name?: string | null;
+  has_logo: boolean;
 }
 
 /** Seçim kutularında "seçilmedi" anlamına gelen sabitler (boş değer kabul edilmez) */
 export const NO_JOB = "__none__";
 export const NO_ITEM = "__no_item__";
+export const NO_CUSTOMER = "__no_customer__";
 
 export function NewProjectDialog({
   defaultCraneType = DEFAULT_CRANE_TYPE,
   jobs,
+  customers = [],
   reportContext = ENGINEERING_REPORT_CONTEXT,
 }: {
   defaultCraneType?: string;
   /** Opsiyonel iş seçimi için aktif iş listesi (kalemleriyle birlikte). */
   jobs?: JobOption[];
+  /** Yönetim > Müşteriler kayıtları; kapak logoları bu listeden seçilir. */
+  customers?: CustomerOption[];
   reportContext?: ReportContext;
 }) {
   const [open, setOpen] = useState(false);
@@ -93,6 +105,9 @@ export function NewProjectDialog({
   const [docNo, setDocNo] = useState("");
   const [name, setName] = useState("");
   const [customer, setCustomer] = useState("");
+  const [craneLocation, setCraneLocation] = useState("");
+  const [endCustomerId, setEndCustomerId] = useState(NO_CUSTOMER);
+  const [reportBrandCustomerId, setReportBrandCustomerId] = useState(NO_CUSTOMER);
 
   function onPickJob(id: string) {
     setSelectedJobId(id);
@@ -102,6 +117,7 @@ export function NewProjectDialog({
       // Ön-doldurulan değer de kuraldan geçer: iş emri eski bir kayıtsa küçük
       // harfli gelebilir ve alan "otomatik doldu" diye kuralın dışında kalamaz.
       setCustomer(adBuyuk(job.customer));
+      setEndCustomerId(job.customer_id || NO_CUSTOMER);
       // Kalemi OLAN işte doküman no kalem seçilince dolar. Körlemesine
       // "0055-01" önermek, o numaranın gerçek kalemine açılacak raporla
       // çakışırdı; öneri yalnız hiç kalemi olmayan işlerde yapılır.
@@ -120,6 +136,12 @@ export function NewProjectDialog({
   }
 
   const effectiveJobId = selectedJobId !== NO_JOB ? selectedJobId : "";
+
+  function onPickEndCustomer(id: string) {
+    setEndCustomerId(id);
+    const selected = customers.find((entry) => entry.id === id);
+    if (selected) setCustomer(adBuyuk(selected.name));
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -149,6 +171,16 @@ export function NewProjectDialog({
           {/* İş bağlantısı */}
           <input type="hidden" name="report_context" value={reportContext} />
           <input type="hidden" name="job_id" value={effectiveJobId} />
+          <input
+            type="hidden"
+            name="end_customer_id"
+            value={endCustomerId === NO_CUSTOMER ? "" : endCustomerId}
+          />
+          <input
+            type="hidden"
+            name="report_brand_customer_id"
+            value={reportBrandCustomerId === NO_CUSTOMER ? "" : reportBrandCustomerId}
+          />
           {showJobSelect && (
             <div className="grid min-w-0 gap-2">
               <Label>İş Emri</Label>
@@ -251,6 +283,52 @@ export function NewProjectDialog({
               value={customer}
               onChange={(e) => setCustomer(adBuyuk(e.target.value))}
               required
+            />
+          </div>
+          {customers.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-2">
+                <Label>Son Kullanıcı (Logo)</Label>
+                <Select value={endCustomerId} onValueChange={onPickEndCustomer}>
+                  <SelectTrigger className="w-full min-w-0 [&>span]:truncate">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_CUSTOMER}>Logo Gösterme</SelectItem>
+                    {customers.map((entry) => (
+                      <SelectItem key={entry.id} value={entry.id}>
+                        {entry.short_name || entry.name}{entry.has_logo ? "" : " · Logo Yok"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid min-w-0 gap-2">
+                <Label>Raporu Hazırlayan Firma</Label>
+                <Select value={reportBrandCustomerId} onValueChange={setReportBrandCustomerId}>
+                  <SelectTrigger className="w-full min-w-0 [&>span]:truncate">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_CUSTOMER}>ORION CRANES</SelectItem>
+                    {customers.map((entry) => (
+                      <SelectItem key={entry.id} value={entry.id}>
+                        {entry.short_name || entry.name}{entry.has_logo ? "" : " · Logo Yok"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <div className="grid gap-2">
+            <Label htmlFor="crane_location">Vinç Yeri (Opsiyonel)</Label>
+            <Input
+              id="crane_location"
+              name="crane_location"
+              value={craneLocation}
+              onChange={(e) => setCraneLocation(adBuyuk(e.target.value))}
+              maxLength={240}
             />
           </div>
           <div className="grid gap-2">

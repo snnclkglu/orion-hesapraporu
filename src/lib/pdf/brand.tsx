@@ -247,6 +247,8 @@ export interface PageFrameProps {
   hidePageNumber?: boolean;
   /** Yalnız geniş tablo ve çizelgelerde A4 yatay kullanılır. */
   orientation?: "portrait" | "landscape";
+  /** Kapak dışındaki sayfalarda üst sağ güvenli alanda tekrarlanan firma logosu. */
+  topRightLogo?: BrandBandLogo;
   /**
    * TAM KANAMA SAYFA — kapak gibi kenardan kenara boyanan yapraklar için.
    *
@@ -315,6 +317,7 @@ export function BrandPage({
   sectionLabel,
   hidePageNumber,
   orientation = "portrait",
+  topRightLogo,
   bleed,
   brandFooter,
   style,
@@ -338,6 +341,27 @@ export function BrandPage({
       {/* Çapraz filigran — İÇERİKTEN ÖNCE çizilir ki altında kalsın */}
       {bleed ? null : <Watermark />}
       {bleed ? null : <Spine />}
+      {topRightLogo ? (
+        <View
+          fixed
+          style={{
+            width: "100%",
+            height: 18,
+            alignItems: "flex-end",
+            justifyContent: "center",
+            marginBottom: 5,
+          }}
+        >
+          <Image
+            src={topRightLogo.src}
+            style={{
+              width: Math.min(72, 18 / topRightLogo.ratio),
+              height: Math.min(18, 72 * topRightLogo.ratio),
+              objectFit: "contain",
+            }}
+          />
+        </View>
+      ) : null}
       {sectionLabel ? (
         <View
           fixed

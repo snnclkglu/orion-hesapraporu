@@ -16,7 +16,12 @@ import {
   type ProjectDetailsInput,
 } from "./actions";
 import {
-  NO_ITEM, NO_JOB, type JobItemOption, type JobOption,
+  NO_CUSTOMER,
+  NO_ITEM,
+  NO_JOB,
+  type CustomerOption,
+  type JobItemOption,
+  type JobOption,
 } from "./new-project-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +56,9 @@ export interface ProjectSummary {
    * bir raporu düzeltmenin yolu raporu kopyalamaktı.
    */
   crane_type?: string | null;
+  crane_location?: string | null;
+  report_brand_customer_id?: string | null;
+  end_customer_id?: string | null;
   job_id: string | null;
   /** Bağlı işin numarası — iş arşivlenmişse seçenek listesinde görünmesi için */
   job_no?: string | null;
@@ -272,22 +280,41 @@ export function DuplicateProjectDialog({
 
 export function EditProjectDetailsDialog({
   project,
+  customers,
   open,
   onOpenChange,
 }: {
   project: ProjectSummary;
+  customers: CustomerOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const [docNo, setDocNo] = useState(project.doc_no);
   const [name, setName] = useState(project.name);
   const [customer, setCustomer] = useState(project.customer);
+  const [craneLocation, setCraneLocation] = useState(project.crane_location ?? "");
+  const [endCustomerId, setEndCustomerId] = useState(
+    project.end_customer_id ?? NO_CUSTOMER
+  );
+  const [reportBrandCustomerId, setReportBrandCustomerId] = useState(
+    project.report_brand_customer_id ?? NO_CUSTOMER
+  );
   const [craneType, setCraneType] = useState(project.crane_type || DEFAULT_CRANE_TYPE);
   const craneTypes = useMemo(() => craneTypeOptions(project.crane_type), [project.crane_type]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const input: ProjectDetailsInput = { name, customer, crane_type: craneType };
+    const input: ProjectDetailsInput = {
+      doc_no: docNo,
+      name,
+      customer,
+      crane_type: craneType,
+      crane_location: craneLocation,
+      report_brand_customer_id:
+        reportBrandCustomerId === NO_CUSTOMER ? null : reportBrandCustomerId,
+      end_customer_id: endCustomerId === NO_CUSTOMER ? null : endCustomerId,
+    };
     startTransition(async () => {
       const result = await updateProjectDetails(project.id, input);
       if (result?.error) {
@@ -305,11 +332,22 @@ export function EditProjectDetailsDialog({
         <DialogHeader>
           <DialogTitle>Proje Bilgilerini Düzenle</DialogTitle>
           <DialogDescription>
-            <span className="font-mono">{project.doc_no}</span> için proje / iş adı, müşteri
-            ve vinç tipi güncellenir.
+            Doküman kimliği, kapak firmaları, vinç yeri ve temel proje bilgileri güncellenir.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="project_doc_no">Doküman No</Label>
+            <Input
+              id="project_doc_no"
+              value={docNo}
+              onChange={(e) => setDocNo(e.target.value)}
+              required
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Rapor kodu → <span className="font-mono">{docCode("HR", docNo || "0055-01", 1)}</span>
+            </p>
+          </div>
           <div className="grid gap-2">
             <Label htmlFor="project_name">Proje / İş Adı</Label>
             <Input
@@ -326,6 +364,54 @@ export function EditProjectDetailsDialog({
               value={customer}
               onChange={(e) => setCustomer(adBuyuk(e.target.value))}
               required
+            />
+          </div>
+          {customers.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-2">
+                <Label>Son Kullanıcı (Logo)</Label>
+                <Select
+                  value={endCustomerId}
+                  onValueChange={(id) => {
+                    setEndCustomerId(id);
+                    const selected = customers.find((entry) => entry.id === id);
+                    if (selected) setCustomer(adBuyuk(selected.name));
+                  }}
+                >
+                  <SelectTrigger className="w-full min-w-0 [&>span]:truncate"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_CUSTOMER}>Logo Gösterme</SelectItem>
+                    {customers.map((entry) => (
+                      <SelectItem key={entry.id} value={entry.id}>
+                        {entry.short_name || entry.name}{entry.has_logo ? "" : " · Logo Yok"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid min-w-0 gap-2">
+                <Label>Raporu Hazırlayan Firma</Label>
+                <Select value={reportBrandCustomerId} onValueChange={setReportBrandCustomerId}>
+                  <SelectTrigger className="w-full min-w-0 [&>span]:truncate"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_CUSTOMER}>ORION CRANES</SelectItem>
+                    {customers.map((entry) => (
+                      <SelectItem key={entry.id} value={entry.id}>
+                        {entry.short_name || entry.name}{entry.has_logo ? "" : " · Logo Yok"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <div className="grid gap-2">
+            <Label htmlFor="project_crane_location">Vinç Yeri (Opsiyonel)</Label>
+            <Input
+              id="project_crane_location"
+              value={craneLocation}
+              onChange={(e) => setCraneLocation(adBuyuk(e.target.value))}
+              maxLength={240}
             />
           </div>
           {/* Vinç tipi: hesap bölümlerini doğrudan açmaz (topoloji kararı
@@ -548,11 +634,13 @@ type ActiveDialog = "edit" | "duplicate" | "assign" | "delete" | null;
 export function ProjectRowActions({
   project,
   jobs,
+  customers,
   canDelete,
   reportContext = ENGINEERING_REPORT_CONTEXT,
 }: {
   project: ProjectSummary;
   jobs: JobOption[];
+  customers: CustomerOption[];
   /** Yalnızca yönetici siler (projects DELETE politikası is_admin() ister) */
   canDelete: boolean;
   reportContext?: ReportContext;
@@ -601,6 +689,7 @@ export function ProjectRowActions({
       {active === "edit" && (
         <EditProjectDetailsDialog
           project={project}
+          customers={customers}
           open
           onOpenChange={(o) => !o && setActive(null)}
         />
@@ -637,11 +726,13 @@ export function ProjectRowActions({
 export function ProjectDetailActions({
   project,
   jobs,
+  customers,
   canDelete,
   reportContext = ENGINEERING_REPORT_CONTEXT,
 }: {
   project: ProjectSummary;
   jobs: JobOption[];
+  customers: CustomerOption[];
   canDelete: boolean;
   reportContext?: ReportContext;
 }) {
@@ -675,6 +766,7 @@ export function ProjectDetailActions({
       {active === "edit" && (
         <EditProjectDetailsDialog
           project={project}
+          customers={customers}
           open
           onOpenChange={(o) => !o && setActive(null)}
         />

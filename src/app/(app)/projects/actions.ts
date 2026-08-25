@@ -159,6 +159,9 @@ const projectSchema = z.object({
   name: adAlani("Proje adı gerekli"),
   customer: adAlani("Müşteri gerekli"),
   crane_type: z.string().trim().min(1),
+  crane_location: z.string().trim().max(240, "Vinç yeri en fazla 240 karakter olabilir"),
+  report_brand_customer_id: z.uuid("Geçersiz rapor firması").nullable(),
+  end_customer_id: z.uuid("Geçersiz son kullanıcı").nullable(),
   // İş emri bağlantısı: Mühendislik bölümünde iş seçilirse dolu gelir;
   // bağımsız raporlarda null kalır (sonradan "İşe Bağla" ile bağlanabilir).
   job_id: z.uuid().nullable(),
@@ -179,6 +182,9 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
     name: formData.get("name"),
     customer: formData.get("customer"),
     crane_type: formData.get("crane_type") || DEFAULT_CRANE_TYPE,
+    crane_location: formData.get("crane_location") || "",
+    report_brand_customer_id: formData.get("report_brand_customer_id") || null,
+    end_customer_id: formData.get("end_customer_id") || null,
     report_context: formData.get("report_context") || ENGINEERING_REPORT_CONTEXT,
     job_id:
       formData.get("report_context") === OFFER_REPORT_CONTEXT
@@ -231,9 +237,13 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
  * `lib/crane-types.ts`tedir ama kayıtlı/devralınan bir tip listede olmayabilir.
  */
 const projectDetailsSchema = z.object({
+  doc_no: z.string().trim().min(1, "Doküman no gerekli"),
   name: adAlani("Proje / iş adı gerekli"),
   customer: adAlani("Müşteri gerekli"),
   crane_type: z.string().trim().min(1, "Vinç tipi gerekli"),
+  crane_location: z.string().trim().max(240, "Vinç yeri en fazla 240 karakter olabilir"),
+  report_brand_customer_id: z.uuid("Geçersiz rapor firması").nullable(),
+  end_customer_id: z.uuid("Geçersiz son kullanıcı").nullable(),
 });
 
 export type ProjectDetailsInput = z.infer<typeof projectDetailsSchema>;
@@ -256,7 +266,7 @@ export async function updateProjectDetails(
 
   const { data: current } = await supabase
     .from("projects")
-    .select("id, name, customer, crane_type, job_id")
+    .select("id, doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, job_id")
     .eq("id", parsedId.data)
     .maybeSingle();
   if (!current) return { error: "Hesap raporu bulunamadı" };
@@ -264,24 +274,40 @@ export async function updateProjectDetails(
   const { error } = await supabase
     .from("projects")
     .update({
+      doc_no: parsed.data.doc_no,
       name: parsed.data.name,
       customer: parsed.data.customer,
       crane_type: parsed.data.crane_type,
+      crane_location: parsed.data.crane_location,
+      report_brand_customer_id: parsed.data.report_brand_customer_id,
+      end_customer_id: parsed.data.end_customer_id,
     })
     .eq("id", parsedId.data);
-  if (error) return { error: error.message };
+  if (error) {
+    return {
+      error: error.code === "23505" ? "Bu doküman no zaten kayıtlı" : error.message,
+    };
+  }
 
   await supabase.from("audit_log").insert({
     project_id: parsedId.data,
     actor: user.id,
     action: "project.updateDetails",
     detail: {
+      previous_doc_no: current.doc_no,
       previous_name: current.name,
       previous_customer: current.customer,
       previous_crane_type: current.crane_type,
+      previous_crane_location: current.crane_location,
+      previous_report_brand_customer_id: current.report_brand_customer_id,
+      previous_end_customer_id: current.end_customer_id,
+      doc_no: parsed.data.doc_no,
       name: parsed.data.name,
       customer: parsed.data.customer,
       crane_type: parsed.data.crane_type,
+      crane_location: parsed.data.crane_location,
+      report_brand_customer_id: parsed.data.report_brand_customer_id,
+      end_customer_id: parsed.data.end_customer_id,
     },
   });
 
@@ -399,7 +425,7 @@ export async function duplicateProject(
 
   const { data: source } = await supabase
     .from("projects")
-    .select("id, doc_no, crane_type, report_context")
+    .select("id, doc_no, crane_type, crane_location, report_brand_customer_id, end_customer_id, report_context")
     .eq("id", sourceProjectId)
     .maybeSingle();
   if (!source) return { error: "Kaynak hesap raporu bulunamadı" };
@@ -414,6 +440,9 @@ export async function duplicateProject(
       name: parsed.data.name,
       customer: parsed.data.customer,
       crane_type: source.crane_type,
+      crane_location: source.crane_location,
+      report_brand_customer_id: source.report_brand_customer_id,
+      end_customer_id: source.end_customer_id,
       report_context: sourceContext,
       job_id: targetJobId,
       created_by: user.id,

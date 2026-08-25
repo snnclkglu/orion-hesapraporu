@@ -12,7 +12,7 @@ import { ArchiveButton } from "./archive-button";
 import { ProjectDetailActions, type ProjectSummary } from "../project-actions";
 import { SpecButton } from "./spec-button";
 import type { ProjectSpec } from "@/lib/project-specs";
-import type { JobOption } from "../new-project-dialog";
+import type { CustomerOption, JobOption } from "../new-project-dialog";
 import {
   ENGINEERING_REPORT_CONTEXT,
   OFFER_REPORT_CONTEXT,
@@ -36,6 +36,7 @@ export function ProjectDetailHeader({
   job,
   summary,
   jobs,
+  customers = [],
   canDelete,
   latestRev,
   isFirstRevision,
@@ -49,6 +50,7 @@ export function ProjectDetailHeader({
   job: HeaderJob | null;
   summary: ProjectSummary;
   jobs: JobOption[];
+  customers?: CustomerOption[];
   canDelete: boolean;
   latestRev: HeaderRevision | null;
   isFirstRevision: boolean;
@@ -182,6 +184,7 @@ export function ProjectDetailHeader({
         <ProjectDetailActions
           project={summary}
           jobs={jobs}
+          customers={customers}
           canDelete={canDelete}
           reportContext={reportContext}
         />

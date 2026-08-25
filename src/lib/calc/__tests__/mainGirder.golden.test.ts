@@ -155,6 +155,14 @@ describe("ana kiriş — kesit özellikleri", () => {
       (V5_SPECS.spanM * 1000) / V5_GIRDER_INPUTS.aMm, 8
     );
   });
+
+  it("yaklaşık ana kiriş ağırlığını emniyetli biçimde 50 kg katına yukarı yuvarlar", () => {
+    const raw = cell(r, "section.weightPerLength") * V5_SPECS.spanM * 1.15;
+    const rounded = cell(r, "section.approxGirderWeight");
+    expect(rounded % 50).toBe(0);
+    expect(rounded).toBeGreaterThanOrEqual(raw);
+    expect(rounded - raw).toBeLessThan(50);
+  });
 });
 
 describe("ana kiriş — yükler", () => {

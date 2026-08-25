@@ -30,7 +30,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { ProjectRowActions } from "./project-actions";
-import type { JobOption } from "./new-project-dialog";
+import type { CustomerOption, JobOption } from "./new-project-dialog";
 import { cn } from "@/lib/utils";
 import {
   ENGINEERING_REPORT_CONTEXT,
@@ -44,6 +44,9 @@ export interface ProjectRow {
   name: string;
   customer: string;
   crane_type: string;
+  crane_location?: string | null;
+  report_brand_customer_id?: string | null;
+  end_customer_id?: string | null;
   /** projects.status — "active" | "archived" */
   status: string;
   created_at: string;
@@ -152,12 +155,14 @@ function SortHead({
 export function ProjectsTable({
   projects,
   jobs,
+  customerOptions = [],
   canDelete,
   basePath = "/projects",
   reportContext = ENGINEERING_REPORT_CONTEXT,
 }: {
   projects: ProjectRow[];
   jobs: JobOption[];
+  customerOptions?: CustomerOption[];
   canDelete: boolean;
   basePath?: string;
   reportContext?: ReportContext;
@@ -515,11 +520,15 @@ export function ProjectsTable({
                         name: p.name,
                         customer: p.customer,
                         crane_type: p.crane_type,
+                        crane_location: p.crane_location,
+                        report_brand_customer_id: p.report_brand_customer_id,
+                        end_customer_id: p.end_customer_id,
                         job_id: p.job_id,
                         job_no: p.job_no,
                         hasIssuedRevision: p.hasIssuedRevision,
                       }}
                       jobs={jobs}
+                      customers={customerOptions}
                       canDelete={canDelete}
                       reportContext={reportContext}
                     />

@@ -18,6 +18,7 @@ import {
 import { isReportLevel, renderReportPdf, type ReportLevel } from "@/lib/pdf/report";
 import { REPORT_LEVEL_LABELS, docCode, downloadFileName } from "@/lib/pdf/doc-naming";
 import { getReportSettings } from "@/lib/settings";
+import { loadReportCoverIdentity } from "@/lib/report-cover-identity-server";
 
 export const runtime = "nodejs";
 
@@ -47,7 +48,7 @@ export async function GET(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("doc_no, name, customer, crane_type, prepared_by, checked_by")
+    .select("doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, prepared_by, checked_by")
     .eq("id", id)
     .single();
   if (!project) return new Response("Proje bulunamadı", { status: 404 });
@@ -71,9 +72,16 @@ export async function GET(
   );
   const result = runCalc(input);
 
-  const reportSettings = await getReportSettings(supabase);
-      const buffer = await renderReportPdf({
-        settings: reportSettings,
+  const [reportSettings, coverIdentity] = await Promise.all([
+    getReportSettings(supabase),
+    loadReportCoverIdentity(
+      supabase,
+      project.report_brand_customer_id,
+      project.end_customer_id
+    ),
+  ]);
+  const buffer = await renderReportPdf({
+    settings: reportSettings,
     project,
     revision: {
       rev_no: revision.rev_no,
@@ -83,6 +91,8 @@ export async function GET(
     },
     preparedBy: nameOf(preparedById),
     checkedBy: nameOf(project.checked_by),
+    reportBrand: coverIdentity.reportBrand,
+    endCustomerLogo: coverIdentity.endCustomerLogo,
     input,
     result,
     level,

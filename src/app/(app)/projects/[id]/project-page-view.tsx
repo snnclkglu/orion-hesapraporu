@@ -32,7 +32,7 @@ import { DrawingPlanCard } from "./drawing-plan-card";
 import { ProjectTabsNav } from "./project-tabs";
 import { EquipmentRevisionsTable } from "./equipment-revisions-table";
 import { ProjectSignatoryCard, type SignatoryOption } from "./signatory-card";
-import type { JobItemOption } from "../new-project-dialog";
+import type { CustomerOption, JobItemOption } from "../new-project-dialog";
 import {
   ENGINEERING_REPORT_CONTEXT,
   OFFER_REPORT_CONTEXT,
@@ -78,7 +78,7 @@ export async function ProjectPageView({
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, doc_no, name, customer, crane_type, status, created_at, job_id, prepared_by, checked_by, report_context, jobs:job_id(id, job_no, title)")
+    .select("id, doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, status, created_at, job_id, prepared_by, checked_by, report_context, jobs:job_id(id, job_no, title)")
     .eq("id", id)
     .single();
 
@@ -99,6 +99,7 @@ export async function ProjectPageView({
     { data: drawings },
     { data: jobsData },
     { data: signatoryProfiles },
+    { data: customersData },
     drawingPlan,
     drawingAuthors,
     itemNo,
@@ -118,7 +119,7 @@ export async function ProjectPageView({
       // Kopyalama / işe bağlama dialogları için aktif iş emirleri + kalemleri
       supabase
         .from("jobs")
-        .select("id, job_no, title, customer, job_items(id, item_no, product_name, quantity, project_id)")
+        .select("id, job_no, title, customer, customer_id, job_items(id, item_no, product_name, quantity, project_id)")
         .eq("status", "active")
         .order("created_at", { ascending: false }),
       supabase
@@ -126,6 +127,10 @@ export async function ProjectPageView({
         .select("id, full_name, role")
         .in("role", ["admin", "engineer"])
         .order("full_name", { ascending: true }),
+      supabase
+        .from("customers")
+        .select("id, name, short_name, logo_path")
+        .order("name", { ascending: true }),
       // Teknik Resim Takibi defteri + resim numarasının kökü. İkisi de
       // `lib/drawing-plan-data.ts`ten okunur; ekipman paneli ve indirme ucu da
       // aynı iki fonksiyonu çağırır, böylece ekrandaki numara ile indirilen
@@ -192,7 +197,14 @@ export async function ProjectPageView({
     job_no: j.job_no,
     title: j.title,
     customer: j.customer,
+    customer_id: j.customer_id,
     items: (j.job_items ?? []) as unknown as JobItemOption[],
+  }));
+  const customerOptions: CustomerOption[] = (customersData ?? []).map((entry) => ({
+    id: entry.id,
+    name: entry.name,
+    short_name: entry.short_name,
+    has_logo: Boolean(entry.logo_path),
   }));
 
   const drawingList = (drawings ?? []) as DrawingRow[];
@@ -207,6 +219,10 @@ export async function ProjectPageView({
     name: project.name,
     customer: project.customer,
     crane_type: (project.crane_type as string | null) ?? null,
+    crane_location: (project.crane_location as string | null) ?? "",
+    report_brand_customer_id:
+      (project.report_brand_customer_id as string | null) ?? null,
+    end_customer_id: (project.end_customer_id as string | null) ?? null,
     job_id: (project.job_id as string | null) ?? null,
     job_no: job?.job_no ?? null,
     hasIssuedRevision: revisionList.some((r) => r.status === "issued"),
@@ -267,6 +283,7 @@ export async function ProjectPageView({
         job={job}
         summary={projectSummary}
         jobs={jobs}
+        customers={customerOptions}
         canDelete={isAdmin}
         latestRev={latestRev ?? null}
         isFirstRevision={isFirstRevision}

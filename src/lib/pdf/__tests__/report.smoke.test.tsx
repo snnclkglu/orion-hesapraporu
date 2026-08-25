@@ -27,9 +27,17 @@ const props: ReportProps = {
     name: "İsdemir Amonyum Sülfat Vinci",
     customer: "İsdemir",
     crane_type: "Çift kirişli gezer köprülü vinç",
+    crane_location: "İskenderun Üretim Sahası",
   },
   revision: { rev_no: 3, label: "V3", issued_at: "2026-07-01T00:00:00.000Z" },
   preparedBy: "Sinan Çolakoğlu",
+  reportBrand: {
+    name: "Örnek Mühendislik",
+    logo: fs.readFileSync(path.join(process.cwd(), "public", "brand", "orion-logo-ink.png")),
+  },
+  endCustomerLogo: fs.readFileSync(
+    path.join(process.cwd(), "public", "brand", "orion-symbol-ink.png")
+  ),
   input,
   result,
 };
@@ -170,6 +178,14 @@ const atLevel = (level: "detayli" | "standart" | "ozet") => {
 };
 
 describe("rapor seviyeleri — bölüm kapsamı", () => {
+  it("kapak vinç yerini ve tam kaldırma/yük sınıfını gösterir", async () => {
+    const ozet = await pagesOf(await atLevel("ozet"));
+    expect(ozet.all).toContain("İskenderun Üretim Sahası".toLocaleUpperCase("tr-TR"));
+    expect(ozet.all).toContain(input.specs.hoistLoadClass);
+    expect(ozet.all).toContain("ÖRNEK MÜHENDİSLİK");
+    expect(ozet.all.toLocaleLowerCase("tr-TR")).not.toContain("partner");
+  }, 300_000);
+
   it("kontrol özeti yalnız DETAYLI raporda basılır", async () => {
     const detayli = await pagesOf(await atLevel("detayli"));
     const standart = await pagesOf(await atLevel("standart"));

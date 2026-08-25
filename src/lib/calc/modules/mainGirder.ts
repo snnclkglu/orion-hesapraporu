@@ -704,7 +704,10 @@ export function computeMainGirder(
   const spanMm = specs.spanM * 1000;                     // L — açıklık
   const spanToDepthRatio = spanMm / heightMm;            // L/h ≤ 25
   const spanToWidthRatio = spanMm / webGapMm;            // L/b ≤ 65
-  const approxGirderWeightKg = weightPerM * specs.spanM * 1.15;
+  // Ön ağırlık teklif/taşıma hesabında doğrudan kullanıldığı için küsuratlı
+  // bırakılmaz. Emniyetli tarafta kalacak biçimde HER ZAMAN bir sonraki
+  // 50 kg katına çıkarılır (zaten 50'nin katıysa değer değişmez).
+  const approxGirderWeightKg = Math.ceil((weightPerM * specs.spanM * 1.15) / 50) * 50;
 
   Object.assign(cells, {
     "section.areaTProfileWeb": areaTWeb,

@@ -10,6 +10,7 @@ import React from "react";
 import {
   Document,
   Font,
+  Image,
   StyleSheet,
   Text,
   View,
@@ -103,6 +104,7 @@ export interface ReportProject {
   name: string;
   customer: string;
   crane_type: string;
+  crane_location?: string | null;
 }
 
 export interface ReportRevision {
@@ -137,6 +139,10 @@ export interface ReportProps {
   revision: ReportRevision;
   preparedBy: string;
   checkedBy?: string;
+  /** Raporu kendi kurumsal kimliğiyle sunan firma; PDF'de özel bir ilişki adı kullanılmaz. */
+  reportBrand?: { name: string; logo?: Buffer | null } | null;
+  /** Müşteri kaydından alınan, kapakta isteğe bağlı gösterilen son kullanıcı logosu. */
+  endCustomerLogo?: Buffer | null;
   input: CalcInput;
   result: CalcResult;
   /**
@@ -183,6 +189,11 @@ function fmt(v: number | string | null | undefined, digits = 2): string {
   // olmayan bir sapmayı varmış gibi okutur (editördeki `fmt` ile aynı kural).
   if (Math.abs(v) < 0.5 / 10 ** digits) return (0).toLocaleString("tr-TR");
   return v.toLocaleString("tr-TR", { maximumFractionDigits: digits });
+}
+
+/** Müşteri logoları yüklemede 900 × 240 standart tuvale normalize edilir. */
+function customerLogo(src: Buffer | null | undefined) {
+  return src ? { src, ratio: 240 / 900 } : undefined;
 }
 
 /** Girdi/seçim değerleri: sayılar tr-TR, hassasiyet kaybını önlemek için 4 hane */
@@ -1156,7 +1167,7 @@ function coverSpecs(input: CalcInput): { label: string; value: string }[] {
   if (sp.hoistMechanismClass) {
     out.push({ label: "FEM SINIFI", value: `FEM ${femGroup} / ISO ${sp.hoistMechanismClass}` });
   }
-  const loadGroup = sp.hoistLoadClass.split("/").map((part) => part.trim()).find((part) => /^B[1-6]$/.test(part));
+  const loadGroup = sp.hoistLoadClass.trim();
   if (loadGroup) out.push({ label: "YÜK GRUBU", value: loadGroup });
   if (sp.structureClass) out.push({ label: "ÇELİK KONSTRÜKSİYON SINIFI", value: sp.structureClass });
   if (sp.hookType) out.push({ label: "KANCA TİPİ", value: sp.hookType });
@@ -1164,10 +1175,20 @@ function coverSpecs(input: CalcInput): { label: string; value: string }[] {
 }
 
 function CoverPage(props: ReportProps) {
-  const { project, revision, preparedBy, checkedBy, input } = props;
+  const {
+    project,
+    revision,
+    preparedBy,
+    checkedBy,
+    input,
+    reportBrand,
+    endCustomerLogo,
+  } = props;
   const st = { ...DEFAULT_REPORT_SETTINGS, ...props.settings };
   const dateLabel = reportDateLabel(revision);
   const docCode = docCodeFor(project, revision);
+  const reportBrandMark = customerLogo(reportBrand?.logo);
+  const endCustomerMark = customerLogo(endCustomerLogo);
   return (
     // Künye ALTBİLGİNİN İÇİNDE: ayrı bir blok olarak akışın sonuna konduğunda
     // künye ile sayfa altbilgisi arasında doldurulmamış bir şerit kalıyordu
@@ -1190,14 +1211,53 @@ function CoverPage(props: ReportProps) {
         logoWidth={168}
       />
 
+      {/* Seçili firma kimliği kapaktaki ayrılmış güvenli alana yerleşir. */}
+      {reportBrand ? (
+        <View
+          style={{
+            marginTop: 24,
+            height: 42,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 14,
+          }}
+        >
+          {reportBrandMark ? (
+            <Image
+              src={reportBrandMark.src}
+              style={{ width: 118, height: 31, objectFit: "contain" }}
+            />
+          ) : null}
+          <View style={{ flex: 1 }}>
+            <Text style={{ ...T.micro, color: BRAND.gray500 }}>RAPORU HAZIRLAYAN FİRMA</Text>
+            <Text style={{ ...T.heading, fontSize: 11, marginTop: 3 }}>
+              {reportBrand.name.toLocaleUpperCase("tr-TR")}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       {/* Başlık bloğu */}
-      <View style={{ marginTop: 84 }}>
+      <View style={{ marginTop: reportBrand ? 26 : 84 }}>
         <Text style={T.kicker}>ORION CRANES · HESAP RAPORU</Text>
+        {endCustomerMark ? (
+          <View style={{ marginTop: 7, height: 28, alignItems: "flex-start", justifyContent: "center" }}>
+            <Image
+              src={endCustomerMark.src}
+              style={{ width: 112, height: 28, objectFit: "contain" }}
+            />
+          </View>
+        ) : null}
         <RuleRed width={22} />
         <Text style={{ ...T.display, marginTop: 12 }}>
           {project.name.toLocaleUpperCase("tr-TR")}
         </Text>
         <Text style={{ ...T.caption, marginTop: 6 }}>{project.crane_type}</Text>
+        {project.crane_location?.trim() ? (
+          <Text style={{ ...T.data, color: BRAND.gray600, marginTop: 5 }}>
+            VİNÇ YERİ · {project.crane_location.trim().toLocaleUpperCase("tr-TR")}
+          </Text>
+        ) : null}
       </View>
 
       {/* Künye: kapasite → açıklık → kaldırma yüksekliği → FEM sınıfı */}
@@ -1291,7 +1351,7 @@ function tocEntries(
 }
 
 function TocPage({
-  project, revision, level, input,
+  project, revision, level, input, reportBrand,
   numbers, present, pageOf,
 }: ReportProps & {
   numbers: Partial<Record<ModuleKey, number>>;
@@ -1301,7 +1361,11 @@ function TocPage({
 }) {
   const entries = tocEntries(level ?? "detayli", numbers, present, input.specs);
   return (
-    <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
+    <BrandPage
+      docLine={docLineFor(revision)}
+      docCode={docCodeFor(project, revision)}
+      topRightLogo={customerLogo(reportBrand?.logo)}
+    >
       <PageHeader kicker="ORION CRANES · HESAP RAPORU" title="İçindekiler" />
       {entries.map((e) => (
         // Satırın tamamı tıklanabilir: PDF okuyucuda ilgili sayfaya atlar.
@@ -1541,7 +1605,7 @@ function summaryGroups(input: CalcInput, hidden: ReadonlySet<string>): SummaryGr
 }
 
 function SummarySection({
-  input, result, project, revision, numbers, collect, hiddenSections,
+  input, result, project, revision, numbers, collect, hiddenSections, reportBrand,
 }: ReportProps & {
   numbers: Partial<Record<ModuleKey, number>>;
   collect?: (anchor: string, page: number) => void;
@@ -1549,7 +1613,11 @@ function SummarySection({
   const groups = summaryGroups(input, hiddenSetOf({ hiddenSections }));
   const summarySpecs = summarySpecsForReport(input);
   return (
-    <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
+    <BrandPage
+      docLine={docLineFor(revision)}
+      docCode={docCodeFor(project, revision)}
+      topRightLogo={customerLogo(reportBrand?.logo)}
+    >
       <PageProbe anchor={anchorFor("ozet")} collect={collect} />
       <PageHeader
         kicker="ORION CRANES · ÖZET"
@@ -1668,7 +1736,7 @@ function SummaryCheckLine({
  * gibidir — her satırın solunda hesabın yapıldığı sayfa vardır.
  */
 function ChecksSummarySection({
-  input, result, project, revision, numbers, pageOf, collect, hiddenSections,
+  input, result, project, revision, numbers, pageOf, collect, hiddenSections, reportBrand,
 }: ReportProps & {
   numbers: Partial<Record<ModuleKey, number>>;
   pageOf: Record<string, number>;
@@ -1686,7 +1754,11 @@ function ChecksSummarySection({
     0
   );
   return (
-    <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
+    <BrandPage
+      docLine={docLineFor(revision)}
+      docCode={docCodeFor(project, revision)}
+      topRightLogo={customerLogo(reportBrand?.logo)}
+    >
       <PageProbe anchor={anchorFor("kontroller")} collect={collect} />
       <PageHeader
         kicker="ORION CRANES · KONTROLLER"
@@ -2059,10 +2131,15 @@ function LegalTermsBlock({ level }: { level: ReportLevel }) {
 function SourcesSection({
   project,
   revision,
+  reportBrand,
   level,
-}: Pick<ReportProps, "project" | "revision"> & { level: ReportLevel }) {
+}: Pick<ReportProps, "project" | "revision" | "reportBrand"> & { level: ReportLevel }) {
   return (
-    <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
+    <BrandPage
+      docLine={docLineFor(revision)}
+      docCode={docCodeFor(project, revision)}
+      topRightLogo={customerLogo(reportBrand?.logo)}
+    >
       <PageHeader kicker="EK" title="Kaynaklar ve Standartlar" />
       <Text style={{ ...T.caption, marginBottom: 10 }}>
         Hesap raporunda başvurulan kaynak dokümanlar.
@@ -2136,7 +2213,11 @@ function ModulePage({
   const secNos = sectionDisplayNumbers(adapter.sections, moduleNo, sectionPrinted);
 
   return (
-    <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
+    <BrandPage
+      docLine={docLineFor(revision)}
+      docCode={docCodeFor(project, revision)}
+      topRightLogo={customerLogo(props.reportBrand?.logo)}
+    >
       <PageProbe anchor={anchorFor(adapter.key)} collect={collect} />
       <PageHeader
         kicker={`BÖLÜM ${no}`}

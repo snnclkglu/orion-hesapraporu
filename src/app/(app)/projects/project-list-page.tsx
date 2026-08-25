@@ -5,7 +5,11 @@ import {
   FolderKanban,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { NewProjectDialog, type JobItemOption } from "./new-project-dialog";
+import {
+  NewProjectDialog,
+  type CustomerOption,
+  type JobItemOption,
+} from "./new-project-dialog";
 import { ProjectsTable, type ProjectRow } from "./projects-table";
 import { getReportSettings } from "@/lib/settings";
 import { PageHeader } from "@/components/page-header";
@@ -32,17 +36,21 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
 
   const projectQuery = supabase
     .from("projects")
-    .select("id, doc_no, name, customer, crane_type, status, created_at, job_id, jobs:job_id(job_no), revisions(rev_no, status)")
+    .select("id, doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, status, created_at, job_id, jobs:job_id(job_no), revisions(rev_no, status)")
     .eq("report_context", context)
     .order("created_at", { ascending: false });
 
-  const [{ data: projects }, { data: jobsData }, settings] = await Promise.all([
+  const [{ data: projects }, { data: jobsData }, { data: customersData }, settings] = await Promise.all([
     projectQuery,
     supabase
       .from("jobs")
-      .select("id, job_no, title, customer, job_items(id, item_no, product_name, quantity, project_id)")
+      .select("id, job_no, title, customer, customer_id, job_items(id, item_no, product_name, quantity, project_id)")
       .eq("status", "active")
       .order("created_at", { ascending: false }),
+    supabase
+      .from("customers")
+      .select("id, name, short_name, logo_path")
+      .order("name", { ascending: true }),
     getReportSettings(supabase),
   ]);
 
@@ -57,7 +65,14 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
     job_no: job.job_no,
     title: job.title,
     customer: job.customer,
+    customer_id: job.customer_id,
     items: (job.job_items ?? []) as unknown as JobItemOption[],
+  }));
+  const customerOptions: CustomerOption[] = (customersData ?? []).map((entry) => ({
+    id: entry.id,
+    name: entry.name,
+    short_name: entry.short_name,
+    has_logo: Boolean(entry.logo_path),
   }));
 
   const list = projects ?? [];
@@ -74,6 +89,9 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
       name: project.name,
       customer: project.customer,
       crane_type: project.crane_type,
+      crane_location: project.crane_location,
+      report_brand_customer_id: project.report_brand_customer_id,
+      end_customer_id: project.end_customer_id,
       status: project.status,
       created_at: project.created_at,
       job_id: (project.job_id as string | null) ?? null,
@@ -97,6 +115,7 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
         <NewProjectDialog
           defaultCraneType={settings.default_crane_type}
           jobs={offerContext ? undefined : jobs}
+          customers={customerOptions}
           reportContext={context}
         />
       </PageHeader>
@@ -155,6 +174,7 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
           <NewProjectDialog
             defaultCraneType={settings.default_crane_type}
             jobs={offerContext ? undefined : jobs}
+            customers={customerOptions}
             reportContext={context}
           />
         </div>
@@ -162,6 +182,7 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
         <ProjectsTable
           projects={rows}
           jobs={jobs}
+          customerOptions={customerOptions}
           canDelete={isAdmin}
           basePath={reportBasePath(context)}
           reportContext={context}
