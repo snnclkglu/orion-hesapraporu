@@ -388,9 +388,27 @@ describe("ticari şart yazımı", () => {
 
 describe("belge kimliği", () => {
   it("teklif numarası ve revizyon etiketi belgede geçer", async () => {
-    const metin = await pdfMetni(fikstur());
-    expect(metin.includes("TETR-20260127-1")).toBe(true);
-    expect(metin.includes("REV 02")).toBe(true);
+    const metin = duz(await pdfMetni(fikstur()));
+    expect(metin.includes(duz("TETR-20260127-1"))).toBe(true);
+    expect(metin.includes(duz("REV 02"))).toBe(true);
+  });
+
+  it("teknik başlık teklif numarası yerine hazırlayan firma logosunu taşır", async () => {
+    const buf = await renderOfferPdf(fikstur());
+    const { extractImages, extractText, getDocumentProxy } = await import("unpdf");
+    const doc = await getDocumentProxy(new Uint8Array(buf));
+    const { text } = await extractText(doc, { mergePages: false });
+    const sayfalar = Array.isArray(text) ? text : [text];
+    const teknik = duz(sayfalar[1] ?? "");
+
+    // Teklif numarası teknik yaprakta yalnız ALTBİLGİDE kalır. Eski sağ üst
+    // künye geri gelirse aynı numara iki kez çıkar ve bu sav düşer.
+    expect(teknik.split(duz("TETR-20260127-1")).length - 1).toBe(1);
+
+    // Teknik yaprakta iki marka resmi vardır: soluk filigran ve sağ üstteki
+    // hazırlayan firma logosu. Fikstürde müşteri/ürün resmi yoktur.
+    const resimler = await extractImages(doc, 2);
+    expect(resimler.length).toBeGreaterThanOrEqual(2);
   });
 
   it("dosya adı: ORİON VİNÇ - KONU - TEKLİF NO - REV; R0'da revizyon parçası düşer", () => {
@@ -444,12 +462,20 @@ describe("teklifi hazırlayan partner", () => {
     };
     props.issuerLogo = null;
 
-    const metin = await pdfMetni(props);
+    const buf = await renderOfferPdf(props);
+    const { extractImages, extractText, getDocumentProxy } = await import("unpdf");
+    const doc = await getDocumentProxy(new Uint8Array(buf));
+    const { text } = await extractText(doc, { mergePages: false });
+    const metin = (Array.isArray(text) ? text : [text]).join(" ");
     expect(metin).toContain("KARÇEL A.Ş.");
     expect(duz(metin)).toContain(duz("TEKLİFİ HAZIRLAYAN FİRMA"));
     expect(metin).not.toContain("ORION CRANES");
     expect(metin).not.toContain("sinan@orioncranes.com");
     expect(metin).not.toContain(COMPANY_PROFILE.body);
+
+    // Seçili partnerin logosu yoksa teknik başlık ve filigran boş kalır;
+    // ORION resmi sessizce geri getirilemez (TEKLIF-68/69).
+    expect(await extractImages(doc, 2)).toHaveLength(0);
   });
 });
 
@@ -513,6 +539,41 @@ describe("altbilgi künyesi", () => {
     // sayfalarda satırın kuyruğunda durur.
     expect(duz(sayfalar[0])).not.toContain(duz("27.01.2026 · HABAŞ DÖRTYOL"));
     expect(duz(sayfalar[1])).toContain(duz("27.01.2026 · HABAŞ DÖRTYOL 20T VİNÇ"));
+  });
+
+  it("uzun doküman satırı ikinci satıra geçer ve folio güvenli alanına girmez", async () => {
+    const props = fikstur();
+    props.offer.offerNo = "TETR-20260826-1";
+    props.offer.issueDate = "2026-08-26";
+    props.offer.subject = "THY TEKLİF BLOK B1";
+    props.company.company = "KARÇEL KARDEMİR ÇELİK YAPI İMALAT SAN.VE TİC.LTD.ŞTİ.";
+
+    const buf = await renderOfferPdf(props);
+    const { extractTextItems, getDocumentProxy } = await import("unpdf");
+    const doc = await getDocumentProxy(new Uint8Array(buf));
+    const { items } = await extractTextItems(doc);
+    const alt = (items[1] ?? []).filter((item) => item.y < 45 && item.str.trim());
+    const yataySatirlar = new Map<number, typeof alt>();
+    for (const item of alt) {
+      const y = Math.round(item.y * 10) / 10;
+      yataySatirlar.set(y, [...(yataySatirlar.get(y) ?? []), item]);
+    }
+    const folio = [...yataySatirlar.values()].find(
+      (satir) => /^02\/\d{2}$/.test(duz(satir.map((item) => item.str).join("")))
+    );
+    expect(folio).toBeDefined();
+
+    const folioParcalari = new Set(folio ?? []);
+    const dokuman = alt.filter((item) => !folioParcalari.has(item));
+    const satirlar = new Set(dokuman.map((item) => Math.round(item.y * 10) / 10));
+    expect(satirlar.size).toBeGreaterThanOrEqual(2);
+
+    // Yalnız görsel bir sav değil: PDF metin koordinatlarında doküman satırının
+    // sağ kenarı, sabit folio kutusunun solundan önce bitmelidir.
+    const folioSolu = Math.min(...(folio ?? []).map((item) => item.x));
+    for (const item of dokuman) {
+      expect(item.x + item.width).toBeLessThanOrEqual(folioSolu - 5);
+    }
   });
 });
 

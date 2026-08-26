@@ -1577,3 +1577,19 @@ TAM resmî unvan eşleşmesi kullanılır. Benzer/prefix eşleşmesi yasaktır:
 KARDEMİR A.Ş. ile KARDEMİR ÇH iki ayrı kimliktir. Depodaki logo yolu da mutlaka
 seçilen müşteri kimliğinin klasöründe olmalıdır; yanlış logo yerine logosuz
 PDF tercih edilir.
+
+## TEKLIF-69 — Teknik yaprak başlığı hazırlayan firma logosunu, altbilgi güvenli folio alanını taşır.
+
+Kullanıcı kararı (26.08.2026): teklifin yalnız **teknik özellikler**
+yapraklarında sağ üstteki teklif numarası kaldırılır; onun yerinde Teklifi
+Hazırlayan Firma'nın logosu basılır. Kapak değişmez. Ticari şartlar, ayrı fiyat
+yaprağı ve genel şartlar kendi iki satırlı referans künyesini korur. ORION
+teklifinde yerleşik kömür logo, partner teklifinde indirilen partner logosu
+kullanılır; seçili partnerin logosu yoksa ORION'a geri düşülmez. Teknik logo
+akış dışındadır: başlık yüksekliğini ve teknik sütun sayfalamasını değiştirmez.
+
+Markalı altbilgide doküman satırı ile folio aynı esnek metin kutusunu paylaşmaz.
+Folio sağda sabit ve ayrılmış bir güvenli alandadır; uzun hazırlayan firma adı
+veya teklif konusu kalan genişlikte ayraçlardan doğal olarak ikinci satıra
+geçer. Bu kural `BrandPage` üzerinden kapak dahil teklifin her fiziksel
+yaprağında uygulanır; hiçbir metin sayfa numarasının alanına giremez.

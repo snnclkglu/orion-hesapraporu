@@ -537,8 +537,8 @@ const S = StyleSheet.create({
   // ---- MARKA SATIRI (ticari ve genel şartlar sayfaları)
   //
   // Kömür kapak bandının kağıt üzerindeki karşılığı: solda KÖMÜR lockup, sağda
-  // doküman künyesi, altında KIRMIZI kural. Teknik sayfalar aynı dili konuşur
-  // ama lockup'ı taşımaz — gerekçesi `SayfaBasi`da.
+  // doküman künyesi, altında KIRMIZI kural. Teknik sayfalar aynı dili küçük
+  // hazırlayan firma logosuyla konuşur — gerekçesi `SayfaBasi`da.
   sayfaMarkaSatiri: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -569,13 +569,14 @@ const S = StyleSheet.create({
   },
   sayfaKickerCubuguKucuk: { width: 18, height: 2.4, backgroundColor: BRAND.red, marginRight: 6, flexShrink: 0 },
   sayfaKickerKucuk: { ...T.kicker, color: BRAND.red, flexShrink: 1 },
-  sayfaMeta: {
-    ...T.micro,
-    color: BRAND.gray500,
-    marginLeft: "auto",
-    paddingLeft: 12,
-    flexShrink: 0,
-    textAlign: "right",
+  sayfaTeknikLogo: {
+    position: "absolute",
+    top: -8,
+    right: 0,
+    width: 110,
+    height: 24,
+    alignItems: "flex-end",
+    justifyContent: "center",
   },
   /** Lockup'sız sayfalarda kimlik satırını kapatan KIRMIZI kural. */
   sayfaKurali: { height: 1.5, backgroundColor: BRAND.red, marginTop: 6 },
@@ -849,13 +850,13 @@ function tarih(iso: string): string {
 /**
  * SAYFA KÜNYESİ — sayfa başlığının sağ üstündeki kimlik.
  *
- * `no` ve `alt` markalı başlıkta iki satır olarak (kapaktaki gibi), `tek`
- * lockup'sız teknik sayfada tek satır olarak basılır.
+ * `no` ve `alt` markalı başlıkta iki satır olarak (kapaktaki gibi) basılır.
+ * Teknik sayfanın sağ üstü artık hazırlayan firma logosuna ayrılmıştır; teklif
+ * numarası o yaprakta altbilgide yaşamaya devam eder.
  */
 interface SayfaKunyesi {
   no: string;
   alt: string;
-  tek: string;
 }
 
 function sayfaKunyesi(offer: OfferDocumentProps["offer"]): SayfaKunyesi {
@@ -864,12 +865,33 @@ function sayfaKunyesi(offer: OfferDocumentProps["offer"]): SayfaKunyesi {
   return {
     no: offer.offerNo,
     alt: rev ? `${rev} · TARİH · ${gun}` : `TARİH · ${gun}`,
-    tek: offerDocLine(offer.offerNo, offer.revNo),
   };
 }
 
 /** Sayfa başlığındaki kömür lockup'ın genişliği — yüksekliği ~19,5 pt yapar. */
 const SAYFA_LOGO_EN = 160;
+/** Teknik başlıkta akışı büyütmeden sağ üste oturan hazırlayan firma logosu. */
+const TEKNIK_LOGO_EN = 110;
+const TEKNIK_LOGO_BOY = 24;
+
+function TeknikBaslikLogosu({ brandLogo }: { brandLogo?: Buffer | null }) {
+  if (brandLogo === null) return null;
+  const src = brandLogo ?? BRAND_LOGO_INK;
+  const ratio = brandLogo ? PARTNER_LOGO_RATIO : LOGO_MONO_RATIO;
+  return (
+    <View style={S.sayfaTeknikLogo}>
+      {/* eslint-disable-next-line jsx-a11y/alt-text */}
+      <Image
+        src={src}
+        style={{
+          width: Math.min(TEKNIK_LOGO_EN, TEKNIK_LOGO_BOY / ratio),
+          height: Math.min(TEKNIK_LOGO_BOY, TEKNIK_LOGO_EN * ratio),
+          objectFit: "contain",
+        }}
+      />
+    </View>
+  );
+}
 
 /**
  * SAYFA BAŞLIĞI — kapak bandının kağıt üzerindeki karşılığı.
@@ -879,12 +901,10 @@ const SAYFA_LOGO_EN = 160;
  *  - **`marka`** (ticari şartlar, genel şartlar): solda KÖMÜR lockup, sağda
  *    iki satırlık doküman künyesi, altında KIRMIZI kural; sonra kırmızı çubuk
  *    + mono kicker ve sayfanın büyük başlığı. Kullanıcı tasarımının kendisi.
- *  - **lockup'sız** (teknik sayfalar): kimlik satırı KİCKER'IN İÇİNE iner —
- *    çubuk + kicker solda, künye tek satır sağda — ve aynı kırmızı kural onu
- *    kapatır. Lockup burada da güzel dururdu ama ~40 pt yer yer; ölçüldü:
- *    o pay sütun kapasitesinden gidiyor ve ASTOR portal vincinin gövdesi tek
- *    yaprakta durmuyor, ikiye bölünüyordu (`PDF_SUTUN_KAPASITE`). Marka
- *    kapakta, ticari sayfada ve altbilginin her satırında zaten vardır.
+ *  - **teknik sayfalar**: çubuk + kicker solda, hazırlayan firmanın logosu
+ *    sağda ve aynı kırmızı kural altta. Logo akış dışındadır; bu yüzden başlık
+ *    yüksekliğini ve `PDF_SUTUN_KAPASITE` hesabını değiştirmez. Sağındaki eski
+ *    teklif numarası kaldırılmıştır; belge kimliği altbilgide kalır.
  *
  * BÜYÜK BAŞLIK KENDİ SATIRINDA KALIR, künyeyle YAN YANA GELMEZ (kullanıcı
  * bildirimi, 18.08.2026): esnek satırda yalnız `flexGrow/flexShrink` verilmiş
@@ -952,10 +972,16 @@ function SayfaBasi({
         </>
       ) : (
         <>
-          <View style={S.sayfaKickerSatiri}>
+          <View
+            style={
+              brandLogo === null
+                ? S.sayfaKickerSatiri
+                : [S.sayfaKickerSatiri, { paddingRight: TEKNIK_LOGO_EN + 12 }]
+            }
+          >
             <View style={S.sayfaKickerCubuguKucuk} />
             <Text style={S.sayfaKickerKucuk}>{kicker}</Text>
-            <Text style={S.sayfaMeta}>{kunye.tek}</Text>
+            <TeknikBaslikLogosu brandLogo={brandLogo} />
           </View>
           <View style={S.sayfaKurali} />
         </>
@@ -1087,6 +1113,7 @@ function TeknikSayfa({
   ustSonda,
   altSonda,
   watermarkLogo,
+  brandLogo,
 }: {
   docLine: string;
   /** Sayfanın büyük başlığı: KALEMİN ADI. */
@@ -1100,6 +1127,8 @@ function TeknikSayfa({
   ustSonda?: React.ReactNode;
   altSonda?: React.ReactNode;
   watermarkLogo?: BrandBandLogo | null;
+  /** `undefined` = ORION, `null` = logosuz partner, Buffer = partner logosu. */
+  brandLogo?: Buffer | null;
 }) {
   return (
     <BrandPage docLine={docLine} brandFooter={{}} watermarkLogo={watermarkLogo}>
@@ -1112,7 +1141,7 @@ function TeknikSayfa({
 
           AD OLDUĞU GİBİ BASILIR, büyütülmez: "80T x 12.44m" bir ürün adıdır
           ve birimleri küçük harfle yazılır — `trUpper` onu "12.44M" yapardı. */}
-      <SayfaBasi kicker={kicker} baslik={baslik} kunye={kunye} />
+      <SayfaBasi kicker={kicker} baslik={baslik} kunye={kunye} brandLogo={brandLogo} />
 
       <View style={S.sutunlar}>
         <View style={S.sutun}>
@@ -2469,6 +2498,7 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
               ) : null
             }
             watermarkLogo={watermarkLogo}
+            brandLogo={brandLogo}
           />
         ));
       })}

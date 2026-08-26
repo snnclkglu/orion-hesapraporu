@@ -301,7 +301,14 @@ function Spine() {
 
 /** Markalı altbilginin tipografisi (bkz. `PageFrameProps.brandFooter`). */
 const F = StyleSheet.create({
-  docLine: { fontFamily: FONTS.mono, fontSize: 6.4, fontWeight: 600, letterSpacing: 0.9, color: BRAND.ink },
+  docLine: {
+    fontFamily: FONTS.mono,
+    fontSize: 6.4,
+    fontWeight: 600,
+    letterSpacing: 0.9,
+    lineHeight: 1.35,
+    color: BRAND.ink,
+  },
   note: { fontFamily: FONTS.mono, fontSize: 5.6, letterSpacing: 0.4, color: BRAND.gray500, marginBottom: 3 },
   folio: { fontFamily: FONTS.mono, fontSize: 7.5, fontWeight: 600, letterSpacing: 0.8, color: BRAND.ink },
   square: { width: 3.75, height: 3.75, backgroundColor: BRAND.red, marginRight: 7.5 },
@@ -471,17 +478,35 @@ export function BrandPage({
                 flexDirection: "row",
                 justifyContent: "space-between",
                 alignItems: "center",
-                gap: 14,
               }}
             >
-              {/* `flexBasis: 0` ŞART: temel genişlik "auto" bırakılırsa yoga
-                  metnin ÖLÇÜLEN uzunluğunu taban alır, esnek satırda daralan
-                  kutuda metni YENİDEN SARMAZ ve uzun bir konu folionun üstüne
-                  biner. Sıfır tabanla satır yalnız ARTAN yeri kaplar. */}
-              <Text style={[F.docLine, { flexGrow: 1, flexShrink: 1, flexBasis: 0 }]}>{docLine}</Text>
-              {docCode ? <Text style={[F.docLine, { flexShrink: 0 }]}>{docCode}</Text> : null}
+              {/* METİN VE FOLİO AYRI KUTULARDIR. `Text` doğrudan esnek satırın
+                  çocuğu olduğunda Yoga önce doğal metin genişliğini ölçüyor,
+                  sonra daralan alanda yeniden sarmıyor; uzun teklif konusu
+                  folionun üstüne biniyordu. Genişliği sıfır tabanlı bu `View`
+                  alır, içindeki metin o GERÇEK genişlikte bir sonraki satıra
+                  geçer. Sağdaki sabit kutu sayfa numarasının güvenli alanıdır. */}
+              <View
+                style={{
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  flexBasis: 0,
+                  minWidth: 0,
+                  paddingRight: 14,
+                }}
+              >
+                <Text style={[F.docLine, { width: "100%" }]}>{docLine}{docCode ? ` · ${docCode}` : ""}</Text>
+              </View>
               {hidePageNumber ? null : (
-                <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 0 }}>
+                <View
+                  style={{
+                    width: 61,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    flexShrink: 0,
+                  }}
+                >
                   <View style={F.square} />
                   <Text style={F.folio} render={folioYazisi} />
                 </View>
