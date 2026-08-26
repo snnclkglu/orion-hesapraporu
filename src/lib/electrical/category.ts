@@ -31,6 +31,7 @@ export const ELECTRICAL_CATEGORIES = [
   "Aydınlatma",
   "Pano İklimlendirme",
   "Pano, Muhafaza ve Etiketleme",
+  "Kablolar",
   "Fiş, Priz, Klemens ve Bağlantı",
   "Diğer",
 ] as const;
@@ -490,13 +491,31 @@ export function electricalCategory(item: ElectricalCategorySource): ElectricalCa
   if (
     biriVar(
       metin,
+      "HELU.",
+      "HELUKABEL",
+      "IGUS.CF",
+      "CONTROL CABLE",
+      "FLAT CABLE",
+      "CONNECTION CABLE",
+      "TOPFLEX",
+      "TOPSERV",
+      "TOPGEBER",
+      "ROBOFLEX",
+      "TRONIC-CY"
+    )
+  ) {
+    return "Kablolar";
+  }
+
+  if (
+    biriVar(
+      metin,
       "PLUG",
       "SOCKET",
       "TERMINAL BLOCK",
       "TERMINAL ",
       "KLEMENS",
       "CONNECTOR",
-      "CONNECTION CABLE",
       "COVERING HOOD",
       "CONNECTOR HOOD",
       "HC-RBO",

@@ -1,9 +1,10 @@
 // ELEKTRİK MALZEMESİ ↔ KATALOG KİMLİĞİ — saf çekirdek.
 //
 // `electrical_parts` yeniden okumada silinip üretildiği için katalog bağı bir
-// aygıt satırının UUID'sine dayanamaz. Üretici + tip numarası ürünün kararlı
-// kimliğidir; noktalama ve harf büyüklüğü yalnız eşleme için katlanır, ekranda
-// gösterilen asıl değerler değiştirilmez.
+// aygıt satırının UUID'sine dayanamaz. Normal durumda üretici + tip numarası
+// ürünün kararlı kimliğidir. HELUKABEL satırlarında ise tedarikçi boş ve tip no
+// bir ürün ailesidir; projenin `HELU.<makale no>` malzeme kodu kesin üretici
+// kimliğini taşır. Noktalama/harf büyüklüğü yalnız eşleme için katlanır.
 
 import type { ElectricalMaterialRow } from "./types";
 
@@ -38,10 +39,40 @@ export function electricalCatalogLookupKey(supplier: string, typeNo: string): st
   return `${catalogIdentityPart(supplier)}|${catalogIdentityPart(typeNo)}`;
 }
 
+export interface ElectricalCatalogIdentity {
+  supplier: string;
+  typeNo: string;
+  lookupKey: string;
+}
+
+/** `HELU.10721` gibi proje kodundan HELUKABEL makale numarasını çözer. */
+export function helukabelArticleNumber(partNo: string): string | null {
+  return /^HELU(\d+)$/.exec(catalogIdentityPart(partNo))?.[1] ?? null;
+}
+
+/**
+ * Malzemenin katalogdaki kararlı ürün kimliği.
+ *
+ * Kablo ailesi (`JZ-600 / OZ-600`) tek başına sipariş edilebilir ürünü
+ * belirlemez; kesit/varyant için HELUKABEL makale numarası kullanılır.
+ */
+export function materialCatalogIdentity(
+  material: Pick<ElectricalMaterialRow, "supplier" | "typeNo" | "partNo">
+): ElectricalCatalogIdentity {
+  const helukabelArticle = helukabelArticleNumber(material.partNo);
+  const supplier = helukabelArticle ? "HELUKABEL" : material.supplier;
+  const typeNo = helukabelArticle ?? material.typeNo;
+  return {
+    supplier,
+    typeNo,
+    lookupKey: electricalCatalogLookupKey(supplier, typeNo),
+  };
+}
+
 export function materialCatalogLookupKey(
-  material: Pick<ElectricalMaterialRow, "supplier" | "typeNo">
+  material: Pick<ElectricalMaterialRow, "supplier" | "typeNo" | "partNo">
 ): string {
-  return electricalCatalogLookupKey(material.supplier, material.typeNo);
+  return materialCatalogIdentity(material).lookupKey;
 }
 
 /** Seri hâle getirilebilir listeyi istemcinin hızlı anahtar sözlüğüne çevirir. */

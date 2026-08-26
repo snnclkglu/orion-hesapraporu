@@ -261,3 +261,18 @@ tip, tedarikçi ve malzeme kodu boştur. Bu kayıt Aygıt görünümünde korunu
 “sipariş edilebilir” Malzeme görünümüne boş satır olarak girmez. HABAŞ 50T
 fikstüründe bu iki kural 140 görünen kaydı 122 gerçek benzersiz malzemeye
 indirmiştir; sayı kaynak PDF üzerinde ölçülmüştür.
+
+## ELEKTRIK-15 — Kablo kimliği ürün AİLESİNDEN değil üretici MAKALE NUMARASINDAN gelir.
+
+0019-00'ın kablo satırlarında tedarikçi alanı boş, tip no ise `JZ-600 / OZ-600`
+gibi birden çok kesit ve varyantı kapsayan aile adıdır. Bu alanlarla kurulan
+normal `supplier + typeNo` anahtarı 4G2,5 ile 4G16 kabloyu aynı ürün sanır.
+`HELU.<makale no>` biçimindeki proje malzeme kodu burada güvenilir üretici
+kimliğidir: katalog ürünü `HELUKABEL + <makale no>` anahtarıyla kaydedilir ve
+yeniden okumalarda aynı bağı bulur. Başka üreticilerin normal kimlik kuralı
+değişmez.
+
+Kablo üst sınıfı `Kablolar`dır. HELUKABEL/IGUS malzeme kodları ile açık kontrol,
+enerji zinciri, servo, enkoder ve bağlantı kablosu işaretleri bu sınıfa girer;
+fiş, priz ve klemensler ayrı bağlantı ailesinde kalır. Bu ayrım yeni EPLAN
+projelerinde de aynı saf sınıflandırıcıdan türetilir.

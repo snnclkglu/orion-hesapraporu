@@ -24,7 +24,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { PDFDocument } from "pdf-lib";
 import { electricalCategory } from "@/lib/electrical/category";
 import { materialRows } from "@/lib/electrical/rollup";
-import { catalogIdentityPart, electricalCatalogLookupKey } from "@/lib/electrical/catalogs";
+import { catalogIdentityPart, materialCatalogIdentity } from "@/lib/electrical/catalogs";
 import type { ElectricalPart, ElectricalMaterialRow } from "@/lib/electrical/types";
 import { pdfBirlestir } from "@/lib/pdf/merge";
 
@@ -122,6 +122,32 @@ const CURATED_RANGE_ENTRIES: Array<[string, CuratedRange]> = [
   ["6SL3000-0EE38-8AA0", { fileIncludes: "Katalog D 21.4", pages: [263, 264] }],
   ["6SL3055-0AA00-6AA1", { fileIncludes: "Katalog D 21.4", pages: [339, 340, 341, 342] }],
   ["6SL3055-0AA00-5CA2", { fileIncludes: "Katalog D 21.4", pages: [362, 363, 364, 365, 366] }],
+  ...([
+    ["10365", [27]],
+    ["10366", [27]],
+    ["10367", [27]],
+    ["10368", [27]],
+    ["10369", [27]],
+    ["10373", [27]],
+    ["10374", [27]],
+    ["10692", [31, 32]],
+    ["10711", [31, 32]],
+    ["10721", [31, 32]],
+    ["10725", [31, 32]],
+    ["16405", [38, 39]],
+    ["16501", [93, 94]],
+    ["16505", [93, 94]],
+    ["19104", [132]],
+    ["22972", [142]],
+    ["22975", [142]],
+    ["75950", [144, 145]],
+    ["705221", [151, 152]],
+    ["25474", [197]],
+    ["27011", [201]],
+  ] satisfies Array<[string, number[]]>).map(([typeNo, pages]): [string, CuratedRange] => [
+    typeNo,
+    { fileIncludes: "HELUKABEL - Hareketli Kablo Kataloğu", pages },
+  ]),
 ];
 const CURATED_RANGES = new Map<string, CuratedRange>(
   CURATED_RANGE_ENTRIES.map(([typeNo, range]) => [catalogIdentityPart(typeNo), range])
@@ -524,8 +550,9 @@ function mappingForMaterial(
   material: ElectricalMaterialRow,
   mappings: readonly MappingProduct[]
 ): MappingProduct | undefined {
-  const typeKey = catalogIdentityPart(material.typeNo);
-  const supplierKey = catalogIdentityPart(material.supplier);
+  const identity = materialCatalogIdentity(material);
+  const typeKey = catalogIdentityPart(identity.typeNo);
+  const supplierKey = catalogIdentityPart(identity.supplier);
   const exact = mappings.find(
     (m) => catalogIdentityPart(m.typeNo) === typeKey && catalogIdentityPart(m.supplier) === supplierKey
   );
@@ -635,22 +662,22 @@ async function ensureProduct(
   supabase: SupabaseClient,
   material: ElectricalMaterialRow
 ): Promise<string> {
-  const lookupKey = electricalCatalogLookupKey(material.supplier, material.typeNo);
+  const identity = materialCatalogIdentity(material);
   const { data, error } = await supabase
     .from("electrical_catalog_products")
     .upsert(
       {
-        supplier: material.supplier,
-        type_no: material.typeNo,
+        supplier: identity.supplier,
+        type_no: identity.typeNo,
         designation: material.designation,
-        lookup_key: lookupKey,
+        lookup_key: identity.lookupKey,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "lookup_key" }
     )
     .select("id")
     .single();
-  if (error || !data) throw error ?? new Error(`${material.typeNo} ürünü kaydedilemedi.`);
+  if (error || !data) throw error ?? new Error(`${identity.typeNo} ürünü kaydedilemedi.`);
   return String(data.id);
 }
 
@@ -683,7 +710,11 @@ async function saveTechnicalExtract(
   source: LocalDocument,
   pages: number[]
 ): Promise<TechnicalChoice> {
-  const title = `${material.supplier} ${material.typeNo} - Teknik Föy`;
+  const identity = materialCatalogIdentity(material);
+  const family = catalogIdentityPart(identity.typeNo) === catalogIdentityPart(material.typeNo)
+    ? ""
+    : ` - ${material.typeNo}`;
+  const title = `${identity.supplier} ${identity.typeNo}${family} - Teknik Föy`;
   const bytes = await extractPages(source, pages, title);
   const digest = sha256(bytes);
   const storagePath = `technical/${digest}.pdf`;
@@ -693,13 +724,13 @@ async function saveTechnicalExtract(
       bytes,
       pageCount: pages.length,
       sourcePages: pages,
-      label: `${material.supplier} · ${material.typeNo}`,
+      label: `${identity.supplier} · ${identity.typeNo}`,
       sourceFileName: source.fileName,
     };
   }
 
   await uploadIfMissing(supabase, storagePath, bytes);
-  const fileName = `${material.supplier} - ${material.typeNo} Teknik Föy.pdf`.replace(
+  const fileName = `${identity.supplier} - ${identity.typeNo} Teknik Föy.pdf`.replace(
     /[\\/:*?"<>|]+/g,
     "-"
   );
@@ -708,7 +739,7 @@ async function saveTechnicalExtract(
     .upsert(
       {
         title,
-        manufacturer: material.supplier,
+        manufacturer: identity.supplier,
         language: source.language,
           document_kind: "technical_extract",
           file_name: fileName,
@@ -724,13 +755,13 @@ async function saveTechnicalExtract(
     )
     .select("id")
     .single();
-  if (error || !data) throw error ?? new Error(`${material.typeNo} teknik föyü kaydedilemedi.`);
+  if (error || !data) throw error ?? new Error(`${identity.typeNo} teknik föyü kaydedilemedi.`);
   return {
     documentId: String(data.id),
     bytes,
     pageCount: pages.length,
     sourcePages: pages,
-    label: `${material.supplier} · ${material.typeNo}`,
+    label: `${identity.supplier} · ${identity.typeNo}`,
     sourceFileName: source.fileName,
   };
 }
@@ -741,8 +772,9 @@ async function technicalChoice(
   sources: LocalDocument[]
 ): Promise<TechnicalChoice | null> {
   if (technicalDenied(material.typeNo)) return null;
-  const target = catalogIdentityPart(material.typeNo);
-  const curated = curatedRange(material.typeNo);
+  const identity = materialCatalogIdentity(material);
+  const target = catalogIdentityPart(identity.typeNo);
+  const curated = curatedRange(identity.typeNo);
   if (curated) {
     const source = sources.find(
       (candidate) =>
@@ -765,14 +797,14 @@ async function technicalChoice(
       bytes: await documentBytes(short),
       pageCount: short.pageCount,
       sourcePages: [],
-      label: `${material.supplier} · ${material.typeNo}`,
+      label: `${identity.supplier} · ${identity.typeNo}`,
       sourceFileName: short.fileName,
     };
   }
 
   const candidates = [...sources].sort((a, b) => sourceScore(b, target) - sourceScore(a, target));
   for (const source of candidates) {
-    const pages = await relevantPages(source, material.typeNo);
+    const pages = await relevantPages(source, identity.typeNo);
     if (pages.length === 0 || !source.id) continue;
     return saveTechnicalExtract(supabase, material, source, pages);
   }
@@ -849,7 +881,9 @@ async function main(): Promise<void> {
         locations: [],
       }));
   const materials = ONLY_TYPES.size
-    ? allMaterials.filter((material) => ONLY_TYPES.has(catalogIdentityPart(material.typeNo)))
+    ? allMaterials.filter((material) =>
+        ONLY_TYPES.has(catalogIdentityPart(materialCatalogIdentity(material).typeNo))
+      )
     : allMaterials;
   const unmatched: string[] = [];
   const withoutTechnical: string[] = [];
@@ -868,9 +902,10 @@ async function main(): Promise<void> {
 
   for (let i = 0; i < materials.length; i++) {
     const material = materials[i];
+    const identity = materialCatalogIdentity(material);
     const mapping = mappingForMaterial(material, mappings);
     if (!mapping || mapping.files.length === 0) {
-      unmatched.push(`${material.supplier} · ${material.typeNo}`);
+      unmatched.push(`${identity.supplier} · ${identity.typeNo}`);
       continue;
     }
     const sources = mapping.files.map((name) => local.get(name)).filter((d): d is LocalDocument => Boolean(d));
@@ -904,8 +939,8 @@ async function main(): Promise<void> {
         seenTechnical.add(technical.documentId);
         appendixManifest.push({
           documentId: technical.documentId,
-          supplier: material.supplier,
-          typeNo: material.typeNo,
+          supplier: identity.supplier,
+          typeNo: identity.typeNo,
           sourceFileName: technical.sourceFileName,
           sourcePages: technical.sourcePages,
           pageCount: technical.pageCount,
@@ -913,10 +948,10 @@ async function main(): Promise<void> {
         appendixInputs.push({ ad: technical.label, bytes: technical.bytes });
       }
     } else {
-      withoutTechnical.push(`${material.supplier} · ${material.typeNo}`);
+      withoutTechnical.push(`${identity.supplier} · ${identity.typeNo}`);
     }
     const pageNote = technical?.sourcePages.length ? ` · kaynak s. ${technical.sourcePages.join(",")}` : "";
-    log(`Ürün [${i + 1}/${materials.length}] ${material.typeNo} · ${technical ? `${technical.pageCount} s. föy${pageNote}` : "föy yok"}`);
+    log(`Ürün [${i + 1}/${materials.length}] ${identity.typeNo} · ${technical ? `${technical.pageCount} s. föy${pageNote}` : "föy yok"}`);
   }
 
   const appendix = await pdfBirlestir(appendixInputs, {

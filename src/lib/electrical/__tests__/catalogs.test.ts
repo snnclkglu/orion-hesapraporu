@@ -3,6 +3,9 @@ import {
   catalogIdentityPart,
   catalogReferencesByMaterial,
   electricalCatalogLookupKey,
+  helukabelArticleNumber,
+  materialCatalogIdentity,
+  materialCatalogLookupKey,
 } from "../catalogs";
 
 describe("elektrik katalog kimliği", () => {
@@ -16,6 +19,33 @@ describe("elektrik katalog kimliği", () => {
       electricalCatalogLookupKey("SIEMENS", "5SL6210 7")
     );
     expect(catalogIdentityPart("Niki Elektronik")).toBe("NIKIELEKTRONIK");
+  });
+
+  it("HELUKABEL ürününü aile adına değil proje kodundaki makale numarasına bağlar", () => {
+    expect(helukabelArticleNumber("HELU.10721")).toBe("10721");
+    expect(helukabelArticleNumber("SIE.5SL6210-7")).toBeNull();
+
+    const material = {
+      supplier: "",
+      typeNo: "JZ-600 / OZ-600",
+      partNo: "HELU.10721",
+    };
+    expect(materialCatalogIdentity(material)).toEqual({
+      supplier: "HELUKABEL",
+      typeNo: "10721",
+      lookupKey: "HELUKABEL|10721",
+    });
+    expect(materialCatalogLookupKey(material)).toBe("HELUKABEL|10721");
+  });
+
+  it("HELUKABEL dışındaki üretici + tip no kimliğini değiştirmez", () => {
+    expect(
+      materialCatalogIdentity({
+        supplier: "Siemens",
+        typeNo: "5SL6210-7",
+        partNo: "SIE.5SL6210-7",
+      })
+    ).toMatchObject({ supplier: "Siemens", typeNo: "5SL6210-7" });
   });
 
   it("malzeme anahtarına göre teknik föy ile tam kataloğu ayrı tutar", () => {

@@ -33,6 +33,7 @@ describe("electricalCategory", () => {
     ["Panel light with sensor", "51041", "Aydınlatma"],
     ["Filter fan", "QFF 2000", "Pano İklimlendirme"],
     ["Plastic enclosure", "BB1-0731", "Pano, Muhafaza ve Etiketleme"],
+    ["PVC Control Cable JZ-600 4G10 mm² BK", "JZ-600 / OZ-600", "Kablolar"],
     ["Industrial socket", "BK1-3404", "Fiş, Priz, Klemens ve Bağlantı"],
     ["Montaj aksesuarı", "ABC-1", "Diğer"],
   ])("%s ürününü %s ile sınıflandırır", (designation, typeNo, beklenen) => {
@@ -63,6 +64,7 @@ describe("electricalCategory", () => {
       urun("Panel light with sensor"),
       urun("Filter fan"),
       urun("Plastic enclosure"),
+      urun("PVC Control Cable JZ-600 4G10 mm² BK"),
       urun("Industrial socket"),
       urun("Montaj aksesuarı"),
     ];
@@ -84,6 +86,16 @@ describe("electricalCategory", () => {
     expect(urun("Inductive proximity switch, flush, PNP NO", "1635100")).toBe("Sensörler");
     expect(urun("Humidifiers-switch 1 pole ON/OFF-complete product")).toBe(
       "Pano İklimlendirme"
+    );
+  });
+
+  it("kabloyu stok kodu veya açık kablo ailesinden tanır", () => {
+    expect(urun("PVC yassı hareketli hat", "PVC-flach", "HELU.27011")).toBe("Kablolar");
+    expect(urun("Energy chain cable", "CF898", "IGUS.CF898.060", "IGUS")).toBe(
+      "Kablolar"
+    );
+    expect(urun("Flexible connection cable 10m", "6XV1875-5CN10", "SIE.6XV1875-5CN10")).toBe(
+      "Kablolar"
     );
   });
 

@@ -186,3 +186,18 @@ yalnız resmi katalog/kılavuzdan ilgili fiziksel sayfalar kesilir; kaynak belge
 sayfa numaraları kayda yazılır. Resmi PDF bulunamayan istisnada üreticinin kendi
 ürün sayfasının doğrudan arşivi kaynak olabilir. Üretici içeriği de yoksa teknik
 föy düğmesi boş kalır; proje satırından türetilmiş metinle belge uydurulmaz.
+
+## KATALOG-21 — HELUKABEL tam katalogdur; makale föyleri denetlenmiş fiziksel kesitlerdir.
+
+`HELUKABEL - Hareketli Kablo Kataloğu 2019 (TR).pdf` 471 sayfalık özgün
+`catalog` belgesidir ve büyük nesne sınırı nedeniyle depoda parçalı tutulabilir;
+kullanıcıya açılırken yine tek PDF olarak birleştirilir. 0019-00'daki 21
+`HELU.<makale no>` kodunun her biri katalog sipariş tablosunda doğrulanmıştır.
+
+Teknik düğmeye tam 471 sayfalık katalog veya otomatik arama sonucu bağlanmaz.
+JZ-500, JZ-600, F-CY-JZ, TRONIC-CY, SUPER-PAAR-TRONIC, TOPFLEX, TOPSERV,
+TOPGEBER, ROBOFLEX ve PVC yassı aileleri için ürün açıklaması ile tam makale
+satırını birlikte taşıyan denetlenmiş 1-2 fiziksel sayfa `technical_extract`
+olarak kaydedilir. Aynı fiziksel aralığı paylaşan farklı makaleler de ürün
+kimliği ve bağı bakımından ayrı kalır; her kayıtta ortak kaynak belge ile gerçek
+sayfa aralığı açıkça izlenir.
