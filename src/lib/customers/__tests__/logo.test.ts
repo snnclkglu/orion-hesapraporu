@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import sharp from "sharp";
 import { customerLogoPath, isCustomerLogoPath } from "../logo";
-import { loadCustomerLogo } from "../logo-server";
+import { loadCustomerLogo, resolveCustomerIdForSnapshot } from "../logo-server";
 
 const MUSTERI = "3f2b1a90-1111-4c22-9a3d-0d5b7e6f0011";
 const YUKLEME = "8c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f";
@@ -86,6 +86,16 @@ describe("loadCustomerLogo", () => {
     await expect(loadCustomerLogo(sahteIstemci({ logoPath: "" }), MUSTERI)).resolves.toBeNull();
   });
 
+  it("başka müşterinin klasörüne bağlı logo yolunu indirmez", async () => {
+    const baskasi = "aaaaaaaa-2222-4c22-9a3d-0d5b7e6f0011";
+    await expect(
+      loadCustomerLogo(
+        sahteIstemci({ logoPath: customerLogoPath(baskasi, YUKLEME) }),
+        MUSTERI
+      )
+    ).resolves.toBeNull();
+  });
+
   it("defter okunamazsa null döner", async () => {
     await expect(
       loadCustomerLogo(sahteIstemci({ musteriHatasi: true }), MUSTERI)
@@ -162,5 +172,36 @@ describe("loadCustomerLogo", () => {
         MUSTERI
       )
     ).resolves.toBeNull();
+  });
+});
+
+describe("resolveCustomerIdForSnapshot", () => {
+  it("KARDEMİR ÇH kimliğiyle KARDEMİR A.Ş. snapshot'ı eşleşmez; tam unvanın kimliğini bulur", async () => {
+    const kardemirCh = "11111111-1111-4111-8111-111111111111";
+    const kardemirAs = "22222222-2222-4222-8222-222222222222";
+    const supabase = {
+      from: () => ({
+        select: (fields: string) => ({
+          eq: (_column: string, value: string) => {
+            if (fields === "id, name") {
+              return {
+                maybeSingle: async () => ({ data: { id: kardemirCh, name: "KARDEMİR ÇH" } }),
+              };
+            }
+            return {
+              limit: () => ({
+                maybeSingle: async () => ({
+                  data: value === "KARDEMİR A.Ş." ? { id: kardemirAs } : null,
+                }),
+              }),
+            };
+          },
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      resolveCustomerIdForSnapshot(supabase, kardemirCh, "KARDEMİR A.Ş.")
+    ).resolves.toBe(kardemirAs);
   });
 });

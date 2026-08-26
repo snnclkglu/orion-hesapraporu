@@ -26,7 +26,12 @@ import {
 } from "../offer";
 import { offerFileName } from "../doc-naming";
 import { trUpper } from "../palette";
-import { emptyPayload, groupFromKey, newOfferId } from "@/lib/offers/payload";
+import {
+  emptyPayload,
+  groupFromKey,
+  newOfferId,
+  withOfferSectionHidden,
+} from "@/lib/offers/payload";
 import { COMPANY_PROFILE, GENERAL_TERMS_TITLE } from "@/lib/offers/registry";
 import { discountedLines, offerTotal, vatBadge, vatNote } from "@/lib/offers/pricing";
 import { fmtMoney } from "@/lib/currency";
@@ -243,6 +248,25 @@ describe("gizleme", () => {
     expect(govde(metin).includes("Garanti")).toBe(false);
     expect(metin.includes(GENERAL_TERMS_TITLE)).toBe(true);
   });
+
+  it("gizlenen iç bölümler başlık, içindekiler satırı veya boş sayfa bırakmaz", async () => {
+    const props = fikstur();
+    let p = props.payload;
+    p = withOfferSectionHidden(p, "testLoad", true);
+    for (const key of ["terms", "pricing", "notes", "exclusions", "generalTerms"] as const) {
+      p = withOfferSectionHidden(p, key, true);
+    }
+    props.payload = p;
+    const sayfalar = await pdfSayfalari(props);
+    const metin = sayfalar.join(" ");
+
+    expect(metin).not.toContain(OFFER_SECTIONS.ticari);
+    expect(metin).not.toContain(OFFER_SECTIONS.fiyat.toLocaleUpperCase("tr-TR"));
+    expect(metin).not.toContain("TEST YÜKÜ");
+    expect(metin).not.toContain(GENERAL_TERMS_TITLE);
+    expect(metin).not.toContain("MONTAJ SÜPERVİZÖR HİZMETİ");
+    expect(sayfalar).toHaveLength(2); // kapak + teknik kalem
+  });
 });
 
 describe("toplam", () => {
@@ -388,6 +412,44 @@ describe("belge kimliği", () => {
     expect(offerFileName("Orion Vinç 20t Monoray", "TETR-20260127-1", 0)).toBe(
       "ORİON VİNÇ - 20T MONORAY - TETR-20260127-1.pdf"
     );
+  });
+
+  it("partner teklifinin dosya adı partner unvanıyla başlar", () => {
+    expect(
+      offerFileName("185/40 T VİNÇ", "TETR-20260826-1", 0, "KARÇEL A.Ş.")
+    ).toBe("KARÇEL A.Ş. - 185 40 T VİNÇ - TETR-20260826-1.pdf");
+  });
+});
+
+describe("teklifi hazırlayan partner", () => {
+  it("ORION marka metinlerini partner snapshot'ıyla değiştirir", async () => {
+    const props = fikstur();
+    props.payload.issuer = {
+      customerId: "22222222-2222-4222-8222-222222222222",
+      company: "KARÇEL A.Ş.",
+      address: "Karabük",
+      taxOffice: "Karabük",
+      taxNo: "1234567890",
+      phone: "+90 370 000 00 00",
+      fax: "",
+      email: "",
+      web: "",
+    };
+    props.company = {
+      company: "KARÇEL A.Ş.",
+      address: "Karabük",
+      phone: "+90 370 000 00 00",
+      taxOffice: "Karabük",
+      taxNo: "1234567890",
+    };
+    props.issuerLogo = null;
+
+    const metin = await pdfMetni(props);
+    expect(metin).toContain("KARÇEL A.Ş.");
+    expect(duz(metin)).toContain(duz("TEKLİFİ HAZIRLAYAN FİRMA"));
+    expect(metin).not.toContain("ORION CRANES");
+    expect(metin).not.toContain("sinan@orioncranes.com");
+    expect(metin).not.toContain(COMPANY_PROFILE.body);
   });
 });
 

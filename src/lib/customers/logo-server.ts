@@ -5,7 +5,7 @@
 // görüntü kütüphanesini kendi paketine çekmez.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { CUSTOMER_LOGO_BUCKET } from "./logo";
+import { CUSTOMER_LOGO_BUCKET, isCustomerLogoPath } from "./logo";
 import { normalizeCustomerLogo } from "./logo-image";
 
 /**
@@ -33,6 +33,10 @@ export async function loadCustomerLogo(
     if (error) return null;
     const path = ((customer as { logo_path?: string } | null)?.logo_path ?? "").trim();
     if (!path) return null;
+    // Başka müşterinin klasörüne işaret eden kayıt KABUL EDİLMEZ. Özellikle
+    // benzer adlı KARDEMİR kayıtlarında yanlış logo basmak, logosuz basmaktan
+    // daha ağır bir hatadır; yükleme yolu zaten bu kimlik bağını zorlar.
+    if (!isCustomerLogoPath(customerId, path)) return null;
 
     const { data: file, error: indirmeHatasi } = await supabase.storage
       .from(CUSTOMER_LOGO_BUCKET)
@@ -43,5 +47,46 @@ export async function loadCustomerLogo(
     return sonuc.ok ? sonuc.png : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Teklifin müşteri snapshot'ına karşılık gelen GÜNCEL müşteri kimliği.
+ *
+ * Yeni teklifler doğru `customer_id` taşır. Eski/kopyalanmış bir kayıtta kimlik
+ * başka müşteriye bağlıysa (KARDEMİR A.Ş. ↔ KARDEMİR ÇH vakası), logo yalnız
+ * kimlikten okununca yanlış firmanın logosu gelir. Önce kimlikteki AD snapshot
+ * ile doğrulanır; uyuşmazsa resmî unvana TAM eşit müşteri aranır. Benzerlik ya
+ * da `startsWith` KULLANILMAZ — iki KARDEMİR'i karıştıran şey tam da odur.
+ */
+export async function resolveCustomerIdForSnapshot(
+  supabase: SupabaseClient,
+  customerId: string | null | undefined,
+  customerName: string
+): Promise<string | null> {
+  const snapshotName = (customerName ?? "").trim();
+  try {
+    if (customerId) {
+      const { data } = await supabase
+        .from("customers")
+        .select("id, name")
+        .eq("id", customerId)
+        .maybeSingle();
+      if (((data as { name?: string } | null)?.name ?? "").trim() === snapshotName) {
+        return customerId;
+      }
+    }
+    if (!snapshotName) return customerId ?? null;
+    const { data } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("name", snapshotName)
+      .limit(1)
+      .maybeSingle();
+    // TAM unvan da bulunamadıysa eski, uyuşmayan kimliğe geri dönülmez.
+    // Yanlış logo, logosuz belgeden daha ağırdır.
+    return ((data as { id?: string } | null)?.id ?? null) as string | null;
+  } catch {
+    return snapshotName ? null : customerId ?? null;
   }
 }

@@ -1538,3 +1538,42 @@ elektrik projesi, teknik resim ve el kitabı) açılmaz.
 Görsel ölçüt `/dev/offer-reports-preview`dir. Liste Mühendislik tablosunun
 aynısını kullanır ama İş No sütununu göstermez; telefonda aynı kart katlama
 kuralını korur.
+
+## TEKLIF-68 — Güvenlik seçimleri, bölüm görünürlüğü ve hazırlayan firma teklif snapshot'ıdır.
+
+Kullanıcı kararı (26.08.2026): Elektrik Sisteminin ardında hızlı seçilen
+**Güvenlik Özellikleri** bölümü bulunur; seçeneklerin tamamı yeni kalemde BOŞ
+başlar. Satırlar açılır kutu değil `Seç / Seçili` düğmesidir. Elektrik
+grubundaki emekli **Kiriş Boyu Elektrik** satırının yerini PLC (Siemens
+S7-1200, S7-1500) ve hemen altındaki HMI Panel (Siemens MTP Serisi, 7", 9",
+11") alır. Eski `girderPower` değeri PLC adıyla yeniden etiketlenmez; okuma
+yolunda emekliye ayrılır. Eski taslakta Elektrik grubu varsa eksik PLC/HMI ve
+boş Güvenlik grubu eklenir. Boş satırlar `printedPayload` süzgecinde düştüğü
+için yayımlanmış eski belgenin metni değişmez.
+
+Teklif editörünün ana bölümleri (Kapak, her kalem, Test Yükü, Ticari Şartlar,
+Fiyat, Notlar, Kapsam Dışı ve Genel Şartlar) raydaki göz düğmesiyle ayrı ayrı
+gizlenir. Gizleme **veriyi silmez**; `hiddenSections` yalnız statik bölüm
+anahtarlarını taşır, kapak/test/kalem kendi eski bayraklarını korur. PDF'de tek
+karar noktası yine `printedPayload`dır. Gizli bölümün metni kadar sayfası,
+başlığı, boşluğu ve İçindekiler satırı da düşer; PDF bileşeninde ikinci bir
+gizli anahtar listesi tutulmaz. Eski payload'da `hiddenSections` boş kabul
+edilir, dolayısıyla geçmiş belge kendiliğinden bölüm kaybetmez.
+
+Yeni Teklif penceresindeki **Teklifi Hazırlayan Firma** varsayılan olarak
+ORION VİNÇ'tir; müşteri defterindeki bir partner seçilirse unvan, adres,
+telefon, faks ve vergi bilgileri ilk revizyonun `issuer` snapshot'ına yazılır.
+Partner seçimi PDF'in bütün marka yüzeylerine birlikte uygulanır: kapak ve
+KİMDEN künyesi, sayfa lockup/filigranı, altbilgi, metadata, firma tanıtımı,
+dosya adı ve Genel Şartlardaki firma adı. Partner logosu canlı kimlik olarak
+müşteri defterinden okunabilir; logo yoksa ORION logosuna geri düşülmez.
+Partner teklifinde ORION kullanıcısının e-posta adresi de KİMDEN künyesine
+sızmaz. Unvan/adres/vergi metni ise snapshot'tır ve sonradan defter değişince
+teslim edilmiş teklif değişmez.
+
+Müşteri logosu `offers.customer_id`ye körlemesine bağlanmaz. Kimliğin güncel
+müşteri adı teklifin `customer_name` snapshot'ıyla doğrulanır; uyuşmazsa yalnız
+TAM resmî unvan eşleşmesi kullanılır. Benzer/prefix eşleşmesi yasaktır:
+KARDEMİR A.Ş. ile KARDEMİR ÇH iki ayrı kimliktir. Depodaki logo yolu da mutlaka
+seçilen müşteri kimliğinin klasöründe olmalıdır; yanlış logo yerine logosuz
+PDF tercih edilir.

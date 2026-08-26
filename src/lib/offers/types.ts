@@ -310,6 +310,41 @@ export interface OfferCover {
   hidden?: boolean;
 }
 
+/**
+ * TEKLİFİ VEREN FİRMA — revizyonun içine yazılan kurumsal künye fotoğrafı.
+ *
+ * `customerId === null` ORION VİNÇ'i anlatır; PDF o durumda ortak rapor
+ * ayarlarını kullanır. Bir partner seçildiğinde yönetim müşteri defterindeki
+ * bilgiler BURAYA kopyalanır. Böylece Karçel'in adresi yarın değiştiğinde
+ * yayımlanmış teklifin künyesi geriye dönük değişmez. Logo kimliktir ve mevcut
+ * müşteri logosu kuralı gibi `customerId` üzerinden canlı okunur.
+ */
+export interface OfferIssuer {
+  customerId: string | null;
+  company: string;
+  address: string;
+  taxOffice: string;
+  taxNo: string;
+  phone: string;
+  fax: string;
+  email: string;
+  web: string;
+}
+
+/** Kalem dışındaki, sol bölüm rayında tek giriş olarak duran PDF bölümleri. */
+export const OFFER_STATIC_SECTION_KEYS = [
+  "terms",
+  "pricing",
+  "notes",
+  "exclusions",
+  "generalTerms",
+] as const;
+
+export type OfferStaticSectionKey = (typeof OFFER_STATIC_SECTION_KEYS)[number];
+
+/** Sol raydaki sabit bölüm anahtarları; teknik kalemler kendi kimliğini taşır. */
+export type OfferSectionKey = "cover" | "testLoad" | OfferStaticSectionKey;
+
 // ————————————————————————————————————————————————————————— belge
 
 /** TEST YÜKÜ bloğu — belgede iki farklı yerde durabiliyor. */
@@ -324,6 +359,8 @@ export interface OfferTestLoad {
 export interface OfferPayload {
   /** Şema sürümü — `withDefaults` eski kayıtları buna bakarak taşır. */
   version: number;
+  /** Teklifi veren kurum; boş/default künye ORION ayarlarına düşer. */
+  issuer: OfferIssuer;
   cover: OfferCover;
   items: OfferItem[];
   testLoad: OfferTestLoad;
@@ -340,6 +377,14 @@ export interface OfferPayload {
   exclusions: OfferTextLine[];
   /** GENEL ŞARTLAR — belgenin son sayfasındaki hukukî beyan. */
   generalTerms: OfferGeneralTerm[];
+  /**
+   * Sol raydan bütünüyle gizlenen sabit bölümler.
+   *
+   * Kapak kendi `cover.hidden`, Test Yükü kendi `testLoad.enabled`, teknik
+   * kalemler kendi `item.hidden` alanını taşır. Bu liste, o alanı olmayan beş
+   * belge bölümünün aynı davranışını sağlar; veri silinmez, PDF'de iz kalmaz.
+   */
+  hiddenSections: OfferStaticSectionKey[];
 }
 
 /** Serbest metin maddesi (not / kapsam dışı) — gizlenebilir olması için nesne. */
@@ -438,6 +483,8 @@ export interface OfferPartDef {
 export interface OfferRowDef {
   key: string;
   label: string;
+  /** Hızlı tik satırı — boş/`VAR` değerini tek düğmeyle değiştirir. */
+  kind?: "toggle";
   /** Parçasız satır: değer doğrudan yazılır ya da tek listeden seçilir. */
   list?: string;
   parts?: OfferPartDef[];

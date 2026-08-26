@@ -7,6 +7,7 @@
 
 import { composeValue, rowHasValue, withComposedValue } from "./compose";
 import { paymentDescText, withValidPriceLineParents } from "./pricing";
+import { OFFER_STATIC_SECTION_KEYS } from "./types";
 import {
   AUX_TROLLEY_GROUP_KEY,
   CUSTOM_GROUP_KEY,
@@ -38,10 +39,12 @@ import type {
   OfferPriceLine,
   OfferRow,
   OfferRowDef,
+  OfferSectionKey,
+  OfferStaticSectionKey,
   OfferTextLine,
 } from "./types";
 
-export const OFFER_PAYLOAD_VERSION = 1;
+export const OFFER_PAYLOAD_VERSION = 2;
 
 /**
  * Kalem bazında teslim süresinin seçilebilir birimleri.
@@ -75,12 +78,19 @@ export function groupFromKey(key: string, id = newOfferId()): OfferGroup {
 }
 
 export function emptyItem(title = "", groupKeys: readonly string[] = []): OfferItem {
+  // GÜVENLİK ELEKTRİĞİN ALT BÖLÜMÜDÜR. Şablon iskeletleri yalnız grup
+  // anahtarlarını saklar ve yıllar önce kaydedilmiş olabilir; elektrik olan
+  // her YENİ kaleme güvenliği burada eklemek bütün şablonları tek tek göçürme
+  // ihtiyacını kaldırır. Serbest kalem ve elektriksiz şablon etkilenmez.
+  const keys = groupKeys.includes("electrical") && !groupKeys.includes("safety")
+    ? [...groupKeys, "safety"]
+    : [...groupKeys];
   const item: OfferItem = {
     id: newOfferId(),
     title,
     capacityT: null,
     spanM: null,
-    groups: groupKeys.map((k) => groupFromKey(k)),
+    groups: keys.map((k) => groupFromKey(k)),
   };
   // ŞABLON İKİ ARABALIYSA ADLAR 1/2 OLUR. "Çift Kirişli Vinç — İki Arabalı"
   // şablonunu seçen kullanıcı araba seçicisine hiç dokunmaz; adlandırma yine de
@@ -174,6 +184,17 @@ export function withCraneType(item: OfferItem, craneType: string): OfferItem {
 export function emptyPayload(currency = "EUR"): OfferPayload {
   return {
     version: OFFER_PAYLOAD_VERSION,
+    issuer: {
+      customerId: null,
+      company: "",
+      address: "",
+      taxOffice: "",
+      taxNo: "",
+      phone: "",
+      fax: "",
+      email: "",
+      web: "",
+    },
     cover: {
       fromName: "",
       fromTitle: "",
@@ -216,6 +237,7 @@ export function emptyPayload(currency = "EUR"): OfferPayload {
     // İÇERİĞİN kopyalandığı tek yerdir ve uydurma veri değildir: metin
     // firmanın kendi hukukî beyanıdır, teklifin varsayılan hâli odur.
     generalTerms: GENERAL_TERM_DEFS.map(generalTermFromDef),
+    hiddenSections: [],
   };
 }
 
@@ -580,12 +602,27 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
   const p = (raw ?? {}) as Record<string, unknown>;
   const bos = emptyPayload(currency);
   const cover = (p.cover ?? {}) as Record<string, unknown>;
+  const issuer = (p.issuer ?? {}) as Record<string, unknown>;
   const testLoad = (p.testLoad ?? {}) as Record<string, unknown>;
   const terms = (p.terms ?? {}) as Record<string, unknown>;
   const pricing = (p.pricing ?? {}) as Record<string, unknown>;
 
   return {
     version: OFFER_PAYLOAD_VERSION,
+    issuer: {
+      customerId:
+        typeof issuer.customerId === "string" && issuer.customerId.trim()
+          ? issuer.customerId
+          : null,
+      company: metin(issuer.company),
+      address: metin(issuer.address),
+      taxOffice: metin(issuer.taxOffice),
+      taxNo: metin(issuer.taxNo),
+      phone: metin(issuer.phone),
+      fax: metin(issuer.fax),
+      email: metin(issuer.email),
+      web: metin(issuer.web),
+    },
     cover: {
       fromName: metin(cover.fromName),
       fromTitle: metin(cover.fromTitle),
@@ -608,7 +645,39 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
       })),
       hidden: cover.hidden === true,
     },
-    items: dizi<Record<string, unknown>>(p.items).map((it) => ({
+    items: dizi<Record<string, unknown>>(p.items).map((it) => {
+      const groups: OfferGroup[] = dizi<Record<string, unknown>>(it.groups).map((g) => {
+        const key = metin(g.key);
+        return {
+          id: metin(g.id) || newOfferId(),
+          key,
+          title: metin(g.title, OFFER_GROUP_DEF_BY_KEY[key]?.title ?? ""),
+          hidden: g.hidden === true,
+          // EMEKLİ SATIR OKUMA YOLUNDA SÜZÜLÜR (`RETIRED_ROW_KEYS`): defterden
+          // çıkan satır eski kayıtlarda duruyor ve süzülmeseydi kullanıcı
+          // kaldırılmasını istediği satırı her eski teklifte yeniden görürdü.
+          rows: dizi<Record<string, unknown>>(g.rows)
+            .filter((r) => !isRetiredOfferRow(key, metin(r.key)))
+            .map((r) => rowFromRaw(r, key)),
+        };
+      });
+      for (const group of groups) {
+        const yeniSatirlar =
+          group.key === "electrical"
+            ? groupFromKey("electrical").rows.filter((row) => row.key === "plc" || row.key === "hmiPanel")
+            : group.key === "safety"
+              ? groupFromKey("safety").rows
+              : [];
+        for (const row of yeniSatirlar) {
+          if (!group.rows.some((existing) => existing.key === row.key)) group.rows.push(row);
+        }
+      }
+      // Eski taslaklarda ELEKTRİK grubu vardır fakat yeni GÜVENLİK grubu yoktur.
+      // Boş eklenir: editörde hemen seçilebilir, basılı eski belgede iz bırakmaz.
+      if (groups.some((group) => group.key === "electrical") && !groups.some((group) => group.key === "safety")) {
+        groups.push(groupFromKey("safety"));
+      }
+      return {
       id: metin(it.id) || newOfferId(),
       title: metin(it.title),
       // EMEKLİ SATIRIN DEĞERİ KÜNYEYE TAŞINIR: eski kayıtlarda vinç tipi
@@ -626,22 +695,9 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
       // elle yazılmıştı ve türetme onları değiştirmez. Değiştirdiği yerde de
       // düzeltir — kullanıcı yine üstüne yazabilir.
       titleManual: it.titleManual === true,
-      groups: dizi<Record<string, unknown>>(it.groups).map((g) => {
-        const key = metin(g.key);
-        return {
-          id: metin(g.id) || newOfferId(),
-          key,
-          title: metin(g.title, OFFER_GROUP_DEF_BY_KEY[key]?.title ?? ""),
-          hidden: g.hidden === true,
-          // EMEKLİ SATIR OKUMA YOLUNDA SÜZÜLÜR (`RETIRED_ROW_KEYS`): defterden
-          // çıkan satır eski kayıtlarda duruyor ve süzülmeseydi kullanıcı
-          // kaldırılmasını istediği satırı her eski teklifte yeniden görürdü.
-          rows: dizi<Record<string, unknown>>(g.rows)
-            .filter((r) => !isRetiredOfferRow(key, metin(r.key)))
-            .map((r) => rowFromRaw(r, key)),
-        };
-      }),
-    })),
+      groups,
+    };
+    }),
     testLoad: {
       enabled: testLoad.enabled !== false,
       title: metin(testLoad.title, TEST_LOAD_TITLE),
@@ -727,7 +783,44 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
       body: metin(t.body),
       hidden: t.hidden === true,
     })),
+    // ESKİ BELGELERDE YOKTUR ve boş gelir: geçmişte basılan hiçbir bölüm
+    // kendiliğinden kapanmaz. Yalnız tanınan anahtarlar taşınır; payload'a
+    // yanlışlıkla giren bir metin bir belge bölümünü gizleyemez.
+    hiddenSections: dizi<unknown>(p.hiddenSections).filter(
+      (key): key is OfferStaticSectionKey =>
+        typeof key === "string" && OFFER_STATIC_SECTION_KEYS.includes(key as OfferStaticSectionKey)
+    ),
   };
+}
+
+// ————————————————————————————————————————————— bütün bölüm görünürlüğü
+
+/** Sol bölüm rayının ve PDF'in paylaştığı görünürlük sorusu. */
+export function offerSectionHidden(payload: OfferPayload, key: OfferSectionKey): boolean {
+  if (key === "cover") return payload.cover.hidden === true;
+  if (key === "testLoad") return payload.testLoad.enabled === false;
+  return payload.hiddenSections.includes(key);
+}
+
+/**
+ * Bölümü gösterir/gizler; VERİYİ SİLMEZ.
+ *
+ * Kapak ve Test Yükü eski alanlarını korur. Diğer beş bölüm tek bir anahtar
+ * listesi taşır; böylece menü düğmesi ile PDF aynı kararı okur.
+ */
+export function withOfferSectionHidden(
+  payload: OfferPayload,
+  key: OfferSectionKey,
+  hidden: boolean
+): OfferPayload {
+  if (key === "cover") return { ...payload, cover: { ...payload.cover, hidden } };
+  if (key === "testLoad") {
+    return { ...payload, testLoad: { ...payload.testLoad, enabled: !hidden } };
+  }
+  const next = hidden
+    ? [...new Set([...payload.hiddenSections, key])]
+    : payload.hiddenSections.filter((x) => x !== key);
+  return { ...payload, hiddenSections: next };
 }
 
 /**
@@ -824,14 +917,21 @@ export function printedGeneralTerms(
 
 /** Belgeye BASILACAK hâl — PDF ve ekran özeti bunu okur. */
 export function printedPayload(payload: OfferPayload): OfferPayload {
+  const termsHidden = offerSectionHidden(payload, "terms");
+  const pricingHidden = offerSectionHidden(payload, "pricing");
+  const notesHidden = offerSectionHidden(payload, "notes");
+  const exclusionsHidden = offerSectionHidden(payload, "exclusions");
+  const generalTermsHidden = offerSectionHidden(payload, "generalTerms");
   return {
     ...payload,
     items: printedItems(payload.items),
     testLoad: { ...payload.testLoad, rows: printedRows(payload.testLoad.rows) },
     terms: {
       ...payload.terms,
-      rows: printedRows(payload.terms.rows),
-      paymentLines: payload.terms.paymentLines.filter((l) => !l.hidden && l.text.trim() !== ""),
+      rows: termsHidden ? [] : printedRows(payload.terms.rows),
+      paymentLines: termsHidden
+        ? []
+        : payload.terms.paymentLines.filter((l) => !l.hidden && l.text.trim() !== ""),
     },
     // ELLE MALİYET BELGEYE GİTMEZ. Teklif PDF'inde maliyet sütunu yoktur ve
     // olmamalıdır (MALIYET-1); alanın basılan payload'a hiç ulaşmaması, onu
@@ -839,23 +939,28 @@ export function printedPayload(payload: OfferPayload): OfferPayload {
     // dikkatine bırakılmaz.
     pricing: {
       ...payload.pricing,
-      lines: withValidPriceLineParents(payload.pricing.lines
-        .filter((l) => !l.hidden)
-        .map((line) => {
-          const printedLine = { ...line };
-          delete printedLine.manualCost;
-          return printedLine;
-        })),
+      lines: pricingHidden
+        ? []
+        : withValidPriceLineParents(payload.pricing.lines
+            .filter((l) => !l.hidden)
+            .map((line) => {
+              const printedLine = { ...line };
+              delete printedLine.manualCost;
+              return printedLine;
+            })),
     },
-    notes: printedTextLines(payload.notes),
-    exclusions: printedTextLines(payload.exclusions),
-    generalTerms: printedTermItems(payload.generalTerms),
+    notes: notesHidden ? [] : printedTextLines(payload.notes),
+    exclusions: exclusionsHidden ? [] : printedTextLines(payload.exclusions),
+    generalTerms: generalTermsHidden ? [] : printedTermItems(payload.generalTerms),
   };
 }
 
 /** Editörde "kaç satır gizli" sayacı — gizlemenin sessiz kalmaması için. */
 export function hiddenCount(payload: OfferPayload): number {
   let n = 0;
+  if (payload.cover.hidden) n += 1;
+  if (!payload.testLoad.enabled) n += 1;
+  n += payload.hiddenSections.length;
   for (const item of payload.items) {
     if (item.hidden) n += 1;
     for (const group of item.groups) {

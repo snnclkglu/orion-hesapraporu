@@ -10,6 +10,7 @@ import { composeValue, derivedParts, rowValue, withComposedValue } from "../comp
 import { copyItemInPayload, copyPayloadForCustomer } from "../copy";
 import { firstMulti, isMultiValueList, joinMulti, splitMulti } from "../multi";
 import { parentOption } from "../options";
+import { offerIssuerName } from "../issuer";
 import {
   composeItemTitle,
   defaultFreeItemTitle,
@@ -44,6 +45,7 @@ import {
   withCraneType,
   withDefaults,
   withGroup,
+  withOfferSectionHidden,
 } from "../payload";
 import {
   applyDiscountToLines,
@@ -223,6 +225,28 @@ describe("gizleme belgede iz bırakmaz", () => {
     drive.hidden = true;
     printedPayload(p);
     expect(drive.value).toBe("SCHNEIDER");
+  });
+
+  it("gizlenen teklif bölümü PDF payload'ından bütünüyle düşer, verisi korunur", () => {
+    let p = emptyPayload();
+    p.terms.rows[0].value = "14 iş günü";
+    p.terms.paymentLines = [{ id: "pay", text: "%40 avans" }];
+    p.pricing.lines = [{ ...newPriceLine(), description: "Vinç", unitPrice: 100 }];
+    p.notes = [{ id: "note", text: "Not" }];
+    p.exclusions = [{ id: "out", text: "Hariç" }];
+    for (const key of ["terms", "pricing", "notes", "exclusions", "generalTerms"] as const) {
+      p = withOfferSectionHidden(p, key, true);
+    }
+
+    const basilan = printedPayload(p);
+    expect(basilan.terms.rows).toEqual([]);
+    expect(basilan.terms.paymentLines).toEqual([]);
+    expect(basilan.pricing.lines).toEqual([]);
+    expect(basilan.notes).toEqual([]);
+    expect(basilan.exclusions).toEqual([]);
+    expect(basilan.generalTerms).toEqual([]);
+    expect(p.pricing.lines[0].description).toBe("Vinç");
+    expect(hiddenCount(p)).toBe(5);
   });
 });
 
@@ -839,6 +863,49 @@ describe("withDefaults", () => {
     const p = withDefaults({ items: [{ title: "X", groups: [] }] });
     expect(p.items[0].id).toBeTruthy();
   });
+
+  it("eski teklif yeni partner veya gizli bölüm kararı edinmez", () => {
+    const p = withDefaults({ version: 1, items: [] });
+    expect(p.issuer.customerId).toBeNull();
+    expect(p.hiddenSections).toEqual([]);
+    expect(
+      offerIssuerName(p, {
+        company: "ORION CRANES",
+        city: "ANKARA",
+        title_tr: "",
+        title_en: "",
+        default_crane_type: "",
+      })
+    ).toBe("ORİON VİNÇ");
+  });
+
+  it("emekli Kiriş Boyu Elektrik satırını PLC diye yeniden etiketlemez", () => {
+    const p = withDefaults({
+      items: [{
+        id: "i",
+        title: "Vinç",
+        groups: [{ id: "g", key: "electrical", rows: [{ key: "girderPower", value: "Eski değer" }] }],
+      }],
+    });
+    expect(p.items[0].groups[0].rows.some((row) => row.key === "girderPower")).toBe(false);
+    expect(p.items[0].groups[0].rows.map((row) => row.key)).toEqual(["plc", "hmiPanel"]);
+    expect(p.items[0].groups.map((group) => group.key)).toEqual(["electrical", "safety"]);
+  });
+});
+
+describe("elektrik ve güvenlik alanları", () => {
+  it("elektrik şablonu PLC/HMI ile ve güvenlik bölümü boş seçimlerle açılır", () => {
+    const item = emptyItem("Vinç", ["electrical"]);
+    expect(item.groups.map((group) => group.key)).toEqual(["electrical", "safety"]);
+    const elektrik = item.groups[0];
+    expect(elektrik.rows.some((row) => row.key === "girderPower")).toBe(false);
+    expect(elektrik.rows.find((row) => row.key === "plc")?.value).toBe("");
+    expect(elektrik.rows.find((row) => row.key === "hmiPanel")?.value).toBe("");
+    const guvenlik = item.groups[1];
+    expect(guvenlik.rows).toHaveLength(14);
+    expect(guvenlik.rows.every((row) => row.value === "")).toBe(true);
+    expect(guvenlik.rows.every((row) => offerRowDef("safety", row.key)?.kind === "toggle")).toBe(true);
+  });
 });
 
 // ————————————————————————————————————— sahte gruplar ve varsayılanlar
@@ -1296,6 +1363,7 @@ describe("bölüm ekleme defter sırasına uyar", () => {
       "auxHoist",
       "trolley",
       "electrical",
+      "safety",
     ]);
   });
 

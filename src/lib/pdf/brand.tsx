@@ -187,7 +187,8 @@ export function CheckGlyph({ pass, size = 8 }: { pass: boolean; size?: number })
  * `fixed` olduğu için her sayfada yeniden basılır; sayfa yönü değişse de
  * dört kenara yaslandığından kendini ortalar.
  */
-function Watermark() {
+function Watermark({ logo }: { logo: BrandBandLogo | null }) {
+  if (!logo) return null;
   return (
     <View
       fixed
@@ -202,10 +203,10 @@ function Watermark() {
       }}
     >
       <Image
-        src={BRAND_LOGO}
+        src={logo.src}
         style={{
           width: 430,
-          height: 430 * LOGO_RATIO,
+          height: 430 * logo.ratio,
           opacity: 0.06,
           transform: "rotate(-45deg)",
         }}
@@ -220,6 +221,9 @@ export interface CompanyInfo {
   phone?: string;
   email?: string;
   web?: string;
+  fax?: string;
+  taxOffice?: string;
+  taxNo?: string;
 }
 
 export interface PageFrameProps {
@@ -277,6 +281,8 @@ export interface PageFrameProps {
    * bir karardır ve yerleşim denetçilerini birlikte götürür.
    */
   brandFooter?: { note?: string };
+  /** `undefined` = ORION filigranı · `null` = filigran yok · değer = özel marka. */
+  watermarkLogo?: BrandBandLogo | null;
   style?: object;
 }
 
@@ -323,6 +329,7 @@ export function BrandPage({
   repeatedHeader,
   bleed,
   brandFooter,
+  watermarkLogo,
   style,
 }: PageFrameProps) {
   return (
@@ -342,7 +349,15 @@ export function BrandPage({
       }}
     >
       {/* Çapraz filigran — İÇERİKTEN ÖNCE çizilir ki altında kalsın */}
-      {bleed ? null : <Watermark />}
+      {bleed ? null : (
+        <Watermark
+          logo={
+            watermarkLogo === undefined
+              ? { src: BRAND_LOGO, ratio: LOGO_RATIO }
+              : watermarkLogo
+          }
+        />
+      )}
       {bleed ? null : <Spine />}
       {topRightLogo ? (
         <View

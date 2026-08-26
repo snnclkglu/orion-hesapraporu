@@ -45,6 +45,11 @@ import {
 import { normalizeOfferSignature } from "@/lib/offers/signature-image";
 import { loadOfferSignatureImages } from "@/lib/offers/signature-server";
 import {
+  loadCustomerLogo,
+  resolveCustomerIdForSnapshot,
+} from "@/lib/customers/logo-server";
+import { offerIssuerCompany, offerIssuerName } from "@/lib/offers/issuer";
+import {
   copyOfferSchema,
   ensureOptionSchema,
   newOfferSchema,
@@ -159,12 +164,24 @@ export async function createOffer(input: NewOfferInput): Promise<OfferActionResu
   const parsed = newOfferSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const { data: customer } = await supabase
-    .from("customers")
-    .select("name")
-    .eq("id", parsed.data.customerId)
-    .maybeSingle();
+  const [{ data: customer }, { data: issuerCustomer }] = await Promise.all([
+    supabase
+      .from("customers")
+      .select("name")
+      .eq("id", parsed.data.customerId)
+      .maybeSingle(),
+    parsed.data.issuerCustomerId
+      ? supabase
+          .from("customers")
+          .select("id, name, address, tax_office, tax_no, phone, fax")
+          .eq("id", parsed.data.issuerCustomerId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
   if (!customer) return { error: "Müşteri defterde bulunamadı" };
+  if (parsed.data.issuerCustomerId && !issuerCustomer) {
+    return { error: "Teklifi hazırlayan firma müşteri defterinde bulunamadı" };
+  }
 
   const yazildi = await teklifYaz(supabase, {
     lang: parsed.data.lang,
@@ -182,6 +199,20 @@ export async function createOffer(input: NewOfferInput): Promise<OfferActionResu
   // İlk revizyon (R0) — kapak künyesi, defter varsayılanları ve muhatap dolu;
   // teknik kalemler editörde, kalem kalem eklenir.
   let payload = emptyPayload(parsed.data.currency);
+  if (issuerCustomer) {
+    payload.issuer = {
+      customerId: issuerCustomer.id as string,
+      company: (issuerCustomer.name as string) ?? "",
+      address: (issuerCustomer.address as string) ?? "",
+      taxOffice: (issuerCustomer.tax_office as string) ?? "",
+      taxNo: (issuerCustomer.tax_no as string) ?? "",
+      phone: (issuerCustomer.phone as string) ?? "",
+      fax: (issuerCustomer.fax as string) ?? "",
+      // Müşteri defterinde bugün e-posta/web alanı yoktur; uydurulmaz.
+      email: "",
+      web: "",
+    };
+  }
   const kunye = await hazirlayan(supabase, user.id);
   payload.cover = {
     ...payload.cover,
@@ -242,6 +273,7 @@ export async function createOffer(input: NewOfferInput): Promise<OfferActionResu
     offer_id: yazildi.id,
     offer_no: yazildi.offer_no,
     customer: customer.name,
+    issuer: issuerCustomer?.name ?? "ORION VİNÇ",
   });
   tazele(yazildi.id);
   redirect(`/offers/${yazildi.id}`);
@@ -755,13 +787,22 @@ export async function issueOfferRevision(
   try {
     const { data: offer } = await supabase
       .from("offers")
-      .select("offer_no, issue_date, subject, customer_name, currency")
+      .select("offer_no, issue_date, subject, customer_id, customer_name, currency")
       .eq("id", offerId)
       .single();
     if (offer) {
-      const settings = await getReportSettings(supabase);
       const normalizedPayload = withDefaults(revision.payload, offer.currency as string);
-      const signatureImages = await loadOfferSignatureImages(supabase, normalizedPayload);
+      const customerId = await resolveCustomerIdForSnapshot(
+        supabase,
+        offer.customer_id as string | null,
+        offer.customer_name as string
+      );
+      const [settings, customerLogo, issuerLogo, signatureImages] = await Promise.all([
+        getReportSettings(supabase),
+        loadCustomerLogo(supabase, customerId),
+        loadCustomerLogo(supabase, normalizedPayload.issuer.customerId),
+        loadOfferSignatureImages(supabase, normalizedPayload),
+      ]);
       const buffer = await renderOfferPdf({
         offer: {
           offerNo: offer.offer_no as string,
@@ -772,13 +813,9 @@ export async function issueOfferRevision(
           currency: offer.currency as string,
         },
         payload: normalizedPayload,
-        company: {
-          company: settings.company,
-          address: settings.address ?? "",
-          phone: settings.phone ?? "",
-          email: settings.email ?? "",
-          web: settings.web ?? "",
-        },
+        company: offerIssuerCompany(normalizedPayload, settings),
+        customerLogo,
+        issuerLogo: normalizedPayload.issuer.customerId ? issuerLogo : undefined,
         meta: { generatedAt: new Date().toLocaleDateString("tr-TR") },
         signatureImages,
       });
@@ -788,7 +825,8 @@ export async function issueOfferRevision(
           `${offerId}/${offerFileName(
             offer.subject as string,
             offer.offer_no as string,
-            revision.rev_no as number
+            revision.rev_no as number,
+            offerIssuerName(normalizedPayload, settings)
           )}`,
           buffer,
           { contentType: "application/pdf", upsert: true }

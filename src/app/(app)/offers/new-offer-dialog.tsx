@@ -41,6 +41,7 @@ export function NewOfferButton({ customers }: { customers: readonly CustomerOpti
   const [customer, setCustomer] = useState<CustomerOption | null>(null);
   const [subject, setSubject] = useState("");
   const [currency, setCurrency] = useState<string>("EUR");
+  const [issuerCustomerId, setIssuerCustomerId] = useState<string>("__orion__");
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -54,6 +55,7 @@ export function NewOfferButton({ customers }: { customers: readonly CustomerOpti
         subject,
         lang: "tr",
         currency: currency as (typeof CURRENCIES)[number],
+        issuerCustomerId: issuerCustomerId === "__orion__" ? null : issuerCustomerId,
       });
       // Başarıda action `redirect` eder ve buraya hiç dönmez.
       if (res?.error) toast.error(res.error);
@@ -83,6 +85,27 @@ export function NewOfferButton({ customers }: { customers: readonly CustomerOpti
             currentName={customer?.name ?? ""}
             onPick={setCustomer}
           />
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="offer_issuer">Teklifi Hazırlayan Firma</Label>
+            <Select value={issuerCustomerId} onValueChange={setIssuerCustomerId}>
+              <SelectTrigger id="offer_issuer" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__orion__">ORION VİNÇ (Standart)</SelectItem>
+                {customers.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Partner seçilirse PDF logosu ve firma künyesi Yönetim → Müşteriler
+              defterindeki bilgilerden hazırlanır.
+            </p>
+          </div>
 
           <div className="grid gap-1.5">
             <Label htmlFor="offer_subject">Konu</Label>

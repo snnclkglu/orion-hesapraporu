@@ -19,8 +19,9 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { BookmarkPlus, Eye, EyeOff, Pencil, Plus, Trash2, Wand2, X } from "lucide-react";
+import { BookmarkPlus, Check, Eye, EyeOff, Pencil, Plus, Trash2, Wand2, X } from "lucide-react";
 import { EditableCombobox } from "@/components/editable-combobox";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { composeValue, derivedParts } from "@/lib/offers/compose";
 import { isMultiValueList, joinMulti, splitMulti } from "@/lib/offers/multi";
@@ -92,6 +93,8 @@ export function RowEditor({
   const def = offerRowDef(groupKey, row.key);
   const parcalar = def?.parts ?? [];
   const gizli = row.hidden === true;
+  const tik = def?.kind === "toggle";
+  const secili = tik && row.value.trim() !== "";
 
   // SATIRIN ÜÇ KİPİ VAR ve ayrımı defterdeki tanım yapar:
   //
@@ -129,7 +132,9 @@ export function RowEditor({
         // `items-start` ile ilk satırlarından hizalı; etiketin kendi kenarlığı
         // yok, yazının kendisi düzenlenebilir.
         "grid gap-x-3 gap-y-2 rounded-md border p-2",
-        "sm:grid-cols-[minmax(8rem,12rem)_minmax(0,1fr)_auto_auto] sm:items-start",
+        tik
+          ? "sm:grid-cols-[minmax(12rem,1fr)_auto_auto] sm:items-center"
+          : "sm:grid-cols-[minmax(8rem,12rem)_minmax(0,1fr)_auto_auto] sm:items-start",
         gizli && "border-dashed opacity-55"
       )}
     >
@@ -144,7 +149,27 @@ export function RowEditor({
       />
 
       <div className="grid min-w-0 gap-2">
-        {elle ? (
+        {tik ? (
+          <Button
+            type="button"
+            variant={secili ? "default" : "outline"}
+            size="sm"
+            className="oc-tap w-full justify-start sm:w-36"
+            aria-pressed={secili}
+            aria-label={`${row.label}: ${secili ? "seçili" : "seçili değil"}`}
+            onClick={() => onChange({ ...row, value: secili ? "" : "VAR", manual: false })}
+          >
+            <span
+              className={cn(
+                "inline-flex size-4 items-center justify-center rounded-sm border",
+                secili ? "border-primary-foreground/50 bg-primary-foreground/15" : "border-input"
+              )}
+            >
+              {secili ? <Check className="size-3" /> : null}
+            </span>
+            {secili ? "Seçili" : "Seç"}
+          </Button>
+        ) : elle ? (
           <Input
             value={row.value}
             onChange={(e) => onChange({ ...row, value: e.target.value, manual: true })}
@@ -211,22 +236,24 @@ export function RowEditor({
       {/* KAPSAM SÜTUNU — kimin tedarik ettiği. Varsayılan Orion'dur ve belgede
           İZ BIRAKMAZ; yalnız "Müşteri Kapsamı" seçilirse PDF'te görünür
           (kullanıcı isteği, 17.08.2026). */}
-      <select
-        value={row.scope ?? "orion"}
-        onChange={(e) => onChange({ ...row, scope: e.target.value as OfferRowScope })}
-        aria-label={`${row.label} kapsamı`}
-        title="Bu satırı kim tedarik ediyor — Müşteri Kapsamı seçilirse belgede görünür"
-        className={cn(
-          "oc-tap h-9 rounded-md border bg-background px-2 text-base pointer-fine:text-xs",
-          row.scope === "customer" && "border-primary/50 bg-primary/[0.06] font-medium"
-        )}
-      >
-        {OFFER_ROW_SCOPES.map((k) => (
-          <option key={k} value={k}>
-            {OFFER_ROW_SCOPE_LABELS[k]}
-          </option>
-        ))}
-      </select>
+      {tik ? null : (
+        <select
+          value={row.scope ?? "orion"}
+          onChange={(e) => onChange({ ...row, scope: e.target.value as OfferRowScope })}
+          aria-label={`${row.label} kapsamı`}
+          title="Bu satırı kim tedarik ediyor — Müşteri Kapsamı seçilirse belgede görünür"
+          className={cn(
+            "oc-tap h-9 rounded-md border bg-background px-2 text-base pointer-fine:text-xs",
+            row.scope === "customer" && "border-primary/50 bg-primary/[0.06] font-medium"
+          )}
+        >
+          {OFFER_ROW_SCOPES.map((k) => (
+            <option key={k} value={k}>
+              {OFFER_ROW_SCOPE_LABELS[k]}
+            </option>
+          ))}
+        </select>
+      )}
 
       <div className="flex items-center gap-1">
         {parcalar.length > 0 ? (

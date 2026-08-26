@@ -61,7 +61,9 @@ import {
   newGeneralTerm,
   newPriceLine,
   newTextLine,
+  offerSectionHidden,
   withDefaultGeneralTerms,
+  withOfferSectionHidden,
 } from "@/lib/offers/payload";
 import {
   applyDiscountToLines,
@@ -92,6 +94,7 @@ import type {
   OfferPayload,
   OfferPriceLine,
   OfferRow,
+  OfferSectionKey,
   OfferTextLine,
 } from "@/lib/offers/types";
 import { activeContacts, coverFieldsFromContact, type CustomerContact } from "@/lib/customer-contacts";
@@ -120,6 +123,14 @@ import { RowEditor, type OptionBook } from "./row-editor";
 import { SignatureUpload } from "./signature-upload";
 
 type BolumKey = string;
+
+interface BolumNavItem {
+  key: BolumKey;
+  label: string;
+  hidden: boolean;
+  sectionKey?: OfferSectionKey;
+  itemId?: string;
+}
 
 /** Kayıt durumu — rozetin okuduğu tek gerçek. */
 type KayitDurumu = "temiz" | "bekliyor" | "kaydediliyor" | "kaydedildi" | "hata";
@@ -262,22 +273,50 @@ export function OfferEditor({
     );
   }
 
-  const bolumler = useMemo(
+  const bolumler = useMemo<BolumNavItem[]>(
     () => [
-      { key: "kapak", label: "Kapak" },
+      {
+        key: "kapak",
+        label: "Kapak",
+        sectionKey: "cover",
+        hidden: offerSectionHidden(payload, "cover"),
+      },
       ...payload.items.map((it, i) => ({
         key: `item:${it.id}`,
         label: it.title || `Kalem ${i + 1}`,
+        itemId: it.id,
+        hidden: it.hidden === true,
       })),
-      { key: "test", label: "Test Yükü" },
-      { key: "ticari", label: "Ticari Şartlar" },
-      { key: "fiyat", label: "Fiyat" },
-      { key: "notlar", label: "Notlar" },
-      { key: "kapsam", label: "Kapsam Dışı" },
-      { key: "sartlar", label: "Genel Şartlar" },
+      { key: "test", label: "Test Yükü", sectionKey: "testLoad", hidden: offerSectionHidden(payload, "testLoad") },
+      { key: "ticari", label: "Ticari Şartlar", sectionKey: "terms", hidden: offerSectionHidden(payload, "terms") },
+      { key: "fiyat", label: "Fiyat", sectionKey: "pricing", hidden: offerSectionHidden(payload, "pricing") },
+      { key: "notlar", label: "Notlar", sectionKey: "notes", hidden: offerSectionHidden(payload, "notes") },
+      { key: "kapsam", label: "Kapsam Dışı", sectionKey: "exclusions", hidden: offerSectionHidden(payload, "exclusions") },
+      { key: "sartlar", label: "Genel Şartlar", sectionKey: "generalTerms", hidden: offerSectionHidden(payload, "generalTerms") },
     ],
-    [payload.items]
+    [payload]
   );
+
+  /** Sol raydaki göz düğmesi — gizlemek silmez, yalnız PDF kararını değiştirir. */
+  function bolumuGizle(bolum: BolumNavItem) {
+    if (!bolum.hidden && bolumler.filter((aday) => !aday.hidden).length === 1) {
+      toast.error("PDF'de en az bir bölüm görünür kalmalıdır.");
+      return;
+    }
+    guncelleIle((onceki) => {
+      if (bolum.itemId) {
+        return {
+          ...onceki,
+          items: onceki.items.map((item) =>
+            item.id === bolum.itemId ? { ...item, hidden: !bolum.hidden } : item
+          ),
+        };
+      }
+      return bolum.sectionKey
+        ? withOfferSectionHidden(onceki, bolum.sectionKey, !bolum.hidden)
+        : onceki;
+    });
+  }
 
   const gizliSayisi = hiddenCount(payload);
   // ÜST ŞERİTTEKİ RAKAM MÜŞTERİNİN ÖDEYECEĞİDİR: iskonto girilmişse o görünür,
@@ -420,7 +459,7 @@ export function OfferEditor({
           <div className="font-mono text-sm">{offerDocLine(offerNo, revNo)}</div>
           <div className="text-xs text-muted-foreground">
             {payload.items.length} kalem · {payload.pricing.lines.length} fiyat satırı
-            {gizliSayisi > 0 ? ` · ${gizliSayisi} gizli satır` : ""}
+            {gizliSayisi > 0 ? ` · ${gizliSayisi} gizli öğe` : ""}
           </div>
         </div>
 
@@ -554,10 +593,27 @@ export function OfferEditor({
           <p className="text-sm font-medium">Teklif Bölümü</p>
           <MobileSectionGrid
             value={aktif}
-            options={bolumler.map((b) => ({ value: b.key, label: b.label }))}
+            options={bolumler.map((b) => ({
+              value: b.key,
+              label: b.hidden ? `${b.label} · Gizli` : b.label,
+            }))}
             label="Teklif bölümleri"
             onValueChange={setAktif}
           />
+          {readOnly ? null : (() => {
+            const secili = bolumler.find((b) => b.key === aktif);
+            return secili ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="oc-tap w-full"
+                onClick={() => bolumuGizle(secili)}
+              >
+                {secili.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                {secili.hidden ? "Bu Bölümü PDF'de Göster" : "Bu Bölümü PDF'de Gizle"}
+              </Button>
+            ) : null;
+          })()}
           {readOnly ? null : (
             <Button
               type="button"
@@ -575,20 +631,39 @@ export function OfferEditor({
           aria-label="Teklif bölümleri"
         >
           {bolumler.map((b) => (
-            <button
+            <div
               key={b.key}
-              type="button"
-              onClick={() => setAktif(b.key)}
-              aria-current={aktif === b.key ? "page" : undefined}
               className={cn(
-                "oc-tap shrink-0 rounded-md border-b-2 px-3 py-2 text-left text-sm transition-colors lg:border-b-0 lg:border-l-2",
+                "group flex shrink-0 items-center rounded-md border-b-2 transition-colors lg:border-b-0 lg:border-l-2",
                 aktif === b.key
-                  ? "border-b-primary bg-muted font-medium text-foreground lg:border-l-primary"
-                  : "border-b-transparent text-muted-foreground hover:bg-muted hover:text-foreground lg:border-l-transparent"
+                  ? "border-b-primary bg-muted text-foreground lg:border-l-primary"
+                  : "border-b-transparent text-muted-foreground hover:bg-muted hover:text-foreground lg:border-l-transparent",
+                b.hidden && "opacity-55"
               )}
             >
-              <span className="line-clamp-1">{b.label}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setAktif(b.key)}
+                aria-current={aktif === b.key ? "page" : undefined}
+                className={cn(
+                  "oc-tap min-w-0 flex-1 px-3 py-2 text-left text-sm",
+                  aktif === b.key && "font-medium"
+                )}
+              >
+                <span className="line-clamp-1">{b.label}</span>
+              </button>
+              {readOnly ? null : (
+                <button
+                  type="button"
+                  className="oc-tap mr-1 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-background"
+                  title={b.hidden ? "PDF'de göster" : "PDF'de gizle — içerik korunur"}
+                  aria-label={`${b.label}: ${b.hidden ? "PDF'de göster" : "PDF'de gizle"}`}
+                  onClick={() => bolumuGizle(b)}
+                >
+                  {b.hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                </button>
+              )}
+            </div>
           ))}
           {readOnly ? null : (
             <Button
@@ -909,7 +984,12 @@ function KapakEditor({
           <p className="min-w-0 text-xs text-muted-foreground">
             Dosya adı:{" "}
             <span className="font-mono break-all">
-              {offerFileName(konu.trim() || offerSubject, offerNo, revNo)}
+              {offerFileName(
+                konu.trim() || offerSubject,
+                offerNo,
+                revNo,
+                payload.issuer.customerId ? payload.issuer.company : undefined
+              )}
             </span>
           </p>
         </div>

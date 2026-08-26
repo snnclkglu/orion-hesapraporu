@@ -24,6 +24,12 @@ export const newOfferSchema = z.object({
   subject: adAlani("Teklif konusu gerekli"),
   lang: z.enum(OFFER_LANGS).default("tr"),
   currency: z.enum(CURRENCIES).default("EUR"),
+  /**
+   * Teklifi veren partner firma. `null` = standart ORION VİNÇ.
+   * Partner de aynı müşteri defterinden seçilir; serbest kurum adı ikinci bir
+   * logo/künye defteri oluştururdu.
+   */
+  issuerCustomerId: z.uuid("Teklifi hazırlayan firma geçersiz").nullable().default(null),
   // ŞABLON ALANI YOKTUR (TEKLIF-32): şablon KALEMİN sorusudur, belgenin değil.
 });
 

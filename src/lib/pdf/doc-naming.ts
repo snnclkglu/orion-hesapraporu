@@ -114,9 +114,11 @@ export function downloadFileName(
  *
  *     ORİON VİNÇ - HABAŞ DÖRTYOL 20T VİNÇ - TETR-20260127-1 - REV 02.pdf
  *
- * **ÖNEK HER ZAMAN "ORİON VİNÇ"TİR** (kullanıcı isteği, 22.08.2026: *"Konu ne
- * olursa olsun inen teklif pdf isimlendirmesi ORİON VİNÇ - KONU şeklinde
- * olsun."*). Kullanıcı bunu bugüne kadar KONUNUN İÇİNE elle yazıyordu ve
+ * **ÖNEK HAZIRLAYAN FİRMADIR**; standart teklifte "ORİON VİNÇ", partner
+ * teklifinde partnerin snapshot unvanıdır. ORION varsayılanı kullanıcı
+ * isteğidir (22.08.2026: *"Konu ne olursa olsun inen teklif pdf isimlendirmesi
+ * ORİON VİNÇ - KONU şeklinde olsun."*). Kullanıcı bunu bugüne kadar KONUNUN
+ * İÇİNE elle yazıyordu ve
  * yazmayı unuttuğu teklifte müşterinin indirdiği dosya kimden geldiğini
  * söylemiyordu; müşterinin indirilenler klasöründe on tedarikçinin teklifi
  * yan yana durur.
@@ -137,8 +139,14 @@ export function downloadFileName(
  */
 export const OFFER_FILE_PREFIX = "ORİON VİNÇ";
 
-export function offerFileName(subject: string, offerNo: string, revNo: number): string {
-  return downloadFileName([OFFER_FILE_PREFIX, konuAdi(subject), offerNo, offerRevLabel(revNo)]);
+export function offerFileName(
+  subject: string,
+  offerNo: string,
+  revNo: number,
+  issuerName = OFFER_FILE_PREFIX
+): string {
+  const prefix = issuerName.trim() || OFFER_FILE_PREFIX;
+  return downloadFileName([prefix, konuAdi(subject, prefix), offerNo, offerRevLabel(revNo)]);
 }
 
 /**
@@ -150,13 +158,17 @@ export function offerFileName(subject: string, offerNo: string, revNo: number): 
  * Karşılaştırma `trKatla` iledir: "ORİON", "Orion" ve "ORION" aynı öneki
  * anlatır.
  */
-function konuAdi(subject: string): string {
+function konuAdi(subject: string, prefix = OFFER_FILE_PREFIX): string {
   const temiz = (subject ?? "").trim();
   const katlanmis = trKatla(temiz);
-  const onek = trKatla(OFFER_FILE_PREFIX);
-  if (!katlanmis.startsWith(onek)) return temiz;
+  // Partner teklifine dönüştürülen eski bir konu ORION öneki taşıyabilir;
+  // dosya adında iki farklı hazırlayan firma yan yana kalmamalıdır.
+  const bulunan = [prefix, OFFER_FILE_PREFIX].find((aday) =>
+    katlanmis.startsWith(trKatla(aday))
+  );
+  if (!bulunan) return temiz;
   // Öneki ve ardındaki ayracı ("-", "–", ":") düşür.
-  return temiz.slice(OFFER_FILE_PREFIX.length).replace(/^[\s\-–—:·]+/, "").trim();
+  return temiz.slice(bulunan.length).replace(/^[\s\-–—:·]+/, "").trim();
 }
 
 /**

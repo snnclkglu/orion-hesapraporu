@@ -300,7 +300,7 @@ describe("offerPdfSayfalari — gerçek teklif gövdesi", () => {
     // 68 İDİ: `GENEL ÖZELLİKLER > Vinç Tipi` (md. 3) ve `KÖPRÜ > Yürüme Yolu
     // Rayı` (md. 5) emekliye ayrıldı. Sayı burada DONDURULUR ki defterden
     // sessizce bir satır düşmesi bu testte görünsün.
-    expect(basilan.length).toBe(66);
+    expect(basilan.length).toBe(67);
   });
 
   it("HİÇBİR SÜTUN kelepçelenmiş bütçeyi aşmaz", () => {
@@ -345,19 +345,19 @@ describe("offerPdfSayfalari — gerçek teklif gövdesi", () => {
     ]);
   });
 
-  it("21 SATIRLIK ELEKTRİK GRUBU bütün hâlinde yerleşir", () => {
+  it("22 SATIRLIK ELEKTRİK GRUBU bütün hâlinde yerleşir", () => {
     const elektrik = elektrikGrubu(gruplar);
     // Defterdeki öbek 21 satırdır ve kendi başına bir sütuna sığar. Gövde
     // kısalınca (md. 3 ve md. 5) sağ sütunun başına denk geldi ve artık
     // BÖLÜNMÜYOR. Bölünme kuralının kendisi hâlâ sınanır — bir alttaki köprü
     // testinde ve "bölünme" öbeğindeki uzun grup testlerinde.
-    expect(elektrik.rows).toHaveLength(21);
+    expect(elektrik.rows).toHaveLength(22);
     expect(grupYuksekligi(elektrik)).toBeLessThanOrEqual(KELEPCELI);
 
     const dilimler = duzBloklar(sayfalar).filter((b) => b.group.id === elektrik.id);
     expect(dilimler).toHaveLength(1);
     expect(dilimler[0].devam).toBe(false);
-    expect(dilimler[0].rows).toHaveLength(21);
+    expect(dilimler[0].rows).toHaveLength(22);
   });
 
   it("BÖLÜNEN KÖPRÜ GRUBU tek satır kaybetmez", () => {

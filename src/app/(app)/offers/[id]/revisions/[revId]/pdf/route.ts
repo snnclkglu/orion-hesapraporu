@@ -17,8 +17,12 @@ import { loadOfferRevision } from "@/app/(app)/offers/data";
 import { renderOfferPdf } from "@/lib/pdf/offer";
 import { offerFileName } from "@/lib/pdf/doc-naming";
 import { getReportSettings } from "@/lib/settings";
-import { loadCustomerLogo } from "@/lib/customers/logo-server";
+import {
+  loadCustomerLogo,
+  resolveCustomerIdForSnapshot,
+} from "@/lib/customers/logo-server";
 import { loadOfferSignatureImages } from "@/lib/offers/signature-server";
+import { offerIssuerCompany, offerIssuerName } from "@/lib/offers/issuer";
 
 export const runtime = "nodejs";
 
@@ -53,11 +57,18 @@ export async function GET(
   // gecikirdi. `loadCustomerLogo` HİÇBİR KOŞULDA FIRLATMAZ — logo inmezse
   // `null` döner ve belge logosuz basılır (bir logo yüzünden 500 dönmek kabul
   // edilemez).
-  const [settings, customerLogo, signatureImages] = await Promise.all([
+  const customerId = await resolveCustomerIdForSnapshot(
+    supabase,
+    offer.customer_id,
+    offer.customer_name
+  );
+  const [settings, customerLogo, issuerLogo, signatureImages] = await Promise.all([
     getReportSettings(supabase),
-    loadCustomerLogo(supabase, offer.customer_id),
+    loadCustomerLogo(supabase, customerId),
+    loadCustomerLogo(supabase, revision.payload.issuer.customerId),
     loadOfferSignatureImages(supabase, revision.payload),
   ]);
+  const company = offerIssuerCompany(revision.payload, settings);
   const buffer = await renderOfferPdf({
     offer: {
       offerNo: offer.offer_no,
@@ -68,14 +79,9 @@ export async function GET(
       currency: offer.currency,
     },
     payload: revision.payload,
-    company: {
-      company: settings.company,
-      address: settings.address || settings.city,
-      phone: settings.phone,
-      email: settings.email,
-      web: settings.web,
-    },
+    company,
     customerLogo,
+    issuerLogo: revision.payload.issuer.customerId ? issuerLogo : undefined,
     signatureImages,
     meta: { generatedAt: new Date().toLocaleDateString("tr-TR") },
   });
@@ -83,7 +89,12 @@ export async function GET(
   const inline = new URL(req.url).searchParams.get("inline") === "1";
   // Dosya adı: İŞ ADI - TEKLİF NO - REV (bkz. pdf/doc-naming).
   // Türkçe karakterli ad: ASCII geri düşüş + RFC 5987 filename*.
-  const filename = offerFileName(offer.subject, offer.offer_no, revision.rev_no);
+  const filename = offerFileName(
+    offer.subject,
+    offer.offer_no,
+    revision.rev_no,
+    offerIssuerName(revision.payload, settings)
+  );
   const asciiFilename = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
 
   return new Response(new Uint8Array(buffer), {

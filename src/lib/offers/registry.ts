@@ -234,7 +234,8 @@ const ELEKTRIK: OfferRowDef[] = [
   { key: "supplyVoltage", label: "Besleme Gerilimi", list: "val.supplyVoltage" },
   { key: "controlVoltage", label: "Kontrol Gerilimi", list: "val.controlVoltage" },
   { key: "runwayPower", label: "Hol Boyu Elektrik", list: "val.runwayPower" },
-  { key: "girderPower", label: "Kiriş Boyu Elektrik" },
+  { key: "plc", label: "PLC", list: "val.plc" },
+  { key: "hmiPanel", label: "HMI Panel", list: "val.hmiPanel" },
   { key: "busbar", label: "Bara", list: "brand.busbar" },
   { key: "busbarBrush", label: "Bara Fırçası", list: "val.scope" },
   { key: "pendant", label: "Kumanda Şekli", parts: [{ key: "brand", label: "Marka", list: "brand.pendant" }, { key: "series", label: "Seri", list: "series.pendant", childOf: "brand" }, SECENEKLER] },
@@ -252,6 +253,30 @@ const ELEKTRIK: OfferRowDef[] = [
   { key: "panel", label: "Pano", parts: [{ key: "brand", label: "Marka", list: "brand.panel" }, { key: "note", label: "Yerleşim", comma: true }] },
   { key: "emBrakes", label: "Elektromanyetik Frenler", list: "val.supplyVoltage" },
   { key: "kst", label: "KST" },
+];
+
+/**
+ * GÜVENLİK ÖZELLİKLERİ — elektrik sisteminin hemen altındaki hızlı tikler.
+ *
+ * Satırlar `kind: "toggle"` olduğu için yeni kalemde BOŞ gelir; kullanıcı
+ * yalnız teklif ettiği özelliği işaretler ve işaretli satır PDF'de `VAR`
+ * değeriyle görünür. Bir varsayılan güvenlik kapsamı UYDURULMAZ.
+ */
+const GUVENLIK: OfferRowDef[] = [
+  { key: "emergencyStop", label: "Kumanda Panelinde Acil Durdurma Butonu", kind: "toggle" },
+  { key: "phaseThermalProtection", label: "Faz ve Termik Koruma Röleleri", kind: "toggle" },
+  { key: "hoistLimit", label: "Kaldırma ve İndirme Sınırlaması", kind: "toggle" },
+  { key: "trolleySlowStopSensors", label: "Araba Hareketlerini Yavaşlatma ve Durdurma Sensörleri", kind: "toggle" },
+  { key: "trolleyStopSensors", label: "Araba Hareketlerini Durdurma Sensörleri", kind: "toggle" },
+  { key: "audibleVisualAlarm", label: "Sesli ve Işıklı İkaz Sistemi", kind: "toggle" },
+  { key: "overloadDetection", label: "Aşırı Yük Algılama", kind: "toggle" },
+  { key: "antiCollision", label: "Çarpışma Önleme Sistemi", kind: "toggle" },
+  { key: "slackRopeMonitoring", label: "Gevşek Halat Denetimi", kind: "toggle" },
+  { key: "faultDisplay", label: "Ekran Üzerinden Hata Görüntüleme", kind: "toggle" },
+  { key: "brakeLiningWear", label: "Fren Balatası Aşınma Denetimi", kind: "toggle" },
+  { key: "brakeOpenSensors", label: "Fren Açık Sensörleri", kind: "toggle" },
+  { key: "brakeOpenClosedSensors", label: "Fren Açık/Kapalı Sensörleri", kind: "toggle" },
+  { key: "shockLoadPrevention", label: "Şok Yükleme Önleme Sistemi", kind: "toggle" },
 ];
 
 // ————————————————————————————————————————————————————— grup anahtarları
@@ -303,6 +328,7 @@ export const OFFER_GROUP_SHORT: Readonly<Record<string, string>> = Object.freeze
   boom: "BOM",
   steel: "ÇELİK",
   electrical: "ELEKTRİK",
+  safety: "GÜVENLİK",
 });
 
 /** Grubun sayfa başlığındaki adı; defterde yoksa tam başlık. */
@@ -333,6 +359,7 @@ export const OFFER_GROUP_DEFS: OfferGroupDef[] = [
   { key: "boom", title: "BOM GRUBU", rows: BOM },
   { key: "steel", title: "ÇELİK KONSTRÜKSİYON", rows: CELIK },
   { key: "electrical", title: "ELEKTRİK SİSTEMİ", rows: ELEKTRIK },
+  { key: "safety", title: "GÜVENLİK ÖZELLİKLERİ", rows: GUVENLIK },
 ];
 
 export const OFFER_GROUP_DEF_BY_KEY: Record<string, OfferGroupDef> = Object.fromEntries(
@@ -386,6 +413,10 @@ export const RETIRED_ROW_KEYS: Readonly<Record<string, readonly string[]>> = Obj
   general: ["craneType"],
   bridge: ["runwayRail"],
   gantry: ["runwayRail"],
+  // Eski değer yeni PLC alanına taşınmaz: "Kiriş Boyu Elektrik" bir besleme
+  // tanımıdır, PLC modeli değildir. Satırı yeniden etiketlemek yanlış belge
+  // üretirdi; eski kayıtların okuma yolunda emekliye ayrılır.
+  electrical: ["girderPower"],
 });
 
 /** Satır defterden emekliye mi ayrıldı — okuma yolundaki süzgecin sorusu. */
@@ -796,6 +827,8 @@ export const OFFER_LIST_LABELS: Record<string, string> = {
   "val.supplyVoltage": "Besleme Gerilimi",
   "val.controlVoltage": "Kontrol Gerilimi",
   "val.runwayPower": "Hol Boyu Elektrik",
+  "val.plc": "PLC Modelleri",
+  "val.hmiPanel": "HMI Panel Modelleri",
   "val.scope": "Kapsam İfadeleri",
   "val.testDynamic": "Dinamik Test",
   "val.testStatic": "Statik Test",

@@ -37,6 +37,7 @@ import {
   T,
   mm,
   trUpper,
+  type BrandBandLogo,
   type CompanyInfo,
 } from "@/lib/pdf/brand";
 import { fmtMoney, fmtNum } from "@/lib/currency";
@@ -93,6 +94,11 @@ export interface OfferDocumentProps {
    * ya da indirilemezse `null` geçilir — belge logosuz basılır, DÜŞMEZ.
    */
   customerLogo?: Buffer | null;
+  /**
+   * TEKLİFİ HAZIRLAYAN PARTNERİN LOGOSU. `undefined` ORION'un yerleşik
+   * markasını, `null` seçili partnerin logosu olmadığını anlatır.
+   */
+  issuerLogo?: Buffer | null;
   /** `signaturePath` anahtarlı, özel depodan sunucu tarafından indirilmiş PNG'ler. */
   signatureImages?: Record<string, Buffer>;
   meta: { generatedAt: string };
@@ -891,6 +897,8 @@ function SayfaBasi({
   kunye,
   marka,
   buyuk,
+  brandLogo,
+  brandName,
 }: {
   kicker: string;
   baslik: string;
@@ -899,6 +907,9 @@ function SayfaBasi({
   marka?: boolean;
   /** Ticari sayfanın başlığı bir tık büyüktür (TEKLIF-44). */
   buyuk?: boolean;
+  /** `undefined` = ORION, `null` = logosuz partner, Buffer = partner logosu. */
+  brandLogo?: Buffer | null;
+  brandName?: string;
 }) {
   return (
     <View style={S.sayfaBasi}>
@@ -908,11 +919,25 @@ function SayfaBasi({
             {/* KÖMÜR LOCKUP: kapakta kağıt renkliydi, kağıt üzerinde kömür.
                 Tam renkli sürüm belgenin bu yaprağında ikinci bir kırmızı
                 lekesi olurdu — kırmızı bu sayfada kicker ve kurala ayrılmıştır. */}
-            {/* eslint-disable-next-line jsx-a11y/alt-text */}
-            <Image
-              src={BRAND_LOGO_INK}
-              style={{ width: SAYFA_LOGO_EN, height: SAYFA_LOGO_EN * LOGO_MONO_RATIO }}
-            />
+            {brandLogo === undefined ? (
+              // eslint-disable-next-line jsx-a11y/alt-text
+              <Image
+                src={BRAND_LOGO_INK}
+                style={{ width: SAYFA_LOGO_EN, height: SAYFA_LOGO_EN * LOGO_MONO_RATIO }}
+              />
+            ) : brandLogo ? (
+              // eslint-disable-next-line jsx-a11y/alt-text
+              <Image
+                src={brandLogo}
+                style={{
+                  width: SAYFA_LOGO_EN,
+                  height: SAYFA_LOGO_EN * PARTNER_LOGO_RATIO,
+                  objectFit: "contain",
+                }}
+              />
+            ) : (
+              <Text style={S.sayfaMarkaMetaGuclu}>{trUpper(brandName || "TEKLİF")}</Text>
+            )}
             <View>
               <Text style={S.sayfaMarkaMeta}>
                 REFERANS NO · <Text style={S.sayfaMarkaMetaGuclu}>{kunye.no}</Text>
@@ -1061,6 +1086,7 @@ function TeknikSayfa({
   altBilgi,
   ustSonda,
   altSonda,
+  watermarkLogo,
 }: {
   docLine: string;
   /** Sayfanın büyük başlığı: KALEMİN ADI. */
@@ -1073,9 +1099,10 @@ function TeknikSayfa({
   /** İçindekiler sondaları — yalnız bölümün İLK ve SON yaprağında verilir. */
   ustSonda?: React.ReactNode;
   altSonda?: React.ReactNode;
+  watermarkLogo?: BrandBandLogo | null;
 }) {
   return (
-    <BrandPage docLine={docLine} brandFooter={{}}>
+    <BrandPage docLine={docLine} brandFooter={{}} watermarkLogo={watermarkLogo}>
       {ustSonda}
       {/* BAŞLIK KALEMİN ADIDIR (kullanıcı bildirimi, 18.08.2026: *"burada
           başlık olarak 80T x 12.44m PORTAL VİNÇ yazması gerekiyor… yani kalem
@@ -1129,18 +1156,32 @@ function GenelSartlarSayfasi({
   maddeler,
   ustSonda,
   altSonda,
+  watermarkLogo,
+  brandLogo,
+  brandName,
 }: {
   docLine: string;
   kunye: SayfaKunyesi;
   maddeler: { no: number; title: string; body: string }[];
   ustSonda?: React.ReactNode;
   altSonda?: React.ReactNode;
+  watermarkLogo?: BrandBandLogo | null;
+  brandLogo?: Buffer | null;
+  brandName?: string;
 }) {
   if (maddeler.length === 0) return null;
   return (
-    <BrandPage docLine={docLine} brandFooter={{}}>
+    <BrandPage docLine={docLine} brandFooter={{}} watermarkLogo={watermarkLogo}>
       {ustSonda}
-      <SayfaBasi kicker="EKLER" baslik={trUpper(GENERAL_TERMS_TITLE)} kunye={kunye} marka buyuk />
+      <SayfaBasi
+        kicker="EKLER"
+        baslik={trUpper(GENERAL_TERMS_TITLE)}
+        kunye={kunye}
+        marka
+        buyuk
+        brandLogo={brandLogo}
+        brandName={brandName}
+      />
       {maddeler.map((m) => (
         <View key={m.no} style={S.sartMadde} wrap={false}>
           <Text style={S.sartBaslik}>
@@ -1192,8 +1233,10 @@ function kapakBaslikPunto(konu: string): number {
  * TİCARİ TEKLİF" diye adlandırılamaz: kapakta vaat edilen bölüm belgede
  * yoktur. Ad, belgenin kendi içeriğinden çıkar.
  */
-function kapakKickeri(payload: OfferPayload): string {
-  return payload.items.length > 0 ? "TEKNİK VE TİCARİ TEKLİF" : "TİCARİ TEKLİF";
+function kapakKickeri(payload: OfferPayload, ticariVar: boolean): string {
+  if (payload.items.length > 0 && ticariVar) return "TEKNİK VE TİCARİ TEKLİF";
+  if (payload.items.length > 0) return "TEKNİK TEKLİF";
+  return "TİCARİ TEKLİF";
 }
 
 // ---- içindekiler
@@ -1298,11 +1341,13 @@ interface OfferTocEntry {
 function tocBolumleri(
   payload: OfferPayload,
   sartVar: boolean,
-  fiyatAyriYaprakta: boolean
+  fiyatAyriYaprakta: boolean,
+  ticariVar: boolean,
+  ticariEtiketi: string
 ): OfferTocEntry[] {
   const out: OfferTocEntry[] = [];
   if (payload.items.length > 0) out.push({ key: "teknik", label: OFFER_SECTIONS.teknik });
-  out.push({ key: "ticari", label: OFFER_SECTIONS.ticari });
+  if (ticariVar) out.push({ key: "ticari", label: ticariEtiketi });
   // Fiyat tablosu kendi yaprağına geçtiyse KENDİ SATIRINI da açar: müşteri
   // içindekilerde "Fiyatlar"ı arar ve o yaprak artık ticari sayfa değildir.
   if (fiyatAyriYaprakta) out.push({ key: "fiyat", label: OFFER_SECTIONS.fiyat });
@@ -1372,12 +1417,16 @@ function KapakBandi({
   bolumler,
   pageOf,
   paylar,
+  brandLogo,
+  brandName,
 }: {
   offer: OfferDocumentProps["offer"];
   kicker: string;
   bolumler: OfferTocEntry[];
   pageOf?: Record<string, number>;
   paylar: ReturnType<typeof kapakPaylari>;
+  brandLogo?: Buffer | null;
+  brandName: string;
 }) {
   const rev = offerRevLabel(offer.revNo);
   const gun = tarih(offer.issueDate);
@@ -1391,11 +1440,25 @@ function KapakBandi({
         <View style={S.bantUst}>
           {/* KAĞIT RENKLİ LOCKUP: tam renkli logonun kırmızı kilidi kömür
               zeminde gömülür, "CRANES" grisi de kaybolurdu. */}
-          {/* eslint-disable-next-line jsx-a11y/alt-text */}
-          <Image
-            src={BRAND_LOGO_PAPER}
-            style={{ width: KAPAK_LOGO_EN, height: KAPAK_LOGO_EN * LOGO_MONO_RATIO }}
-          />
+          {brandLogo === undefined ? (
+            // eslint-disable-next-line jsx-a11y/alt-text
+            <Image
+              src={BRAND_LOGO_PAPER}
+              style={{ width: KAPAK_LOGO_EN, height: KAPAK_LOGO_EN * LOGO_MONO_RATIO }}
+            />
+          ) : brandLogo ? (
+            // eslint-disable-next-line jsx-a11y/alt-text
+            <Image
+              src={brandLogo}
+              style={{
+                width: KAPAK_LOGO_EN,
+                height: KAPAK_LOGO_EN * PARTNER_LOGO_RATIO,
+                objectFit: "contain",
+              }}
+            />
+          ) : (
+            <Text style={[S.bantMetaGuclu, { fontSize: 12 }]}>{trUpper(brandName)}</Text>
+          )}
           <View>
             <Text style={S.bantMeta}>
               REFERANS NO · <Text style={S.bantMetaGuclu}>{offer.offerNo}</Text>
@@ -1423,6 +1486,9 @@ function KapakBandi({
 
 /** Kömür banttaki lockup'ın genişliği — yüksekliği ~19,5 pt yapar. */
 const KAPAK_LOGO_EN = 160;
+
+/** Müşteri/partner logolarının yükleme sırasında normalize edildiği 900×240 tuval. */
+const PARTNER_LOGO_RATIO = 240 / 900;
 
 // ---- KİMDEN / KİME künyesi
 
@@ -1516,14 +1582,27 @@ function KapakKunyesi({
   sol,
   sag,
   musteriLogosu,
+  hazirlayanLogosu,
 }: {
   sol: KunyeTarafi;
   sag: KunyeTarafi;
   musteriLogosu?: Buffer | null;
+  /** `undefined` ORION monogramı, `null` logosuz partnerdir. */
+  hazirlayanLogosu?: Buffer | null;
 }) {
   return (
     <View style={S.kunyeKutu}>
-      <KunyeHucresi taraf={sol} marka={<KunyeMarkasi monogram />} ayrac />
+      <KunyeHucresi
+        taraf={sol}
+        marka={
+          hazirlayanLogosu === undefined ? (
+            <KunyeMarkasi monogram />
+          ) : (
+            <KunyeMarkasi logo={hazirlayanLogosu} />
+          )
+        }
+        ayrac
+      />
       <KunyeHucresi taraf={sag} marka={<KunyeMarkasi logo={musteriLogosu} />} />
     </View>
   );
@@ -1539,7 +1618,36 @@ function KapakKunyesi({
  * `wrap={false}`: blok ikiye bölünüp yarısı ikinci bir yaprağa düşemez —
  * kapak TEK SAYFADIR.
  */
-function FirmaTanitimi({ paylar }: { paylar: ReturnType<typeof kapakPaylari> }) {
+function FirmaTanitimi({
+  paylar,
+  company,
+  partner,
+}: {
+  paylar: ReturnType<typeof kapakPaylari>;
+  company: CompanyInfo;
+  partner: boolean;
+}) {
+  if (partner) {
+    const kimlik = birlestir(
+      [
+        company.address,
+        company.phone ? `Tel: ${company.phone}` : "",
+        company.fax ? `Faks: ${company.fax}` : "",
+        company.taxOffice ? `Vergi Dairesi: ${company.taxOffice}` : "",
+        company.taxNo ? `Vergi No: ${company.taxNo}` : "",
+        company.email,
+        company.web,
+      ],
+      " · "
+    );
+    return (
+      <View style={S.tanitim} wrap={false}>
+        <Text style={S.tanitimBaslik}>TEKLİFİ HAZIRLAYAN FİRMA</Text>
+        <Text style={[S.tanitimGovde, { marginTop: 5 }]}>{company.company}</Text>
+        {kimlik ? <Text style={[S.tanitimGovde, { marginTop: 3 }]}>{kimlik}</Text> : null}
+      </View>
+    );
+  }
   return (
     <View style={S.tanitim} wrap={false}>
       <Text style={[S.tanitimGovde, { marginBottom: paylar.tanitimGovdeAlt }]}>
@@ -1570,6 +1678,7 @@ function KapakSayfasi({
   payload,
   company,
   customerLogo,
+  issuerLogo,
   signatureImages,
   bolumler,
   pageOf,
@@ -1580,6 +1689,8 @@ function KapakSayfasi({
 }) {
   const { cover } = payload;
   const paylar = kapakPaylari(coverDensity);
+  const partner = payload.issuer.customerId !== null;
+  const brandName = company.company || "ORION CRANES";
 
   // KİMDEN: bizim kurumumuz, kişimiz ve iletişimimiz. KİME: müşteri, muhatap
   // ve onun numaraları. Boş kalan her alan künyeye hiç girmez (TEKLIF-36).
@@ -1587,7 +1698,11 @@ function KapakSayfasi({
     etiket: "KİMDEN",
     ad: company.company,
     kisi: birlestir([cover.fromName, cover.fromTitle], " · "),
-    iletisim: [company.phone, cover.fromEmail].map((v) => (v ?? "").trim()).filter(Boolean),
+    // Partner teklifinde ORION kullanıcısının e-posta alanı partner markasına
+    // sızmaz; partnerin snapshot e-postası varsa o basılır.
+    iletisim: [company.phone, partner ? company.email : cover.fromEmail]
+      .map((v) => (v ?? "").trim())
+      .filter(Boolean),
   };
   const sag: KunyeTarafi = {
     etiket: "KİME",
@@ -1608,19 +1723,26 @@ function KapakSayfasi({
   return (
     <BrandPage
       bleed
-      docLine={altbilgi(offer, false)}
+      docLine={altbilgi(offer, false, brandName)}
       brandFooter={{ note: birlestir([company.address, company.phone, company.email, company.web], " · ") }}
     >
       <KapakBandi
         offer={offer}
-        kicker={kapakKickeri(payload)}
+        kicker={kapakKickeri(payload, bolumler.some((bolum) => bolum.key !== "teknik"))}
         bolumler={bolumler}
         pageOf={pageOf}
         paylar={paylar}
+        brandLogo={partner ? issuerLogo ?? null : undefined}
+        brandName={brandName}
       />
 
       <View style={[S.kagit, { paddingTop: paylar.kagitUst }]}>
-        <KapakKunyesi sol={sol} sag={sag} musteriLogosu={customerLogo} />
+        <KapakKunyesi
+          sol={sol}
+          sag={sag}
+          musteriLogosu={customerLogo}
+          hazirlayanLogosu={partner ? issuerLogo ?? null : undefined}
+        />
 
         <View style={[S.hitapBlogu, { marginTop: paylar.hitapUst }]}>
           {cover.greeting.trim() ? <Text style={S.hitap}>{cover.greeting}</Text> : null}
@@ -1646,7 +1768,7 @@ function KapakSayfasi({
         </View>
 
         <View style={[S.kapakEsnekBosluk, { minHeight: paylar.boslukEnAz }]} />
-        <FirmaTanitimi paylar={paylar} />
+        <FirmaTanitimi paylar={paylar} company={company} partner={partner} />
       </View>
     </BrandPage>
   );
@@ -2173,7 +2295,7 @@ function romen(n: number): string {
   return t[n] ?? String(n);
 }
 
-/** Belgenin markası — altbilgi satırının ilk parçası. */
+/** ORION seçiliyken altbilgi satırının ilk parçası. */
 const MARKA_ADI = "ORION CRANES";
 
 /**
@@ -2189,9 +2311,13 @@ const MARKA_ADI = "ORION CRANES";
  * başlığıdır ve altbilgide tekrarı, aynı sözü aynı yaprakta iki kez söylemek
  * olurdu (hesap raporunun `coverDocLineFor` kuralıyla aynı gerekçe).
  */
-function altbilgi(offer: OfferDocumentProps["offer"], konuVar: boolean): string {
+function altbilgi(
+  offer: OfferDocumentProps["offer"],
+  konuVar: boolean,
+  markaAdi = MARKA_ADI
+): string {
   const konu = offer.subject.trim();
-  const parcalar = [MARKA_ADI, offerDocLine(offer.offerNo, offer.revNo), tarih(offer.issueDate)];
+  const parcalar = [trUpper(markaAdi), offerDocLine(offer.offerNo, offer.revNo), tarih(offer.issueDate)];
   if (konuVar && konu) parcalar.push(trUpper(konu));
   return parcalar.join(" · ");
 }
@@ -2224,11 +2350,33 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
   const testYukuTeknikte =
     testYukuVar(payload) && payload.testLoad.position === "teknik" && items.length > 0;
   const testYukuTicaride = testYukuVar(payload) && !testYukuTeknikte;
+  const partner = payload.issuer.customerId !== null;
+  const brandName = props.company.company || MARKA_ADI;
+  const brandLogo = partner ? props.issuerLogo ?? null : undefined;
+  const watermarkLogo: BrandBandLogo | null | undefined =
+    brandLogo === undefined
+      ? undefined
+      : brandLogo
+        ? { src: brandLogo, ratio: PARTNER_LOGO_RATIO }
+        : null;
   // Sağ sütun ÖDEME bloğudur; o yoksa ticari sayfa tek sütuna döner.
   const sagSutunVar = odemeVar(payload);
-  const docLine = altbilgi(offer, true);
+  const docLine = altbilgi(offer, true, brandName);
   const kunye = sayfaKunyesi(offer);
-  const sartlar = printedGeneralTerms(payload);
+  const sartlar = printedGeneralTerms(payload).map((madde) =>
+    partner
+      ? {
+          ...madde,
+          title: madde.title.replace(/ORION CRANES/gi, brandName),
+          body: madde.body.replace(/ORION CRANES/gi, brandName),
+        }
+      : madde
+  );
+  const teslimVar = payload.terms.rows.some((row) => row.key !== "payment");
+  const sartVeOdemeVar = teslimVar || sagSutunVar;
+  const fiyatVar = payload.pricing.lines.length > 0;
+  const notVar = payload.notes.length > 0;
+  const kapsamDisiVar = payload.exclusions.length > 0;
   // İÇİNDEKİLER BELGENİN KENDİSİNDEN ÇIKAR: hangi bölümlerin BASILDIĞINI
   // aşağıdaki JSX'le aynı koşullar söyler (kalem var mı, şart maddesi kaldı
   // mı). Ayrı bir liste tutulsaydı gizlenen bir bölüm kapakta durmaya devam
@@ -2236,15 +2384,39 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
   // FİYAT TABLOSU KENDİ YAPRAĞINA GEÇER Mİ (bkz. `FIYAT_SATIR_ESIGI`) — ya da
   // ticari sayfa ölçülüp taştığı için oraya SÜRÜLDÜ MÜ (`priceOwnPage`).
   const fiyatAyriYaprakta =
-    props.priceOwnPage === true || payload.pricing.lines.length > FIYAT_SATIR_ESIGI;
-  const bolumler = tocBolumleri(payload, sartlar.length > 0, fiyatAyriYaprakta);
+    fiyatVar && (props.priceOwnPage === true || payload.pricing.lines.length > FIYAT_SATIR_ESIGI);
+  const ticariSayfaVar =
+    sartVeOdemeVar || testYukuTicaride || notVar || kapsamDisiVar || (fiyatVar && !fiyatAyriYaprakta);
+  const ticariEtiketi = sartVeOdemeVar
+    ? OFFER_SECTIONS.ticari
+    : testYukuTicaride
+      ? payload.testLoad.title
+      : fiyatVar && !fiyatAyriYaprakta
+        ? OFFER_SECTIONS.fiyat
+        : notVar
+          ? "Teklif Notları"
+          : "Kapsam Dışı İşler";
+  const ticariKicker = sartVeOdemeVar
+    ? payload.terms.title
+    : testYukuTicaride
+      ? payload.testLoad.title
+      : fiyatVar && !fiyatAyriYaprakta
+        ? OFFER_SECTIONS.fiyat
+        : "TEKLİF EKLERİ";
+  const bolumler = tocBolumleri(
+    payload,
+    sartlar.length > 0,
+    fiyatAyriYaprakta,
+    ticariSayfaVar,
+    ticariEtiketi
+  );
   // `pageOf` bileşene `props` yayılımıyla gider (`KapakSayfasi`).
   const { collect } = props;
 
   return (
     <Document
       title={`Teklif - ${offer.offerNo}`}
-      author="Orion Cranes"
+      author={brandName}
       subject={offer.subject}
       keywords={meta.generatedAt}
     >
@@ -2296,12 +2468,14 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
                 <TestYuku payload={payload} />
               ) : null
             }
+            watermarkLogo={watermarkLogo}
           />
         ));
       })}
 
       {/* TİCARİ SAYFA — şartlar, (sığıyorsa) fiyat, notlar, kapsam dışı işler. */}
-      <BrandPage docLine={docLine} brandFooter={{}}>
+      {ticariSayfaVar ? (
+      <BrandPage docLine={docLine} brandFooter={{}} watermarkLogo={watermarkLogo}>
         <Sonda anchor="bas:ticari" collect={collect} />
         {/* SAYFANIN BAŞLIĞI `terms.title`DIR (md. 16). Devralınan düzende bu
             metin bir blok başlığıydı ("FİYAT, TESLİM VE ÖDEME ŞEKLİ :") ve
@@ -2309,17 +2483,19 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
             duruyordu. Artık metin sayfayı adlandırır, tablo da kendi
             "FİYATLAR" başlığını taşır. */}
         <SayfaBasi
-          kicker={trUpper(payload.terms.title)}
-          baslik={trUpper(OFFER_SECTIONS.ticari)}
+          kicker={trUpper(ticariKicker)}
+          baslik={trUpper(ticariEtiketi)}
           kunye={kunye}
           marka
           buyuk
+          brandLogo={brandLogo}
+          brandName={brandName}
         />
 
         {/* İKİ SÜTUN: solda teslim şartları, sağda ödeme planı ve test yükü.
             Sağ sütun boşsa TEK SÜTUNA dönülür — yarısı boş bir sayfa,
             bölünmüş bir sayfadan daha kötü okunur. */}
-        {sagSutunVar || testYukuTicaride ? (
+        {sartVeOdemeVar || testYukuTicaride ? (sagSutunVar || testYukuTicaride ? (
           <View style={[S.ticariUst, { marginTop: mm(6) }]}>
             <View style={S.ticariSol}>
               <TeslimSartlari payload={payload} />
@@ -2337,41 +2513,48 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
           <View style={{ marginTop: mm(6) }}>
             <TeslimSartlari payload={payload} />
           </View>
-        )}
+        )) : null}
 
         {/* FİYAT TABLOSU KENDİ YAPRAĞINA GEÇTİYSE burada basılmaz. */}
-        {fiyatAyriYaprakta ? null : (
+        {fiyatVar && !fiyatAyriYaprakta ? (
           <FiyatTablosu payload={payload} currency={offer.currency} sik={props.compactPrices} />
-        )}
+        ) : null}
 
         {/* NOTLAR VE KAPSAM DIŞI İŞLER SAYFANIN DİBİNDE, yan yana: ikisi de
             kısa listelerdir ve alt alta durduklarında ticari sayfanın yarısını
             boş bırakıyorlardı. Esnek boşluk onları aşağı iter; mutlak konum
             KULLANILMAZ, uzun bir liste geldiğinde boşluk kendiliğinden kapanır. */}
-        <View style={S.kapakEsnekBosluk} />
-        <View style={S.altSutunlar}>
-          <View style={S.altSutun}>
-            <MetinBlogu baslik="Notlar" satirlar={payload.notes} />
-          </View>
-          <View style={S.altSutun}>
-            <MetinBlogu baslik="Kapsam Dışı İşler" satirlar={payload.exclusions} silik />
-          </View>
-        </View>
+        {notVar || kapsamDisiVar ? (
+          <>
+            <View style={S.kapakEsnekBosluk} />
+            <View style={S.altSutunlar}>
+              <View style={S.altSutun}>
+                <MetinBlogu baslik="Notlar" satirlar={payload.notes} />
+              </View>
+              <View style={S.altSutun}>
+                <MetinBlogu baslik="Kapsam Dışı İşler" satirlar={payload.exclusions} silik />
+              </View>
+            </View>
+          </>
+        ) : null}
         <Sonda anchor="son:ticari" collect={collect} />
       </BrandPage>
+      ) : null}
 
       {/* FİYAT TABLOSU KENDİ YAPRAĞINDA (kullanıcı isteği, 22.08.2026:
           *"eğer 12 satırın üstünde bir fiyat kalemi varsa fiyat tablosu ayrı
           sayfaya geçsin, tablo ikiye bölünmesin"*). */}
       {fiyatAyriYaprakta ? (
-        <BrandPage docLine={docLine} brandFooter={{}}>
+        <BrandPage docLine={docLine} brandFooter={{}} watermarkLogo={watermarkLogo}>
           <Sonda anchor="bas:fiyat" collect={collect} />
           <SayfaBasi
-            kicker={trUpper(payload.terms.title)}
+            kicker={trUpper(OFFER_SECTIONS.fiyat)}
             baslik={FIYAT_BASLIK}
             kunye={kunye}
             marka
             buyuk
+            brandLogo={brandLogo}
+            brandName={brandName}
           />
           <FiyatTablosu payload={payload} currency={offer.currency} kendiYapraginda />
           <Sonda anchor="son:fiyat" collect={collect} />
@@ -2385,6 +2568,9 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
         maddeler={sartlar}
         ustSonda={<Sonda anchor="bas:sartlar" collect={collect} />}
         altSonda={<Sonda anchor="son:sartlar" collect={collect} />}
+        watermarkLogo={watermarkLogo}
+        brandLogo={brandLogo}
+        brandName={brandName}
       />
     </Document>
   );
