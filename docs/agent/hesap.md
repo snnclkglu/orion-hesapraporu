@@ -1195,3 +1195,12 @@ Gerekirse Mühendislik bağlamında kopya açılır; iki revizyon zinciri ve iki
 arşiv birbirinden ayrı kalır. Teklif detayında elektrik projesi, şartname,
 teknik resim takibi ve el kitabı gösterilmez — bunlar alınmış işin teslim
 katmanlarıdır. Hesap raporu ve ondan türeyen ekipman listesi ise ortaktır.
+
+## HESAP-32 — Tambur rulmanı ve yatağı tamburun serbest ucuna göre sayılır.
+
+Kaldırma tamburunu redüktör tarafı taşır; ayrı tambur rulmanı ve yatağı yalnız
+serbest uçtadır. Bu nedenle standart tek tamburlu düzende rulman ve yatak
+**1'er adet**, ortadaki tek redüktörün iki simetrik tamburu sürdüğü çift tambur
+düzeninde **2'şer adet** ekipman listesine girer. Vinç ile yalnız vinç arabası
+raporu arasında bu adet kuralı değişmez. İkiz donanım ise iki bağımsız hazır
+ekipman setidir ve mevcut set çarpanını ayrıca uygular.

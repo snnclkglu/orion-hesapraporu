@@ -529,7 +529,9 @@ function hoistRows(
       brand: textOr(sel.bearingBrand),
       model: textOr(sel.bearingCode),
       spec: `${bearingTypePrefix(sel.bearingType)}C = ${fmt(sel.bearingDynCKn, 1)} kN, C0 = ${fmt(sel.bearingStatC0Kn, 1)} kN`,
-      qty: doubleDrum ? 4 : 2,
+      // Redüktör tarafı tamburu taşır; serbest uçta tambur başına tek rulman
+      // vardır. Çift tamburda iki simetrik tamburun serbest uçları sayılır.
+      qty: doubleDrum ? 2 : 1,
     },
     {
       rowKey: rk("drumBearingHousing"),
@@ -538,7 +540,7 @@ function hoistRows(
       brand: textOr(sel.bearingHousingBrand),
       model: textOr(sel.bearingHousingCode),
       spec: `${textOr(sel.bearingHousingSeries)} · ${textOr(sel.bearingHousingCompatibleBearing)} rulmanı ile uyumlu · Ø${fmt(sel.bearingHousingBoreMm)} mm · A₂ ${fmt(sel.bearingHousingWidthMm)} mm · ${textOr(sel.bearingHousingSeatType)}`,
-      qty: doubleDrum ? 4 : 2,
+      qty: doubleDrum ? 2 : 1,
     },
     {
       rowKey: rk("gearbox"),
