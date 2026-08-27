@@ -57,6 +57,77 @@ export type CustomerLogoOlcumu =
     }
   | { ok: false; error: string };
 
+export interface TechnicalHeaderLogo {
+  png: Buffer;
+  width: number;
+  height: number;
+  ratio: number;
+}
+
+/**
+ * Teknik sayfa başlığı için görünür logoyu SIKI ve SAYDAM hâle getirir.
+ *
+ * Standart 900×240 tuval kapak ve künye yuvalarında logoları aynı eksende
+ * tutar; teknik başlıkta ise görünür sağ kenarın kırmızı kuralla hizalanması
+ * gerekir. Üstelik KARÇEL gibi opak beyaz zeminli bir kaynak, saydam tuvalin
+ * içinde beyaz bir dikdörtgen olarak kalır ve PDF rasterleştiricisi bu geçişi
+ * ince gri bir çerçeve gibi örnekler. Bu türev yalnız teknik başlıkta
+ * kullanılır: beyaza yakın zemini alfaya çevirir ve görünür piksel sınırına
+ * kırpar. Standart logo buffer'ı ve diğer belge yüzeyleri değişmez.
+ */
+export async function prepareCustomerLogoForTechnicalHeader(
+  bytes: Uint8Array
+): Promise<TechnicalHeaderLogo | null> {
+  try {
+    const { data, info } = await sharp(bytes)
+      .toColourspace("srgb")
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    let left = info.width;
+    let top = info.height;
+    let right = -1;
+    let bottom = -1;
+
+    for (let y = 0; y < info.height; y++) {
+      for (let x = 0; x < info.width; x++) {
+        const i = (y * info.width + x) * 4;
+        const r = data[i] ?? 255;
+        const g = data[i + 1] ?? 255;
+        const b = data[i + 2] ?? 255;
+        const alpha = data[i + 3] ?? 0;
+        const beyazdanUzaklik = Math.max(255 - r, 255 - g, 255 - b);
+
+        // Tam beyaz zemin saydamdır; 8–36 arası yumuşak geçiş, küçültmede
+        // yeniden gri bir kıl çizgi üretmeden kenar yumuşatmasını korur.
+        const zeminCarpani = Math.max(0, Math.min(1, (beyazdanUzaklik - 8) / 28));
+        const yeniAlpha = Math.round(alpha * zeminCarpani);
+        data[i + 3] = yeniAlpha;
+        if (yeniAlpha <= 4) continue;
+        left = Math.min(left, x);
+        top = Math.min(top, y);
+        right = Math.max(right, x);
+        bottom = Math.max(bottom, y);
+      }
+    }
+
+    if (right < left || bottom < top) return null;
+    const width = right - left + 1;
+    const height = bottom - top + 1;
+    const png = await sharp(data, {
+      raw: { width: info.width, height: info.height, channels: 4 },
+    })
+      .extract({ left, top, width, height })
+      .png({ palette: false, progressive: false, compressionLevel: 9 })
+      .toBuffer();
+
+    return { png, width, height, ratio: height / width };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Yalnız gerçek DIŞ BOŞLUĞU kırpar.
  *

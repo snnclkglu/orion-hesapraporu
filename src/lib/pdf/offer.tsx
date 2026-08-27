@@ -65,6 +65,7 @@ import {
 } from "@/lib/offers/pdf-layout";
 import { COMPANY_PROFILE, GENERAL_TERMS_TITLE } from "@/lib/offers/registry";
 import { offerScopeSuffix } from "@/lib/offers/types";
+import { prepareCustomerLogoForTechnicalHeader } from "@/lib/customers/logo-image";
 import type {
   OfferItem,
   OfferLeadTimeUnit,
@@ -99,6 +100,8 @@ export interface OfferDocumentProps {
    * markasını, `null` seçili partnerin logosu olmadığını anlatır.
    */
   issuerLogo?: Buffer | null;
+  /** `renderOfferPdf`in hazırladığı, teknik başlığa özel sıkı ve sağ hizalı logo. */
+  issuerTechnicalLogo?: BrandBandLogo | null;
   /** `signaturePath` anahtarlı, özel depodan sunucu tarafından indirilmiş PNG'ler. */
   signatureImages?: Record<string, Buffer>;
   meta: { generatedAt: string };
@@ -571,12 +574,12 @@ const S = StyleSheet.create({
   sayfaKickerKucuk: { ...T.kicker, color: BRAND.red, flexShrink: 1 },
   sayfaTeknikLogo: {
     position: "absolute",
-    top: -8,
+    bottom: -4.5,
     right: 0,
-    width: 110,
-    height: 24,
+    width: 137.5,
+    height: 30,
     alignItems: "flex-end",
-    justifyContent: "center",
+    justifyContent: "flex-end",
   },
   /** Lockup'sız sayfalarda kimlik satırını kapatan KIRMIZI kural. */
   sayfaKurali: { height: 1.5, backgroundColor: BRAND.red, marginTop: 6 },
@@ -871,21 +874,27 @@ function sayfaKunyesi(offer: OfferDocumentProps["offer"]): SayfaKunyesi {
 /** Sayfa başlığındaki kömür lockup'ın genişliği — yüksekliği ~19,5 pt yapar. */
 const SAYFA_LOGO_EN = 160;
 /** Teknik başlıkta akışı büyütmeden sağ üste oturan hazırlayan firma logosu. */
-const TEKNIK_LOGO_EN = 110;
-const TEKNIK_LOGO_BOY = 24;
+const TEKNIK_LOGO_EN = 137.5;
+const TEKNIK_LOGO_BOY = 30;
+/** Standart tuvaldeki 840×180 görünür alanın %25 büyütülmüş fiziksel karşılığı. */
+const TEKNIK_PARTNER_LOGO_EN = 105;
+const TEKNIK_PARTNER_LOGO_BOY = 22.5;
 
-function TeknikBaslikLogosu({ brandLogo }: { brandLogo?: Buffer | null }) {
-  if (brandLogo === null) return null;
-  const src = brandLogo ?? BRAND_LOGO_INK;
-  const ratio = brandLogo ? PARTNER_LOGO_RATIO : LOGO_MONO_RATIO;
+function TeknikBaslikLogosu({ logo }: { logo?: BrandBandLogo | null }) {
+  if (logo === null) return null;
+  const src = logo?.src ?? BRAND_LOGO_INK;
+  const ratio = logo?.ratio ?? LOGO_MONO_RATIO;
+  const partner = logo !== undefined;
+  const maxWidth = partner ? TEKNIK_PARTNER_LOGO_EN : TEKNIK_LOGO_EN;
+  const maxHeight = partner ? TEKNIK_PARTNER_LOGO_BOY : TEKNIK_LOGO_BOY;
   return (
     <View style={S.sayfaTeknikLogo}>
       {/* eslint-disable-next-line jsx-a11y/alt-text */}
       <Image
         src={src}
         style={{
-          width: Math.min(TEKNIK_LOGO_EN, TEKNIK_LOGO_BOY / ratio),
-          height: Math.min(TEKNIK_LOGO_BOY, TEKNIK_LOGO_EN * ratio),
+          width: Math.min(maxWidth, maxHeight / ratio),
+          height: Math.min(maxHeight, maxWidth * ratio),
           objectFit: "contain",
         }}
       />
@@ -918,6 +927,7 @@ function SayfaBasi({
   marka,
   buyuk,
   brandLogo,
+  technicalLogo,
   brandName,
 }: {
   kicker: string;
@@ -929,6 +939,8 @@ function SayfaBasi({
   buyuk?: boolean;
   /** `undefined` = ORION, `null` = logosuz partner, Buffer = partner logosu. */
   brandLogo?: Buffer | null;
+  /** Teknik başlığa özel sıkı logo; görünür sağ kenarı kuralın ucuna oturur. */
+  technicalLogo?: BrandBandLogo | null;
   brandName?: string;
 }) {
   return (
@@ -974,14 +986,14 @@ function SayfaBasi({
         <>
           <View
             style={
-              brandLogo === null
+              technicalLogo === null
                 ? S.sayfaKickerSatiri
                 : [S.sayfaKickerSatiri, { paddingRight: TEKNIK_LOGO_EN + 12 }]
             }
           >
             <View style={S.sayfaKickerCubuguKucuk} />
             <Text style={S.sayfaKickerKucuk}>{kicker}</Text>
-            <TeknikBaslikLogosu brandLogo={brandLogo} />
+            <TeknikBaslikLogosu logo={technicalLogo} />
           </View>
           <View style={S.sayfaKurali} />
         </>
@@ -1114,6 +1126,7 @@ function TeknikSayfa({
   altSonda,
   watermarkLogo,
   brandLogo,
+  technicalLogo,
 }: {
   docLine: string;
   /** Sayfanın büyük başlığı: KALEMİN ADI. */
@@ -1129,6 +1142,7 @@ function TeknikSayfa({
   watermarkLogo?: BrandBandLogo | null;
   /** `undefined` = ORION, `null` = logosuz partner, Buffer = partner logosu. */
   brandLogo?: Buffer | null;
+  technicalLogo?: BrandBandLogo | null;
 }) {
   return (
     <BrandPage docLine={docLine} brandFooter={{}} watermarkLogo={watermarkLogo}>
@@ -1141,7 +1155,13 @@ function TeknikSayfa({
 
           AD OLDUĞU GİBİ BASILIR, büyütülmez: "80T x 12.44m" bir ürün adıdır
           ve birimleri küçük harfle yazılır — `trUpper` onu "12.44M" yapardı. */}
-      <SayfaBasi kicker={kicker} baslik={baslik} kunye={kunye} brandLogo={brandLogo} />
+      <SayfaBasi
+        kicker={kicker}
+        baslik={baslik}
+        kunye={kunye}
+        brandLogo={brandLogo}
+        technicalLogo={technicalLogo}
+      />
 
       <View style={S.sutunlar}>
         <View style={S.sutun}>
@@ -2388,6 +2408,12 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
       : brandLogo
         ? { src: brandLogo, ratio: PARTNER_LOGO_RATIO }
         : null;
+  const technicalLogo: BrandBandLogo | null | undefined =
+    brandLogo === undefined
+      ? undefined
+      : brandLogo === null
+        ? null
+        : props.issuerTechnicalLogo ?? { src: brandLogo, ratio: PARTNER_LOGO_RATIO };
   // Sağ sütun ÖDEME bloğudur; o yoksa ticari sayfa tek sütuna döner.
   const sagSutunVar = odemeVar(payload);
   const docLine = altbilgi(offer, true, brandName);
@@ -2499,6 +2525,7 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
             }
             watermarkLogo={watermarkLogo}
             brandLogo={brandLogo}
+            technicalLogo={technicalLogo}
           />
         ));
       })}
@@ -2628,6 +2655,20 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
  * yeter" sorusunu her değişiklikte yeniden cevaplamak değildir.
  */
 export async function renderOfferPdf(props: OfferDocumentProps): Promise<Buffer> {
+  const hazirlananTeknikLogo = props.issuerLogo
+    ? await prepareCustomerLogoForTechnicalHeader(props.issuerLogo)
+    : null;
+  const documentProps: OfferDocumentProps = {
+    ...props,
+    issuerTechnicalLogo:
+      props.issuerLogo === undefined
+        ? undefined
+        : props.issuerLogo === null
+          ? null
+          : hazirlananTeknikLogo
+            ? { src: hazirlananTeknikLogo.png, ratio: hazirlananTeknikLogo.ratio }
+            : { src: props.issuerLogo, ratio: PARTNER_LOGO_RATIO },
+  };
   const EN_SIK: KapakYogunlugu = 2;
   let coverDensity: KapakYogunlugu = 0;
   let compactPrices = false;
@@ -2636,7 +2677,7 @@ export async function renderOfferPdf(props: OfferDocumentProps): Promise<Buffer>
   // Fiyat tablosu kendi yaprağındaysa ticari sayfada tablo YOKTUR; orada bir
   // taşma satır payından gelmez ve sıkıştırmak hiçbir şeyi kurtarmaz.
   const fiyatTicaride =
-    printedPayload(props.payload).pricing.lines.length <= FIYAT_SATIR_ESIGI;
+    printedPayload(documentProps.payload).pricing.lines.length <= FIYAT_SATIR_ESIGI;
 
   for (;;) {
     const toplanan: Record<string, number> = {};
@@ -2645,7 +2686,7 @@ export async function renderOfferPdf(props: OfferDocumentProps): Promise<Buffer>
     // göstermez (hesap raporunun `renderReportPdf` kuralıyla aynı).
     await renderToBuffer(
       <OfferDocument
-        {...props}
+        {...documentProps}
         coverDensity={coverDensity}
         compactPrices={compactPrices}
         priceOwnPage={priceOwnPage}
@@ -2662,7 +2703,7 @@ export async function renderOfferPdf(props: OfferDocumentProps): Promise<Buffer>
     // yerleşmiş sayılır ve sonda "1" bildirir. Bir sonraki bölümün nerede
     // AÇILDIĞI ise ölçülen bir olgudur.
     const kapakTasti =
-      !props.payload.cover.hidden && coverDensity < EN_SIK && ilkBolumSayfasi(toplanan) > 2;
+      !documentProps.payload.cover.hidden && coverDensity < EN_SIK && ilkBolumSayfasi(toplanan) > 2;
     if (kapakTasti) {
       coverDensity = (coverDensity + 1) as KapakYogunlugu;
       continue;
@@ -2690,7 +2731,7 @@ export async function renderOfferPdf(props: OfferDocumentProps): Promise<Buffer>
 
   return renderToBuffer(
     <OfferDocument
-      {...props}
+      {...documentProps}
       coverDensity={coverDensity}
       compactPrices={compactPrices}
       priceOwnPage={priceOwnPage}

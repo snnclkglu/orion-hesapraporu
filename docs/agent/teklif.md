@@ -1593,3 +1593,11 @@ Folio sağda sabit ve ayrılmış bir güvenli alandadır; uzun hazırlayan firm
 veya teklif konusu kalan genişlikte ayraçlardan doğal olarak ikinci satıra
 geçer. Bu kural `BrandPage` üzerinden kapak dahil teklifin her fiziksel
 yaprağında uygulanır; hiçbir metin sayfa numarasının alanına giremez.
+
+Kullanıcı kararı (27.08.2026): teknik başlıktaki partner logosunun **görünür
+gövdesi** önceki ölçüye göre %25 büyür ve görünür sağ kenarı alttaki kırmızı
+kuralın sağ ucuna hizalanır. Standart 900×240 merkezli tuval kapak ve diğer
+marka yüzeylerinde korunur; teknik başlık için ondan ayrı, sıkı bir türev
+üretilir. Opak beyaz zeminli logolarda (KARÇEL) beyaza yakın zemin bu türevde
+saydama çevrilip görünür sınıra kırpılır; böylece PDF rasterleştiricisinin
+beyaz dikdörtgen kenarında ürettiği gri saç çizgisi basılmaz.

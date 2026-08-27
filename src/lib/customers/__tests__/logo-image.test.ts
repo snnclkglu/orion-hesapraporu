@@ -6,7 +6,11 @@
 
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { CUSTOMER_LOGO_CANVAS, normalizeCustomerLogo } from "../logo-image";
+import {
+  CUSTOMER_LOGO_CANVAS,
+  normalizeCustomerLogo,
+  prepareCustomerLogoForTechnicalHeader,
+} from "../logo-image";
 
 /** Saydam zeminli, iki renkli küçük bir logo taslağı. */
 function tuval(width: number, height: number) {
@@ -102,6 +106,51 @@ describe("normalizeCustomerLogo", () => {
     if (!sonuc.ok) return;
     const meta = await sharp(sonuc.png).metadata();
     expect(meta.channels).toBe(4);
+  });
+
+  it("teknik başlıkta opak beyaz zemini ve dikdörtgen kenarını kaldırır", async () => {
+    // İçerik sağ ve sol kenara değdiği için normal kırpma beyaz dikdörtgeni
+    // bütünüyle atamaz — KARÇEL kaynağının ölçülebilir karşılığıdır.
+    const kaynak = await sharp({
+      create: { width: 800, height: 477, channels: 3, background: "#ffffff" },
+    })
+      .composite([
+        {
+          input: { create: { width: 80, height: 120, channels: 3, background: "#153b6f" } },
+          left: 0,
+          top: 178,
+        },
+        {
+          input: { create: { width: 80, height: 120, channels: 3, background: "#153b6f" } },
+          left: 720,
+          top: 178,
+        },
+      ])
+      .png()
+      .toBuffer();
+    const standart = await normalizeCustomerLogo(kaynak);
+    expect(standart.ok).toBe(true);
+    if (!standart.ok) return;
+
+    const teknik = await prepareCustomerLogoForTechnicalHeader(standart.png);
+    expect(teknik).not.toBeNull();
+    if (!teknik) return;
+    expect(teknik.width).toBeLessThan(CUSTOMER_LOGO_CANVAS.width);
+    expect(teknik.height).toBeLessThan(CUSTOMER_LOGO_CANVAS.height);
+
+    const { data } = await sharp(teknik.png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    let opakBeyaz = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (
+        (data[i + 3] ?? 0) > 4 &&
+        (data[i] ?? 0) >= 247 &&
+        (data[i + 1] ?? 0) >= 247 &&
+        (data[i + 2] ?? 0) >= 247
+      ) {
+        opakBeyaz += 1;
+      }
+    }
+    expect(opakBeyaz).toBe(0);
   });
 
   it("16 BİTLİK PNG 8 bite iner (react-pdf çözücüsü 16 biti kaldırmaz)", async () => {
