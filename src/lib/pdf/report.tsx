@@ -226,6 +226,10 @@ function docLineFor(revision: ReportRevision): string {
   return `ORION CRANES · ${coverDocLineFor(revision)}`;
 }
 
+/** Kapak hariç hesap raporu yapraklarında tek satır tekrarlanan belge uyarısı. */
+export const REPORT_FOOTER_NOTICE =
+  "ORION CRANES MÜLKİYETİDİR · GİZLİDİR · İZİNSİZ KOPYALANAMAZ VE ÜÇÜNCÜ KİŞİLERLE PAYLAŞILAMAZ.";
+
 /**
  * KAPAK altbilgisinin doküman satırı — marka öneki YOKTUR.
  *
@@ -817,6 +821,7 @@ export function FieldTable({
   source,
   labelMono,
   specs,
+  uppercase,
 }: {
   defs: AnyFieldDef[];
   source: object;
@@ -824,6 +829,8 @@ export function FieldTable({
   labelMono?: boolean;
   /** Teknik özelliklere göre değişen etiketleri (kanca/tutucu tipi) çözmek için */
   specs?: TechnicalSpecs;
+  /** Yalnız tablo metnini Türkçe kurallarıyla büyük harfe çevirir; birimler korunur. */
+  uppercase?: boolean;
 }) {
   const rec = source as Record<string, unknown>;
   // HER ZAMAN iki sütun — tek sütunda etiket ile değer sayfanın iki ucuna
@@ -842,11 +849,12 @@ export function FieldTable({
           {col.map((f) => {
             // Madde 30: çap alanlarında değerin başına "Ø" konur (boş değere değil)
             const shown = fieldShownValue(f, rec);
+            const label = fieldLabel(f, specs);
             return (
               <KvRow
                 key={f.key}
-                label={fieldLabel(f, specs)}
-                value={shown}
+                label={uppercase ? label.toLocaleUpperCase("tr-TR") : label}
+                value={uppercase ? shown.toLocaleUpperCase("tr-TR") : shown}
                 unit={toDisplayUnitLabel(f.unit)}
                 labelMono={labelMono}
               />
@@ -1389,6 +1397,7 @@ function TocPage({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
+      footerNotice={REPORT_FOOTER_NOTICE}
       repeatedHeader={(
         <PageHeader
           kicker="ORION CRANES · HESAP RAPORU"
@@ -1647,10 +1656,11 @@ function SummarySection({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
+      footerNotice={REPORT_FOOTER_NOTICE}
       repeatedHeader={(
         <PageHeader
           kicker="ORION CRANES · ÖZET"
-          title="Özet Hesap Raporu"
+          title="ÖZET HESAP RAPORU"
           logo={customerLogo(reportBrand?.logo)}
           fixed
         />
@@ -1660,9 +1670,14 @@ function SummarySection({
 
       <View id={anchorFor("specs")}>
         <PageProbe anchor={anchorFor("specs")} collect={collect} />
-        <SectionTag no="01" title="Teknik Özellikler" />
+        <SectionTag no="01" title="TEKNİK ÖZELLİKLER" />
       </View>
-      <FieldTable defs={summarySpecs.defs} source={summarySpecs.source} specs={input.specs} />
+      <FieldTable
+        defs={summarySpecs.defs}
+        source={summarySpecs.source}
+        specs={input.specs}
+        uppercase
+      />
       <SubHead tr="ANA EKİPMAN SEÇİMLERİ" />
       {/* Aynı gerekçe: iki sütunlu ızgara bölünemez, bütün hâlde taşınır. */}
       <View style={s.kvGrid} wrap={false}>
@@ -1790,6 +1805,7 @@ function ChecksSummarySection({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
+      footerNotice={REPORT_FOOTER_NOTICE}
       repeatedHeader={(
         <PageHeader
           kicker="ORION CRANES · KONTROLLER"
@@ -2193,6 +2209,7 @@ function SourcesSection({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
+      footerNotice={REPORT_FOOTER_NOTICE}
       repeatedHeader={(
         <PageHeader
           kicker="EK"
@@ -2277,6 +2294,7 @@ function ModulePage({
     <BrandPage
       docLine={docLineFor(revision)}
       docCode={docCodeFor(project, revision)}
+      footerNotice={REPORT_FOOTER_NOTICE}
       repeatedHeader={(
         <PageHeader
           kicker={`BÖLÜM ${no}`}

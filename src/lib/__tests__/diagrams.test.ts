@@ -16,9 +16,10 @@ import { drumDiagram } from "@/lib/diagrams/drum";
 import { deflectionDiagram } from "@/lib/diagrams/deflection";
 import { girderLoadDiagram } from "@/lib/diagrams/girderLoad";
 import { girderStressDiagram } from "@/lib/diagrams/girderStress";
+import { longitudinalForceDiagram, wheelLoadSideDiagram } from "@/lib/diagrams/wheelLoads";
 import { diagramForSection, diagramsForSection } from "@/lib/diagrams/select";
 import type { Diagram, DiagramEl } from "@/lib/diagrams/model";
-import { V5_TEMPLATE } from "@/lib/calc/defaults";
+import { NEW_WORK_TEMPLATE, V5_TEMPLATE } from "@/lib/calc/defaults";
 import { runCalc } from "@/lib/calc/engine";
 
 const texts = (d: { els: { kind: string }[] }) =>
@@ -245,6 +246,73 @@ describe("diagramForSection", () => {
     expect(t).toMatch(/Mmaks = [\d.,]+ (kNm|Nm)/);
     expect(t).toMatch(/P ≈ [\d.,]+ kg \/ Teker/);
     expect(t).toMatch(/W1 = [\d.,]+ kg/);
+  });
+
+  it("düşey teker yüklerinde raya dik görünüşün altına raya paralel görünüşü ekler", () => {
+    const ds = diagramsForSection("wheelLoads", "10.2", input, result);
+    expect(ds).toHaveLength(2);
+    expect(texts(ds[0])).toContain("RAYLARA DİK GÖRÜNÜŞ");
+    const side = texts(ds[1]);
+    expect(side).toContain("RAYA PARALEL GÖRÜNÜŞ");
+    expect(side).toContain("RAY 1 · YAKIN RAY");
+    expect(side).toContain("RAY 2 · UZAK RAY");
+    for (const code of result.wheelLoads!.values.codes) expect(side).toContain(code);
+  });
+
+  it("raya paralel görünüşte iki rayın her tekerine ayrı yük oku çizer", () => {
+    const d = wheelLoadSideDiagram({
+      codes: ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"],
+      positionsM: [0, 1.1, 2.51, 3.61, 10.21, 11.31, 12.72, 13.82],
+      maxWheelLoadKg: 27_948,
+      minWheelLoadKg: 8_302,
+      designWheelLoadKg: 31_250,
+    });
+    const t = texts(d);
+    expect(t).toContain("1.100");
+    expect(t).toContain("6.600");
+    expect(t).toContain("Dingil Mesafesi = 13.820 mm");
+    expect(t.match(/274,2 kN/g)).toHaveLength(9); // 8 teker + ray özeti
+    expect(t.match(/81,4 kN/g)).toHaveLength(9); // 8 teker + ray özeti
+    expect(d.els.filter((e) => e.kind === "circle")).toHaveLength(32); // 2 daire × 8 teker × 2 ray
+    assertFits("raya paralel düşey teker yükleri", d);
+  });
+
+  it("boyuna kuvvetleri ray, tahrikli teker teması ve FEM bandıyla açıklar", () => {
+    const d = diagramForSection("wheelLoads", "10.4", input, result)!;
+    const t = texts(d);
+    expect(t).toContain("BOYUNA YATAY KUVVETLER");
+    expect(t).toContain("± Ht/2");
+    expect(t).toContain("± Ht / Tahrikli Teker");
+    expect(t).toContain("Wt/30");
+    expect(t).toContain("Wt/4");
+    expect(t).toContain("Tahrikli/Frenli Teker");
+    assertFits("boyuna yatay kuvvetler", d);
+  });
+
+  it("yeni iş başlangıç şablonunda da boyuna kuvvet şemasını üretir", () => {
+    const newResult = runCalc(NEW_WORK_TEMPLATE);
+    const ds = diagramsForSection("wheelLoads", "10.4", NEW_WORK_TEMPLATE, newResult);
+    expect(ds).toHaveLength(1);
+    expect(texts(ds[0])).toContain("BOYUNA YATAY KUVVETLER");
+  });
+
+  it("boyuna kuvvet şeması sınır dışı atalet değerinde de kırpılmaz", () => {
+    const d = longitudinalForceDiagram({
+      codes: ["A1", "A2", "B1", "B2"],
+      positionsM: [0, 1.5, 10, 11.5],
+      drivenWheels: 2,
+      travelSpeedMs: 0.667,
+      accelerationMs2: 0.15,
+      accelTimeS: 4.45,
+      inertiaForceN: 12_000,
+      drivenWheelLoadN: 160_000,
+      designLongitudinalN: 12_000,
+      longitudinalPerRailN: 6_000,
+      longitudinalPerDrivenWheelN: 6_000,
+      bound: "hesaplanan atalet kuvveti",
+    });
+    expect(texts(d)).toContain("Belirleyen: Hesaplanan Atalet Kuvveti");
+    assertFits("doğrudan boyuna kuvvet", d);
   });
 
   it("gerçek sonuçtan üretilen hiçbir diyagram kırpılmaz", () => {

@@ -231,6 +231,8 @@ export interface PageFrameProps {
   docLine: string;
   /** Altbilgi orta: doküman kodu (`ORC-HR-412-R03`) — opsiyonel */
   docCode?: string;
+  /** Doküman satırının altında tekrarlanan küçük, tek satırlık belge uyarısı. */
+  footerNotice?: string;
   children: React.ReactNode;
   /**
    * Firma künyesi altbilgiye eklenir (ad · adres · telefon · e-posta · web).
@@ -326,6 +328,7 @@ const folioYazisi = ({ pageNumber, totalPages }: { pageNumber: number; totalPage
 export function BrandPage({
   docLine,
   docCode,
+  footerNotice,
   children,
   company,
   hideFooterRule,
@@ -349,7 +352,9 @@ export function BrandPage({
         color: BRAND.ink,
         backgroundColor: BRAND.white,
         paddingTop: bleed || repeatedHeader ? 0 : PAGE.marginTop,
-        paddingBottom: bleed ? 0 : PAGE.marginBottom + 14 + (company ? COMPANY_FOOTER_HEIGHT : 0),
+        paddingBottom: bleed
+          ? 0
+          : PAGE.marginBottom + 14 + (company ? COMPANY_FOOTER_HEIGHT : 0) + (footerNotice ? 8 : 0),
         paddingLeft: bleed ? 0 : PAGE.contentLeft,
         paddingRight: bleed ? 0 : PAGE.marginOuter,
         ...style,
@@ -519,14 +524,34 @@ export function BrandPage({
               borderTopWidth: hideFooterRule ? 0 : 0.75,
               borderTopColor: BRAND.line300,
               paddingTop: 4,
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
             }}
           >
-            <Text style={T.micro}>{docLine}</Text>
-            {docCode ? <Text style={T.micro}>{docCode}</Text> : null}
-            {hidePageNumber ? null : <Text style={T.micro} render={folioYazisi} />}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Text style={T.micro}>{docLine}</Text>
+              {docCode ? <Text style={T.micro}>{docCode}</Text> : null}
+              {hidePageNumber ? null : <Text style={T.micro} render={folioYazisi} />}
+            </View>
+            {footerNotice ? (
+              <Text
+                style={{
+                  fontFamily: FONTS.mono,
+                  fontSize: 4.5,
+                  letterSpacing: 0.12,
+                  color: BRAND.gray450,
+                  marginTop: 1.7,
+                  lineHeight: 1.1,
+                  textAlign: "left",
+                }}
+              >
+                {footerNotice}
+              </Text>
+            ) : null}
           </View>
         )}
       </View>

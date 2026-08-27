@@ -96,6 +96,19 @@ bakmak, seviyenin gerçekten belgeye yansıdığını göstermez. Yerleşim dene
 (`scripts/check-pdf-layout.py`) özet raporda içindekiler ARAMAZ; ayrımı dosya
 adından değil belgenin kendisinden okur (`has_module_sections`).
 
+**HESAP RAPORUNUN HER İÇ YAPRAĞINDA TEK SATIRLIK BELGE UYARISI VARDIR.**
+`BrandPage.footerNotice` ile mevcut altbilgi satırının altında 4,5pt basılır;
+kapakta kesinlikle gösterilmez. Uyarı sabit altbilginin parçasıdır, bu nedenle
+bir hesap bölümü fiziksel olarak devam yaprağına bölündüğünde de kendiliğinden
+tekrarlanır. Metin `REPORT_FOOTER_NOTICE` sabitinden gelir; sayfa türleri kendi
+kopyalarını yazmaz.
+
+**ÖZET HESAP RAPORU / 01 TEKNİK ÖZELLİKLER TABLOSU BÜYÜK HARFTİR.** Etiketler
+ve metinsel değerler `tr-TR` ile dönüştürülür; sayısal değerler ve `kW`, `m/s`,
+`mm` gibi teknik birim simgeleri dönüştürülmez. Bu tercih yalnız hesap raporu
+özetindeki tabloya uygulanır; aynı `FieldTable` bileşenini kullanan başka
+belgelerin tipografisini sessizce değiştirmez.
+
 **Dosya adı tek yerdedir: `pdf/doc-naming.ts`.** Firma kuralı
 **İŞ ADI - DOKÜMAN KODU - VERSİYON**, tamamı BÜYÜK HARF, sonda belgenin
 türü/seviyesi:

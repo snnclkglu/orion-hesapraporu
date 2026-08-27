@@ -1,13 +1,17 @@
-// Teker yükleri şemaları — üç parametrik diyagram:
+// Teker yükleri şemaları — beş parametrik diyagram:
 //
 //   1) wheelLoadElevationDiagram — vincin RAYLARA DİK görünüşü: açıklık,
 //      arabanın yanaşma konumu, iki rayın düşey teker yükleri.
-//   2) skewPlanDiagram — ÜSTTEN görünüş: iki başkiriş, ana kirişler, teker
+//   2) wheelLoadSideDiagram — RAYA PARALEL görünüş: 6.1'de tanımlanan gerçek
+//      teker dizisi ve her tekerin düşey yükü; yakın ve uzak ray ayrı çizilir.
+//   3) skewPlanDiagram — ÜSTTEN görünüş: iki başkiriş, ana kirişler, teker
 //      düzeni, savrulma açısı, anlık kayma kutbu ve teğetsel kuvvetler.
-//   3) loadSummaryDiagram — ÖZET: aynı vinç siluetinde BÜTÜN kuvvet
+//   4) longitudinalForceDiagram — RAYA PARALEL görünüş: hızlanma/frenleme
+//      kuvvetinin ray ve tahrikli teker tabanına dağılımı ile FEM bandı.
+//   5) loadSummaryDiagram — ÖZET: aynı vinç siluetinde BÜTÜN kuvvet
 //      bileşenleri (düşey, enine, kılavuz, boyuna) tek şemada.
 //
-// Üçü de vincin gerçek silüetini çizer (ana kiriş uçlarında daralan gövde,
+// Bu şemalar vincin gerçek silüetini çizer (ana kiriş uçlarında daralan gövde,
 // başkirişler, teker grupları) — teknik resmin okunuşuyla aynı dili konuşur.
 // Teker adedine ve gerçek teker konumlarına göre kendini kurar; kuvvet okları
 // büyüklükle orantılıdır.
@@ -24,6 +28,7 @@ import {
   type Diagram,
   type DiagramEl,
   arrowHead,
+  diagramTitleCase,
   dimH,
   fitDiagram,
   fmtN,
@@ -380,6 +385,402 @@ export function wheelLoadElevationDiagram(p: WheelLoadElevationParams): Diagram 
   dimH(els, xL, xR, yArrow0 + 88, `l = ${mOf(p.spanM)}`, { labelDy: 14 });
 
   return fitDiagram(els, EW, EH);
+}
+
+// ---------------------------------------------------------- Raya paralel görünüş
+
+export interface WheelLoadSideParams {
+  /** 6.1'deki bir ray üzerindeki teker kodları (A1…Ak, B1…Bk). */
+  codes: string[];
+  /** Aynı tekerlerin A1 ekseninden itibaren gerçek konumları [m]. */
+  positionsM: number[];
+  /** Karakteristik maksimum teker yükü [kg]. */
+  maxWheelLoadKg: number;
+  /** Karakteristik minimum teker yükü [kg]. */
+  minWheelLoadKg: number;
+  /** Dinamik katsayı dahil tasarım teker yükü [kg]. */
+  designWheelLoadKg: number;
+}
+
+/**
+ * Vincin RAYA PARALEL görünüşü — her tekerin düşey yükü.
+ *
+ * Raylara dik görünüş yükün iki ray arasındaki dağılımını anlatır; bu ikinci
+ * görünüş aynı yük durumunu ray boyunca açar. 6.1'de girilen gerçek sıra ve
+ * ölçü zinciri korunur. Araba RAY 1'e yanaşmışken o raydaki her teker Pmaks,
+ * karşı raydaki her teker Pmin taşır; Pmaks,d yakın rayın tasarım değeridir.
+ *
+ * İki ray yandan bakışta geometrik olarak üst üste düşeceği için ayrı satırda
+ * çizilir. Böylece her teker kodu kendi yük okuyla birebir eşleşir.
+ */
+export function wheelLoadSideDiagram(p: WheelLoadSideParams): Diagram {
+  const count = Math.max(1, p.codes.length, p.positionsM.length);
+  const codes = Array.from({ length: count }, (_, i) => p.codes[i] ?? `T${i + 1}`);
+  const positions: number[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const raw = p.positionsM[i];
+    const previous = positions[i - 1] ?? 0;
+    positions.push(Number.isFinite(raw) ? Math.max(previous, raw) : previous);
+  }
+
+  // Teknik resimde büyük orta açıklık, küçük boji aralıklarını okunmaz hâle
+  // getirmesin: oranlar korunur fakat tek bir aralık görselde en çok 6 kat
+  // büyür. Alt ölçü zinciri her durumda GERÇEK değerleri yazar.
+  const gaps = positions.slice(1).map((d, i) => Math.max(0, d - positions[i]));
+  const positiveGaps = gaps.filter((g) => g > 0);
+  const minGap = positiveGaps.length > 0 ? Math.min(...positiveGaps) : 1;
+  const visualWeights = gaps.map((g) => Math.min(6, Math.max(1, g / minGap)));
+  const totalWeight = visualWeights.reduce((sum, value) => sum + value, 0);
+  const usableWidth = Math.min(650, Math.max(300, totalWeight * 44));
+  const LEFT = 154;
+  const RIGHT = 34;
+  const PW = Math.max(660, Math.ceil(LEFT + usableWidth + RIGHT));
+  const spare = PW - LEFT - RIGHT - usableWidth;
+  const xFirst = LEFT + spare / 2;
+  const visualScale = totalWeight > 0 ? usableWidth / totalWeight : 0;
+  const xs = [xFirst];
+  for (const weight of visualWeights) xs.push(xs[xs.length - 1] + weight * visualScale);
+  const xLast = xs[xs.length - 1];
+
+  const els: DiagramEl[] = [];
+  els.push(txt(16, 22, "DÜŞEY TEKER YÜKLERİ — RAYA PARALEL GÖRÜNÜŞ", 11, { bold: true }));
+  els.push(
+    txt(
+      16,
+      34,
+      "Araba Ray 1'e En Yakın Konumda · İki Ray Ayrı Gösterilmiştir · Şematik",
+      8,
+      { fill: DCOL.muted }
+    )
+  );
+  els.push(ln(16, 40, PW - 16, 40, DCOL.line, 0.8));
+
+  const drawRail = (
+    yRail: number,
+    railTitle: string,
+    locationNote: string,
+    loadName: string,
+    loadKg: number,
+    color: string,
+    designKg?: number
+  ) => {
+    // Satır kimliği solda ayrı bir şerittedir; çok tekerli düzende yük
+    // etiketleriyle çakışmadan iki rayın hangi durumu anlattığı okunur.
+    els.push(txt(16, yRail - 58, railTitle, 8.5, { fill: color, bold: true }));
+    els.push(txt(16, yRail - 44, locationNote, 7.2, { fill: DCOL.muted }));
+    els.push(
+      txt(16, yRail - 30, `Her Teker: ${loadName} = ${kNofKg(loadKg)}`, 7.5, {
+        fill: color,
+        bold: true,
+      })
+    );
+    if (designKg !== undefined) {
+      els.push(
+        txt(16, yRail - 17, `Tasarım: Pmaks,d = ${kNofKg(designKg)}`, 7.2, {
+          fill: DCOL.muted,
+        })
+      );
+    }
+
+    // Başkiriş, tekerler, ray ve yol kirişi — yandan görünüşte teker dairedir.
+    els.push({
+      kind: "rect",
+      x: xFirst - 24,
+      y: yRail - 43,
+      w: xLast - xFirst + 48,
+      h: 22,
+      fill: DCOL.paper,
+      stroke: DCOL.ink,
+      strokeWidth: 1.2,
+    });
+    els.push(
+      txt((xFirst + xLast) / 2, yRail - 29, "BAŞKİRİŞ", 6.8, {
+        anchor: "middle",
+        fill: DCOL.muted,
+      })
+    );
+    els.push({
+      kind: "rect",
+      x: xFirst - 38,
+      y: yRail,
+      w: xLast - xFirst + 76,
+      h: 6,
+      fill: DCOL.line,
+      stroke: DCOL.ink,
+      strokeWidth: 1,
+    });
+    els.push({
+      kind: "rect",
+      x: xFirst - 46,
+      y: yRail + 6,
+      w: xLast - xFirst + 92,
+      h: 10,
+      fill: DCOL.paper,
+      stroke: DCOL.ink,
+      strokeWidth: 1,
+    });
+
+    for (let i = 0; i < count; i += 1) {
+      const x = xs[i];
+      // Her tekerin üstünde kendi sayısal yükü ve kendi oku vardır. Yükler bu
+      // denge modelinde ray içinde eşit olsa da tekrar kasıtlıdır: okuyucu
+      // teker kodundan yol kirişi üzerindeki tekil kuvvete doğrudan gider.
+      els.push(
+        txt(x, yRail - 64, kNofKg(loadKg), 6.8, {
+          anchor: "middle",
+          fill: color,
+          bold: true,
+          fixed: true,
+        })
+      );
+      els.push(ln(x, yRail - 59, x, yRail - 28, color, 1.5));
+      els.push(arrowHead(x, yRail - 25, "down", color, 7, 2.8));
+      els.push({
+        kind: "circle",
+        cx: x,
+        cy: yRail - 12,
+        r: 12,
+        fill: "#FFFFFF",
+        stroke: DCOL.ink,
+        strokeWidth: 1.3,
+      });
+      els.push({
+        kind: "circle",
+        cx: x,
+        cy: yRail - 12,
+        r: 2.5,
+        fill: DCOL.paper,
+        stroke: DCOL.ink,
+        strokeWidth: 0.8,
+      });
+      els.push(txt(x, yRail - 9, codes[i], 6.2, { anchor: "middle", fixed: true }));
+    }
+  };
+
+  drawRail(
+    130,
+    "RAY 1 · YAKIN RAY",
+    "Araba Bu Raya Yanaşır",
+    "Pmaks",
+    p.maxWheelLoadKg,
+    DCOL.accent,
+    p.designWheelLoadKg
+  );
+  drawRail(
+    238,
+    "RAY 2 · UZAK RAY",
+    "Araba Karşı Uçtadır",
+    "Pmin",
+    p.minWheelLoadKg,
+    DCOL.muted
+  );
+
+  // 6.1'deki ölçü zincirinin aynısı yalnız bir kez basılır; iki rayın
+  // geometrisi eşit olduğundan ikinci kez yazmak bilgi eklemez.
+  const yDim = 274;
+  els.push(txt(16, yDim + 3, "Ölçüler mm · İki Rayda Aynıdır", 7.2, { fill: DCOL.muted }));
+  for (let i = 1; i < count; i += 1) {
+    dimH(els, xs[i - 1], xs[i], yDim, fmtN(gaps[i - 1] * 1000, 0), {
+      size: 6.8,
+      labelDy: -3,
+    });
+  }
+  const wheelbaseM = Math.max(0, positions[count - 1] - positions[0]);
+  dimH(els, xFirst, xLast, yDim + 31, `Dingil Mesafesi = ${mmOf(wheelbaseM * 1000)}`, {
+    size: 7.5,
+    labelDy: 12,
+  });
+  els.push(
+    txt(
+      16,
+      337,
+      `${count} Teker / Ray · A: Ön Köşe · B: Arka Köşe · Oklar Teker Başına Karakteristik Düşey Yüktür`,
+      7.5,
+      { fill: DCOL.muted }
+    )
+  );
+
+  return fitDiagram(els, PW, 350);
+}
+
+// ------------------------------------------------------------- Boyuna kuvvetler
+
+export interface LongitudinalForceParams {
+  /** 6.1'de tanımlanan bir ray üzerindeki gerçek teker kodları. */
+  codes: string[];
+  /** Tekerlerin A1 ekseninden itibaren konumları [m]. */
+  positionsM: number[];
+  /** Tahrikli/frenli toplam teker adedi; konumları modelde tanımlı değildir. */
+  drivenWheels: number;
+  travelSpeedMs: number;
+  accelerationMs2: number;
+  accelTimeS: number;
+  inertiaForceN: number;
+  drivenWheelLoadN: number;
+  designLongitudinalN: number;
+  longitudinalPerRailN: number;
+  longitudinalPerDrivenWheelN: number;
+  /** Hesap hücresindeki belirleyen sınır açıklaması. */
+  bound: string;
+}
+
+/**
+ * Köprü hızlanma/frenleme kuvvetinin raya paralel aktarım şeması.
+ *
+ * FEM 1.001 Kitapçık 2 md. 2.2.3.1.1'e göre kuvvet tahrikli/frenli
+ * tekerlerin rayla temas tabanında etkir ve bu tekerlerin düşey yükünün
+ * 1/30...1/4 aralığıyla sınırlandırılır. Veri modeli tahrikli teker A/B
+ * kodlarını değil yalnız ADEDİNİ taşıdığı için plandaki hiçbir teker yanlış
+ * biçimde tahrikli diye işaretlenmez; temas ayrıntısı genel bir teker olarak
+ * ayrıca gösterilir.
+ */
+export function longitudinalForceDiagram(p: LongitudinalForceParams): Diagram {
+  const W = 720;
+  const H = 414;
+  const els: DiagramEl[] = [];
+  const count = Math.max(1, p.codes.length, p.positionsM.length);
+  const codes = Array.from({ length: count }, (_, i) => p.codes[i] ?? `T${i + 1}`);
+  const positions: number[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const raw = p.positionsM[i];
+    const previous = positions[i - 1] ?? 0;
+    positions.push(Number.isFinite(raw) ? Math.max(previous, raw) : previous);
+  }
+  const first = positions[0] ?? 0;
+  const range = Math.max(0.001, (positions[count - 1] ?? first) - first);
+  const x1 = 122;
+  const x2 = 652;
+  const xOf = (value: number, i: number) =>
+    range > 0.001 ? x1 + ((value - first) / range) * (x2 - x1) : x1 + (i / Math.max(1, count - 1)) * (x2 - x1);
+  const xs = positions.map(xOf);
+
+  els.push(txt(16, 22, "BOYUNA YATAY KUVVETLER — RAYA PARALEL ETKİ", 11, { bold: true }));
+  els.push(
+    txt(16, 35, "Hızlanma Ve Frenleme · Tahrikli Teker–Ray Temasında · FEM 1.001 §2.2.3.1.1", 8, {
+      fill: DCOL.muted,
+    })
+  );
+  els.push(ln(16, 42, W - 16, 42, DCOL.line, 0.8));
+  els.push(
+    txt(
+      16,
+      57,
+      `v = ${mOf(p.travelSpeedMs, 3)}/s · a = ${fmtN(p.accelerationMs2, 3)} m/s² · t = ${fmtN(p.accelTimeS, 2)} s`,
+      7.8,
+      { fill: DCOL.muted }
+    )
+  );
+
+  const drawRailRow = (yRail: number, title: string) => {
+    els.push({
+      kind: "rect",
+      x: x1 - 22,
+      y: yRail - 43,
+      w: x2 - x1 + 44,
+      h: 17,
+      fill: DCOL.paper,
+      stroke: DCOL.ink,
+      strokeWidth: 1.1,
+    });
+    els.push(
+      txt((x1 + x2) / 2, yRail - 31.5, title, 7.1, {
+        anchor: "middle",
+        fill: DCOL.muted,
+        bold: true,
+        fixed: true,
+      })
+    );
+    els.push({
+      kind: "rect",
+      x: x1 - 34,
+      y: yRail,
+      w: x2 - x1 + 68,
+      h: 6,
+      fill: DCOL.line,
+      stroke: DCOL.ink,
+      strokeWidth: 1,
+    });
+    for (let i = 0; i < count; i += 1) {
+      const x = xs[i];
+      els.push({ kind: "circle", cx: x, cy: yRail - 14, r: 11, fill: "#FFFFFF", stroke: DCOL.ink, strokeWidth: 1.2 });
+      els.push({ kind: "circle", cx: x, cy: yRail - 14, r: 2.3, fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 0.7 });
+      els.push(txt(x, yRail - 11.8, codes[i], 5.8, { anchor: "middle", fixed: true }));
+    }
+    const yForce = yRail + 22;
+    els.push(ln(x1 + 18, yForce, x2 - 18, yForce, DCOL.accent, 2));
+    els.push(arrowHead(x1 + 14, yForce, "left", DCOL.accent, 9, 3.4));
+    els.push(arrowHead(x2 - 14, yForce, "right", DCOL.accent, 9, 3.4));
+    els.push(
+      txt((x1 + x2) / 2, yForce - 5, `± Ht/2 = ${kNof(p.longitudinalPerRailN)}`, 8.3, {
+        anchor: "middle",
+        fill: DCOL.accent,
+        bold: true,
+        fixed: true,
+      })
+    );
+  };
+
+  drawRailRow(104, "RAY 1 · YÜRÜME EKSENİ");
+  drawRailRow(184, "RAY 2 · YÜRÜME EKSENİ");
+  els.push(
+    txt(
+      16,
+      224,
+      "Tahrikli Teker Konumları Köprü Yürütme Tahrik Düzenine Göredir; Şemada Teker Adedi Esas Alınmıştır.",
+      7.2,
+      { fill: DCOL.muted }
+    )
+  );
+
+  // Alt sol: kuvvetin tahrikli teker tabanında raya paralel etkidiği temas ayrıntısı.
+  els.push(ln(16, 237, W - 16, 237, DCOL.line, 0.8));
+  els.push(txt(16, 254, "TAHRİKLİ TEKER TEMASI", 8.5, { bold: true }));
+  els.push({ kind: "circle", cx: 148, cy: 314, r: 34, fill: "#FFFFFF", stroke: DCOL.ink, strokeWidth: 1.5 });
+  els.push({ kind: "circle", cx: 148, cy: 314, r: 7, fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1 });
+  els.push({ kind: "rect", x: 56, y: 348, w: 236, h: 7, fill: DCOL.line, stroke: DCOL.ink, strokeWidth: 1 });
+  els.push(ln(76, 340, 220, 340, DCOL.accent, 2.2));
+  els.push(arrowHead(72, 340, "left", DCOL.accent, 9, 3.5));
+  els.push(arrowHead(224, 340, "right", DCOL.accent, 9, 3.5));
+  els.push(
+    txt(148, 331, `± Ht / Tahrikli Teker = ${kNof(p.longitudinalPerDrivenWheelN)}`, 8.3, {
+      anchor: "middle",
+      fill: DCOL.accent,
+      bold: true,
+    })
+  );
+  els.push(
+    txt(148, 370, `Tahrikli/Frenli Teker Adedi = ${fmtN(p.drivenWheels, 0)}`, 7.4, {
+      anchor: "middle",
+      fill: DCOL.muted,
+    })
+  );
+
+  // Alt sağ: standarttaki aktarılabilir kuvvet bandı ve belirleyen değer.
+  const bx = 344;
+  els.push(txt(bx, 254, "FEM AKTARIM BANDI", 8.5, { bold: true }));
+  els.push({ kind: "rect", x: bx, y: 268, w: 360, h: 110, rx: 2, fill: DCOL.paper, stroke: DCOL.line, strokeWidth: 0.8 });
+  els.push(txt(bx + 14, 287, `Alt Sınır · Wt/30 = ${kNof(p.drivenWheelLoadN / 30)}`, 7.7));
+  els.push(txt(bx + 14, 306, `Hesaplanan · H = m·a = ${kNof(p.inertiaForceN)}`, 7.7));
+  els.push(txt(bx + 14, 325, `Üst Sınır · Wt/4 = ${kNof(p.drivenWheelLoadN / 4)}`, 7.7));
+  els.push(ln(bx + 14, 336, bx + 346, 336, DCOL.line, 0.8));
+  els.push(
+    txt(bx + 14, 354, `Tasarım · Ht = ${kNof(p.designLongitudinalN)}`, 8.4, {
+      fill: DCOL.accent,
+      bold: true,
+    })
+  );
+  els.push(
+    txt(bx + 14, 369, `Belirleyen: ${diagramTitleCase(p.bound || "Hesaplanan Atalet Kuvveti")}`, 7.2, {
+      fill: DCOL.muted,
+    })
+  );
+
+  els.push(
+    txt(16, 402, "Oklar Her İki Yürütme Yönündeki Hızlanma Ve Frenleme Durumlarını Birlikte Gösterir.", 7.2, {
+      fill: DCOL.muted,
+    })
+  );
+  return fitDiagram(els, W, H);
 }
 
 // ---------------------------------------------------------------- Üstten görünüş

@@ -10,8 +10,9 @@
 //   kaldırma 2.2.3      → tambur mili yükleme şeması (A…G ölçü zinciri)
 //   kaldırma 2.2.5      → mil kaynağı kesiti (namlu · yanak · göbek · G kolu)
 //   kanca bloğu 4.4     → kanca bloğu mili (makara sayısına göre dinamik)
-//   teker yükleri 10.2   → önden görünüş (Pmaks / Pmin, teker adedine göre)
+//   teker yükleri 10.2   → raylara dik + raya paralel görünüş (her tekerin yükü)
 //   teker yükleri 10.3   → savrulma plan şeması (kayma kutbu + kuvvet okları)
+//   teker yükleri 10.4   → boyuna hızlanma/frenleme kuvveti ve FEM aktarım bandı
 //   teker yükleri 10.5   → yük özeti (bütün kuvvet bileşenleri iki görünüşte)
 //
 // Dallanma AİLE YÜKLEMLERİYLE yapılır (isHoistKey/isHookBlockKey/isTravelKey);
@@ -88,13 +89,36 @@ import { girderLoadDiagram } from "./girderLoad";
 import { girderStressDiagram } from "./girderStress";
 import {
   loadSummaryDiagram,
+  longitudinalForceDiagram,
   skewPlanDiagram,
   wheelLoadElevationDiagram,
+  wheelLoadSideDiagram,
 } from "./wheelLoads";
 
 /** cells hücresi sayı ise değeri, değilse NaN — diyagram girdilerini korur. */
 const numOf = (v: number | string | undefined): number =>
   typeof v === "number" ? v : NaN;
+
+/** 10.4 boyuna kuvvet şemasının tek kurulum noktası (web + PDF). */
+function longitudinalDiagramForSection(input: CalcInput, result: CalcResult): Diagram | null {
+  const v = result.wheelLoads?.values;
+  if (!input.wheelLoads || !v) return null;
+  const cells = result.wheelLoads?.cells ?? {};
+  return longitudinalForceDiagram({
+    codes: v.codes,
+    positionsM: v.positionsM,
+    drivenWheels: numOf(cells["longitudinal.drivenWheels"]),
+    travelSpeedMs: v.travelSpeedMs,
+    accelerationMs2: input.bridge?.inputs.accelerationMs2 ?? 0,
+    accelTimeS: v.accelTimeS,
+    inertiaForceN: v.inertiaForceN,
+    drivenWheelLoadN: v.drivenWheelLoadN,
+    designLongitudinalN: v.designLongitudinalN,
+    longitudinalPerRailN: v.longitudinalPerRailN,
+    longitudinalPerDrivenWheelN: v.longitudinalPerDrivenWheelN,
+    bound: String(cells["longitudinal.bound"] ?? ""),
+  });
+}
 
 /**
  * Ana kiriş takımı mı? Dört kirişli köprüde İKİ takım vardır (`girder`,
@@ -317,6 +341,9 @@ export function diagramForSection(
           guideMeans: st.selections.guideMeans,
           applicable: v.skewApplicable,
         });
+      }
+      if (rawSectionId === "10.4") {
+        return longitudinalDiagramForSection(input, result);
       }
       if (rawSectionId === "10.5") {
         return loadSummaryDiagram({
@@ -843,6 +870,23 @@ export function diagramsForSection(
     if (moduleKey === "buckling") return bucklingDiagrams(rawSectionId, input, result);
     if (isHookBlockKey(moduleKey as ModuleKey) && rawSectionId === "4.6") {
       return liftingBeamDiagrams(moduleKey as HookBlockKey, input, result);
+    }
+    if (moduleKey === "wheelLoads" && rawSectionId === "10.2") {
+      const elevation = diagramForSection(moduleKey, rawSectionId, input, result);
+      const v = result.wheelLoads?.values;
+      if (!v) return elevation ? [elevation] : [];
+      const side = wheelLoadSideDiagram({
+        codes: v.codes,
+        positionsM: v.positionsM,
+        maxWheelLoadKg: v.maxWheelLoadKg,
+        minWheelLoadKg: v.minWheelLoadKg,
+        designWheelLoadKg: v.designWheelLoadKg,
+      });
+      return elevation ? [elevation, side] : [side];
+    }
+    if (moduleKey === "wheelLoads" && rawSectionId === "10.4") {
+      const longitudinal = longitudinalDiagramForSection(input, result);
+      return longitudinal ? [longitudinal] : [];
     }
   } catch {
     // Diyagram hiçbir zaman hesabı/raporu düşürmez

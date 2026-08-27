@@ -188,6 +188,29 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
     expect(ozet.squeezed).not.toContain("TASARIMHESAPRAPORU");
   }, 300_000);
 
+  it("özet teknik özellik tablosunu Türkçe büyük harfle, birimleri bozmadan basar", async () => {
+    const ozet = await pagesOf(await atLevel("ozet"));
+    const summaryPage = ozet.pages.find((page) =>
+      page.replace(/\s+/g, "").includes("ÖZETHESAPRAPORU")
+    );
+
+    expect(summaryPage).toBeDefined();
+    expect(summaryPage).toContain("KALDIRMA KAPASİTESİ");
+    expect(summaryPage).not.toContain("Kaldırma Kapasitesi");
+    expect(summaryPage).toContain("m/dak");
+  }, 300_000);
+
+  it("mülkiyet ve gizlilik satırını kapakta değil bütün iç sayfalarda tekrarlar", async () => {
+    for (const level of ["ozet", "standart", "detayli"] as const) {
+      const { pages } = await pagesOf(await atLevel(level));
+      const notice = "ORION CRANES MÜLKİYETİDİR";
+      expect(pages[0], `${level}: kapak`).not.toContain(notice);
+      for (let page = 1; page < pages.length; page += 1) {
+        expect(pages[page], `${level}: ${page + 1}. sayfa`).toContain(notice);
+      }
+    }
+  }, 300_000);
+
   it("uzun hesap bölümlerinin anteti devam sayfalarında da tekrarlanır", async () => {
     const detayli = await pagesOf(await atLevel("detayli"));
     const mainHeaderPages = detayli.pages.filter((page) =>

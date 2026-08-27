@@ -66,6 +66,20 @@ export function WheelSpacingEditor({
   };
 
   const wheelbase = spacings.reduce((a, b) => a + b, 0);
+  const positions = spacings.reduce<number[]>(
+    (all, gap) => [...all, all[all.length - 1] + gap],
+    [0]
+  );
+  // Masaüstü şemasında ilk–son teker ekseni kullanılabilir alanın tam %80'ini
+  // kaplar. Ara tekerler gerçek kümülatif ölçülerine göre yerleşir; toplam
+  // mesafe sıfırsa şema çökmek yerine tekerleri eşit aralıklı gösterir.
+  const positionPcts = positions.map((position, index) =>
+    wheelbase > 0
+      ? (position / wheelbase) * 100
+      : codes.length > 1
+        ? (index / (codes.length - 1)) * 100
+        : 50
+  );
 
   // Mobil liste ile grafik yerleşim AYNI ANDA DOM'dadır (biri CSS ile
   // gizlidir); id'ler yinelenmesin diye düzen öneki taşır.
@@ -148,54 +162,72 @@ export function WheelSpacingEditor({
         ))}
       </div>
 
-      {/* GRAFİK YERLEŞİM — `sm:` ve üstünde aynen korunur. */}
+      {/*
+        GRAFİK YERLEŞİM — `sm:` ve üstü.
+
+        İlk ve son teker ekseni, kartın ortasındaki %80 genişlikli şemanın iki
+        ucudur. Sabit piksel sütunlar kullanılmaz: ara tekerin konumu 6.1'deki
+        gerçek kümülatif mesafenin toplam dingil mesafesine oranıdır.
+      */}
       <div className="hidden border bg-card/40 sm:block">
-        <div className="oc-scrollx overflow-x-auto overscroll-x-contain p-4">
-          <div className="min-w-max">
-            {/* Yürüme yönü */}
+        <div className="py-4">
+          {/* Toplam dingil mesafesi kart genişliğinin %80'i; mx-auto ortalar. */}
+          <div className="mx-auto w-4/5">
             <div className="mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
               <span>yürüme yönü</span>
-              <span aria-hidden className="font-mono">
-                →
-              </span>
+              <span aria-hidden className="font-mono">→</span>
             </div>
 
-            {/* Teker sırası + aralarındaki ölçü kutuları */}
-            <div className="flex items-end">
-              {codes.map((code, i) => (
-                <div key={code} className="flex items-end">
-                  <div className="flex w-16 flex-col items-center gap-1">
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-full border-2 bg-background font-mono text-[11px] font-semibold",
-                        i < perCorner
-                          ? "border-primary/60 text-primary"
-                          : "border-foreground/50 text-foreground"
-                      )}
-                    >
-                      {code}
-                    </div>
-                    {/* Ray ekseni tiki */}
-                    <div className="h-3 w-px bg-foreground/40" />
+            <div className="relative h-28">
+              {/* Ölçü kutuları, ait oldukları iki teker ekseninin tam ortası. */}
+              {spacings.map((_, i) => {
+                const left = (positionPcts[i] + positionPcts[i + 1]) / 2;
+                const gapPct = Math.max(0, positionPcts[i + 1] - positionPcts[i]);
+                return (
+                  <div
+                    key={`gap-${i}`}
+                    className="absolute top-0 flex -translate-x-1/2 flex-col items-center gap-1"
+                    style={{
+                      left: `${left}%`,
+                      // Geniş aralıkta eski 96px sınırı korunur; dar aralıkta
+                      // kutu 56px'in altına düşmez ve yazılabilir kalır.
+                      width: `clamp(3.5rem, calc(${gapPct}% - 0.5rem), 6rem)`,
+                    }}
+                  >
+                    <label className="sr-only" htmlFor={gapId("d", i)}>
+                      {codes[i]} – {codes[i + 1]} mesafesi
+                    </label>
+                    {gapInput(i, "d", "w-full")}
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {codes[i]}–{codes[i + 1]}
+                    </span>
                   </div>
-                  {i < codes.length - 1 && (
-                    <div className="flex w-28 flex-col items-center gap-1 pb-4">
-                      <label className="sr-only" htmlFor={gapId("d", i)}>
-                        {code} – {codes[i + 1]} mesafesi
-                      </label>
-                      {gapInput(i, "d", "w-24")}
-                      {/* Hangi kutuya ne yazıldığını söyleyen TEK işaret. */}
-                      <span className="font-mono text-[11px] text-muted-foreground">
-                        {code}–{codes[i + 1]}
-                      </span>
-                    </div>
-                  )}
+                );
+              })}
+
+              {/* Rayın iki ucu ilk ve son teker eksenidir. */}
+              <div className="absolute inset-x-0 bottom-1 h-px bg-foreground/50" />
+
+              {codes.map((code, i) => (
+                <div
+                  key={code}
+                  className="absolute top-[3.75rem] flex -translate-x-1/2 flex-col items-center gap-1"
+                  style={{ left: `${positionPcts[i]}%` }}
+                >
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full border-2 bg-background font-mono text-[11px] font-semibold",
+                      i < perCorner
+                        ? "border-primary/60 text-primary"
+                        : "border-foreground/50 text-foreground"
+                    )}
+                  >
+                    {code}
+                  </div>
+                  <div className="h-3 w-px bg-foreground/40" />
                 </div>
               ))}
             </div>
-
-            {/* Ray çizgisi */}
-            <div className="relative -mt-4 h-px bg-foreground/50" />
           </div>
         </div>
       </div>
