@@ -197,4 +197,5 @@ export const REPORT_LEVEL_LABELS: Record<string, string> = {
   detayli: "Detaylı",
   standart: "Standart",
   ozet: "Özet",
+  teker_yukleri: "Teker Yükleri",
 };

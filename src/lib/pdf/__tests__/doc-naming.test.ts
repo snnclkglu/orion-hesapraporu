@@ -30,6 +30,17 @@ describe("downloadFileName", () => {
     ).toMatch(/ - ÖZET\.pdf$/);
   });
 
+  it("özel teker yükleri dosyasının kapsamı adından anlaşılır", () => {
+    expect(
+      downloadFileName([
+        "Vinç",
+        docCode("HR", "0055", 1),
+        "V1",
+        REPORT_LEVEL_LABELS.teker_yukleri,
+      ])
+    ).toBe("VİNÇ - ORC-HR-0055-R01 - V1 - TEKER YÜKLERİ.pdf");
+  });
+
   it("boş parçalar ada çift ayraç sokmaz", () => {
     expect(downloadFileName(["Vinç", null, "V1", undefined, ""])).toBe("VİNÇ - V1.pdf");
   });

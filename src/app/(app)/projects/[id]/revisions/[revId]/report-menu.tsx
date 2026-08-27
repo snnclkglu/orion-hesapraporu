@@ -1,14 +1,15 @@
 "use client";
 
-// PDF rapor indirme menüsü — rapor seviyesi seçimi (Detaylı / Standart / Özet).
-// Seçilen seviye report route'una ?level= query paramıyla iletilir.
+// PDF rapor indirme menüsü — üç ana seviye + özel Teker Yükleri çıktısı.
+// Seçilen kapsam report route'una ?level= query paramıyla iletilir.
 
-import { ChevronDown, FileText } from "lucide-react";
+import { ChevronDown, FileText, Gauge } from "lucide-react";
 import { PdfDownloadLink } from "@/components/pdf-download-link";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -74,6 +75,22 @@ export function ReportMenu({
             </PdfDownloadLink>
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <PdfDownloadLink
+            href={`${base}?level=teker_yukleri`}
+            shareTitle="Hesap Raporu · Teker Yükleri"
+            className="flex flex-col items-start gap-0.5"
+          >
+            <span className="flex items-center gap-1.5 font-medium">
+              <Gauge className="size-3.5 text-muted-foreground" />
+              Teker Yükleri
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Yalnız kapak ve detaylı teker yükleri hesabı
+            </span>
+          </PdfDownloadLink>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -1,5 +1,5 @@
 // PDF rapor duman testi — V5 şablonu + sahte proje bilgisiyle raporu
-// üç seviyede (detaylı / standart / özet) üretir.
+// üç seviye + özel teker yükleri kapsamında üretir.
 // Çalıştırma: npx tsx scripts/test-pdf.ts [çıktı-dizini]
 // Doğrular: dosya %PDF ile başlar, >20KB (detaylı), sayfa sayılarını raporlar.
 //
@@ -53,7 +53,12 @@ async function main() {
   const input = V5_TEMPLATE;
   const result = runCalc(input);
 
-  const minSizeKb: Record<ReportLevel, number> = { detayli: 20, standart: 20, ozet: 10 };
+  const minSizeKb: Record<ReportLevel, number> = {
+    detayli: 20,
+    standart: 20,
+    ozet: 10,
+    teker_yukleri: 10,
+  };
 
   for (const level of REPORT_LEVELS) {
     const buffer = await renderReportPdf({

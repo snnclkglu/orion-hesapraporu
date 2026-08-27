@@ -116,7 +116,7 @@ export interface ReportRevision {
 }
 
 /**
- * Rapor seviyesi (kullanıcı kararı, 12.08.2026 — seviyeler içerikçe ayrıştı):
+ * Rapor seviyesi / özel çıktı kapsamı:
  * - "ozet": kapak + özet bölümü. İçindekiler, kontrol özeti, Ek (Kaynaklar) ve
  *   gizlilik koşulları YOKTUR — iki sayfalık bir belgede dizin ve ek, gösterdiği
  *   içerikten uzun olurdu.
@@ -125,10 +125,18 @@ export interface ReportRevision {
  *   Kontrol özeti YOKTUR; satır içi kontroller bölümlerinde durur.
  * - "detayli": tam rapor (formül/değer yerine koyma satırları, kontrol özeti ve
  *   gizlilik koşullarının TAM metni dahil) — varsayılan.
+ * - "teker_yukleri": müşteriye hesap öncesinde iletilebilen özel paket. Yalnız
+ *   kapak + Teker Yükleri modülü, formülleri ve şemalarıyla basılır;
+ *   İçindekiler, Özet, Kontrol Özeti ve Ek kesinlikle basılmaz.
  */
-export type ReportLevel = "detayli" | "standart" | "ozet";
+export type ReportLevel = "detayli" | "standart" | "ozet" | "teker_yukleri";
 
-export const REPORT_LEVELS: readonly ReportLevel[] = ["detayli", "standart", "ozet"];
+export const REPORT_LEVELS: readonly ReportLevel[] = [
+  "detayli",
+  "standart",
+  "ozet",
+  "teker_yukleri",
+];
 
 export function isReportLevel(v: unknown): v is ReportLevel {
   return REPORT_LEVELS.includes(v as ReportLevel);
@@ -2501,6 +2509,7 @@ export function ReportDocument(
 ) {
   const { input, result, project, revision, pageOf, collect } = props;
   const level: ReportLevel = props.level ?? "detayli";
+  const wheelLoadsOnly = level === "teker_yukleri";
   const deps = buildModuleDeps(input, result);
   // Esnek modüller: revizyonda olmayan modül (yardımcı kaldırma / kanca bloğu
   // kapalı) rapora girmez; numaralar mevcut modüllere göre yeniden dizilir.
@@ -2510,7 +2519,7 @@ export function ReportDocument(
   const numbers = moduleDisplayNumbers(present);
   return (
     <Document
-      title={`${project.doc_no}-V${revision.rev_no} Hesap Raporu`}
+      title={`${project.doc_no}-V${revision.rev_no} ${wheelLoadsOnly ? "Teker Yükleri" : "Hesap Raporu"}`}
       author={(props.settings ?? DEFAULT_REPORT_SETTINGS).company}
       subject={`${project.customer} — ${project.name}`}
       language="tr"
@@ -2518,7 +2527,7 @@ export function ReportDocument(
       <CoverPage {...props} />
       {/* ÖZET rapor içindekiler taşımaz (kullanıcı kararı): iki sayfalık bir
           belgede dizin, gösterdiği içerikten uzun olurdu. */}
-      {level !== "ozet" && (
+      {level !== "ozet" && !wheelLoadsOnly && (
         <TocPage
           {...props}
           level={level}
@@ -2527,15 +2536,19 @@ export function ReportDocument(
           pageOf={pageOf ?? {}}
         />
       )}
-      <SummarySection {...props} numbers={numbers} collect={collect} />
+      {!wheelLoadsOnly && (
+        <SummarySection {...props} numbers={numbers} collect={collect} />
+      )}
       {level !== "ozet" &&
-        MODULE_ADAPTERS.filter((a) => present(a.key)).map((adapter) => (
+        MODULE_ADAPTERS.filter(
+          (adapter) => present(adapter.key) && (!wheelLoadsOnly || adapter.key === "wheelLoads")
+        ).map((adapter) => (
           <ModulePage
             key={adapter.key}
             adapter={adapter}
             props={props}
             deps={deps}
-            showFormulas={level === "detayli"}
+            showFormulas={level === "detayli" || wheelLoadsOnly}
             moduleNo={numbers[adapter.key] ?? 0}
             collect={collect}
           />
@@ -2555,7 +2568,7 @@ export function ReportDocument(
         />
       )}
       {/* ÖZET raporda Ek (Kaynaklar) ve gizlilik koşulları da yoktur. */}
-      {level !== "ozet" && <SourcesSection {...props} level={level} />}
+      {level !== "ozet" && !wheelLoadsOnly && <SourcesSection {...props} level={level} />}
     </Document>
   );
 }

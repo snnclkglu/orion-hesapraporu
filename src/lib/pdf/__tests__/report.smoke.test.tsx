@@ -14,8 +14,10 @@ import { V5_TEMPLATE } from "@/lib/calc/defaults";
 import { runCalc } from "@/lib/calc/engine";
 import {
   ReportDocument,
+  isReportLevel,
   renderReportPdf,
   summarySpecsForReport,
+  type ReportLevel,
   type ReportProps,
 } from "@/lib/pdf/report";
 
@@ -168,7 +170,7 @@ async function pagesOf(buf: Buffer): Promise<{ pages: string[]; all: string; squ
 
 // Her seviye bir kez render edilir (detaylı ~90 sayfa); testler çıktıyı paylaşır.
 const levelBuf = new Map<string, Promise<Buffer>>();
-const atLevel = (level: "detayli" | "standart" | "ozet") => {
+const atLevel = (level: ReportLevel) => {
   let p = levelBuf.get(level);
   if (!p) {
     p = renderToBuffer(<ReportDocument {...props} level={level} />) as Promise<Buffer>;
@@ -178,6 +180,10 @@ const atLevel = (level: "detayli" | "standart" | "ozet") => {
 };
 
 describe("rapor seviyeleri — bölüm kapsamı", () => {
+  it("özel teker yükleri kapsamı geçerli bir rapor seçeneğidir", () => {
+    expect(isReportLevel("teker_yukleri")).toBe(true);
+  });
+
   it("kapak vinç yerini ve tam kaldırma/yük sınıfını gösterir", async () => {
     const ozet = await pagesOf(await atLevel("ozet"));
     expect(ozet.all).toContain("İskenderun Üretim Sahası".toLocaleUpperCase("tr-TR"));
@@ -249,6 +255,28 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
     expect(ozet.squeezed).not.toContain("GİZLİLİKVEKULLANIMKOŞULLARI");
     // Kapak + özet: belge iki sayfadır, dizinden kısa.
     expect(ozet.pages.length).toBeLessThanOrEqual(3);
+  }, 300_000);
+
+  it("teker yükleri çıktısı yalnız kapak ve detaylı teker yükleri bölümünü taşır", async () => {
+    const buffer = await atLevel("teker_yukleri");
+    const outDir = path.join(process.cwd(), ".smoke");
+    fs.mkdirSync(outDir, { recursive: true });
+    fs.writeFileSync(path.join(outDir, "report-wheel-loads.pdf"), buffer);
+    const teker = await pagesOf(buffer);
+
+    expect(teker.pages.length).toBeGreaterThan(1);
+    expect(teker.pages[0]).toContain(props.project.name.toLocaleUpperCase("tr-TR"));
+    for (let page = 1; page < teker.pages.length; page += 1) {
+      expect(teker.pages[page].replace(/\s+/g, ""), `${page + 1}. sayfa`).toContain(
+        "TEKERYÜKLERİ"
+      );
+    }
+    expect(teker.squeezed).toContain("HESAPVEKONTROLLER");
+    expect(teker.squeezed).not.toContain("ÖZETHESAPRAPORU");
+    expect(teker.squeezed).not.toContain("İÇİNDEKİLER");
+    expect(teker.squeezed).not.toContain("KONTROLÖZETİ");
+    expect(teker.squeezed).not.toContain("KAYNAKLARVESTANDARTLAR");
+    expect(teker.squeezed).not.toContain("GİZLİLİKVEKULLANIMKOŞULLARI");
   }, 300_000);
 
   it("standart rapor içindekiler ve Ek taşır, gizlilik metni KISADIR", async () => {

@@ -1,5 +1,5 @@
 // PDF hesap raporu indirme ucu.
-// GET /projects/[id]/revisions/[revId]/report?level=detayli|standart|ozet
+// GET /projects/[id]/revisions/[revId]/report?level=detayli|standart|ozet|teker_yukleri
 //   -> application/pdf (attachment)
 // Auth'lu Supabase istemcisiyle revizyon + proje + hazırlayan profili çekilir,
 // hesap sunucuda yeniden koşturulur ve rapor @react-pdf ile üretilir.
@@ -71,6 +71,9 @@ export async function GET(
     revision.selections as RevisionSelectionsJson
   );
   const result = runCalc(input);
+  if (level === "teker_yukleri" && (!input.wheelLoads || !result.wheelLoads)) {
+    return new Response("Teker Yükleri bölümü bu revizyonda etkin değil", { status: 409 });
+  }
 
   const [reportSettings, coverIdentity] = await Promise.all([
     getReportSettings(supabase),
@@ -105,7 +108,8 @@ export async function GET(
     hiddenDiagrams: hiddenDiagramsFromRevision(revision.inputs as RevisionInputsJson),
   });
 
-  // Dosya adı: İŞ ADI - DOKÜMAN KODU - VERSİYON - SEVİYE (bkz. pdf/doc-naming).
+  // Dosya adı: İŞ ADI - DOKÜMAN KODU - VERSİYON - SEVİYE/ÖZEL KAPSAM
+  // (bkz. pdf/doc-naming).
   // Türkçe karakterli ad: ASCII geri düşüş + RFC 5987 filename*.
   const filename = downloadFileName([
     project.name,

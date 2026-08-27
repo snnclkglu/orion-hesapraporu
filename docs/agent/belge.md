@@ -67,7 +67,7 @@ Marka altyapısı `pdf/brand.tsx`tedir ve TÜM belgeler onu paylaşır:
   belgelere yaymak AYRI bir karardır ve yerleşim denetçilerini birlikte
   götürür.
 
-### Hesap raporunun üç seviyesi
+### Hesap raporunun üç seviyesi ve özel teker yükleri çıktısı
 
 `ReportLevel` yalnız ayrıntı düzeyi değil BÖLÜM KAPSAMI da seçer (kullanıcı
 kararı, 12.08.2026):
@@ -80,6 +80,15 @@ kararı, 12.08.2026):
 | Kontrol Özeti | — | — | ✓ |
 | Ek — Kaynaklar | — | ✓ | ✓ |
 | Gizlilik koşulları | — | KISA | TAM |
+
+**TEKER YÜKLERİ**, bu üç seviyeden birinin yeni adı değildir; müşterinin hesap
+öncesinde yalnız ray yüklerini istediği durumlar için PDF Rapor menüsünün EN
+ALTINDA duran özel bir çıktıdır (`ReportLevel = "teker_yukleri"`). Kapaktan
+sonra yalnız mevcut **Teker Yükleri** modülünü, formülleri ve şemalarıyla basar.
+İçindekiler, Özet Hesap Raporu, diğer hesap modülleri, Kontrol Özeti, Ek —
+Kaynaklar ve Gizlilik/Kullanım Koşulları bu dosyaya girmez. İç yaprakların sabit
+tek satırlık mülkiyet uyarısı korunur; tek bir yaprak ayrı gönderildiğinde belge
+kimliğini kaybetmemelidir. Dosya adının son parçası `TEKER YÜKLERİ.pdf` olur.
 
 **Kontrol Özeti bir DİZİNdir**, bir liste değil: her satırın solunda kontrolün
 dayandığı hesabın SAYFA NUMARASI durur ve o numara tıklanabilir. O hesap yalnız
