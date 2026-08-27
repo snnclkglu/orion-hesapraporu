@@ -21,7 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { fmtMoney0 } from "@/lib/currency";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { fmtOfferDate } from "@/lib/offers/filter";
-import type { OfferCostRecord } from "../cost-data";
+import type { OfferCostListRecord } from "../cost-data";
 import {
   createOfferCostRevision,
   deleteOfferCostRevision,
@@ -42,7 +42,7 @@ export function CostPanel({
 }: {
   offerId: string;
   currency: string;
-  costs: readonly OfferCostRecord[];
+  costs: readonly OfferCostListRecord[];
   /** Teklifin GÜNCEL revizyon numarası — maliyetin geride kalıp kalmadığı. */
   offerRevNo: number | null;
   yonetici: boolean;
@@ -118,8 +118,9 @@ export function CostPanel({
               <TableRow>
                 <TableHead className="w-24">Revizyon</TableHead>
                 <TableHead>Durum</TableHead>
-                <TableHead className="text-right">Proje Maliyeti</TableHead>
+                <TableHead className="text-right">Teklif Tutarı</TableHead>
                 <TableHead className="text-right">Toplam Maliyet</TableHead>
+                <TableHead className="text-right">Kâr</TableHead>
                 <TableHead>Güncellendi</TableHead>
                 <TableHead className="text-right">Belge</TableHead>
               </TableRow>
@@ -135,11 +136,14 @@ export function CostPanel({
                         {revisionStatusLabel(c.status)}
                       </Badge>
                     </TableCell>
-                    <TableCell data-label="Proje Maliyeti" className="text-right font-mono whitespace-nowrap">
-                      {c.direct_amount == null ? "—" : fmtMoney0(Number(c.direct_amount), currency)}
+                    <TableCell data-label="Teklif Tutarı" className="text-right font-mono whitespace-nowrap">
+                      {c.summaryPrice === null ? "—" : fmtMoney0(c.summaryPrice, currency)}
                     </TableCell>
                     <TableCell data-label="Toplam Maliyet" className="text-right font-mono whitespace-nowrap">
-                      {c.total_amount == null ? "—" : fmtMoney0(Number(c.total_amount), currency)}
+                      {c.summaryCost === null ? "—" : fmtMoney0(c.summaryCost, currency)}
+                    </TableCell>
+                    <TableCell data-label="Kâr" className="text-right font-mono whitespace-nowrap">
+                      {c.summaryProfit === null ? "—" : fmtMoney0(c.summaryProfit, currency)}
                     </TableCell>
                     <TableCell data-label="Güncellendi" className="whitespace-nowrap text-muted-foreground">
                       {fmtOfferDate(c.updated_at)}

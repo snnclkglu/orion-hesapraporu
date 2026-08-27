@@ -23,7 +23,7 @@
 //   bir belgenin izi silinemez.
 
 import { useState, useTransition } from "react";
-import { Ban, Copy, MoreHorizontal, RotateCcw, Trash2 } from "lucide-react";
+import { Ban, Copy, MoreHorizontal, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -45,14 +45,16 @@ import { offerStatusOf } from "@/lib/offers/status";
 import { deleteOffer, updateOfferStatus } from "./actions";
 import type { CustomerOption } from "@/app/(app)/jobs/schema";
 import { CopyOfferDialog, type CopyableOffer } from "./copy-offer-dialog";
+import { EditOfferDialog, type EditableOffer } from "./edit-offer-dialog";
 
 export function OfferRowActions({
   offer,
   customers,
 }: {
-  offer: CopyableOffer & { offer_no: string; status: string | null };
+  offer: CopyableOffer & EditableOffer;
   customers: readonly CustomerOption[];
 }) {
+  const [duzenle, setDuzenle] = useState(false);
   const [kopyala, setKopyala] = useState(false);
   const [silme, setSilme] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -95,6 +97,9 @@ export function OfferRowActions({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setDuzenle(true)}>
+            <Pencil className="size-4" /> Düzenle
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setKopyala(true)}>
             <Copy className="size-4" /> Başka Müşteriye Kopyala
           </DropdownMenuItem>
@@ -117,6 +122,10 @@ export function OfferRowActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {duzenle ? (
+        <EditOfferDialog offer={offer} customers={customers} onClose={() => setDuzenle(false)} />
+      ) : null}
 
       {kopyala ? (
         <CopyOfferDialog offer={offer} customers={customers} onClose={() => setKopyala(false)} />

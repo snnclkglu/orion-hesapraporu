@@ -39,13 +39,14 @@ import {
   fmtOfferDate,
   matchesOfferFilters,
   offerFacets,
+  offerListSummary,
   sortOffers,
   type OfferFilterInput,
   type OfferSort,
   type OfferSortKey,
 } from "@/lib/offers/filter";
-import { OFFER_STATUSES, offerStatusHue, offerStatusLabel, offerStatusOf } from "@/lib/offers/status";
-import { takipGorunur, takipYasi } from "@/lib/offers/takip";
+import { OFFER_STATUSES, offerStatusHue, offerStatusLabel } from "@/lib/offers/status";
+import { takipBaslangici, takipGorunur, takipYasi } from "@/lib/offers/takip";
 import { offerRevLabel } from "@/lib/offers/no";
 import type { CustomerOption, OfferListEntry } from "./data";
 import { OfferRowActions } from "./offer-row-actions";
@@ -99,25 +100,7 @@ export function OffersTable({
 
   // ÖZET SÜZÜLMÜŞ SATIRLARDAN çıkar: kullanıcı "ETİ BAKIR" seçtiğinde şeritte
   // o müşterinin rakamlarını görmelidir, firmanın tamamının değil.
-  const ozet = useMemo(() => {
-    const bekleyen = suzulmus.filter((r) => takipGorunur(r.status, r.issuedOn));
-    const gecikmis = bekleyen.filter((r) => takipYasi(r.issuedOn!, bugun).gun >= 14);
-    const kazanilan = suzulmus.filter((r) => offerStatusOf(r.status) === "won");
-    // AVRO SATIRLARI TOPLANIR, karışık para birimi TOPLANMAZ: kuru olmayan bir
-    // tutarı avroya çevirmek uydurma bir sayı üretirdi (Satış Takibi'nin
-    // kuralı). Farklı para birimindeki satırlar ayrıca sayılır.
-    const avro = suzulmus.filter((r) => r.currency === "EUR" && r.latestTotal !== null);
-    const digerPara = suzulmus.filter((r) => r.currency !== "EUR" && r.latestTotal !== null);
-    return {
-      toplam: suzulmus.length,
-      bekleyen: bekleyen.length,
-      gecikmis: gecikmis.length,
-      kazanilan: kazanilan.length,
-      avroTutar: avro.reduce((n, r) => n + (r.latestTotal ?? 0), 0),
-      avroAdet: avro.length,
-      digerPara: digerPara.length,
-    };
-  }, [suzulmus, bugun]);
+  const ozet = useMemo(() => offerListSummary(suzulmus, bugun), [suzulmus, bugun]);
 
   const suzgecVar =
     filtre.q.trim() !== "" ||
@@ -138,23 +121,17 @@ export function OffersTable({
     <div className="grid gap-4">
       {/* ————————————————————————————————————————————— özet şeridi */}
       <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
-        <StatCard label="Teklif" value={fmtNum(ozet.toplam)} hint="Süzgeçten geçen" icon={FileText} responsiveCompact />
+        <StatCard label="Teklif" value={fmtNum(ozet.total)} icon={FileText} responsiveCompact />
         <StatCard
           label="Bekleyen"
-          value={fmtNum(ozet.bekleyen)}
-          hint={ozet.gecikmis > 0 ? `${ozet.gecikmis} tanesi 2 haftadan eski` : "Gönderildi, cevap bekliyor"}
-          icon={ozet.gecikmis > 0 ? BellRing : Send}
+          value={fmtNum(ozet.awaiting)}
+          icon={ozet.delayed > 0 ? BellRing : Send}
           responsiveCompact
         />
-        <StatCard label="Kazanılan" value={fmtNum(ozet.kazanilan)} icon={Trophy} responsiveCompact />
+        <StatCard label="Kazanılan" value={fmtNum(ozet.won)} icon={Trophy} responsiveCompact />
         <StatCard
           label="Toplam (Avro)"
-          value={ozet.avroAdet ? fmtMoney(ozet.avroTutar, "EUR") : "—"}
-          hint={
-            ozet.digerPara > 0
-              ? `${ozet.avroAdet} teklif · ${ozet.digerPara} teklif başka para biriminde`
-              : `${ozet.avroAdet} teklif`
-          }
+          value={ozet.eurCount ? fmtMoney(ozet.eurAmount, "EUR") : "—"}
           icon={FileText}
           responsiveCompact
         />
@@ -401,8 +378,9 @@ function DurumCipi({ status }: { status: string }) {
  * gürültü olurdu.
  */
 function TakipCipi({ row, bugun }: { row: OfferListEntry; bugun: string }) {
-  if (!takipGorunur(row.status, row.issuedOn)) return null;
-  const yas = takipYasi(row.issuedOn!, bugun);
+  const takipTarihi = takipBaslangici(row.status, row.issuedOn, row.issue_date);
+  if (!takipGorunur(row.status, takipTarihi)) return null;
+  const yas = takipYasi(takipTarihi!, bugun);
   return (
     <span
       style={tagStyle(yas.hue)}

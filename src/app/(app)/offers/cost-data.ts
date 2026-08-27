@@ -7,14 +7,21 @@
 // sızardı.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { costModels, costWeights, withCostDefaults } from "@/lib/offers/cost/payload";
 import {
+  costModels,
+  costSteelWeights,
+  costWeights,
+  withCostDefaults,
+} from "@/lib/offers/cost/payload";
+import {
+  costOverview,
   costTotals,
   loadedCostByOfferItem,
   manualCostByPriceLine,
 } from "@/lib/offers/cost/totals";
 import type { CostPayload } from "@/lib/offers/cost/types";
 import { MATERIAL_PRICE_DEFS } from "@/lib/offers/cost/registry";
+import { emptyPayload, withDefaults } from "@/lib/offers/payload";
 
 export interface CostMaterialPriceBook {
   prices: Record<string, number | null>;
@@ -67,6 +74,13 @@ export interface OfferCostFull extends OfferCostRecord {
   payload: CostPayload;
 }
 
+/** Teklif panelinde Özet sayfasıyla aynı üç karar tutarını taşıyan satır. */
+export interface OfferCostListRecord extends OfferCostRecord {
+  summaryPrice: number | null;
+  summaryCost: number | null;
+  summaryProfit: number | null;
+}
+
 const ALANLAR =
   "id, offer_id, rev_no, label, status, direct_amount, total_amount, notes, created_at, updated_at, issued_at";
 
@@ -80,14 +94,47 @@ const ALANLAR =
 export async function loadOfferCosts(
   supabase: SupabaseClient,
   offerId: string
-): Promise<OfferCostRecord[]> {
-  const { data, error } = await supabase
-    .from("offer_cost_revisions")
-    .select(ALANLAR)
-    .eq("offer_id", offerId)
-    .order("rev_no", { ascending: false });
+): Promise<OfferCostListRecord[]> {
+  const [{ data, error }, { data: offerRevision }] = await Promise.all([
+    supabase
+      .from("offer_cost_revisions")
+      .select(`${ALANLAR}, payload`)
+      .eq("offer_id", offerId)
+      .order("rev_no", { ascending: false }),
+    supabase
+      .from("offer_revisions")
+      .select("payload")
+      .eq("offer_id", offerId)
+      .order("rev_no", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
   if (error) return [];
-  return (data ?? []) as OfferCostRecord[];
+  return ((data ?? []) as (OfferCostRecord & { payload: unknown })[]).map((row) => {
+    const payload = withCostDefaults(row.payload);
+    const models = costModels(payload);
+    const totals = costTotals(payload, costWeights(models));
+    const offer = offerRevision
+      ? withDefaults(offerRevision.payload, payload.currency)
+      : emptyPayload(payload.currency);
+    const summary = costOverview(totals, offer, costSteelWeights(models), payload).margin;
+    return {
+      id: row.id,
+      offer_id: row.offer_id,
+      rev_no: row.rev_no,
+      label: row.label,
+      status: row.status,
+      direct_amount: row.direct_amount,
+      total_amount: row.total_amount,
+      notes: row.notes,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      issued_at: row.issued_at,
+      summaryPrice: summary.price,
+      summaryCost: summary.cost,
+      summaryProfit: summary.profit,
+    };
+  });
 }
 
 /** Maliyet revizyonunu BELGE olarak okur — `withCostDefaults` bugüne taşır. */

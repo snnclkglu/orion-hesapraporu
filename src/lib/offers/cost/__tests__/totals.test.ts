@@ -20,6 +20,8 @@ import {
   costMargin,
   costOverview,
   costPerKg,
+  costSummaryBreakdown,
+  costSummaryHeadings,
   costTotals,
   loadedCostByOfferItem,
   manualCostByPriceLine,
@@ -467,6 +469,45 @@ describe("serbest satır maliyeti — kaynak sırası", () => {
     expect(nakliye.headings.loaded).toBe(3500);
     // GİRİLMEMİŞ BAŞLIK UYDURULMAZ (değişmez md. 4): sıfır değil, `null`.
     expect(nakliye.headings.rates.find((x) => x.key === "consumable")?.amount).toBeNull();
+  });
+
+  it("özet alt tabloları serbest satırı ve oranları ekleyip üst toplamla TUTAR", () => {
+    const payload = belge({
+      f2: {
+        total: null,
+        fabrication: 1000,
+        project: 2000,
+        rates: { fixed: 500, consumable: null, finance: null },
+      },
+    });
+    const o = costOverview(t, teklifBelgesi(), {}, payload);
+    const headings = costSummaryHeadings(t, o);
+    const headingsSum = [
+      headings.fabrication,
+      headings.project,
+      ...headings.rates.map((rate) => rate.amount),
+      headings.unclassified,
+    ].reduce<number>((sum, amount) => sum + (amount ?? 0), 0);
+    expect(headingsSum).toBeCloseTo(headings.total as number, 6);
+
+    const breakdown = costSummaryBreakdown(payload, t, o);
+    expect(breakdown.some((row) => row.key === "manual:f2" && row.amount === 3500)).toBe(true);
+    expect(breakdown.some((row) => row.key === "rate:fixed")).toBe(true);
+    expect(breakdown.reduce((sum, row) => sum + row.amount, 0)).toBeCloseTo(
+      o.margin.cost as number,
+      6
+    );
+    expect(breakdown.reduce((sum, row) => sum + (row.share ?? 0), 0)).toBeCloseTo(1, 6);
+  });
+
+  it("tek kutulu serbest maliyet başlık UYDURMADAN ayrı satırda kalır", () => {
+    const payload = belge({
+      f2: { total: 7100, fabrication: null, project: null, rates: {} },
+    });
+    const o = costOverview(t, teklifBelgesi(), {}, payload);
+    const headings = costSummaryHeadings(t, o);
+    expect(headings.unclassified).toBe(7100);
+    expect(headings.total).toBeCloseTo((t.total as number) + 7100, 6);
   });
 
   it("maliyeti HİÇ girilmemiş serbest satır listede DURUR, tutarı boş kalır", () => {

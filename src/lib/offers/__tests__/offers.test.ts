@@ -24,9 +24,11 @@ import {
   EMPTY_OFFER_FILTER,
   matchesOfferFilters,
   offerFacets,
+  offerListSummary,
   sortOffers,
   type OfferListRow,
 } from "../filter";
+import { takipBaslangici, takipYasi } from "../takip";
 import { nextSeq, offerDocLine, offerNo, offerRevLabel, parseOfferNo } from "../no";
 import {
   applyDefaults,
@@ -762,6 +764,46 @@ describe("liste süzgeci", () => {
     expect(matchesOfferFilters(eski, f)).toBe(true);
     expect(matchesOfferFilters(kazanilmis, f)).toBe(false);
     expect(matchesOfferFilters(gonderilmemis, f)).toBe(false);
+  });
+
+  it("GÖNDERİLDİ durumundaki eski kayıtta boş gönderim tarihi teklif tarihine düşer", () => {
+    const habas = satir({
+      issue_date: "2026-08-20",
+      issuedOn: null,
+      status: "sent",
+    });
+    const baslangic = takipBaslangici(habas.status, habas.issuedOn, habas.issue_date);
+    expect(baslangic).toBe("2026-08-20");
+    expect(takipYasi(baslangic!, "2026-08-27").etiket).toBe("7 gün");
+    expect(
+      matchesOfferFilters(habas, {
+        ...EMPTY_OFFER_FILTER,
+        takip: ["bekleyen"],
+        bugun: "2026-08-27",
+      })
+    ).toBe(true);
+  });
+
+  it("İPTAL teklif parasal toplamdan çıkar, kayıt adedinde kalır", () => {
+    const rows = [
+      satir({ id: "won", status: "won", latestTotal: 260_100 }),
+      satir({ id: "cancelled", status: "cancelled", latestTotal: 574_430 }),
+      satir({
+        id: "sent",
+        status: "sent",
+        issue_date: "2026-08-20",
+        issuedOn: null,
+        latestTotal: 70_125,
+      }),
+    ];
+    expect(offerListSummary(rows, "2026-08-27")).toEqual({
+      total: 3,
+      awaiting: 1,
+      delayed: 0,
+      won: 1,
+      eurAmount: 330_225,
+      eurCount: 2,
+    });
   });
 
   it("tutarsız satır sona düşer, sıfır sayılmaz", () => {

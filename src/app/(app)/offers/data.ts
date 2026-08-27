@@ -9,6 +9,7 @@ import type { CustomerContact } from "@/lib/customer-contacts";
 import { withDefaults } from "@/lib/offers/payload";
 import type { OfferListRow } from "@/lib/offers/filter";
 import type { OfferPayload } from "@/lib/offers/types";
+import { takipBaslangici } from "@/lib/offers/takip";
 
 // ————————————————————————————————————————————————————————— liste
 
@@ -83,7 +84,9 @@ export async function loadOfferList(supabase: SupabaseClient): Promise<OfferList
       customerHue: musteri?.color_hue ?? null,
       status: r.status,
       issue_date: r.issue_date,
-      issuedOn: r.issued_on,
+      // Eski kayıtta yalnız durum "Gönderildi" yapılmışsa takip tarihi boş
+      // kalmış olabilir; bu yüzden geçerli başlangıç burada normalize edilir.
+      issuedOn: takipBaslangici(r.status, r.issued_on, r.issue_date),
       currency: r.currency,
       latestTotal: r.latest_total === null ? null : Number(r.latest_total),
       latestRevNo: r.latest_rev_no,

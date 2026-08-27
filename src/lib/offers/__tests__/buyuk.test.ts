@@ -6,7 +6,7 @@
 // anlamını değiştirmemelidir.
 
 import { describe, expect, it } from "vitest";
-import { teknikDegerBuyuk, teknikEtiketBuyuk } from "../buyuk";
+import { teknikDegerBuyuk, teknikEtiketBuyuk, teknikKapasiteDegerBuyuk } from "../buyuk";
 
 describe("teknikEtiketBuyuk", () => {
   it("Türkçe kuralıyla büyütür — 'i' bozulmaz", () => {
@@ -61,5 +61,12 @@ describe("teknikDegerBuyuk", () => {
     expect(teknikDegerBuyuk("")).toBe("");
     expect(teknikDegerBuyuk(null)).toBe("");
     expect(teknikDegerBuyuk("İnvertör  Kontrollü")).toBe("İNVERTÖR  KONTROLLÜ");
+  });
+});
+
+describe("teknikKapasiteDegerBuyuk", () => {
+  it("kapasite birimini de büyük basar — uygulamadaki küçük yazımdan bağımsız", () => {
+    expect(teknikKapasiteDegerBuyuk("15 ton / 5 ton")).toBe("15 TON / 5 TON");
+    expect(teknikKapasiteDegerBuyuk("15 Ton / 5 TON")).toBe("15 TON / 5 TON");
   });
 });

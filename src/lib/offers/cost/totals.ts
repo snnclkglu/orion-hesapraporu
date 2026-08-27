@@ -773,3 +773,86 @@ export function costOverview(
     unallocated: headings?.unallocated ?? 0,
   };
 }
+
+// ————————————————————————————————————————————————————— özet alt tabloları
+
+export interface CostSummaryHeadings {
+  fabrication: number | null;
+  project: number | null;
+  rates: { key: string; title: string; amount: number | null }[];
+  /** Beş başlığa ayrılmadan tek kutudan/fiyat satırından gelen maliyet. */
+  unclassified: number | null;
+  /** Özetin üstündeki TEKLİF VE KÂR bloğuyla aynı toplam. */
+  total: number | null;
+}
+
+/**
+ * ÖZETİN BEŞ ANA BAŞLIĞI — serbest fiyat satırları DAHİL.
+ *
+ * Kırılımı yazılmış serbest satır, kendi imalat/proje/oran başlığına eklenir.
+ * Yalnız tek toplamı yazılmış satır için başlık UYDURULMAZ; ayrı ve açık bir
+ * "DİĞER SATIR MALİYETLERİ" toplamında kalır. Böylece alt tablo hem doğru
+ * kategoriyi korur hem de üstteki toplam maliyetle kuruşu kuruşuna tutar.
+ */
+export function costSummaryHeadings(
+  totals: CostTotals,
+  overview: CostOverview
+): CostSummaryHeadings {
+  const kirilimli = overview.manualLines.filter((line) => line.source === "breakdown");
+  const unclassified = overview.manualLines.filter((line) => line.source !== "breakdown");
+  return {
+    fabrication: toplaSayilar([
+      totals.fabrication,
+      ...kirilimli.map((line) => line.headings.fabrication),
+    ]),
+    project: toplaSayilar([
+      totals.project,
+      ...kirilimli.map((line) => line.headings.project),
+    ]),
+    rates: totals.rates.map((rate) => ({
+      key: rate.key,
+      title: rate.title,
+      amount: toplaSayilar([
+        rate.amount,
+        ...kirilimli.map(
+          (line) => line.headings.rates.find((manual) => manual.key === rate.key)?.amount ?? null
+        ),
+      ]),
+    })),
+    unclassified: toplaSayilar(unclassified.map((line) => line.amount)),
+    total: overview.margin.cost,
+  };
+}
+
+/**
+ * ÖZETİN ANA KALEM KIRILIMI — belge toplamının TAMAMI.
+ *
+ * Eski kırılım yalnız doğrudan maliyet gruplarını sayıyordu; oranlı giderler
+ * ile fiyat tablosundaki serbest satırlar dışarıda kaldığı için satırların
+ * toplamı üstteki toplam maliyetten eksikti. Burada üç küme tek listede
+ * birleşir ve payın tabanı `overview.margin.cost` olur.
+ */
+export function costSummaryBreakdown(
+  payload: CostPayload,
+  totals: CostTotals,
+  overview: CostOverview
+): CostBreakdownRow[] {
+  const rows: Omit<CostBreakdownRow, "share">[] = [
+    ...costBreakdown(payload, totals).map(({ key, title, amount }) => ({ key, title, amount })),
+    ...totals.rates.flatMap((rate) =>
+      rate.amount === null
+        ? []
+        : [{ key: `rate:${rate.key}`, title: rate.title, amount: rate.amount }]
+    ),
+    ...overview.manualLines.flatMap((line) =>
+      line.amount === null
+        ? []
+        : [{ key: `manual:${line.id}`, title: line.description || "FİYAT SATIRI", amount: line.amount }]
+    ),
+  ];
+  const taban = overview.margin.cost;
+  return rows.map((row) => ({
+    ...row,
+    share: taban === null || taban === 0 ? null : row.amount / taban,
+  }));
+}

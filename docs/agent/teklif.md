@@ -1601,3 +1601,41 @@ marka yüzeylerinde korunur; teknik başlık için ondan ayrı, sıkı bir türe
 üretilir. Opak beyaz zeminli logolarda (KARÇEL) beyaza yakın zemin bu türevde
 saydama çevrilip görünür sınıra kırpılır; böylece PDF rasterleştiricisinin
 beyaz dikdörtgen kenarında ürettiği gri saç çizgisi basılmaz.
+
+## TEKLIF-70 — Liste takibi, teklif künyesi ve maliyet özeti aynı karar sayılarını taşır.
+
+Kullanıcı kararı (27.08.2026): iptal edilmiş teklif satırı arşiv ve teklif
+adedinde kalır, **Toplam (Avro)** tutarına girmez. Özet kartlarında sayıların
+altındaki açıklama satırları kaldırılır; başlık ve sayı tek başına yeterlidir.
+
+`Gönderildi` durumundaki teklifin takip başlangıcı `issued_on`dur. Eski bir
+kayıtta bu tarih boşsa `issue_date` kullanılır; böylece yalnız durum seçilerek
+gönderilmiş HABAŞ gibi kayıtlar Bekleyen kartına ve gün/hafta sayacına girer.
+Yeni bir teklif elle `Gönderildi` yapılırken boş `issued_on`, teklif tarihiyle
+veritabanına da yazılır. Açık bir gönderim tarihi hiçbir zaman ezilmez.
+
+Teklif satırının üç nokta menüsünde **Düzenle** bulunur. Pencere müşteri,
+konu, durum ve para birimini değiştirir; teknik özellik/fiyat içeriğini taşıyan
+revizyon gövdesine dokunmaz. Müşteri yine defterden seçilir ve akış içinden
+yeni müşteri açılabilir.
+
+Teklif detayındaki maliyet revizyonu satırı veritabanının yalnız vinç
+kalemlerinden türettiği `direct_amount/total_amount` sütunlarını basmaz. Özet
+sayfasının tek çekirdeği (`costOverview`) üzerinden **Teklif Tutarı, Toplam
+Maliyet ve Kâr** gösterilir; serbest fiyat satırlarının maliyeti de dahildir.
+
+Özet altındaki **BEŞ ANA BAŞLIK** ile **ANA KALEM KIRILIMI**, üstteki TEKLİF VE
+KÂR bloğunun toplamıyla tutar. Kırılımı girilen serbest fiyat satırı ilgili
+imalat/proje/oran başlığına eklenir. Yalnız tek maliyet kutusu kullanılmışsa
+kategori uydurulmaz; **DİĞER SATIR MALİYETLERİ** olarak açıkça gösterilir. Ana
+kalem kırılımı vinç grupları, oranlı giderler ve serbest fiyat satırlarını tek
+listede toplar; payın tabanı toplam maliyettir.
+
+## TEKLIF-71 — Kaldırma kapasitesi PDF'de büyük ve kalın basılır.
+
+Kullanıcı kararı (27.08.2026): teknik özelliklerde `capacity` satırının değeri
+uygulamada hangi harf büyüklüğüyle yazılırsa yazılsın PDF'de Türkçe kuralla
+tamamen büyük basılır (`15 TON / 5 TON`) ve diğer teknik değerlerden daha kalın
+dizilir. Bu yalnız kapasite satırının sunum kuralıdır; payload değiştirilmez.
+Diğer teknik değerlerde `kW`, `mm`, `Hz` gibi anlamı harf büyüklüğüne bağlı
+mühendislik birimlerini koruyan mevcut kural devam eder.

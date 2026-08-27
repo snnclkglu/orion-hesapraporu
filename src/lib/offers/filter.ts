@@ -11,7 +11,7 @@
 
 import { trKatla } from "@/lib/drawings/tr-text";
 import { offerStatusOf } from "./status";
-import { gunFarki, takipGorunur } from "./takip";
+import { gunFarki, takipBaslangici, takipGorunur } from "./takip";
 
 /** Liste satırının süzgeç ve sıralama için gereken çekirdeği. */
 export interface OfferListRow {
@@ -142,8 +142,9 @@ export function matchesOfferFilters(row: OfferListRow, f: OfferFilterInput): boo
   if (f.takip.length > 0) {
     // Takip bandı YALNIZ sayacın göründüğü satırlarda anlamlıdır: sonuçlanmış
     // ya da hiç gönderilmemiş bir teklifte takip edilecek bir şey yoktur.
-    if (!takipGorunur(row.status, row.issuedOn)) return false;
-    const gun = f.bugun && row.issuedOn ? gunFarki(row.issuedOn, f.bugun) : 0;
+    const takipTarihi = takipBaslangici(row.status, row.issuedOn, row.issue_date);
+    if (!takipGorunur(row.status, takipTarihi)) return false;
+    const gun = f.bugun && takipTarihi ? gunFarki(takipTarihi, f.bugun) : 0;
     const esik = Math.min(
       ...TAKIP_BANDS.filter((b) => f.takip.includes(b.key)).map((b) => b.minGun)
     );
@@ -169,6 +170,53 @@ export function matchesOfferFilters(row: OfferListRow, f: OfferFilterInput): boo
     }
   }
   return true;
+}
+
+// ————————————————————————————————————————————————————————— özet şeridi
+
+export interface OfferListSummary {
+  total: number;
+  awaiting: number;
+  delayed: number;
+  won: number;
+  eurAmount: number;
+  eurCount: number;
+}
+
+/**
+ * Liste üstündeki dört kartın TEK hesap noktası.
+ *
+ * İptal kayıt arşivde ve teklif adedinde kalır; parasal toplamdan çıkar. Bir
+ * iptal, firmanın beklenen cirosu değildir. Kaybedilen teklif ise kullanıcı
+ * yalnız iptali dışarıda istediği için mevcut toplam davranışını korur.
+ */
+export function offerListSummary(
+  rows: readonly OfferListRow[],
+  bugun: string
+): OfferListSummary {
+  const bekleyen = rows.filter((r) => {
+    const tarih = takipBaslangici(r.status, r.issuedOn, r.issue_date);
+    return takipGorunur(r.status, tarih);
+  });
+  const delayed = bekleyen.filter((r) => {
+    const tarih = takipBaslangici(r.status, r.issuedOn, r.issue_date);
+    return tarih ? gunFarki(tarih, bugun) >= 14 : false;
+  });
+  const won = rows.filter((r) => offerStatusOf(r.status) === "won");
+  const eur = rows.filter(
+    (r) =>
+      offerStatusOf(r.status) !== "cancelled" &&
+      r.currency === "EUR" &&
+      r.latestTotal !== null
+  );
+  return {
+    total: rows.length,
+    awaiting: bekleyen.length,
+    delayed: delayed.length,
+    won: won.length,
+    eurAmount: eur.reduce((n, r) => n + (r.latestTotal ?? 0), 0),
+    eurCount: eur.length,
+  };
 }
 
 // ————————————————————————————————————————————————————————— sıralama

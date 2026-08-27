@@ -82,6 +82,18 @@ export function teknikEtiketBuyuk(metin: string | null | undefined): string {
 }
 
 /**
+ * KALDIRMA KAPASİTESİ PDF yazımı — birim de büyük.
+ *
+ * Genel teknik değer kuralı SI birimlerinin harf büyüklüğünü korur; kapasite
+ * satırı için kullanıcı açıkça belge yazımını "15 TON / 5 TON" olarak seçti.
+ * Ayrı yardımcı bu istisnayı yalnız o satırda tutar ve uygulamadaki ham değeri
+ * değiştirmez.
+ */
+export function teknikKapasiteDegerBuyuk(metin: string | null | undefined): string {
+  return trBuyuk(metin ?? "");
+}
+
+/**
  * DEĞER, ÖLÇÜSÜ KORUNARAK BÜYÜR.
  *
  * "GAMAK 22 kW 1500 d/dak, Encoderli" → "GAMAK 22 kW 1500 d/dak, ENCODERLİ".

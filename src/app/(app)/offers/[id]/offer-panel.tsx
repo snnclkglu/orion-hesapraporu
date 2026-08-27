@@ -45,7 +45,7 @@ import { fmtMoney } from "@/lib/currency";
 import { tagStyle } from "@/lib/tags";
 import { offerDocLine, offerRevLabel } from "@/lib/offers/no";
 import { OFFER_STATUSES, offerStatusHue, offerStatusLabel } from "@/lib/offers/status";
-import { takipGorunur, takipYasi } from "@/lib/offers/takip";
+import { takipBaslangici, takipGorunur, takipYasi } from "@/lib/offers/takip";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { fmtOfferDate } from "@/lib/offers/filter";
 import type { OfferRecord, OfferRevisionRecord } from "../data";
@@ -83,8 +83,9 @@ export function OfferPanel({
 
   const defterKaydi = customers.find((c) => c.id === offer.customer_id);
   const guncel = revisions[0];
-  const yas = takipGorunur(offer.status, offer.issued_on)
-    ? takipYasi(offer.issued_on!, bugun)
+  const takipTarihi = takipBaslangici(offer.status, offer.issued_on, offer.issue_date);
+  const yas = takipGorunur(offer.status, takipTarihi)
+    ? takipYasi(takipTarihi!, bugun)
     : null;
 
   function durumDegistir(status: string) {
@@ -179,9 +180,9 @@ export function OfferPanel({
         </Kunye>
         <Kunye etiket="Açılış Tarihi">{fmtOfferDate(offer.issue_date)}</Kunye>
         <Kunye etiket="Gönderim Tarihi">
-          {offer.issued_on ? (
+          {takipTarihi ? (
             <span className="inline-flex items-center gap-1.5">
-              {fmtOfferDate(offer.issued_on)}
+              {fmtOfferDate(takipTarihi)}
               {yas ? (
                 <span
                   style={tagStyle(yas.hue)}

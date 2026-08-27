@@ -79,6 +79,24 @@ export function takipYasi(gonderimIso: string, bugunIso: string): TakipYasi {
 }
 
 /**
+ * TAKİP SAYACININ BAŞLANGICI.
+ *
+ * Normal kaynak `issued_on`dur. Ancak eski kayıtlarda kullanıcı teklifi
+ * listeden yalnız "Gönderildi" durumuna almış ve bu tarih boş kalmıştır.
+ * Böyle bir satır takipten bütünüyle düşmez: teklif tarihi, ilk gönderimin
+ * eldeki en güvenilir karşılığı olarak kullanılır. Yeni durum değişiklikleri
+ * tarihi veritabanına da yazar; bu geri dönüş yalnız eski kayıtların köprüsüdür.
+ */
+export function takipBaslangici(
+  status: string,
+  issuedOn: string | null | undefined,
+  issueDate: string | null | undefined
+): string | null {
+  if (issuedOn) return issuedOn;
+  return status === "sent" && issueDate ? issueDate : null;
+}
+
+/**
  * Sayaç HANGİ TEKLİFLERDE görünür.
  *
  * Yalnız GÖNDERİLMİŞ ve HENÜZ SONUÇLANMAMIŞ tekliflerde. Kazanılmış bir

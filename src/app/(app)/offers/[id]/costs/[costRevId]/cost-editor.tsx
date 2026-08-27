@@ -542,7 +542,12 @@ export function CostEditor({
                 readOnly={readOnly}
                 onChange={(next) => guncelle(() => next)}
               />
-              <KirilimSayfasi payload={payload} models={models} offer={offer} katlama={katlama} />
+              <KirilimSayfasi
+                payload={payload}
+                totals={totals}
+                overview={overview}
+                katlama={katlama}
+              />
             </>
           ) : null}
 

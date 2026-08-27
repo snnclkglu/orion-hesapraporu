@@ -379,9 +379,17 @@ export async function updateOfferDetails(
 
   const { data: onceki } = await supabase
     .from("offers")
-    .select("subject, customer_name, status, currency")
+    .select("subject, customer_name, status, currency, issued_on, issue_date")
     .eq("id", id.data)
     .maybeSingle();
+
+  // Durum listeden elle GÖNDERİLDİ yapıldığında da takip saati başlamalıdır.
+  // Geçmiş tekliflerde kullanıcının beklediği yaş teklif tarihinden çıkar;
+  // açık bir `issued_on` varsa hiçbir zaman üzerine yazılmaz.
+  const ilkGonderim =
+    parsed.data.status === "sent" && !onceki?.issued_on
+      ? ((onceki?.issue_date as string | null) ?? bugun())
+      : null;
 
   const { data: yazilan, error } = await supabase
     .from("offers")
@@ -391,6 +399,7 @@ export async function updateOfferDetails(
       customer_name: customer.name,
       status: parsed.data.status,
       currency: parsed.data.currency,
+      ...(ilkGonderim ? { issued_on: ilkGonderim } : {}),
     })
     .eq("id", id.data)
     .select("id");
@@ -399,7 +408,11 @@ export async function updateOfferDetails(
   // döndürmez, hiçbir satıra dokunmaz.
   if (!yazilan?.length) return { error: "Teklifi düzenleme yetkisi gerekir." };
 
-  await audit(supabase, user.id, "offer.update", { offer_id: id.data, onceki, yeni: parsed.data });
+  await audit(supabase, user.id, "offer.update", {
+    offer_id: id.data,
+    onceki,
+    yeni: { ...parsed.data, ...(ilkGonderim ? { issuedOn: ilkGonderim } : {}) },
+  });
   tazele(id.data);
   return {};
 }
@@ -490,13 +503,18 @@ export async function updateOfferStatus(
 
   const { data: onceki } = await supabase
     .from("offers")
-    .select("status")
+    .select("status, issued_on, issue_date")
     .eq("id", id.data)
     .maybeSingle();
 
+  const ilkGonderim =
+    durum.data === "sent" && !onceki?.issued_on
+      ? ((onceki?.issue_date as string | null) ?? bugun())
+      : null;
+
   const { data: yazilan, error } = await supabase
     .from("offers")
-    .update({ status: durum.data })
+    .update({ status: durum.data, ...(ilkGonderim ? { issued_on: ilkGonderim } : {}) })
     .eq("id", id.data)
     .select("id");
   if (error) return { error: error.message };
@@ -508,6 +526,7 @@ export async function updateOfferStatus(
     offer_id: id.data,
     onceki: onceki?.status ?? null,
     yeni: durum.data,
+    ...(ilkGonderim ? { issued_on: ilkGonderim } : {}),
   });
   tazele(id.data);
   return {};

@@ -41,7 +41,11 @@ import {
   type CompanyInfo,
 } from "@/lib/pdf/brand";
 import { fmtMoney, fmtNum } from "@/lib/currency";
-import { teknikDegerBuyuk, teknikEtiketBuyuk } from "@/lib/offers/buyuk";
+import {
+  teknikDegerBuyuk,
+  teknikEtiketBuyuk,
+  teknikKapasiteDegerBuyuk,
+} from "@/lib/offers/buyuk";
 import { printedGeneralTerms, printedPayload } from "@/lib/offers/payload";
 import {
   discountAmount,
@@ -507,6 +511,8 @@ const S = StyleSheet.create({
     flexBasis: 0,
     marginLeft: ETIKET_ARA,
   },
+  /** Kapasite belge kararını taşıyan ana sayıdır; öteki değerlerden güçlüdür. */
+  ozellikDegerGuclu: { fontWeight: 800 },
 
   // ---- ÇİFT SÜTUN (kullanıcı isteği 18.08.2026, md. 8)
   //
@@ -1077,11 +1083,16 @@ function OzellikSatiri({ row, buyuk }: { row: OfferRow; buyuk?: boolean }) {
      yerinde açıkça `buyuk` verir (TEKLIF-45); genel şart maddeleri ve serbest
      notlar bu yoldan geçmez. */
   const etiket = buyuk ? teknikEtiketBuyuk(row.label) : row.label;
-  const deger = buyuk ? teknikDegerBuyuk(row.value) : row.value;
+  const kapasite = row.key === "capacity";
+  const deger = buyuk
+    ? kapasite
+      ? teknikKapasiteDegerBuyuk(row.value)
+      : teknikDegerBuyuk(row.value)
+    : row.value;
   return (
     <View style={S.ozellikSatiri} wrap={false}>
       <Text style={S.ozellikEtiket}>{etiket}</Text>
-      <Text style={S.ozellikDeger}>
+      <Text style={kapasite ? [S.ozellikDeger, S.ozellikDegerGuclu] : S.ozellikDeger}>
         {deger}
         {kapsam ? <Text style={S.kapsamEki}>{buyuk ? trUpper(kapsam) : kapsam}</Text> : null}
       </Text>
