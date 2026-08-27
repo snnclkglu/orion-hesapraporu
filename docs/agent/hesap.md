@@ -115,6 +115,17 @@ arka köşede `B1…Bk` kodunu taşır; savrulmadaki dᵢ uzaklıkları `A1`
 ekseninden ölçülür. Mesafeler `components/wheel-spacing-editor.tsx`
 görsel düzenleyicisinden yazılır (`AdapterSection.editor`).
 
+**6.2 yeni iş otomatikleri:** kaldırma tahrik sınıfı `HD3`, teker çifti
+düzeni bağımsız sabit/sabit `IFF` ve bağlı teker çifti adedi `p = 0` başlar.
+Kaldırma sınıfı ana kaldırma mekanizma sınıfından türetilir: M1–M5 → HC1,
+M6 → HC2, M7 → HC3, M8 → HC4. Sürünme hızı ana kaldırma hızının %10'udur.
+Tek taraf kılavuz boşluğu köprü teker çapından kademeli gelir: ≤200 → 5 mm,
+≤315 → 7,5 mm, ≤630 → 10 mm, ≤800 → 12,5 mm, üstü → 15 mm. Bu üç
+türetilen alan (`hoistingClass`, `creepSpeedMpm`, `guideClearanceMm`) otomatik
+açılır; anahtar kapatıldığında kullanıcı değeri korunur. Yeni `*Auto`
+anahtarları `revision-load.ts/AUTO_FLAGS` içindedir; eski revizyonun elle
+girilmiş değerini şablon sessizce ezmez.
+
 **Sapma (belgelenmiş):** µ' (yakın rayın yük payı) araba kolundan değil
 DÜŞEY TEKER YÜKLERİNDEN türetilir — köprünün kendi ağırlığı iki raya eşit
 dağıldığından (l−e)/l yük payına eşit değildir. Gerekçe modül başlığında.
@@ -885,6 +896,10 @@ yüksekliği, teker aralıkları ya da 7.2 girdileri değiştiğinde 7.2 onayı 
 açılır. Kancanın en üst konumu kaldırma yüksekliğinden, köprü dingil açıklığı
 6.1 teker aralıkları toplamından, teker basıncını taşıyan sac ise ana kiriş t3
 gövde sacından otomatik türetilir; üçü de anahtarı kapatılarak elle değişebilir.
+Bu onaylar yalnız UYGULAMA iş akışıdır: müşteri hesap raporunda “Kullanıcı
+Ölçü Onayı” hesap satırı, firma onay kontrolü, “Diğer Kontroller” satırı veya
+Kontrol Özeti girdisi olarak basılmaz. Hesap motorundaki engelleyici davranış
+ve editördeki onay düğmesi korunur; süzgeç yalnız `pdf/report.tsx` sunumundadır.
 
 Ana kiriş 7.8'de CMAA 70 §3.5.1 oranları normatif kontrol edilir: `L/h ≤ 25`
 ve web plakaları arası net genişlik için `L/b ≤ 65`. Ekran açıklaması bu

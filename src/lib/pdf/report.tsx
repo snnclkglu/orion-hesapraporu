@@ -228,7 +228,7 @@ function docLineFor(revision: ReportRevision): string {
 
 /** Kapak hariç hesap raporu yapraklarında tek satır tekrarlanan belge uyarısı. */
 export const REPORT_FOOTER_NOTICE =
-  "ORION CRANES MÜLKİYETİDİR · GİZLİDİR · İZİNSİZ KOPYALANAMAZ VE ÜÇÜNCÜ KİŞİLERLE PAYLAŞILAMAZ.";
+  "ORİON VİNÇ SAN. TİC. LTD. ŞTİ. MÜLKİYETİDİR · GİZLİDİR · İZİNSİZ KOPYALANAMAZ VE ÜÇÜNCÜ KİŞİLERLE PAYLAŞILAMAZ.";
 
 /**
  * KAPAK altbilgisinin doküman satırı — marka öneki YOKTUR.
@@ -249,6 +249,19 @@ function docCodeFor(project: ReportProject, revision: ReportRevision): string {
   return docCode("HR", project.doc_no, revision.rev_no);
 }
 
+/**
+ * Ölçü onayı editörde engelleyici bir iş akışı kontrolüdür; müşteri hesap
+ * raporunda hesap sonucu gibi gösterilmez. Motor ve uygulama davranışı aynen
+ * korunur, yalnız PDF sunum katmanı bu kontrolü ve karşılık gelen satırı süzer.
+ */
+function reportCheckVisible(check: AnyCheck): boolean {
+  return !check.id.endsWith(".measurements.confirmed");
+}
+
+function reportCalculationRowVisible(key: string): boolean {
+  return !key.endsWith(".measurementsConfirmed");
+}
+
 // Modül erişimi (girdi durumu / sonuç / sunum bağlamı) ortak katmandan gelir:
 // aynı üçlü hem editörde hem burada kullanılır, çoğaltılmaz.
 
@@ -260,7 +273,8 @@ function sectionChecks(
   if (!mr) return [];
   return section.checkSuffixes
     .map((s) => mr.checks.find((c) => c.id === `${adapter.checkPrefix}${s}`))
-    .filter((c): c is AnyCheck => Boolean(c));
+    .filter((c): c is AnyCheck => Boolean(c))
+    .filter(reportCheckVisible);
 }
 
 /**
@@ -1795,7 +1809,9 @@ function ChecksSummarySection({
   // basılmıyor, dizin basılmayan bir hesaba sayfa numarası veremezdi.
   const hiddenIds = hiddenSectionCheckIds(hidden, input.specs);
   const checksOf = (a: ModuleAdapter): AnyCheck[] =>
-    (moduleResult(result, a.key)?.checks ?? []).filter((c) => !hiddenIds.has(c.id));
+    (moduleResult(result, a.key)?.checks ?? []).filter(
+      (c) => !hiddenIds.has(c.id) && reportCheckVisible(c)
+    );
   const total = MODULE_ADAPTERS.reduce((n, a) => n + checksOf(a).length, 0);
   const failed = MODULE_ADAPTERS.reduce(
     (n, a) => n + checksOf(a).filter((c) => !c.pass).length,
@@ -2407,7 +2423,9 @@ function ModulePage({
           for (const n of sectionTableParts(section.table, ctx)) add(n);
         }
 
-        const visibleRows = section.rows.filter((r) => !r.visible || r.visible(ctx));
+        const visibleRows = section.rows.filter(
+          (r) => reportCalculationRowVisible(r.key) && (!r.visible || r.visible(ctx))
+        );
         if (visibleRows.length > 0) {
           const rowNodes = visibleRows.map((r, i) => (
             <CalcRowLine

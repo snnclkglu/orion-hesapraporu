@@ -31,6 +31,12 @@ Marka altyapısı `pdf/brand.tsx`tedir ve TÜM belgeler onu paylaşır:
   `ORION CRANES · HESAP RAPORU · REV 05 · 2026`tır ve diğer sayfalarda markayı
   taşıyan tek satır odur. Kapakta ise künye hemen üstündedir; önek orada
   düşürülür (`coverDocLineFor`), yoksa aynı ad altbilgide iki kez yazılırdı.
+
+  **HESAP RAPORU GİZLİLİK SATIRI KAPAK HARİÇ HER YAPRAKTADIR.** Çok küçük tek
+  satır uyarı metni sabittir: `ORİON VİNÇ SAN. TİC. LTD. ŞTİ. MÜLKİYETİDİR ·
+  GİZLİDİR · İZİNSİZ KOPYALANAMAZ VE ÜÇÜNCÜ KİŞİLERLE PAYLAŞILAMAZ.` Kapakta
+  basılmaz; tek bir iç sayfa ayrı paylaşılsa da sahiplik ve gizlilik bilgisi
+  sayfanın üzerinde kalır (`REPORT_FOOTER_NOTICE`).
 - **`StripeField`** — kılavuzun 135° ÇAPRAZ ŞERİT ALANI, altı grafik aygıtından
   biri. Kömür bir zemini düz bırakmak yerine dokulandırır; kontrast bilerek çok
   düşüktür (`#2F2E2C` ⟷ `#262626` ≈ 1,05:1) ve üzerindeki metni etkilemez.

@@ -74,6 +74,8 @@ import {
 } from "@/lib/calc/presentation/wheelLoadSections";
 import {
   WHEELLOAD_INPUT_FIELDS,
+  WHEELLOAD_AUTO_FIELDS,
+  WHEELLOAD_AUTO_SELECTION_FIELDS,
   WHEELLOAD_SELECTION_FIELDS,
 } from "@/lib/calc/presentation/wheelLoadFields";
 import {
@@ -123,10 +125,15 @@ import {
 } from "@/lib/calc/presentation/cabinFields";
 import {
   computeWheelLoads,
+  creepSpeedForLiftSpeed,
+  guideClearanceForWheelDiameter,
+  hoistingClassForMechanism,
   normalizeWheelCount,
   resolveWheelSpacings,
   wheelLoadDepsFrom,
   type WheelLoadDeps,
+  type WheelLoadInputs,
+  type WheelLoadSelections,
 } from "@/lib/calc/modules/wheelLoads";
 import type { FieldGroupKey } from "@/lib/calc/field-groups";
 import type { AnyCheck, TechnicalSpecs } from "@/lib/calc/types";
@@ -2013,6 +2020,44 @@ export function withDerivedGirder(
   return { ...state, inputs: { ...inputs, ...patch } };
 }
 
+/**
+ * Teker yükleri 6.2 otomatikleri. Kaynakların üçü de bölüm dışındadır:
+ * mekanizma sınıfı ve kaldırma hızı teknik özelliklerden, kılavuz boşluğu
+ * köprü yürütmenin seçilmiş teker çapından gelir.
+ */
+export function withDerivedWheelLoads(
+  state: ModuleState,
+  specs: TechnicalSpecs,
+  all: ModulesState
+): ModuleState {
+  const inputs = state.inputs as WheelLoadInputs;
+  const selections = state.selections as WheelLoadSelections;
+  const bridgeSelections = all.bridge?.selections as TravelSelections | undefined;
+  const patch: Partial<WheelLoadInputs> = {};
+  const selPatch: Partial<WheelLoadSelections> = {};
+
+  if (inputs.creepSpeedAuto === true) {
+    const value = creepSpeedForLiftSpeed(specs.mainLiftSpeedMpm);
+    if (value !== inputs.creepSpeedMpm) patch.creepSpeedMpm = value;
+  }
+  if (inputs.guideClearanceAuto === true && bridgeSelections) {
+    const value = guideClearanceForWheelDiameter(bridgeSelections.wheelDiaMm);
+    if (value !== inputs.guideClearanceMm) patch.guideClearanceMm = value;
+  }
+  if (inputs.hoistingClassAuto === true) {
+    const value = hoistingClassForMechanism(specs.hoistMechanismClass);
+    if (value !== selections.hoistingClass) selPatch.hoistingClass = value;
+  }
+
+  const inputsChanged = Object.keys(patch).length > 0;
+  const selectionsChanged = Object.keys(selPatch).length > 0;
+  if (!inputsChanged && !selectionsChanged) return state;
+  return {
+    inputs: inputsChanged ? { ...inputs, ...patch } : state.inputs,
+    selections: selectionsChanged ? { ...selections, ...selPatch } : state.selections,
+  };
+}
+
 /** Bir bölümün durumunu ailesine göre türetmelerden geçirir. */
 export function withDerivedModule(
   key: ModuleKey,
@@ -2026,6 +2071,7 @@ export function withDerivedModule(
   if (key === "girder" || key === "girder2") {
     return withDerivedGirder(state, specs, girderDeriveContext(all, specs, key));
   }
+  if (key === "wheelLoads") return withDerivedWheelLoads(state, specs, all);
   return state;
 }
 
@@ -2107,6 +2153,7 @@ export function autoInputFlag(key: ModuleKey, fieldKey: string): string | undefi
   if (isTravelKey(key)) return TRAVEL_AUTO_FIELDS[fieldKey];
   if (key === "girder" || key === "girder2") return GIRDER_AUTO_FIELDS[fieldKey];
   if (key === "cabin") return CABIN_AUTO_FIELDS[fieldKey];
+  if (key === "wheelLoads") return WHEELLOAD_AUTO_FIELDS[fieldKey];
   return undefined;
 }
 
@@ -2119,6 +2166,7 @@ export function autoSelectionFlag(key: ModuleKey, fieldKey: string): string | un
   if (isHoistKey(key)) return HOIST_AUTO_SELECTION_FIELDS[fieldKey];
   if (isTravelKey(key)) return TRAVEL_AUTO_SELECTION_FIELDS[fieldKey];
   if (isHookBlockKey(key)) return HOOKBLOCK_AUTO_SELECTION_FIELDS[fieldKey];
+  if (key === "wheelLoads") return WHEELLOAD_AUTO_SELECTION_FIELDS[fieldKey];
   return undefined;
 }
 

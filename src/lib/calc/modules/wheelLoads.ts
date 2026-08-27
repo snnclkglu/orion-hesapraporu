@@ -29,7 +29,7 @@
 // Birimler: kg, t, m, mm, N, kN, m/s, m/s², rad.
 
 import { railNominalHeadWidthMm } from "../tables";
-import type { AnyCheck, ModuleResult, TechnicalSpecs } from "../types";
+import type { AnyCheck, MechanismClass, ModuleResult, TechnicalSpecs } from "../types";
 
 /** FEM Kitapçık 9 T.9.3.a — kaldırma sınıfı (dinamik davranış). */
 export type HoistingClass = "HC1" | "HC2" | "HC3" | "HC4";
@@ -47,7 +47,7 @@ export type HoistDriveClass = "HD1" | "HD2" | "HD3" | "HD4" | "HD5";
  */
 export type WheelPairMode = "CFF" | "IFF" | "CFM" | "IFM";
 
-/** Vincin yanal kılavuzlaması — teker flanşı ya da ayrı kılavuz makarası. */
+/** Vincin yanal kılavuzlaması — teker flanşı ya da ayrı kılavuz teker. */
 export type GuideMeans = "flange" | "roller";
 
 /** FEM Kitapçık 9 T.9.3.a — β2 [s/m] ve φ2min */
@@ -60,6 +60,35 @@ export const HOISTING_CLASS_FACTORS: Record<
   HC3: { beta2: 0.51, phi2Min: 1.15 },
   HC4: { beta2: 0.68, phi2Min: 1.2 },
 };
+
+/**
+ * ORION yeni iş kuralı — ana kaldırma mekanizma sınıfından FEM kaldırma
+ * dinamik sınıfına geçiş. FEM'in geçerli sınıf kodları HC1…HC4'tür.
+ */
+export function hoistingClassForMechanism(mechanismClass: MechanismClass): HoistingClass {
+  if (mechanismClass === "M8") return "HC4";
+  if (mechanismClass === "M7") return "HC3";
+  if (mechanismClass === "M6") return "HC2";
+  return "HC1";
+}
+
+/** Ana kaldırma sürünme hızı için ORION başlangıç kuralı: anma hızının %10'u. */
+export function creepSpeedForLiftSpeed(liftSpeedMpm: number): number {
+  return Math.max(0, liftSpeedMpm) * 0.1;
+}
+
+/**
+ * Köprü teker çapından tek taraf kılavuz boşluğu [mm]. Katalog çapları
+ * arasındaki ara değerler bir sonraki tanımlı çapa kadar aynı kademede kalır.
+ */
+export function guideClearanceForWheelDiameter(wheelDiaMm: number): number {
+  const dia = Math.max(0, wheelDiaMm);
+  if (dia <= 200) return 5;
+  if (dia <= 315) return 7.5;
+  if (dia <= 630) return 10;
+  if (dia <= 800) return 12.5;
+  return 15;
+}
 
 /** FEM Kitapçık 9 md. 9.4.1.5 — savrulma açısının tolerans payı [rad] */
 export const SKEW_TOLERANCE_RAD = 0.001;
@@ -159,12 +188,18 @@ export interface WheelLoadInputs {
   guideSpacingAuto?: boolean;
   /** Kılavuz boşluğu — TEK TARAF [mm]. FEM'in sg değeri bunun iki katıdır. */
   guideClearanceMm: number;
+  /** Kılavuz boşluğu köprü teker çapından türetilsin. */
+  guideClearanceAuto?: boolean;
   /** Bağlı (coupled) teker çifti adedi p — FEM Kitapçık 9 md. 9.4.1.3 */
   coupledPairCount: number;
   /** p, teker çifti türü ve tahrikli teker sayısından türetilsin */
   coupledPairAuto?: boolean;
   /** Kaldırma sürünme (creep) hızı [m/dak] — HD2/HD3'te φ2'ye girer */
   creepSpeedMpm: number;
+  /** Sürünme hızı ana kaldırma hızının %10'u olarak türetilsin. */
+  creepSpeedAuto?: boolean;
+  /** Kaldırma sınıfı ana kaldırma mekanizma sınıfından türetilsin. */
+  hoistingClassAuto?: boolean;
 }
 
 /** Mühendis seçimleri */

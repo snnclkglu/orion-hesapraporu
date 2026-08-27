@@ -14,6 +14,7 @@ import { MODULE_ADAPTERS } from "@/app/(app)/projects/[id]/revisions/[revId]/mod
 import { diagramsForSection } from "@/lib/diagrams/select";
 import { resolveTextOverlaps, textBounds, type Diagram, type TextEl } from "@/lib/diagrams/model";
 import { reevingDiagram } from "@/lib/diagrams/reeving";
+import { wheelLoadSideDiagram } from "@/lib/diagrams/wheelLoads";
 
 const input = V5_TEMPLATE;
 const result = runCalc(input);
@@ -98,6 +99,26 @@ describe("diyagram etiketleri", () => {
       .filter((element): element is TextEl => element.kind === "text")
       .map((element) => element.text);
     expect(labels).toContain("Tambur · Denge Makarası · Kanca Bloğu");
+  });
+
+  it("6.2 raya paralel görünüşte teker kodu göbeğin üstünde kalır", () => {
+    const diagram = wheelLoadSideDiagram({
+      codes: ["A1", "A2", "B1", "B2"],
+      positionsM: [0, 1.5, 10, 11.5],
+      maxWheelLoadKg: 20_000,
+      minWheelLoadKg: 9_000,
+      designWheelLoadKg: 22_000,
+    });
+    const code = diagram.els.find(
+      (element): element is TextEl => element.kind === "text" && element.text === "A1"
+    );
+    expect(code).toBeDefined();
+    const hub = diagram.els.find(
+      (element) =>
+        element.kind === "circle" && element.cx === code?.x && Math.abs(element.r - 2.5) < 0.01
+    );
+    expect(hub?.kind).toBe("circle");
+    if (hub?.kind === "circle") expect(code!.y).toBeLessThan(hub.cy);
   });
 
   it("kaçan etiket için bağlantı çizgisi çizilir (leaderTo verilmişse)", () => {

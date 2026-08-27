@@ -18,6 +18,9 @@ import {
   WHEEL_COUNT_OPTIONS,
   autoCoupledPairs,
   computeWheelLoads,
+  creepSpeedForLiftSpeed,
+  guideClearanceForWheelDiameter,
+  hoistingClassForMechanism,
   hoistSpeedForPhi2,
   normalizeWheelCount,
   positionsFromSpacings,
@@ -89,6 +92,33 @@ const run = (
 
 const checkById = (r: ReturnType<typeof run>, id: string) =>
   r.checks.find((c) => c.id === id);
+
+describe("6.2 ORION otomatik başlangıç kuralları", () => {
+  it("mekanizma sınıfını HC1…HC4 sınıfına eşler", () => {
+    for (const mechanism of ["M1", "M2", "M3", "M4", "M5"] as const) {
+      expect(hoistingClassForMechanism(mechanism)).toBe("HC1");
+    }
+    expect(hoistingClassForMechanism("M6")).toBe("HC2");
+    expect(hoistingClassForMechanism("M7")).toBe("HC3");
+    expect(hoistingClassForMechanism("M8")).toBe("HC4");
+  });
+
+  it("sürünme hızını ana kaldırma hızının %10'u yapar", () => {
+    expect(creepSpeedForLiftSpeed(4)).toBeCloseTo(0.4, 9);
+    expect(creepSpeedForLiftSpeed(-5)).toBe(0);
+  });
+
+  it("köprü teker çapını kılavuz boşluğu kademelerine eşler", () => {
+    expect(guideClearanceForWheelDiameter(200)).toBe(5);
+    expect(guideClearanceForWheelDiameter(250)).toBe(7.5);
+    expect(guideClearanceForWheelDiameter(315)).toBe(7.5);
+    expect(guideClearanceForWheelDiameter(400)).toBe(10);
+    expect(guideClearanceForWheelDiameter(630)).toBe(10);
+    expect(guideClearanceForWheelDiameter(710)).toBe(12.5);
+    expect(guideClearanceForWheelDiameter(800)).toBe(12.5);
+    expect(guideClearanceForWheelDiameter(900)).toBe(15);
+  });
+});
 
 // ---------------------------------------------------------------- düşey yükler
 

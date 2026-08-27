@@ -553,7 +553,9 @@ export function wheelLoadSideDiagram(p: WheelLoadSideParams): Diagram {
         stroke: DCOL.ink,
         strokeWidth: 0.8,
       });
-      els.push(txt(x, yRail - 9, codes[i], 6.2, { anchor: "middle", fixed: true }));
+      // Harf-rakam teker göbeğinin üstüne binmesin: yazı merkezi göbekten
+      // yukarı alınır, ancak hâlâ teker dairesinin içinde kalır.
+      els.push(txt(x, yRail - 17, codes[i], 6.2, { anchor: "middle", fixed: true }));
     }
   };
 
@@ -1180,7 +1182,7 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
       16,
       PH - 12,
       `${nWheels} Teker / Ray · Köşe Başına ${perCorner} · ` +
-        `Kılavuz: ${p.guideMeans === "flange" ? "Teker Flanşı" : "Kılavuz Makarası"} · ` +
+        `Kılavuz: ${p.guideMeans === "flange" ? "Teker Flanşı" : "Kılavuz Teker"} · ` +
         "Enine Ok Uzunlukları Kuvvetle Orantılıdır",
       8,
       { fill: DCOL.muted }

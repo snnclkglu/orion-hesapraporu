@@ -203,12 +203,20 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
   it("mülkiyet ve gizlilik satırını kapakta değil bütün iç sayfalarda tekrarlar", async () => {
     for (const level of ["ozet", "standart", "detayli"] as const) {
       const { pages } = await pagesOf(await atLevel(level));
-      const notice = "ORION CRANES MÜLKİYETİDİR";
+      const notice = "ORİON VİNÇ SAN. TİC. LTD. ŞTİ. MÜLKİYETİDİR";
       expect(pages[0], `${level}: kapak`).not.toContain(notice);
       for (let page = 1; page < pages.length; page += 1) {
         expect(pages[page], `${level}: ${page + 1}. sayfa`).toContain(notice);
       }
     }
+  }, 300_000);
+
+  it("kullanıcı ölçü onaylarını ve bunların firma kontrolünü PDF'e basmaz", async () => {
+    const detayli = await pagesOf(await atLevel("detayli"));
+    expect(detayli.all).not.toContain("Kullanıcı Ölçü Onayı");
+    expect(detayli.all).not.toContain("Vinç Verileri ve Teker Düzeni Ölçü Onayı");
+    expect(detayli.all).not.toContain("Yükler Bölümü Ölçü Onayı");
+    expect(detayli.all).not.toContain("ORION tasarım veri onayı");
   }, 300_000);
 
   it("uzun hesap bölümlerinin anteti devam sayfalarında da tekrarlanır", async () => {

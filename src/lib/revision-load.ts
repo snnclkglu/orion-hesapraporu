@@ -416,6 +416,13 @@ const AUTO_FLAGS = [
   "hookTopPositionAuto",
   "bridgeAxleSpacingAuto",
   "wheelContactTAuto",
+  // Teker yükleri (6.2): eski revizyonda anahtar yoksa kayıtlı HC sınıfı,
+  // sürünme hızı ve kılavuz boşluğu elle verilmiş kabul edilir.
+  "hoistingClassAuto",
+  "creepSpeedAuto",
+  "guideClearanceAuto",
+  "guideSpacingAuto",
+  "coupledPairAuto",
   // Rulman markası bağı YENİDİR (bkz. `calc/bearing-brand.ts`): eski
   // revizyonlarda anahtar yoktur ve o kayıtlarda her kutunun markası ELLE
   // seçilmiştir. Şablondan `true` miras kalırsa yayınlanmış bir raporun

@@ -51,6 +51,11 @@ import { computeTravelGroup } from "@/lib/calc/modules/travelGroup";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
 import type { GirderInputs } from "@/lib/calc/modules/mainGirder";
+import type { WheelLoadInputs, WheelLoadSelections } from "@/lib/calc/modules/wheelLoads";
+import {
+  WHEELLOAD_AUTO_FIELDS,
+  WHEELLOAD_AUTO_SELECTION_FIELDS,
+} from "@/lib/calc/presentation/wheelLoadFields";
 import type { ModuleKey } from "../module-adapters";
 import type { TechnicalSpecs } from "@/lib/calc/types";
 
@@ -90,6 +95,8 @@ const hoistSel = (m: ModulesState, k: ModuleKey = "main") => m[k].selections as 
 const travelIn = (m: ModulesState, k: ModuleKey) => m[k].inputs as TravelInputs;
 const travelSel = (m: ModulesState, k: ModuleKey) => m[k].selections as TravelSelections;
 const girderIn = (m: ModulesState) => m.girder.inputs as GirderInputs;
+const wheelIn = (m: ModulesState) => m.wheelLoads.inputs as WheelLoadInputs;
+const wheelSel = (m: ModulesState) => m.wheelLoads.selections as WheelLoadSelections;
 
 const SPECS: TechnicalSpecs = NEW_WORK_SPECS;
 
@@ -389,9 +396,58 @@ describe("otomatik anahtar haritaları editöre bağlı", () => {
     }
   });
 
+  it("teker yükleri girdi ve seçim otomatikleri 6.2 alanlarına bağlıdır", () => {
+    for (const [field, flag] of Object.entries(WHEELLOAD_AUTO_FIELDS)) {
+      expect(autoInputFlag("wheelLoads", field)).toBe(flag);
+    }
+    for (const [field, flag] of Object.entries(WHEELLOAD_AUTO_SELECTION_FIELDS)) {
+      expect(autoSelectionFlag("wheelLoads", field)).toBe(flag);
+    }
+  });
+
   it("otomatik olmayan alanda anahtar üretmez", () => {
     expect(autoInputFlag("main", "drumWallThicknessMm")).toBeUndefined();
     expect(autoSelectionFlag("bridge", "drumGrooveLengthText")).toBeUndefined();
+  });
+});
+
+describe("6.2 teker yükleri otomatikleri", () => {
+  it("yeni işte HD3 ve IFF varsayılanı; HC, sürünme ve boşluk otomatik gelir", () => {
+    const m = withDerivedModules(baseModules(), SPECS);
+    expect(wheelSel(m).hoistDriveClass).toBe("HD3");
+    expect(wheelSel(m).wheelPairMode).toBe("IFF");
+    expect(wheelSel(m).hoistingClass).toBe("HC2");
+    expect(wheelIn(m).creepSpeedMpm).toBeCloseTo(SPECS.mainLiftSpeedMpm * 0.1, 9);
+    expect(wheelIn(m).guideClearanceMm).toBe(7.5);
+    expect(wheelIn(m).coupledPairCount).toBe(0);
+    expect(wheelIn(m).coupledPairAuto).toBe(false);
+  });
+
+  it("kaynaklar değişince açık otomatikler yeniden türetilir", () => {
+    const wheelChanged = patchSelections(baseModules(), "bridge", { wheelDiaMm: 710 });
+    const m = withDerivedModules(wheelChanged, {
+      ...SPECS,
+      hoistMechanismClass: "M8",
+      mainLiftSpeedMpm: 12,
+    });
+    expect(wheelSel(m).hoistingClass).toBe("HC4");
+    expect(wheelIn(m).creepSpeedMpm).toBeCloseTo(1.2, 9);
+    expect(wheelIn(m).guideClearanceMm).toBe(12.5);
+  });
+
+  it("otomatikler kapalıysa kullanıcı değerlerini korur", () => {
+    let m = patchInputs(baseModules(), "wheelLoads", {
+      hoistingClassAuto: false,
+      creepSpeedAuto: false,
+      guideClearanceAuto: false,
+      creepSpeedMpm: 2.25,
+      guideClearanceMm: 11,
+    });
+    m = patchSelections(m, "wheelLoads", { hoistingClass: "HC1" });
+    m = withDerivedModules(m, { ...SPECS, hoistMechanismClass: "M8", mainLiftSpeedMpm: 20 });
+    expect(wheelSel(m).hoistingClass).toBe("HC1");
+    expect(wheelIn(m).creepSpeedMpm).toBe(2.25);
+    expect(wheelIn(m).guideClearanceMm).toBe(11);
   });
 });
 

@@ -54,6 +54,10 @@ import type { HoistInputs, HoistSelections } from "../modules/hoistGroup";
 import type { GirderInputs } from "../modules/mainGirder";
 import type { TravelInputs, TravelSelections } from "../modules/travelGroup";
 import { TRAVEL_INPUT_FIELDS, TRAVEL_SELECTION_FIELDS } from "../presentation/travelFields";
+import {
+  WHEELLOAD_AUTO_FIELDS,
+  WHEELLOAD_AUTO_SELECTION_FIELDS,
+} from "../presentation/wheelLoadFields";
 
 const MAIN = NEW_WORK_TEMPLATE.mainHoist!;
 const CTX = { liftHeightM: 10, capacityT: 10, ambientTempMaxC: 40, mechanismClass: "M6" as const };
@@ -579,6 +583,8 @@ describe("AUTO_FLAGS koruması", () => {
     ["bridge", TRAVEL_AUTO_FIELDS],
     ["bridge", TRAVEL_AUTO_SELECTION_FIELDS],
     ["girder", GIRDER_AUTO_FIELDS],
+    ["wheelLoads", WHEELLOAD_AUTO_FIELDS],
+    ["wheelLoads", WHEELLOAD_AUTO_SELECTION_FIELDS],
   ];
 
   for (const [field, map] of CASES) {

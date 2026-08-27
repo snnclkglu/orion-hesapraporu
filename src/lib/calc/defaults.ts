@@ -681,8 +681,23 @@ export const NEW_WORK_TEMPLATE: CalcInput = {
   mono2Trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: NEW_WORK_TROLLEY_SELECTIONS },
   bridge: { inputs: NEW_WORK_BRIDGE_INPUTS, selections: NEW_WORK_BRIDGE_SELECTIONS },
   wheelLoads: {
-    inputs: { ...V5_WHEELLOAD_INPUTS, measurementsConfirmed: false },
-    selections: V5_WHEELLOAD_SELECTIONS,
+    inputs: {
+      ...V5_WHEELLOAD_INPUTS,
+      measurementsConfirmed: false,
+      guideClearanceMm: 7.5,
+      guideClearanceAuto: true,
+      coupledPairCount: 0,
+      coupledPairAuto: false,
+      creepSpeedMpm: NEW_WORK_SPECS.mainLiftSpeedMpm * 0.1,
+      creepSpeedAuto: true,
+      hoistingClassAuto: true,
+    },
+    selections: {
+      ...V5_WHEELLOAD_SELECTIONS,
+      hoistingClass: "HC2",
+      hoistDriveClass: "HD3",
+      wheelPairMode: "IFF",
+    },
   },
   girder: {
     // 7.2 / 7.3'ün üç katsayısı (ψhA, ψhK, γc) yeni işte OTOMATİKtir: kütle
