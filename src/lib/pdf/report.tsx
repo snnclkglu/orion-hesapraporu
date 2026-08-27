@@ -229,9 +229,14 @@ function reportDateLabel(revision: ReportRevision): string {
     .toLocaleUpperCase("tr-TR");
 }
 
+/** Çıktının kapak, iç sayfa ve PDF meta verisindeki resmi belge adı. */
+function reportNameFor(level: ReportLevel | undefined): string {
+  return level === "teker_yukleri" ? "TEKER YÜKLERİ RAPORU" : "HESAP RAPORU";
+}
+
 /** Altbilgi doküman satırı: `ORION CRANES · HESAP RAPORU · REV 03 · 2026` */
-function docLineFor(revision: ReportRevision): string {
-  return `ORION CRANES · ${coverDocLineFor(revision)}`;
+function docLineFor(revision: ReportRevision, level?: ReportLevel): string {
+  return `ORION CRANES · ${coverDocLineFor(revision, level)}`;
 }
 
 /** Kapak hariç hesap raporu yapraklarında tek satır tekrarlanan belge uyarısı. */
@@ -247,9 +252,9 @@ export const REPORT_FOOTER_NOTICE =
  * BASILMAZ, orada marka önekini taşıyan tek şey bu satırdır — bu yüzden önek
  * kaldırılmaz, yalnız kapakta düşürülür.
  */
-function coverDocLineFor(revision: ReportRevision): string {
+function coverDocLineFor(revision: ReportRevision, level?: ReportLevel): string {
   const rev = String(revision.rev_no).padStart(2, "0");
-  return `HESAP RAPORU · REV ${rev} · ${reportDate(revision).getFullYear()}`;
+  return `${reportNameFor(level)} · REV ${rev} · ${reportDate(revision).getFullYear()}`;
 }
 
 /** Doküman kodu: `ORC-HR-412-R03` */
@@ -1228,12 +1233,13 @@ function CoverPage(props: ReportProps) {
   const endCustomerMark = customerLogo(endCustomerLogo);
   const reportBrandWidth = reportBrandMark ? Math.min(164, 44 / reportBrandMark.ratio) : 0;
   const endCustomerWidth = endCustomerMark ? Math.min(205, 52.5 / endCustomerMark.ratio) : 0;
+  const reportName = reportNameFor(props.level);
   return (
     // Künye ALTBİLGİNİN İÇİNDE: ayrı bir blok olarak akışın sonuna konduğunda
     // künye ile sayfa altbilgisi arasında doldurulmamış bir şerit kalıyordu
     // (altbilgi sayfanın en altına sabit, künye ise içeriğin bittiği yere).
     <BrandPage
-      docLine={coverDocLineFor(revision)}
+      docLine={coverDocLineFor(revision, props.level)}
       docCode={docCode}
       company={{
         company: st.company,
@@ -1290,7 +1296,7 @@ function CoverPage(props: ReportProps) {
 
       {/* Başlık bloğu */}
       <View style={{ marginTop: reportBrand ? 20 : 84 }}>
-        <Text style={T.kicker}>ORION CRANES · HESAP RAPORU</Text>
+        <Text style={T.kicker}>ORION CRANES · {reportName}</Text>
         <RuleRed width={22} />
         {endCustomerMark ? (
           <View style={{ marginTop: 8, height: 53, alignItems: "flex-start", justifyContent: "center" }}>
@@ -1417,7 +1423,7 @@ function TocPage({
   const entries = tocEntries(level ?? "detayli", numbers, present, input.specs);
   return (
     <BrandPage
-      docLine={docLineFor(revision)}
+      docLine={docLineFor(revision, level)}
       docCode={docCodeFor(project, revision)}
       footerNotice={REPORT_FOOTER_NOTICE}
       repeatedHeader={(
@@ -2316,7 +2322,7 @@ function ModulePage({
 
   return (
     <BrandPage
-      docLine={docLineFor(revision)}
+      docLine={docLineFor(revision, props.level)}
       docCode={docCodeFor(project, revision)}
       footerNotice={REPORT_FOOTER_NOTICE}
       repeatedHeader={(
@@ -2480,7 +2486,13 @@ function ModulePage({
               <SectionProbe anchor={sectionAnchor(adapter.key, section.rawId)} collect={collect} />
               <SectionTag
                 no={secNo}
-                title={section.title}
+                title={
+                  props.level === "teker_yukleri" &&
+                  adapter.key === "wheelLoads" &&
+                  section.rawId === "10.1"
+                    ? "Teker Yükü Girdileri ve Teker Düzeni"
+                    : section.title
+                }
                 status={
                   secChecks.length > 0
                     ? { pass: secChecks.filter((c) => c.pass).length, total: secChecks.length }
@@ -2519,7 +2531,7 @@ export function ReportDocument(
   const numbers = moduleDisplayNumbers(present);
   return (
     <Document
-      title={`${project.doc_no}-V${revision.rev_no} ${wheelLoadsOnly ? "Teker Yükleri" : "Hesap Raporu"}`}
+      title={`${project.doc_no}-V${revision.rev_no} ${reportNameFor(level)}`}
       author={(props.settings ?? DEFAULT_REPORT_SETTINGS).company}
       subject={`${project.customer} — ${project.name}`}
       language="tr"
@@ -2549,7 +2561,10 @@ export function ReportDocument(
             props={props}
             deps={deps}
             showFormulas={level === "detayli" || wheelLoadsOnly}
-            moduleNo={numbers[adapter.key] ?? 0}
+            // Bağımsız Teker Yükleri raporu, tam hesap raporundaki dinamik
+            // bölüm numarasını miras almaz: tek bölümlük belgede 07/7.1 diye
+            // başlamak önceki sayfalar kayıpmış izlenimi verirdi.
+            moduleNo={wheelLoadsOnly ? 1 : (numbers[adapter.key] ?? 0)}
             collect={collect}
           />
         ))}

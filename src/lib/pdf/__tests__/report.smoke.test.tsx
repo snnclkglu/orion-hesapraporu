@@ -266,11 +266,21 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
 
     expect(teker.pages.length).toBeGreaterThan(1);
     expect(teker.pages[0]).toContain(props.project.name.toLocaleUpperCase("tr-TR"));
+    expect(teker.pages[0].replace(/\s+/g, "")).toContain("TEKERYÜKLERİRAPORU");
+    expect(teker.pages[0].replace(/\s+/g, "")).not.toContain("HESAPRAPORU");
     for (let page = 1; page < teker.pages.length; page += 1) {
-      expect(teker.pages[page].replace(/\s+/g, ""), `${page + 1}. sayfa`).toContain(
-        "TEKERYÜKLERİ"
+      const squeezedPage = teker.pages[page].replace(/\s+/g, "");
+      expect(squeezedPage, `${page + 1}. sayfa başlığı`).toContain("TEKERYÜKLERİ");
+      expect(squeezedPage, `${page + 1}. sayfa altbilgisi`).toContain(
+        "TEKERYÜKLERİRAPORU"
       );
     }
+    expect(teker.pages[1].replace(/\s+/g, "")).toContain("BÖLÜM01");
+    expect(teker.pages[1].replace(/\s+/g, "")).toContain(
+      "1.1TEKERYÜKÜGİRDİLERİVETEKERDÜZENİ"
+    );
+    expect(teker.squeezed).not.toContain("BÖLÜM07");
+    expect(teker.squeezed).not.toContain("7.1VİNÇVERİLERİVETEKERDÜZENİ");
     expect(teker.squeezed).toContain("HESAPVEKONTROLLER");
     expect(teker.squeezed).not.toContain("ÖZETHESAPRAPORU");
     expect(teker.squeezed).not.toContain("İÇİNDEKİLER");

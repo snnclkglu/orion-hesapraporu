@@ -88,7 +88,12 @@ sonra yalnız mevcut **Teker Yükleri** modülünü, formülleri ve şemalarıyl
 İçindekiler, Özet Hesap Raporu, diğer hesap modülleri, Kontrol Özeti, Ek —
 Kaynaklar ve Gizlilik/Kullanım Koşulları bu dosyaya girmez. İç yaprakların sabit
 tek satırlık mülkiyet uyarısı korunur; tek bir yaprak ayrı gönderildiğinde belge
-kimliğini kaybetmemelidir. Dosya adının son parçası `TEKER YÜKLERİ.pdf` olur.
+kimliğini kaybetmemelidir. Kapakta ve iç sayfa altbilgisinde belge adı **TEKER
+YÜKLERİ RAPORU**dur. Bu bağımsız dosya tam rapordaki dinamik bölüm numarasını
+miras almaz; `BÖLÜM 01 · TEKER YÜKLERİ` ile başlar ve alt bölümleri `1.1`,
+`1.2`… olarak sürer. İlk alt bölümün özel çıktıdaki adı **TEKER YÜKÜ GİRDİLERİ
+VE TEKER DÜZENİ**dir; tam rapordaki “Vinç Verileri ve Teker Düzeni” adı özel
+dosyaya taşınmaz. Dosya adının son parçası `TEKER YÜKLERİ.pdf` olur.
 
 **Kontrol Özeti bir DİZİNdir**, bir liste değil: her satırın solunda kontrolün
 dayandığı hesabın SAYFA NUMARASI durur ve o numara tıklanabilir. O hesap yalnız
