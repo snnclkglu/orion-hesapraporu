@@ -110,7 +110,7 @@ function push(
 // ------------------------------------------------------------------ motors
 for (const file of [
   "motors/gamak.json", "motors/abb.json", "motors/innomotics.json",
-  "motors/sew_drn.json",
+  "motors/sew_drn.json", "motors/elk.json",
 ]) {
   const { meta, items } = readJson(file);
   const brand = String(meta.brand);
@@ -199,6 +199,11 @@ for (const { file, application } of REDUCER_FILES) {
         permitted_radial_load_output_n: "allowed_radial_output_kn",
         permitted_radial_load_input_n: "allowed_radial_input_kn",
       });
+      // PDF kaynak sayfası yalnız katalog-föyü üreticisinin iç kanıtıdır;
+      // ürün seçicisinin teknik niteliği değildir ve DB attrs alanını
+      // gereksiz yere şişirmemelidir. Doğru H sayfası seçilen n1 ile manifestte
+      // çözülür; `input_speed_rpm` veritabanında kalır.
+      delete a.technical_page;
       // İzin verilen radyal yükler katalogda N; motor ve kontroller kN bekliyor.
       for (const [k, isNewton] of [
         ["allowed_radial_output_kn", radialOutputIsNewton],
@@ -645,12 +650,15 @@ function compressionStrokeMm(
 for (const file of ["load_cells/esit_plc.json", "load_cells/kobastar_lpw1.json"]) {
   const { meta, items } = readJson(file);
   const brand = String(meta.brand);
+  const metaDatasheet = String(meta.datasheet_url ?? "");
   for (const it of items) {
     const a = cleanAttrs(it);
     a.series = a.series ?? meta.series;
     const model = String(a.model ?? "");
+    const datasheetUrl = String(a.datasheet_url ?? metaDatasheet);
     delete a.model;
-    push("load_cell", brand, model, a);
+    delete a.datasheet_url;
+    push("load_cell", brand, model, a, datasheetUrl);
   }
 }
 

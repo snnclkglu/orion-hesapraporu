@@ -3,14 +3,27 @@
 `catalog_data/reducers/yilmaz_{dr,m,h}.json` dosyalarının kaynağı. Üç YILMAZ
 katalog PDF'i (workspace kökünde, repo dışında) taranıp tabloya çevrilir.
 
-## Neden motorsuz (gear unit) tablolar
+## Motorsuz performans tablosu ve giriş bağlantısı varyantları
 
 Kataloglarda iki ayrı güç–devir bölümü var: **motorlu** (geared motor — belirli
 bir motorla eşleşmiş kombinasyonlar) ve **motorsuz** (gear unit — redüktörün
 kendi anma değerleri). Uygulama redüktör ile motoru AYRI bölümlerde seçtiği için
-(2.3/2.4 kaldırma, 5.4/5.5 yürütme) motorlu tablolar modele uymaz: her satır bir
-motoru zorunlu kılar. Bu yüzden **motorsuz tablolar** kullanılır — anma momenti
-Ma, izin verilen radyal yükler Fqam/Fqem, ağırlık ve mil çapları oradadır.
+(2.3/2.4 kaldırma, 5.4/5.5 yürütme) motorlu güç tabloları modele uymaz: her
+satır bir motoru zorunlu kılar. Bu yüzden mekanik değerlerin kaynağı **motorsuz
+performans tablolarıdır** — anma momenti Ma, izin verilen radyal yükler
+Fqam/Fqem, redüktör ağırlığı ve mil çapları oradadır.
+
+Bu karar, motor akuple giriş seçeneğini katalogdan kaldırmaz. D ve K serilerinde
+aynı gövde iki ayrı ürün satırı olarak üretilir:
+
+- DT / KT: motorsuz, mil girişli;
+- DR / KR: motor akuple.
+
+DR ve KR satırlarının mekanik değerleri sırasıyla eşleşen DT ve KT satırından
+gelir; `performance_table_model` bu bağı açıkça taşır. Ölçü çizimleri farklıdır:
+DR ölçü sayfası DT sayfasından 170, KR ölçü sayfası KT sayfasından 374 fiziksel
+sayfa önce gelir. `dimension_page` her varyantta kendi gerçek, 1 tabanlı PDF
+sayfasıdır. Motor özellikleri ve motor ağırlığı redüktör satırına kopyalanmaz.
 
 Kataloğun kendi tanımıyla (M kataloğu s.7): *"Anma Momenti (Ma): Redüktörün fs=1
 şartı için mekanik olarak taşıdığı moment değeridir."* — `gearbox.torque`
@@ -20,7 +33,7 @@ kontrolünün karşılaştırdığı büyüklük tam olarak budur.
 
 | Katalog | Performans tablosu | Mil ölçüleri | Kullanım grubu |
 |---|---|---|---|
-| `YILMAZ DR KATALOG.pdf` | s.252–262 (D serisi motorsuz) | s.322 kovan tablosu (d, H7) | yürütme |
+| `YILMAZ DR KATALOG.pdf` | s.252–262 (D serisi motorsuz) | DR s.94–144 · DT s.264–314 · s.322 kovan tablosu (d, H7) | yürütme |
 | `YILMAZ M KATALOG.pdf` | s.320–331 (motorsuz) | s.333–393 teknik resim Ø etiketleri | yürütme |
 | `YILMAZ H KATALOG.pdf` | s.104–233 (H serisi) + s.416–505 (B serisi) | s.236–414, s.507–576 ve s.579 | kaldırma |
 
@@ -29,6 +42,13 @@ H/B serisinde her model beş giriş devri için ayrı basılıdır (n1 = 1400 / 
 tablo **iki sayfalık yayım**dır: sol sayfa kimlik + moment + radyal yük, sağ
 sayfa ağırlık + ölçü sayfası. `parse_h_spread` ikisini blokların ilk çevrim
 oranına göre eşler.
+
+H/B model kodu tek başına katalog yaprağı kimliği değildir: aynı model beş
+`input_speed_rpm` değerinde beş farklı teknik yayımda tekrar eder. Katalog
+sayfası defteri teknik yaprağı `(model, input_speed_rpm)` ile ayırmalı, sol ve
+hemen arkasındaki sağ performans sayfasını birlikte taşımalı; `dimension_page`
+ise seçilen satırdan korunmalıdır. Motorun gerçek devrinden n1 tahmin edilmez
+(örneğin katalog n1=1400 iken motor seçimi yaklaşık 1450 d/dak olabilir).
 
 D ve M/N serisinde Ma, n2 ve Fqam yalnız n1 = 1450 için basılıdır; diğer giriş
 devirlerinin nominal güçleri `nominal_power_kw_n1_*` alanlarında taşınır.
@@ -979,7 +999,7 @@ Kaynak PDF workspace'te olmadığı için bu bölümde DÜZELTİLMEMİŞTİR.
 | Kaynak PDF | Dosya | Satır | Kullanım grubu |
 |---|---|---|---|
 | `POLAT KALDIRMA REDÜKTÖRÜ pcs_catologue_2024.pdf` | `polat_pcs.json` | 150 | kaldırma |
-| `YILMAZ KR KATALOG.pdf` | `yilmaz_k.json` | 1130 | kaldırma + yürütme |
+| `YILMAZ KR KATALOG.pdf` | `yilmaz_k.json` | 2260 (KT + KR) | kaldırma + yürütme |
 | `YILMAZ R PL PLANET REDÜKTÖRLER.pdf` | `yilmaz_planet.json` | 22416 | kaldırma + yürütme |
 | `SEW X-SERİSİ REDUKTOR.pdf` | `sew_x.json` | 15432 | kaldırma + yürütme |
 | `SEW x-fcc.pdf` | `sew_xe_hc.json` | 20 | kaldırma |

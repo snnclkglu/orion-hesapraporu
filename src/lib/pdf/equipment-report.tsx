@@ -437,7 +437,9 @@ export function EquipmentDocument({
       // yoksa ad doğrudan eke gider, böylece defterde karşılığı olmayan
       // ürünlerin (kanca, makara, teker…) adı da tıklanabilir olur.
       const sheetAnchor = row.kind
-        ? anchorByKey.get(dsKey(row.kind, row.brand, row.model))
+        ? anchorByKey.get(
+            dsKey(row.kind, row.brand, row.model, row.catalogInputRpm)
+          )
         : undefined;
       if (sheetAnchor) return `#${sheetAnchor}`;
       if (row.rowKey && coverKeys.has(row.rowKey)) {

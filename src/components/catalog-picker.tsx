@@ -51,7 +51,11 @@ interface BrandInfo {
 const PAGE_SIZE = 1000;
 
 /** Sayfalamanın üst sınırı — kaçak bir döngüye karşı emniyet. */
-const ROW_LIMIT = 20000;
+// Yılmaz kataloğu DT/DR ve KT/KR bağlantı varyantlarıyla 32.533 satıra
+// ulaşıyor. 20.000 sınırı ilk sayfaları getirip kalan ürünleri sessizce
+// seçilemez bırakıyordu; marka rozeti de eksik adet gösteriyordu. Bu emniyet
+// sınırı kaçak döngüyü hâlâ keser ama mevcut en büyük markayı bütünüyle taşır.
+const ROW_LIMIT = 50000;
 const RESULT_PAGE_SIZE = 50;
 
 export interface CatalogRequirement {

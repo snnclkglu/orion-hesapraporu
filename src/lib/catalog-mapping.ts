@@ -167,6 +167,7 @@ export const ATTR_LABELS: Record<string, string> = {
   output_torque_nm: "Çıkış Torku [Nm]",
   output_speed_rpm: "Çıkış Devri [d/dak]",
   input_speed_rpm: "Giriş Devri [d/dak]",
+  input_configuration: "Giriş Bağlantısı",
   nominal_power_kw: "Nominal Güç [kW]",
   thermal_power_kw: "Termik Güç [kW]",
   thermal_power_fan_kw: "Termik Güç — Fanlı [kW]",
@@ -548,6 +549,7 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
     nearestFilter: { attr: "ratio", label: "Hedef Tahvil Oranı" },
     columns: [
       { attr: "model", label: "Model" },
+      { attr: "input_configuration", label: "Giriş Bağlantısı" },
       { attr: "ratio", label: "Çevrim Oranı" },
       { attr: "output_torque_nm", label: "Çıkış Torku", unit: "Nm" },
       { attr: "output_speed_rpm", label: "Çıkış Devri", unit: "d/dak" },
@@ -967,6 +969,10 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
     lockedFacets: { application: "kaldirma" },
     fields: [
       { sel: "gearboxModel", from: "brand_model" },
+      // H kataloğunda aynı model beş ayrı n1 tablosunda tekrar eder. Değer
+      // görünür bir form alanı değildir; seçilen satırla birlikte saklanır ve
+      // katalog sayfası bağlantısının doğru teknik tabloyu açmasını sağlar.
+      { sel: "gearboxCatalogInputRpm", from: { attr: "input_speed_rpm" } },
       { sel: "gearboxRatio", from: { attr: "ratio" } },
       { sel: "gearboxNominalTorqueKnm", from: { attr: "output_torque_nm" }, scale: 0.001 },
       { sel: "gearboxOutputShaftMm", from: { attr: "output_shaft_mm" } },
@@ -1153,6 +1159,7 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
     lockedFacets: { application: "yurutme" },
     fields: [
       { sel: "gearboxModel", from: "brand_model" },
+      { sel: "gearboxCatalogInputRpm", from: { attr: "input_speed_rpm" } },
       { sel: "gearboxRatio", from: { attr: "ratio" } },
       { sel: "gearboxOutputTorqueKnm", from: { attr: "output_torque_nm" }, scale: 0.001 },
       { sel: "gearboxOutputShaftMm", from: { attr: "output_shaft_mm" } },

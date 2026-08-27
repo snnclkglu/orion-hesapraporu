@@ -28,7 +28,8 @@ from pdftable import BASE, CATALOG_DATA  # noqa: F401
 OUT_DIR = os.path.join(CATALOG_DATA, "reducers")
 
 FIRST = [
-    "model", "series", "application", "frame_size", "stages", "ratio",
+    "model", "series", "input_configuration", "performance_table_model",
+    "application", "frame_size", "stages", "ratio",
     "output_torque_Nm", "output_speed_rpm", "input_speed_rpm",
     "nominal_power_kw", "thermal_power_kw", "thermal_power_fan_kw",
     "permitted_radial_load_output_N", "permitted_radial_load_input_N",

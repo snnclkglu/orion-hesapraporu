@@ -80,6 +80,50 @@ def check(name):
     print(f"    tork {min(tq):.0f}…{max(tq):.0f} Nm · oran {min(rt):.2f}…{max(rt):.2f}")
 
 
+def check_input_variants(name, unmotorized, motor_coupled, page_offset):
+    """DT/DR ve KT/KR çiftlerinin yalnız bağlantı ve ölçü sayfasında ayrıldığını sınar."""
+    data = json.load(open(os.path.join(BASE, name), encoding="utf-8"))["items"]
+    by_key = {}
+    for row in data:
+        model = row["model"]
+        key = (model[2:], row.get("application"), row.get("input_speed_rpm"), row.get("ratio"))
+        by_key[(model[:2], *key)] = row
+
+    errors = []
+    ignored = {
+        "model", "series", "input_configuration", "performance_table_model",
+        "dimension_page",
+    }
+    bases = {key[1:] for key in by_key if key[0] in (unmotorized, motor_coupled)}
+    for key in sorted(bases, key=str):
+        plain = by_key.get((unmotorized, *key))
+        coupled = by_key.get((motor_coupled, *key))
+        if not plain or not coupled:
+            errors.append(f"eksik çift: {key}")
+            continue
+        if coupled.get("performance_table_model") != plain["model"]:
+            errors.append(f"teknik tablo bağı: {coupled['model']}")
+        if coupled.get("dimension_page") != plain.get("dimension_page") - page_offset:
+            errors.append(f"ölçü sayfası: {plain['model']} / {coupled['model']}")
+        plain_mech = {k: v for k, v in plain.items() if k not in ignored}
+        coupled_mech = {k: v for k, v in coupled.items() if k not in ignored}
+        if plain_mech != coupled_mech:
+            errors.append(f"mekanik veri ayrıştı: {plain['model']} / {coupled['model']}")
+
+    print(f"=== {name}: {unmotorized}/{motor_coupled} bağlantı çiftleri")
+    if errors:
+        for error in errors[:10]:
+            print(f"    ! {error}")
+        if len(errors) > 10:
+            print(f"    ! ve {len(errors) - 10} ek sorun")
+    else:
+        print(f"    {len(bases)} çift temiz · ölçü sayfası farkı {page_offset}")
+
+
 for f in ["yilmaz_m.json", "yilmaz_dr.json", "yilmaz_h.json"]:
     check(f)
     print()
+
+check_input_variants("yilmaz_dr.json", "DT", "DR", 170)
+print()
+check_input_variants("yilmaz_k.json", "KT", "KR", 374)

@@ -47,6 +47,7 @@ const HOIST_GEARBOX: CatalogRow = {
   model: "HT0823",
   attrs: {
     series: "H",
+    input_configuration: "Motorsuz mil girişli",
     application: "kaldirma",
     frame_size: "08",
     stages: 2,
@@ -69,6 +70,7 @@ const TRAVEL_GEARBOX: CatalogRow = {
   model: "DT472",
   attrs: {
     series: "D",
+    input_configuration: "Motorsuz mil girişli",
     application: "yurutme",
     ratio: 12.5,
     output_torque_nm: 850,

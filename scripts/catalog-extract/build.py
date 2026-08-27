@@ -34,12 +34,13 @@ def frame_and_stage(model):
 
 def order_keys(it):
     """Anlamlı alan sırası — JSON elle de okunabilir olsun."""
-    first = ["model", "series", "application", "frame_size", "stages", "ratio",
+    first = ["model", "series", "input_configuration", "performance_table_model",
+             "application", "frame_size", "stages", "ratio",
              "output_torque_Nm", "output_speed_rpm", "input_speed_rpm",
              "nominal_power_kw", "thermal_power_kw", "thermal_power_fan_kw",
              "permitted_radial_load_output_N", "permitted_radial_load_input_N",
              "weight_kg", "output_shaft_diameter_mm", "input_shaft_diameter_mm",
-             "hollow_bore_mm", "dimension_page"]
+             "hollow_bore_mm", "technical_page", "dimension_page"]
     out = {k: it[k] for k in first if k in it}
     for k in sorted(it):
         if k not in out:
@@ -122,33 +123,55 @@ def build_dr():
         items += extract.parse_gear_unit_page(d[p - 1])
     d.close()
     bores = shafts.d_series_bores()
+    variants = []
     for it in items:
-        frame, stage = frame_and_stage(it["model"])
-        it["series"] = "D"
-        it["application"] = "yurutme"
-        it["frame_size"] = frame
-        it["stages"] = stage
+        performance_model = it["model"]
+        frame, stage = frame_and_stage(performance_model)
         bore = bores.get(frame)
-        it["hollow_bore_mm"] = bore
-        it["output_shaft_diameter_mm"] = bore   # D serisi delik milli teslim edilir
-        it["input_shaft_diameter_mm"] = None
+        for prefix, configuration, dimension_offset in [
+            ("DT", "Motorsuz mil girişli", 0),
+            ("DR", "Motor akuple", -170),
+        ]:
+            row = dict(it)
+            row["model"] = prefix + performance_model[2:]
+            # Teknik değerler D serisinin motorsuz performans tablosundaki aynı
+            # gövde satırıdır. Bu alan, katalog sayfası keşfinde DR modelini
+            # tabloda basılı DT koduyla aramak için açık bir kaynak bağıdır.
+            row["performance_table_model"] = performance_model
+            row["series"] = prefix
+            row["input_configuration"] = configuration
+            row["application"] = "yurutme"
+            row["frame_size"] = frame
+            row["stages"] = stage
+            row["dimension_page"] += dimension_offset
+            row["hollow_bore_mm"] = bore
+            row["output_shaft_diameter_mm"] = bore  # D serisi delik milli teslim edilir
+            row["input_shaft_diameter_mm"] = None
+            variants.append(row)
     write("yilmaz_dr.json", {
         "brand": "Yılmaz Redüktör",
         "equipment_type": "reducer",
-        "series": "D",
+        "series": "DT / DR",
         "application": "yurutme",
         "source_pdf": "YILMAZ DR KATALOG.pdf",
         "extraction_date": "2026-08-06",
         "page_range": "252-262 (D Serisi Motorsuz Güç Devir Sayfaları)",
         "shaft_source": "s.322 'D serisi redüktör kovan ölçüleri' tablosu (d, H7)",
         "notes": (
-            "D serisi paralel milli helisel redüktörler, MOTORSUZ (gear unit) "
-            "tablolarından. D serisi DELİK MİLLİ (kovan) teslim edilir; "
+            "D serisi paralel milli helisel redüktörler. DT (motorsuz mil "
+            "girişli) ve DR (motor akuple) aynı redüktör gövdesinin iki giriş "
+            "bağlantısıdır; mekanik performansları motorsuz (gear unit) "
+            "tablosundaki aynı satırdan gelir. DR satırlarında "
+            "performance_table_model karşılık gelen DT kodudur. Ölçü sayfası "
+            "DT için katalogdaki sütundan, DR için kataloğun ayrı DR ölçü "
+            "bölümünden alınır (DR = DT - 170 fiziksel sayfa). Motorun kendi "
+            "verileri ve ağırlığı bu redüktör satırına eklenmez. D serisi "
+            "DELİK MİLLİ (kovan) teslim edilir; "
             "output_shaft_diameter_mm = kovan delik çapı d (H7). Ma, n2 ve "
             "Fqam/Fqem n1=1450 d/dak içindir. Giriş mili çapı katalogda tablo "
             "hâlinde verilmediğinden boş bırakıldı."
         ),
-    }, [order_keys(i) for i in items])
+    }, [order_keys(i) for i in variants])
 
 
 # ----------------------------------------------------------------- H/B serisi
@@ -157,7 +180,15 @@ def build_h():
     d = fitz.open(os.path.join(shafts.BASE, "YILMAZ H KATALOG.pdf"))
     items = []
     for p in list(range(104, 234, 2)) + list(range(416, 506, 2)):
-        items += extract.parse_h_spread(d, p)
+        # `p` performans tablosunun fiziksel sol sayfasıdır; sağdaki devam
+        # sayfası `p + 1`dir. Model kodu ve sayısal değerlerle sonradan PDF
+        # aramak H kataloğunda güvenli değildir: aynı model/oran rakamları beş
+        # ayrı n1 bloğunda tekrar eder ve yakın bir blok yanlış eşleşebilir.
+        # Bu yüzden çıkarım anında kesin sayfa kimliğini satıra yazıyoruz.
+        spread = extract.parse_h_spread(d, p)
+        for item in spread:
+            item["technical_page"] = p
+        items += spread
     d.close()
     sh, warn = shafts.hb_shafts(pages=list(range(236, 415)) + list(range(507, 577)))
     bores = shafts.hb_series_bores()

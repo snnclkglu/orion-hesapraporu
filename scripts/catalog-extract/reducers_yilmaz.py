@@ -66,27 +66,43 @@ def build_kr():
 
     items = []
     for it in rows:
-        model = it["model"]
-        digits = re.sub(r"^[A-Z]+", "", model)
-        for app in APPLICATIONS:
-            row = dict(it)
-            row["series"] = "K"
-            row["application"] = app
-            row["frame_size"] = digits[:2]
-            row["stages"] = int(digits[-1]) if digits[-1].isdigit() else None
-            items.append(row)
+        performance_model = it["model"]
+        digits = re.sub(r"^[A-Z]+", "", performance_model)
+        for prefix, configuration, dimension_offset in [
+            ("KT", "Motorsuz mil girişli", 0),
+            ("KR", "Motor akuple", -374),
+        ]:
+            for app in APPLICATIONS:
+                row = dict(it)
+                row["model"] = prefix + performance_model[2:]
+                # Teknik değerler KT motorsuz tablosundaki aynı gövde satırıdır;
+                # KR'nin motorlu ölçü çizimi katalogda ayrı bölümde basılıdır.
+                row["performance_table_model"] = performance_model
+                row["series"] = prefix
+                row["input_configuration"] = configuration
+                row["dimension_page"] += dimension_offset
+                row["application"] = app
+                row["frame_size"] = digits[:2]
+                row["stages"] = int(digits[-1]) if digits[-1].isdigit() else None
+                items.append(row)
 
     rd.write("yilmaz_k.json", {
         "brand": "Yılmaz Redüktör",
         "equipment_type": "reducer",
-        "series": "K",
+        "series": "KT / KR",
         "source_pdf": KR_PDF,
         "source_doc": "Yılmaz Redüktör K0905-0422",
         "extraction_date": "2026-08-09",
         "page_range": "basılı s.459-469 (PDF indisi 458-468) — Motorsuz Güç Devir "
                       "Tabloları / Gear Units Performance Tables",
         "notes": (
-            "K serisi helisel-konik redüktör, motorsuz tablolar. Anma momenti Ma "
+            "K serisi helisel-konik redüktör. KT (motorsuz mil girişli) ve KR "
+            "(motor akuple) aynı redüktör gövdesinin iki giriş bağlantısıdır; "
+            "mekanik performansları KT motorsuz tablosundaki aynı satırdan "
+            "gelir. KR satırlarında performance_table_model karşılık gelen KT "
+            "kodudur. Ölçü sayfası KT için katalogdaki sütundan, KR için ayrı "
+            "KR ölçü bölümünden alınır (KR = KT - 374 fiziksel sayfa). Motorun "
+            "kendi verileri ve ağırlığı redüktör satırına eklenmez. Anma momenti Ma "
             "n1 = 1450 d/dak içindir; diğer giriş devirlerinin nominal güçleri "
             "nominal_power_kw_n1_* alanlarındadır. Radyal yükler katalogda N "
             "basılıdır. Kademe sayısı model kodunun SON basamağıdır (KT002 → 2 "

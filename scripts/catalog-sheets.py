@@ -78,7 +78,8 @@ PDFS = {
     "yilmaz_m": "YILMAZ M KATALOG.pdf",
     "yilmaz_h": "YILMAZ H KATALOG.pdf",
     "abb": "abb-ozel-elektrik-motor-katalog.pdf",
-    "gamak": "GAMAK MOTOR.pdf",
+    "gamak": "GAMAK Teknik Katalog TR 2026.pdf",
+    "elk": "elk-motor-katalog-tr.pdf",
     "siemens": "SIEMENS MOTOR KATALOG.pdf",
     "flender": "FLENDER-gear-units-MD20-1-complete-English-2018 (2).pdf",
     "vasel_festoon": "vasel-i-profil-grubu-kablo-tasima-sistemleri-rf-cat-4b52-brosur-tr.pdf",
@@ -97,6 +98,41 @@ PDFS = {
     "sew_xe_hc": "Diğer kataloglar/SEW x-fcc.pdf",
     "sew_r": "Diğer kataloglar/SEW R serisi.pdf",
     "sew_drn": "Diğer kataloglar/SEW Dr serisi.pdf",
+    # SIBRE'nin ürün bazlı 2021 detay föyleri. Genel katalog yalnız yedek
+    # kaynaktır; aşağıdaki serilerde doğrudan ürün föyü gösterilir.
+    "sibre_alc_a_detail": "SIBRE DETAY KATALOGLAR/ALC-A 2021_EN.pdf",
+    "sibre_alc_as_detail": "SIBRE DETAY KATALOGLAR/ALC-AS 2021_EN.pdf",
+    "sibre_alc_at_detail": "SIBRE DETAY KATALOGLAR/ALC-AT 2021_EN.pdf",
+    "sibre_afc_a_detail": "SIBRE DETAY KATALOGLAR/AFC-A 2021_EN.pdf",
+    "sibre_afc_as_detail": "SIBRE DETAY KATALOGLAR/AFC-AS 2021_EN.pdf",
+    "sibre_apc_a_detail": "SIBRE DETAY KATALOGLAR/APC-A 2021_EN.pdf",
+    "sibre_apc_as_detail": "SIBRE DETAY KATALOGLAR/APC-AS 2021_EN.pdf",
+    "sibre_apc_at_detail": "SIBRE DETAY KATALOGLAR/APC-AT 2021_EN.pdf",
+    "sibre_apc_bt_detail": "SIBRE DETAY KATALOGLAR/APC-BT 2021_EN.pdf",
+    "sibre_zkes_detail": "SIBRE DETAY KATALOGLAR/ZKES 2021_EN.pdf",
+    "sibre_te160_detail": "SIBRE DETAY KATALOGLAR/TE 160_2021_EN.pdf",
+    "sibre_te_detail": "SIBRE DETAY KATALOGLAR/TE 2021_EN.pdf",
+    "sibre_tec_detail": "SIBRE DETAY KATALOGLAR/TEc 2021_EN.pdf",
+    "sibre_usb_05_detail": "SIBRE DETAY KATALOGLAR/USB5_05_2021_01_EN.pdf",
+    "sibre_usb_i_detail": "SIBRE DETAY KATALOGLAR/USB5_I_2021_EN.pdf",
+    "sibre_usb_ii_detail": "SIBRE DETAY KATALOGLAR/USB5_II_2021_EN.pdf",
+    "sibre_usb_iii_detail": "SIBRE DETAY KATALOGLAR/USB5_III_2021_EN.pdf",
+    "sibre_usb_v_detail": "SIBRE DETAY KATALOGLAR/USB5_V_2021_EN.pdf",
+    "sibre_brake_discs_detail": "SIBRE DETAY KATALOGLAR/brake discs BS 2021_EN.pdf",
+    "sibre_shi_75_detail": "SIBRE DETAY KATALOGLAR/SHI 75-1-6_2021_EN.pdf",
+    "sibre_shi_103_detail": "SIBRE DETAY KATALOGLAR/SHI 103_2021_EN.pdf",
+    "sibre_shi_104_detail": "SIBRE DETAY KATALOGLAR/SHI 104-105_2021_EN.pdf",
+    "sibre_shi_106_detail": "SIBRE DETAY KATALOGLAR/SHI 106-107_2021_EN.pdf",
+    "sibre_shi_161_detail": "SIBRE DETAY KATALOGLAR/SHI 161-162_2021_EN.pdf",
+    "sibre_shi_201_detail": "SIBRE DETAY KATALOGLAR/SHI 201-202_2021_EN.pdf",
+    "sibre_shi_231_detail": "SIBRE DETAY KATALOGLAR/SHI 231-232_2021_EN.pdf",
+    "sibre_shi_251_detail": "SIBRE DETAY KATALOGLAR/SHI 251-252_2021_EN.pdf",
+    "sibre_shi_281_detail": "SIBRE DETAY KATALOGLAR/SHI 281-282_2021_EN.pdf",
+    "sibre_shi_technical": "SIBRE DETAY KATALOGLAR/SHI technical data_2021_EN.pdf",
+    "hascelik_6x36": "Diğer kataloglar/Hasçelik 6x36 WS.pdf",
+    "guven_rope": "Diğer kataloglar/Güven Çelik Halat - İnşaat Sektör Kataloğu.pdf",
+    "kobastar_lpw1": "Elektrik Katalogları/KOBASTAR - LPW1 Pim Tipi Yuk Hucresi Veri Sayfasi (TR).pdf",
+    "esit_plc": "Elektrik Katalogları/ESIT - PLC Yuk Hucresi Resmi Urun Sayfasi.pdf",
 }
 
 KIND_DIR = {
@@ -109,6 +145,7 @@ KIND_DIR = {
     "motor": "motors",
     "festoon": "festoons",
     "rope": "ropes",
+    "load_cell": "load_cells",
 }
 
 # ------------------------------------------------------------ ELLE sayfa haritası
@@ -154,16 +191,16 @@ MANUAL = [
     ("coupling", "OZGUN", "Zr", "ozgun_zr.json", "ozgun", [45, 46], "s.44-45", "ÖZGÜN Tip Zr — Pimli (elastik) kaplin"),
     # ---------------------------------------------------------------- SIBRE
     # Katalog çift sayfa (spread) basılmıştır: bir PDF sayfası iki basılı sayfa.
-    ("coupling", "SIBRE", "ALC-A", "sibre_alc_a.json", "sibre_coupling", [5], "s.10-11", "SIBRE ALC-A — Elastik kaplin"),
-    ("coupling", "SIBRE", "ALC-AS", "sibre_alc_as.json", "sibre_coupling", [6], "s.12-13", "SIBRE ALC-AS — Fren kasnaklı elastik kaplin"),
-    ("coupling", "SIBRE", "ALC-AT", "sibre_alc_at.json", "sibre_coupling", [6], "s.12-13", "SIBRE ALC-AT — Fren diskli elastik kaplin"),
-    ("coupling", "SIBRE", "AFC-A", "sibre_afc_a.json", "sibre_coupling", [7], "s.14-15", "SIBRE AFC-A — Elastik kaplin"),
-    ("coupling", "SIBRE", "AFC-AS", "sibre_afc_as.json", "sibre_coupling", [7], "s.14-15", "SIBRE AFC-AS — Fren kasnaklı elastik kaplin"),
-    ("coupling", "SIBRE", "APC-A", "sibre_apc_a.json", "sibre_coupling", [8], "s.16-17", "SIBRE APC-A — Pimli kaplin"),
-    ("coupling", "SIBRE", "APC-AS", "sibre_apc_as.json", "sibre_coupling", [9], "s.18-19", "SIBRE APC-AS — Fren kasnaklı pimli kaplin"),
-    ("coupling", "SIBRE", "APC-AT", "sibre_apc_at.json", "sibre_coupling", [10], "s.20-21", "SIBRE APC-AT — Fren diskli pimli kaplin"),
-    ("coupling", "SIBRE", "APC-BT", "sibre_apc_bt.json", "sibre_coupling", [10], "s.20-21", "SIBRE APC-BT — Fren diskli pimli kaplin"),
-    ("coupling", "SIBRE", "ZKES", "sibre_zkes.json", "sibre_coupling", [12], "s.24-25", "SIBRE ZKES — Dişli kaplin"),
+    ("coupling", "SIBRE", "ALC-A", "sibre_alc_a.json", "sibre_alc_a_detail", [0], "s.1", "SIBRE ALC-A — Elastik kaplin detay föyü"),
+    ("coupling", "SIBRE", "ALC-AS", "sibre_alc_as.json", "sibre_alc_as_detail", [0], "s.1", "SIBRE ALC-AS — Fren kasnaklı elastik kaplin detay föyü"),
+    ("coupling", "SIBRE", "ALC-AT", "sibre_alc_at.json", "sibre_alc_at_detail", [0], "s.1", "SIBRE ALC-AT — Fren diskli elastik kaplin detay föyü"),
+    ("coupling", "SIBRE", "AFC-A", "sibre_afc_a.json", "sibre_afc_a_detail", [0], "s.1", "SIBRE AFC-A — Elastik kaplin detay föyü"),
+    ("coupling", "SIBRE", "AFC-AS", "sibre_afc_as.json", "sibre_afc_as_detail", [0], "s.1", "SIBRE AFC-AS — Fren kasnaklı elastik kaplin detay föyü"),
+    ("coupling", "SIBRE", "APC-A", "sibre_apc_a.json", "sibre_apc_a_detail", [0], "s.1", "SIBRE APC-A — Pimli kaplin detay föyü"),
+    ("coupling", "SIBRE", "APC-AS", "sibre_apc_as.json", "sibre_apc_as_detail", [0, 1], "s.1-2", "SIBRE APC-AS — Fren kasnaklı pimli kaplin detay föyü"),
+    ("coupling", "SIBRE", "APC-AT", "sibre_apc_at.json", "sibre_apc_at_detail", [0], "s.1", "SIBRE APC-AT — Fren diskli pimli kaplin 2021 detay föyü"),
+    ("coupling", "SIBRE", "APC-BT", "sibre_apc_bt.json", "sibre_apc_bt_detail", [0], "s.1", "SIBRE APC-BT — Fren diskli pimli kaplin detay föyü"),
+    ("coupling", "SIBRE", "ZKES", "sibre_zkes.json", "sibre_zkes_detail", [0, 1], "s.1-2", "SIBRE ZKES — Dişli kaplin detay föyü"),
     ("coupling", "SIBRE", "ABC-V", "sibre_abc_v.json", "sibre_coupling", [23], "s.46-47", "SIBRE ABC-V — Tambur (halat) kaplini"),
     # ---------------------------------------------------------------- JAURE
     # ENDÜSTRİYEL bölüm sayfaları. MT ve MTG tabloları katalogun DENİZCİLİK
@@ -179,6 +216,46 @@ MANUAL = [
     # TCBR PDF'i iki sayfadır ve sıralaması TERSTİR: idx 1 basılı s.18 (seçim
     # tablosu), idx 0 basılı s.19 (ölçü tamamlayıcı). Basılı sıra korunur.
     ("coupling", "JAURE", "TCBR", "jaure_tcbr_barrel.json", "jaure_tcbr", [1, 0], "s.18-19", "JAURE TCBR — Fıçı tipi tambur kaplini"),
+    # ----------------------------------------------------- SKF SNL / SE yatak
+    # `catalog_page` basılı N ise kaynak PDF'teki birebir ürün çifti
+    # 0-tabanlı [N+3, N+4]'tür: ilk yaprak ürün tablosu, ikinci yaprak ölçü
+    # resmi + tam ölçü tablosu. Eski sayısal tarayıcı SNL 216'yı yanlışlıkla
+    # kırılma yükleri sayfasına (PDF s.79) bağlamıştı.
+    ("bearing_housing", "SKF", "SNL-SE-120", "skf_snl_se.json", "skf_housing", [123, 124], "s.120-121", "SKF SNL / SE — ürün ve ölçü tablosu", {"catalog_page": ["2.3 / 120"]}),
+    ("bearing_housing", "SKF", "SNL-SE-122", "skf_snl_se.json", "skf_housing", [125, 126], "s.122-123", "SKF SNL / SE — ürün ve ölçü tablosu", {"catalog_page": ["2.3 / 122"]}),
+    ("bearing_housing", "SKF", "SNL-SE-124", "skf_snl_se.json", "skf_housing", [127, 128], "s.124-125", "SKF SNL / SE — ürün ve ölçü tablosu", {"catalog_page": ["2.3 / 124"]}),
+    ("bearing_housing", "SKF", "SNL-SE-126", "skf_snl_se.json", "skf_housing", [129, 130], "s.126-127", "SKF SNL / SE — ürün ve ölçü tablosu", {"catalog_page": ["2.3 / 126"]}),
+    ("bearing_housing", "SKF", "SNL-SE-128", "skf_snl_se.json", "skf_housing", [131, 132], "s.128-129", "SKF SNL / SE — ürün ve ölçü tablosu", {"catalog_page": ["2.3 / 128"]}),
+    ("bearing_housing", "SKF", "SNL-SE-130", "skf_snl_se.json", "skf_housing", [133, 134], "s.130-131", "SKF SNL / SE — ürün ve ölçü tablosu", {"catalog_page": ["2.3 / 130"]}),
+    ("bearing_housing", "SKF", "SNL-SE-132", "skf_snl_se.json", "skf_housing", [135, 136], "s.132-133", "SKF SNL / SE — ürün ve ölçü tablosu", {"catalog_page": ["2.3 / 132"]}),
+    ("bearing_housing", "SKF", "SNL-SE-134", "skf_snl_se.json", "skf_housing", [137, 138], "s.134-135", "SKF SNL / SE — ürün ve ölçü tablosu", {"catalog_page": ["2.3 / 134"]}),
+    ("bearing_housing", "SKF", "SNL-SE-136", "skf_snl_se.json", "skf_housing", [139, 140], "s.136-137", "SKF SNL / SE — ürün ve ölçü tablosu", {"catalog_page": ["2.3 / 136"]}),
+    # --------------------------------------------------------- SIBRE frenler
+    # Genel fren kataloğu yerine ürün bazlı 2021 föyleri. TE/TEc kasnak,
+    # USB disk, SHI emniyet frenidir; model önekleri dosya sınırlarını taşır.
+    ("brake", "SIBRE", "TE160", "sibre_te_drum.json", "sibre_te160_detail", [0, 1], "s.1-2", "SIBRE TE 160 — kasnak freni detay föyü", {"drum_diameter_mm": [160]}),
+    ("brake", "SIBRE", "TE", "sibre_te_drum.json", "sibre_te_detail", [0], "s.1", "SIBRE TE — kasnak freni detay föyü", {"drum_diameter_mm": [200, 250, 315, 400, 500, 630, 710]}),
+    ("brake", "SIBRE", "TEc", "sibre_tec_drum.json", "sibre_tec_detail", [0], "s.1", "SIBRE TEc — kompakt kasnak freni detay föyü"),
+    ("brake", "SIBRE", "USB5-05", "sibre_usb_disc.json", "sibre_usb_05_detail", [0], "s.1 + BS disk s.1", "SIBRE USB5-05 — disk fren ve BS disk detay föyü", {"$model_prefix": ["USB5-05 "]}, [("sibre_brake_discs_detail", 0)]),
+    ("brake", "SIBRE", "USB5-I", "sibre_usb_disc.json", "sibre_usb_i_detail", [0], "s.1 + BS disk s.1", "SIBRE USB5-I — disk fren ve BS disk detay föyü", {"$model_prefix": ["USB5-I "]}, [("sibre_brake_discs_detail", 0)]),
+    ("brake", "SIBRE", "USB5-II", "sibre_usb_disc.json", "sibre_usb_ii_detail", [0], "s.1 + BS disk s.1", "SIBRE USB5-II — disk fren ve BS disk detay föyü", {"$model_prefix": ["USB5-II "]}, [("sibre_brake_discs_detail", 0)]),
+    ("brake", "SIBRE", "USB5-III", "sibre_usb_disc.json", "sibre_usb_iii_detail", [0], "s.1 + BS disk s.1", "SIBRE USB5-III — disk fren ve BS disk detay föyü", {"$model_prefix": ["USB5-III "]}, [("sibre_brake_discs_detail", 0)]),
+    ("brake", "SIBRE", "USB5-V", "sibre_usb_disc.json", "sibre_usb_v_detail", [0], "s.1 + BS disk s.1", "SIBRE USB5-V — disk fren ve BS disk detay föyü", {"$model_prefix": ["USB5-V "]}, [("sibre_brake_discs_detail", 0)]),
+    ("brake", "SIBRE", "SHI75", "sibre_shi_caliper.json", "sibre_shi_75_detail", [0], "ürün s.1 + teknik veri s.1", "SIBRE SHI 75 — emniyet freni detay ve teknik veri föyü", {"$model_prefix": ["SHI 75-"]}, [("sibre_shi_technical", 0)]),
+    ("brake", "SIBRE", "SHI103", "sibre_shi_caliper.json", "sibre_shi_103_detail", [0], "ürün s.1 + teknik veri s.1", "SIBRE SHI 103 — emniyet freni detay ve teknik veri föyü", {"$model_prefix": ["SHI 103"]}, [("sibre_shi_technical", 0)]),
+    ("brake", "SIBRE", "SHI104-105", "sibre_shi_caliper.json", "sibre_shi_104_detail", [0], "ürün s.1 + teknik veri s.1", "SIBRE SHI 104–105 — emniyet freni detay ve teknik veri föyü", {"$model_prefix": ["SHI 104", "SHI 105"]}, [("sibre_shi_technical", 0)]),
+    ("brake", "SIBRE", "SHI106-107", "sibre_shi_caliper.json", "sibre_shi_106_detail", [0], "ürün s.1 + teknik veri s.1", "SIBRE SHI 106–107 — emniyet freni detay ve teknik veri föyü", {"$model_prefix": ["SHI 106", "SHI 107"]}, [("sibre_shi_technical", 0)]),
+    ("brake", "SIBRE", "SHI161-162", "sibre_shi_caliper.json", "sibre_shi_161_detail", [0], "ürün s.1 + teknik veri s.1", "SIBRE SHI 161–162 — emniyet freni detay ve teknik veri föyü", {"$model_prefix": ["SHI 161", "SHI 162"]}, [("sibre_shi_technical", 0)]),
+    ("brake", "SIBRE", "SHI201-202", "sibre_shi_caliper.json", "sibre_shi_201_detail", [0], "ürün s.1 + teknik veri s.1", "SIBRE SHI 201–202 — emniyet freni detay ve teknik veri föyü", {"$model_prefix": ["SHI 201", "SHI 202"]}, [("sibre_shi_technical", 0)]),
+    ("brake", "SIBRE", "SHI231-232", "sibre_shi_caliper.json", "sibre_shi_231_detail", [0], "ürün s.1 + teknik veri s.1", "SIBRE SHI 231–232 — emniyet freni detay ve teknik veri föyü", {"$model_prefix": ["SHI 231", "SHI 232"]}, [("sibre_shi_technical", 0)]),
+    ("brake", "SIBRE", "SHI251-252", "sibre_shi_caliper.json", "sibre_shi_251_detail", [0], "ürün s.1 + teknik veri s.1", "SIBRE SHI 251–252 — emniyet freni detay ve teknik veri föyü", {"$model_prefix": ["SHI 251", "SHI 252"]}, [("sibre_shi_technical", 0)]),
+    ("brake", "SIBRE", "SHI281-282", "sibre_shi_caliper.json", "sibre_shi_281_detail", [0], "ürün s.1 + teknik veri s.1", "SIBRE SHI 281–282 — emniyet freni detay ve teknik veri föyü", {"$model_prefix": ["SHI 281", "SHI 282"]}, [("sibre_shi_technical", 0)]),
+    # ---------------------------------------------------------- yük hücreleri
+    ("load_cell", "Kobastar", "LPW1", "kobastar_lpw1.json", "kobastar_lpw1", [0, 1], "s.1-2", "Kobastar LPW1 — pim tipi yük hücresi teknik föyü"),
+    # Esit'in kapasite bazlı teknik çizimleri üyelikle indirilir. Erişim
+    # kısıtını aşmadan kamuya açık resmi ürün sayfasının arşivlenen ilk yaprağı
+    # kullanılır; canlı resmi adres ayrıca datasheet_url olarak korunur.
+    ("load_cell", "Esit", "PLC", "esit_plc.json", "esit_plc", [0], "ürün sayfası s.1", "Esit PLC — resmi ürün detay sayfası"),
     # ---------------------------------------------------------------- TAMPON
     # SIBRE SP kataloğu ürün kodunu satır olarak BASMAZ: seçim, s.18'deki
     # "Impact Force / Damping Capacity" matrisinden yapılır ve ölçüler
@@ -248,6 +325,10 @@ MANUAL = [
     # Halat ürün föyleri TEK TABLO sayfasıdır ve dosya başına tek üründür;
     # otomatik keşfe gerek yoktur, sayfa doğrudan bilinir. CASAR kataloğu tek
     # PDF olduğu hâlde on altı ürün taşır — her ürünün kendi tablosu vardır.
+    ("rope", "Haşçelik", "6x36 WS", "hascelik_6x36.json", "hascelik_6x36", [0, 1], "s.1-2",
+     "Haşçelik 6x36 WS — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "6x36 WS", "izmit_6x36.json", "guven_rope", [92], "basılı s.182",
+     "İzmit A.Ş. 6x36 WS — çap, kopma kuvveti ve metre ağırlığı tablosu"),
     ("rope", "CASAR", "Starlift Plus", "casar_starlift_plus.json", "casar", [16], "s.C17",
      "CASAR STARLIFT PLUS — çap, kopma kuvveti ve metre ağırlığı tablosu"),
     ("rope", "CASAR", "Starlift Xtra", "casar_starlift_xtra.json", "casar", [18], "s.C19",
@@ -299,59 +380,60 @@ MANUAL = [
 
 # --------------------------------------------------- OTOMATİK sayfa keşfi
 # (kind, catalog_data dosyası, kaynak, model alanı|None, ayırt edici sayısal
-#  alanlar, başlık öneki)
+#  alanlar, başlık öneki[, seçenekler])
+#
+# Seçenekler:
+#   dimension_field   JSON'daki 1-tabanlı ölçü sayfasını teknik sayfaya ekler.
+#   technical_field   JSON'daki doğrulanmış 1-tabanlı teknik sayfayı kullanır.
+#   continuation_pages Teknik tablonun ardındaki tamamlayıcı sayfa sayısı.
+#   variant_field     Aynı modelin farklı teknik tablolarını ayıran alan (n1).
 
 DISCOVER = [
     ("bearing", "bearings/skf.json", "skf_bearing", "designation",
      ["bore_mm", "outer_diameter_mm", "width_mm", "dynamic_load_kN", "static_load_kN"],
      "SKF Rulman"),
-    ("bearing_housing", "bearing_housings/skf_snl_se.json", "skf_housing", "model",
-     ["bearing_bore_mm", "bearing_outer_dia_mm", "housing_width_mm"],
-     "SKF Rulman Yatağı"),
     ("brake", "brakes/galvi_nhyd_nvhyd.json", "galvi", "model",
      ["drum_diameter_mm", "brake_torque_Nm", "weight_kg"],
      "GALVI NEWCOMEN Fren"),
-    # SIBRE fren kataloğu üç ürün ailesini ayrı tablolarda basar; her aile
-    # kendi JSON'undan aranır. Model kodu ("TE 160 Ed 23/5") tabloda parça
-    # parça durduğu için eşleşme ağırlıklı olarak SAYILARDAN gelir.
-    ("brake", "brakes/sibre_te_drum.json", "sibre_brake", None,
-     ["drum_diameter_mm", "min_torque_Nm", "max_torque_Nm", "brake_torque_Nm", "weight_kg"],
-     "SIBRE TE — Kasnaklı (tambur) fren"),
-    ("brake", "brakes/sibre_usb_disc.json", "sibre_brake", None,
-     ["disc_diameter_mm", "min_torque_Nm", "max_torque_Nm", "brake_torque_Nm", "weight_kg"],
-     "SIBRE USB5 — Diskli fren"),
-    ("brake", "brakes/sibre_shi_caliper.json", "sibre_brake", None,
-     ["min_disc_diameter_mm", "clamping_force_1mm_kN", "clamping_force_3mm_kN",
-      "release_pressure_bar", "torque_offset_mm"],
-     "SIBRE SHI — Kaliperli disk fren"),
     ("buffer", "buffers/conductix_rubber.json", "conductix", "model",
      ["diameter_mm", "height_mm", "energy_capacity_j", "max_force_kn"],
      "Conductix-Wampfler Kauçuk Tampon"),
     ("buffer", "buffers/conductix_cellular.json", "conductix", "model",
      ["diameter_mm", "height_mm", "energy_capacity_j", "max_force_kn"],
      "Conductix-Wampfler Hücresel Tampon"),
-    ("gearbox", "reducers/yilmaz_dr.json", "yilmaz_dr", "model",
+    ("gearbox", "reducers/yilmaz_dr.json", "yilmaz_dr", "performance_table_model",
      ["ratio", "output_torque_Nm", "output_speed_rpm"],
-     "YILMAZ D Serisi Redüktör"),
+     "YILMAZ D Serisi Redüktör",
+     {"dimension_field": "dimension_page"}),
     ("gearbox", "reducers/yilmaz_m.json", "yilmaz_m", "model",
      ["ratio", "output_torque_Nm", "output_speed_rpm"],
-     "YILMAZ M Serisi Redüktör"),
+     "YILMAZ M Serisi Redüktör",
+     {"dimension_field": "dimension_page"}),
     ("gearbox", "reducers/yilmaz_h.json", "yilmaz_h", "model",
      ["ratio", "output_torque_Nm", "output_speed_rpm"],
-     "YILMAZ H Serisi Redüktör"),
+     "YILMAZ H Serisi Redüktör",
+     {"technical_field": "technical_page", "dimension_field": "dimension_page",
+      "continuation_pages": 1,
+      "variant_field": "input_speed_rpm"}),
     ("motor", "motors/abb.json", "abb", None,
      ["power_kw", "speed_rpm", "torque_nm", "efficiency_pct", "current_a", "weight_kg"],
      "ABB Motor"),
-    ("motor", "motors/gamak.json", "gamak", None,
+    ("motor", "motors/gamak.json", "gamak", "model",
      ["power_kw", "speed_rpm", "torque_nm", "efficiency_pct", "current_a", "weight_kg"],
-     "GAMAK Motor"),
+     "GAMAK AC Motor",
+     {"technical_field": "technical_page", "dimension_field": "dimension_page"}),
+    ("motor", "motors/elk.json", "elk", "model",
+     ["power_kw", "speed_rpm", "torque_nm", "efficiency_pct", "current_a", "weight_kg"],
+     "ELK AC Motor",
+     {"technical_field": "technical_page", "dimension_field": "dimension_page"}),
     ("motor", "motors/innomotics.json", "siemens", None,
      ["power_kw", "speed_rpm", "torque_nm", "efficiency_pct", "current_a", "weight_kg"],
      "SIEMENS / INNOMOTICS Motor"),
     # --------------------------------- "Diğer kataloglar" (2026-08-09)
-    ("gearbox", "reducers/yilmaz_k.json", "yilmaz_k", "model",
+    ("gearbox", "reducers/yilmaz_k.json", "yilmaz_k", "performance_table_model",
      ["ratio", "output_torque_Nm", "output_speed_rpm"],
-     "YILMAZ K Serisi Redüktör"),
+     "YILMAZ K Serisi Redüktör",
+     {"dimension_field": "dimension_page"}),
     ("gearbox", "reducers/yilmaz_planet.json", "yilmaz_planet", "model",
      ["ratio", "output_speed_rpm", "nominal_power_kw"],
      "YILMAZ Planet Redüktör"),
@@ -552,47 +634,102 @@ def manual_items(sheet) -> list[dict]:
         return items
     if not isinstance(flt, dict):
         flt = {"series": flt}
+    def matches(it: dict, field: str, values: list) -> bool:
+        # Bir ürün ailesi ayrı föylere bölündüğünde model önekiyle güvenli
+        # süzme gerekir (USB5-I ile USB5-II, "USB5-I " boşluğu sayesinde
+        # karışmaz). Normal alanlarda eski birebir eşleme korunur.
+        if field == "$model_prefix":
+            model = str(it.get("model", "")).strip()
+            return any(model.startswith(str(value)) for value in values)
+        return str(it.get(field, "")).strip() in {str(value) for value in values}
+
     return [
         it for it in items
-        if all(str(it.get(field, "")).strip() in set(values)
-               for field, values in flt.items())
+        if all(matches(it, field, values) for field, values in flt.items())
     ]
 
 
-def discover_pages(entry) -> tuple[dict[int, list[str]], int, str]:
-    """Ürünleri sayfalara dağıtır → {sayfa: [model, …]}, eşleşmeyen, kanıt."""
-    kind, jf, src_key, code_field, num_fields, _title = entry
+def discover_pages(entry) -> tuple[list[dict], int, str]:
+    """Ürünleri teknik + tamamlayıcı + ölçü sayfası kümelerine dağıtır.
+
+    Bir modelin yalnız teknik satırını göstermek çizim için yetmez. Kaynak JSON
+    `dimension_page` taşıyorsa ürün; teknik tablo, varsa devam sayfası ve kendi
+    ölçü çizimiyle TEK manifest kaydında birleştirilir. Böylece ekran ve detaylı
+    ekipman PDF'i aynı çok-sayfalı föyü kullanır.
+    """
+    kind, jf, src_key, code_field, num_fields, _title = entry[:6]
+    options = entry[6] if len(entry) > 6 else {}
+    technical_field = options.get("technical_field")
+    dimension_field = options.get("dimension_field")
+    continuation_pages = int(options.get("continuation_pages", 0))
+    variant_field = options.get("variant_field")
     items, _meta = load_items(kind, jf)
     src = Source.get(src_key)
 
-    by_page: dict[int, list[str]] = defaultdict(list)
+    by_group: dict[tuple, dict] = {}
     unmatched = 0
     for it in items:
-        values = [fmt_num(it[f]) for f in num_fields if isinstance(it.get(f), (int, float))]
-        code = norm(it.get(code_field, "")) if code_field else ""
-        if not values and not code:
-            unmatched += 1
-            continue
-        # Kod varsa 3 puanlık ağırlık taşır: model kodu, sayılardan çok daha
-        # ayırt edicidir. Eşik, ürünün sayısal alanlarının %60'ıdır.
-        need = max(2, int(len(values) * 0.6)) + (3 if code else 0)
-        best, best_score = None, 0
-        for i, nums in enumerate(src.nums):
-            if code and code not in src.text[i]:
+        if technical_field:
+            raw_technical = it.get(technical_field)
+            if not isinstance(raw_technical, (int, float)):
+                unmatched += 1
                 continue
-            score = sum(1 for v in values if v in nums) + (3 if code else 0)
-            if score > best_score:
-                best, best_score = i, score
-        if best is None or best_score < need:
+            best = int(raw_technical) - 1
+            if best < 0 or best >= len(src.doc):
+                unmatched += 1
+                continue
+        else:
+            values = [fmt_num(it[f]) for f in num_fields if isinstance(it.get(f), (int, float))]
+            code = norm(it.get(code_field, "")) if code_field else ""
+            if not values and not code:
+                unmatched += 1
+                continue
+            # Kod varsa 3 puanlık ağırlık taşır: model kodu, sayılardan çok daha
+            # ayırt edicidir. Eşik, ürünün sayısal alanlarının %60'ıdır.
+            need = max(2, int(len(values) * 0.6)) + (3 if code else 0)
+            best, best_score = None, 0
+            for i, nums in enumerate(src.nums):
+                if code and code not in src.text[i]:
+                    continue
+                score = sum(1 for v in values if v in nums) + (3 if code else 0)
+                if score > best_score:
+                    best, best_score = i, score
+            if best is None or best_score < need:
+                unmatched += 1
+                continue
+        pages = [best]
+        pages.extend(best + n for n in range(1, continuation_pages + 1))
+        if dimension_field:
+            raw_dimension = it.get(dimension_field)
+            if not isinstance(raw_dimension, (int, float)):
+                unmatched += 1
+                continue
+            dimension_idx = int(raw_dimension) - 1
+            if dimension_idx < 0 or dimension_idx >= len(src.doc):
+                unmatched += 1
+                continue
+            pages.append(dimension_idx)
+        # Aynı sayfa iki yoldan geldiyse tek kez ve kaynak sırasını koruyarak.
+        pages = list(dict.fromkeys(pages))
+        if any(idx < 0 or idx >= len(src.doc) for idx in pages):
             unmatched += 1
             continue
+        variant = it.get(variant_field) if variant_field else None
+        key = (tuple(pages), variant)
+        group = by_group.setdefault(key, {
+            "pages": pages,
+            "models": [],
+            "variant": variant,
+        })
         model = db_model(kind, it)
-        if model and model not in by_page[best]:
-            by_page[best].append(model)
+        if model and model not in group["models"]:
+            group["models"].append(model)
 
-    total = sum(len(v) for v in by_page.values())
-    evidence = "%d model / %d sayfa" % (total, len(by_page))
-    return dict(by_page), unmatched, evidence
+    groups = list(by_group.values())
+    total = sum(len(g["models"]) for g in groups)
+    page_count = len({idx for g in groups for idx in g["pages"]})
+    evidence = "%d model / %d kaynak sayfa / %d föy" % (total, page_count, len(groups))
+    return groups, unmatched, evidence
 
 
 def header_scan_groups(entry) -> tuple[list[dict], int, str]:
@@ -747,15 +884,20 @@ def build(verify_only: bool = False, only: set[str] | None = None) -> None:
             m = db_model(kind, it, it.get("_meta"))
             if m and m not in models:
                 models.append(m)
+        # Onuncu alan, başka bir SIBRE föyünden gelen ortak tamamlayıcı
+        # yaprakları taşır (örn. USB ürün sayfası + BS disk ölçüleri).
+        extra_pages = sheet[9] if len(sheet) > 9 else []
+        page_refs = [(src_key, idx) for idx in pages] + list(extra_pages)
         images = [
-            image_for(src_key, kind, idx,
+            image_for(page_src, kind, idx,
                       "%s-%s-p%d" % (slugify(brand), slugify(series), n + 1))
-            for n, idx in enumerate(pages)
+            for n, (page_src, idx) in enumerate(page_refs)
         ]
+        source_names = list(dict.fromkeys(PDFS[page_src] for page_src, _idx in page_refs))
         entries.append({
             "id": "%s/%s-%s" % (kind, slugify(brand), slugify(series)),
             "kind": kind, "brand": brand, "series": series, "title": title,
-            "source": PDFS[src_key], "printedPages": printed,
+            "source": " + ".join(source_names), "printedPages": printed,
             "images": images, "models": models,
         })
         print("  %-16s %-6s %-8s %-9s idx %-9s %s"
@@ -763,26 +905,39 @@ def build(verify_only: bool = False, only: set[str] | None = None) -> None:
 
     # ------------------------------------------------------- otomatik keşif
     for entry in DISCOVER:
-        kind, jf, src_key, _code, _nums, title_prefix = entry
+        kind, jf, src_key, _code, _nums, title_prefix = entry[:6]
         if only and kind not in only:
             continue
         _items, meta = load_items(kind, jf)
         brand = str(meta.get("brand", "")).strip()
-        by_page, unmatched, evidence = discover_pages(entry)
-        if not by_page:
+        groups, unmatched, evidence = discover_pages(entry)
+        if not groups:
             problems.append("%s: hiçbir ürün sayfaya bağlanamadı" % jf)
             continue
-        for idx in sorted(by_page):
-            slug = "%s-%s-p%d" % (slugify(brand), slugify(os.path.splitext(os.path.basename(jf))[0]), idx + 1)
-            rel = image_for(src_key, kind, idx, slug)
-            entries.append({
+        for group in sorted(groups, key=lambda g: (g["pages"], str(g["variant"]))):
+            pages = group["pages"]
+            page_token = "-".join(str(idx + 1) for idx in pages)
+            slug = "%s-%s-p%s" % (
+                slugify(brand),
+                slugify(os.path.splitext(os.path.basename(jf))[0]),
+                page_token,
+            )
+            images = [
+                image_for(src_key, kind, idx, "%s-s%d" % (slug, n + 1))
+                for n, idx in enumerate(pages)
+            ]
+            page_labels = ", ".join("PDF s.%d" % (idx + 1) for idx in pages)
+            record = {
                 "id": "%s/%s" % (kind, slug),
                 "kind": kind, "brand": brand,
                 "series": str(meta.get("series", ""))[:40],
-                "title": "%s — katalog s.%d" % (title_prefix, idx + 1),
-                "source": PDFS[src_key], "printedPages": "PDF s.%d" % (idx + 1),
-                "images": [rel], "models": by_page[idx],
-            })
+                "title": "%s — teknik bilgiler ve ölçüler" % title_prefix,
+                "source": PDFS[src_key], "printedPages": page_labels,
+                "images": images, "models": group["models"],
+            }
+            if group["variant"] is not None:
+                record["inputRpm"] = group["variant"]
+            entries.append(record)
         print("  %-16s %-22s %-28s eşleşmeyen=%d" % (kind, brand[:22], evidence, unmatched))
 
     # -------------------------------------------------- başlık taramalı keşif

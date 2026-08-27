@@ -85,11 +85,13 @@ export async function collectCatalogSheetPages(
       if (!id) continue;
       // Anahtar GÖRÜNEN sütunlardan üretilir (listedeki bağlantıyla aynı),
       // arama ise satırın katalog kimliğiyle yapılır.
-      const key = dsKey(row.kind!, row.brand, row.model);
+      const key = dsKey(row.kind!, row.brand, row.model, row.catalogInputRpm);
       if (seenProduct.has(key)) continue;
       seenProduct.add(key);
 
-      const sheet = findCatalogSheet(id.kind, id.brand, id.model);
+      const sheet = findCatalogSheet(id.kind, id.brand, id.model, {
+        inputRpm: id.inputRpm,
+      });
       if (!sheet) continue;
 
       // Aynı sayfa: yaprak bir kez basılır, ikinci ürün de aynı çapaya bağlanır.

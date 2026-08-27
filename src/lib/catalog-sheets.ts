@@ -12,8 +12,9 @@
 // olmadan açabilsin diye yalnız manifest izin listesindeki sayfalar
 // `/api/catalog-sheet/...` ucundan sunulur; dizin gezme yolu açılmaz.
 //
-// ŞİMDİLİK YALNIZ KAPLİNLER (ÖZGÜN · SIBRE · JAURE). Yeni bir tür eklemek
-// betikteki SHEETS listesine satır yazmakla olur; buradaki kod türden bağımsızdır.
+// Kaplin, rulman/yatak, fren, tampon, redüktör, motor, halat, feston ve yük
+// hücresi aynı türden bağımsız defteri kullanır. Yeni bir tür eklemek betikteki
+// kaynak haritasına satır yazmakla olur; çözümleme kodu türden bağımsızdır.
 
 import manifest from "./catalog-sheets/manifest.json";
 
@@ -39,6 +40,15 @@ export interface CatalogSheet {
    * tarayıcıda açılır, indirilir ve yazdırılır.
    */
   images: string[];
+  /**
+   * Aynı modelin farklı giriş devri tablolarında tekrar ettiği kataloglarda
+   * (Yılmaz H) teknik sayfayı ayıran gerçek katalog n1 değeri.
+   *
+   * Bu değer MOTOR devrinden türetilmez: katalog satırı n1=1400 iken seçilen
+   * gerçek motor 1450 d/dak olabilir. Doğru sayfa, seçilen katalog satırının
+   * attrs.input_speed_rpm değeriyle bulunur.
+   */
+  inputRpm?: number;
   /**
    * Bu sayfaya düşen model kodları — `cat_equipment.model` ile birebir.
    * Eşleme SERİ üzerinden değil MODEL üzerinden yapılır: "A" serisi ile
@@ -101,6 +111,8 @@ function baseCode(normalized: string): string {
 
 /** tür|marka|model → sayfa */
 const BY_BRAND_MODEL = new Map<string, CatalogSheet>();
+/** tür|marka|model|n1 → aynı modelin giriş devrine özel teknik sayfası */
+const BY_BRAND_MODEL_RPM = new Map<string, CatalogSheet>();
 /**
  * tür|marka|temel kod → sayfa. Tam kod bulunamazsa başvurulur. Aynı temel kod
  * FARKLI sayfalara düşüyorsa kayıt düşürülür: iki üründen birini tahminle
@@ -120,10 +132,16 @@ const BY_BASE_MODEL = new Map<string, CatalogSheet | null>();
  * sayfasını açmaktansa hiç açmamak doğrudur.
  */
 const BY_MODEL = new Map<string, CatalogSheet | null>();
+/** tür|model|n1 → markasız giriş devri varyantı; marka çakışırsa null */
+const BY_MODEL_RPM = new Map<string, CatalogSheet | null>();
 /** tür|marka → o markanın sayfası var mı */
 const BRANDS = new Set<string>();
 /** Defterdeki markaların normalleştirilmiş adları — model önekini ayıklamak için */
 const BRAND_TOKENS = new Set<string>();
+
+function rpmKey(value: number): string {
+  return Number(value.toFixed(3)).toString();
+}
 
 for (const sheet of SHEETS) {
   BRANDS.add(`${sheet.kind}|${norm(sheet.brand)}`);
@@ -132,6 +150,15 @@ for (const sheet of SHEETS) {
     const normalized = norm(model);
     const brandKey = `${sheet.kind}|${norm(sheet.brand)}|${normalized}`;
     if (!BY_BRAND_MODEL.has(brandKey)) BY_BRAND_MODEL.set(brandKey, sheet);
+
+    if (sheet.inputRpm !== undefined && Number.isFinite(sheet.inputRpm)) {
+      const rpm = rpmKey(sheet.inputRpm);
+      BY_BRAND_MODEL_RPM.set(`${brandKey}|${rpm}`, sheet);
+      const rpmModelKey = `${sheet.kind}|${normalized}|${rpm}`;
+      const rpmSeen = BY_MODEL_RPM.get(rpmModelKey);
+      if (rpmSeen === undefined) BY_MODEL_RPM.set(rpmModelKey, sheet);
+      else if (rpmSeen && rpmSeen.brand !== sheet.brand) BY_MODEL_RPM.set(rpmModelKey, null);
+    }
 
     const modelKey = `${sheet.kind}|${normalized}`;
     const seen = BY_MODEL.get(modelKey);
@@ -164,7 +191,8 @@ for (const sheet of SHEETS) {
 export function findCatalogSheet(
   kind: string,
   brandInput: string | undefined | null,
-  model: string | undefined | null
+  model: string | undefined | null,
+  lookup: { inputRpm?: number | null } = {}
 ): CatalogSheet | undefined {
   if (!model) return undefined;
   const brand = realBrand(brandInput);
@@ -175,6 +203,24 @@ export function findCatalogSheet(
   for (const b of brand ? [norm(brand)] : [...BRAND_TOKENS]) {
     if (b.length >= 3 && normalized.startsWith(b) && normalized.length > b.length) {
       candidates.push(normalized.slice(b.length));
+    }
+  }
+
+  // Aynı model birkaç n1 tablosunda yer alıyorsa önce seçilen katalog
+  // satırının GERÇEK n1 anahtarını deneriz. Eski revizyonlarda bu alan yoktur;
+  // aşağıdaki model-only yol onların önceki davranışını korur.
+  if (lookup.inputRpm !== undefined && lookup.inputRpm !== null &&
+      Number.isFinite(lookup.inputRpm)) {
+    const rpm = rpmKey(lookup.inputRpm);
+    for (const key of candidates) {
+      if (brand) {
+        const exact = BY_BRAND_MODEL_RPM.get(
+          `${kind}|${norm(brand)}|${key}|${rpm}`
+        );
+        if (exact) return exact;
+      }
+      const byModel = BY_MODEL_RPM.get(`${kind}|${key}|${rpm}`);
+      if (byModel) return byModel;
     }
   }
 
@@ -227,11 +273,16 @@ export function catalogSheetPageUrl(
   kind: string,
   brand: string | null | undefined,
   model: string,
-  origin = ""
+  origin = "",
+  lookup: { inputRpm?: number | null } = {}
 ): string {
   const q = new URLSearchParams({ tur: kind, model });
   const real = realBrand(brand);
   if (real) q.set("marka", real);
+  if (lookup.inputRpm !== undefined && lookup.inputRpm !== null &&
+      Number.isFinite(lookup.inputRpm)) {
+    q.set("n1", rpmKey(lookup.inputRpm));
+  }
   return `${origin}/paylas/katalog?${q.toString()}`;
 }
 

@@ -57,12 +57,38 @@ mühendis çoğu zaman sayfanın kendisini de görmek ister (ölçü resmi, dipn
 defterini yazar; `Katalog Seçimi` başlığındaki **Katalog Sayfası** düğmesi
 bu deftere bakar.
 
-Sayfa iki yoldan bulunur: **elle** (`MANUAL` — kaplinler; ÖZGÜN kataloğu
-taranmış olduğu için tek yol budur) ve **otomatik** (`DISCOVER` — her ÜRÜN
-için, ürünün model kodu + sayısal alanlarının en çoğunu taşıyan sayfa
-seçilir). Tek bir kodun kataloğun her yerinde geçmesi sayfayı kazandırmaz;
-ürünün SATIRININ bulunduğu tablo sayfası kazanır. Eşiği geçemeyen ürüne
-sayfa YAZILMAZ. `--verify` haritayı dosya yazmadan sınar.
+Sayfa iki yoldan bulunur: **elle** (`MANUAL` — üretici detay föyleri, kesin
+SKF SNL/SE sayfa çiftleri, halat ve yük hücresi föyleri; ÖZGÜN kataloğu
+taranmış olduğu için onda tek yol budur) ve **otomatik** (`DISCOVER` — her
+ÜRÜN için ya çıkarıcının yazdığı doğrulanmış `technical_page` /
+`dimension_page` alanları kullanılır ya da ürünün model kodu + sayısal
+alanlarının en çoğunu taşıyan sayfa seçilir). Tek bir kodun kataloğun her
+yerinde geçmesi sayfayı kazandırmaz; ürünün SATIRININ bulunduğu tablo sayfası
+kazanır. Eşiği geçemeyen ürüne sayfa YAZILMAZ. `--verify` haritayı dosya
+yazmadan sınar.
+
+**Bir ürün föyü birden çok kaynak yaprağı taşıyabilir.** GAMAK 2026 ve ELK AC
+motorlarında performans tablosu + B3 `MOTOR BOYUTLARI`; Yılmaz DT/DR, KT/KR
+ve M'de performans tablosu + modele ait ölçü sayfası; Yılmaz H'de iki ardışık
+performans yaprağı + ölçü sayfası tek manifest kaydıdır. SIBRE USB'de ürün
+sayfasına BS fren diski yaprağı, SHI'da model yaprağına ortak teknik-veri
+yaprağı eklenir. Aynı kaynak yaprak dosyada yalnız bir kez saklanır.
+
+**Yılmaz giriş bağlantısı ürün kimliğinin parçasıdır.** DT/KT `Motorsuz mil
+girişli`, DR/KR `Motor akuple` satırlarıdır; mekanik performans satırı aynı
+gövdeden gelir ama model ve ölçü sayfası farklıdır. Seçicide `series`
+DT/DR/KT/KR olarak ayrı değer taşır, `input_configuration` tabloda açıkça
+görünür. H serisinde aynı model beş giriş devri bloğunda tekrar ettiği için
+yalnız modelle arama yeterli değildir: çıkarıcı PDF'i okurken kesin
+`technical_page` değerini yazar, manifest `inputRpm` taşır ve açık adres
+`n1=…` parametresiyle doğru bloğa döner. Katalog `n1` değeri gerçek motor
+devrine yuvarlanmaz.
+
+**Resmi PDF indirilemiyorsa üretici sayfası arşivi istisnadır.** Esit PLC'nin
+tekil çizim bağlantıları giriş ekranına bağlı olduğundan erişim aşılmaz;
+üreticinin kamuya açık PLC ürün sayfasının arşivlenmiş ilk yaprağı kullanılır.
+Kobastar LPW1 ise üreticinin resmi iki sayfalık föyüdür. Uydurma teknik belge
+üretilmez.
 
 Eşleme SERİ önekiyle değil MODEL koduyla yapılır ("A" serisi ile
 "ABC-V 260" karışırdı); tam eşleşme yoksa tasarım soneki atılmış temel koda
@@ -79,12 +105,13 @@ doğrular. Uç müşteri bağlantısı için oturum istemez ama manifest dışı
 dosyayı ya da dizini hiçbir zaman sunmaz.
 
 **Katalog sayfasının müşteriye açık adresi vardır:
-`/paylas/katalog?tur=…&marka=…&model=…`.**
+`/paylas/katalog?tur=…&marka=…&model=…&n1=…`.**
 Ekipman listesinde EKİPMAN ADI bu adrese bağlanır — uygulamada yeni sekmede,
 Excel'de köprü olarak, standart PDF'te dış bağlantı olarak. Müşteri üyeliği
 gerekmez; açık sayfa yalnız seçilen üretici yaprağını gösterir, uygulama
 menülerini ya da başka kataloglarda gezinme yolu vermez. Adres ÜRÜN KİMLİĞİNİ
-taşır, defterin iç kimliğini değil: `manifest.json` yeniden
+taşır, defterin iç kimliğini değil (`n1` yalnız H gibi devir varyantlı
+ürünlerde yazılır): `manifest.json` yeniden
 üretildiğinde sayfa kimlikleri değişebilir ama ürün kimliği değişmez, yani
 daha önce indirilmiş bir Excel'in bağlantısı ölü kalmaz. Adresi
 `catalogSheetPageUrl` üretir, listedeki eşlemeyi `buildCatalogSheetUrls`

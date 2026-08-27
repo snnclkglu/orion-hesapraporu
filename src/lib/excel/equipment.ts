@@ -350,6 +350,12 @@ export interface EqRow {
    * ayrıca taşınır.
    */
   catalogModel?: string;
+  /**
+   * Aynı redüktör modeli farklı giriş devri tablolarında geçiyorsa seçilen
+   * katalog satırının n1 değeri. Görünen sipariş koduna eklenmez; yalnız doğru
+   * teknik katalog sayfasını çözmek için kullanılır.
+   */
+  catalogInputRpm?: number;
   spec: string;
   /** "Ek Özellikler" — kullanıcının satıra elle yazdığı serbest açıklama */
   note?: string;
@@ -463,7 +469,9 @@ function balanceRows(
 
   rows.push({
     rowKey: rk("balanceLoadcell"),
-    kind: "other",
+    // Üretici föyü ekipman listesine bağlanabilsin; katalog verisi ayrı
+    // `load_cell` türünde tutulur (Esit PLC / Kobastar LPW1).
+    kind: "load_cell",
     component: "Yük hücresi (loadcell)",
     brand: textOr(sel.balanceLoadcellBrand, "Esit"),
     model: textOr(strOf("balance.loadcellModelShort") ?? loadcellModel),
@@ -550,6 +558,10 @@ function hoistRows(
       // ayrıştırılmadığı için boş kalıyordu (bkz. `gearboxIdentity`).
       brand: textOr(gearboxIdentity(sel.gearboxModel).brand),
       model: gearboxOrderCode(sel.gearboxModel, sel.gearboxOutputFeature),
+      // Görünen model sipariş kodudur (örn. HT1423.03); katalog tablosu ise
+      // ana gövde koduyla basılır. Aramayı görünür koddan ayır.
+      catalogModel: gearboxIdentity(sel.gearboxModel).model,
+      catalogInputRpm: sel.gearboxCatalogInputRpm,
       spec: `i = ${fmt(sel.gearboxRatio, 2)}, nominal tork ${fmt(sel.gearboxNominalTorqueKnm, 1)} kNm, giriş mili Ø${fmt(sel.gearboxInputShaftMm)} / çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition, sel.gearboxShaftDirection)}${gearboxOptionsNote(sel.gearboxOptions)}`,
       // Çift tamburun ikisini de ortadaki TEK redüktör taşır.
       qty: 1,
@@ -643,6 +655,8 @@ function travelRows(
       // ayrıştırılmadığı için boş kalıyordu (bkz. `gearboxIdentity`).
       brand: textOr(gearboxIdentity(sel.gearboxModel).brand),
       model: gearboxOrderCode(sel.gearboxModel, sel.gearboxOutputFeature),
+      catalogModel: gearboxIdentity(sel.gearboxModel).model,
+      catalogInputRpm: sel.gearboxCatalogInputRpm,
       // YÜRÜTMEDE MİL YÖNÜ SORULMAZ (kullanıcı kararı, 24.08.2026): kutu
       // kaldırıldı, spec de onu basmaz.
       spec: `i = ${fmt(sel.gearboxRatio, 2)}, çıkış torku ${fmt(sel.gearboxOutputTorqueKnm, 2)} kNm, çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition)}${gearboxOptionsNote(sel.gearboxOptions)}`,
@@ -1415,9 +1429,17 @@ function writeFooterRow(
 }
 
 /** Datasheet link eşleme anahtarı (kind|brand|model, normalize) */
-export function dsKey(kind: string, brand: string, model: string): string {
+export function dsKey(
+  kind: string,
+  brand: string,
+  model: string,
+  catalogInputRpm?: number
+): string {
   const norm = (s: string) => (s ?? "").trim().toLocaleLowerCase("tr");
-  return `${norm(kind)}|${norm(brand)}|${norm(model)}`;
+  const rpm = catalogInputRpm !== undefined && Number.isFinite(catalogInputRpm)
+    ? `|n1=${Number(catalogInputRpm.toFixed(3))}`
+    : "";
+  return `${norm(kind)}|${norm(brand)}|${norm(model)}${rpm}`;
 }
 
 /**
@@ -1440,10 +1462,15 @@ export function buildCatalogSheetUrls(groups: EqGroup[], origin = ""): Map<strin
       if (!id) continue;
       // Anahtar GÖRÜNEN sütunlardan üretilir: panelde, Excel'de ve PDF'te satır
       // aynı anahtarla aranır, arama kimliği ise ayrı olabilir.
-      const key = dsKey(row.kind!, row.brand, row.model);
+      const key = dsKey(row.kind!, row.brand, row.model, row.catalogInputRpm);
       if (urls.has(key)) continue;
-      if (!findCatalogSheet(id.kind, id.brand, id.model)) continue;
-      urls.set(key, catalogSheetPageUrl(id.kind, id.brand, id.model, origin));
+      if (!findCatalogSheet(id.kind, id.brand, id.model, { inputRpm: id.inputRpm })) continue;
+      urls.set(
+        key,
+        catalogSheetPageUrl(id.kind, id.brand, id.model, origin, {
+          inputRpm: id.inputRpm,
+        })
+      );
     }
   }
   return urls;
@@ -1456,21 +1483,26 @@ export function buildCatalogSheetUrls(groups: EqGroup[], origin = ""): Map<strin
  * satırlarda ise o alandır (bkz. `EqRow.catalogModel`).
  */
 export function catalogIdentityOf(
-  row: Pick<EqRow, "kind" | "brand" | "model" | "catalogModel">
-): { kind: string; brand: string; model: string } | null {
+  row: Pick<EqRow, "kind" | "brand" | "model" | "catalogModel" | "catalogInputRpm">
+): { kind: string; brand: string; model: string; inputRpm?: number } | null {
   if (!row.kind) return null;
   const model = (row.catalogModel ?? row.model ?? "").trim();
   if (!model || model === "-") return null;
-  return { kind: row.kind, brand: row.brand, model };
+  return {
+    kind: row.kind,
+    brand: row.brand,
+    model,
+    inputRpm: row.catalogInputRpm,
+  };
 }
 
 /** Satırın katalog sayfası adresi (yoksa undefined). */
 export function rowSheetUrl(
-  row: Pick<EqRow, "kind" | "brand" | "model">,
+  row: Pick<EqRow, "kind" | "brand" | "model" | "catalogInputRpm">,
   urls?: Map<string, string> | Record<string, string>
 ): string | undefined {
   if (!row.kind || !urls) return undefined;
-  const key = dsKey(row.kind, row.brand, row.model);
+  const key = dsKey(row.kind, row.brand, row.model, row.catalogInputRpm);
   return urls instanceof Map ? urls.get(key) : urls[key];
 }
 

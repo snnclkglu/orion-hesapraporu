@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Motor kataloğu çıkarımının ortak parçaları.
 
-Üç motor kataloğu (ABB, INNOMOTICS/Siemens, GAMAK) üç ayrı sayfa düzeni
+Motor katalogları birbirinden farklı sayfa düzenleri
 kullanır; ancak hepsinde aynı büyüklükler aranır. Bu modül düzenden bağımsız
 olan kısmı toplar: sütun sınırlarına dayalı satır okuyucu, IEC 60072-1 mil ucu
 çapı defteri, gövde (frame) kodu ayrıştırma ve JSON yazımı.
@@ -35,7 +35,8 @@ CATALOG_DATA = os.path.join(WORKSPACE, "catalog_data")
 PDF = {
     "abb": os.path.join(WORKSPACE, "abb-ozel-elektrik-motor-katalog.pdf"),
     "siemens": os.path.join(WORKSPACE, "SIEMENS MOTOR KATALOG.pdf"),
-    "gamak": os.path.join(WORKSPACE, "GAMAK MOTOR.pdf"),
+    "gamak": os.path.join(WORKSPACE, "GAMAK Teknik Katalog TR 2026.pdf"),
+    "elk": os.path.join(WORKSPACE, "elk-motor-katalog-tr.pdf"),
 }
 
 
@@ -142,7 +143,7 @@ FIELD_ORDER = [
     "power_kw", "poles", "speed_rpm", "torque_nm", "frame_size",
     "efficiency_pct", "weight_kg", "shaft_diameter_mm",
     "current_a", "power_factor", "series", "ip_class", "model",
-    "efficiency_class", "shaft_source",
+    "efficiency_class", "shaft_source", "technical_page", "dimension_page",
 ]
 
 

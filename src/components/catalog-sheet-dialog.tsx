@@ -74,10 +74,13 @@ export function CatalogSheetButton({
   kind,
   brand,
   model,
+  inputRpm,
 }: {
   kind: string;
   brand?: string | null;
   model?: string | null;
+  /** Yılmaz H gibi aynı modeli birden çok n1 tablosunda basan kataloglar. */
+  inputRpm?: number | null;
 }) {
   const [open, setOpen] = useState(false);
   const [zoom, setZoom] = useState(0);
@@ -87,7 +90,7 @@ export function CatalogSheetButton({
   // henüz kapsanmayan türlerde ölü bir düğme durmaz.
   if (!hasCatalogSheets(kind)) return null;
 
-  const sheet = findCatalogSheet(kind, brand, model);
+  const sheet = findCatalogSheet(kind, brand, model, { inputRpm });
   const reason = !model
     ? "Önce katalogdan bir ürün seçin"
     : !sheet

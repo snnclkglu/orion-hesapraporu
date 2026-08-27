@@ -34,7 +34,7 @@ MOTORS_DIR = WORKSPACE_ROOT / "catalog_data" / "motors"
 
 REQUIRED = [
     "power_kw", "poles", "speed_rpm", "torque_nm", "frame_size",
-    "efficiency_pct", "weight_kg", "shaft_diameter_mm",
+    "efficiency_pct", "shaft_diameter_mm",
 ]
 
 # T = 9550 · P / n  (P kW, n d/dak, T Nm) — katalog yuvarlaması için %5 tolerans.
@@ -212,9 +212,10 @@ def check_file(path: Path) -> Report:
                 rep.warn(f"{name}: mil çapı {shaft:.0f} mm, IEC 60072-1 "
                          f"gövde {frame} için {ref} mm")
 
-        # 6. Ağırlık ve akım işareti
+        # 6. Ağırlık ve akım işareti. Üretici tablo hücresini "-" yayımlamışsa
+        # bilinmeyen ağırlık uydurulmaz; alanın eksik olması geçerlidir.
         rep.checks += 1
-        if float(item["weight_kg"]) <= 0:
+        if item.get("weight_kg") is not None and float(item["weight_kg"]) <= 0:
             rep.error(f"{name}: ağırlık {item['weight_kg']} kg")
         if item.get("current_a") is not None and float(item["current_a"]) <= 0:
             rep.error(f"{name}: akım {item['current_a']} A")

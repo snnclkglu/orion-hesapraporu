@@ -18,7 +18,13 @@ export default async function PublicCatalogSheetPage({
   const kind = first(sp.tur);
   const brand = first(sp.marka);
   const model = first(sp.model);
-  const sheet = kind && model ? findCatalogSheet(kind, brand || null, model) : undefined;
+  const inputRpmRaw = first(sp.n1);
+  const inputRpm = inputRpmRaw !== "" ? Number(inputRpmRaw) : undefined;
+  const sheet = kind && model
+    ? findCatalogSheet(kind, brand || null, model, {
+        inputRpm: Number.isFinite(inputRpm) ? inputRpm : undefined,
+      })
+    : undefined;
 
   if (!sheet) {
     return (

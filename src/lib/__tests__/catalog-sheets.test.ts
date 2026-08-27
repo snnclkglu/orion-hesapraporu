@@ -27,12 +27,15 @@ describe("katalog sayfası defteri", () => {
     const kinds = new Set(sheets.map((s) => s.kind));
     for (const kind of [
       "coupling", "bearing", "bearing_housing", "brake", "buffer", "gearbox", "motor",
+      "rope", "load_cell",
     ]) {
       expect(kinds.has(kind), `${kind} türünde sayfa yok`).toBe(true);
     }
     expect(sheets.some((s) => s.kind === "brake" && s.brand === "SIBRE"),
       "SIBRE fren sayfası yok").toBe(true);
-    for (const brand of ["OZGUN", "SIBRE", "JAURE", "SKF", "ABB", "GAMAK"]) {
+    for (const brand of [
+      "OZGUN", "SIBRE", "JAURE", "SKF", "ABB", "GAMAK", "ELK", "Esit", "Kobastar",
+    ]) {
       expect(sheets.some((s) => s.brand === brand), `${brand} yok`).toBe(true);
     }
   });
@@ -119,7 +122,7 @@ describe("model → sayfa eşlemesi", () => {
   it("diğer türlerin ürünleri de sayfa bulur", () => {
     expect(findCatalogSheet("bearing", "SKF", "22320 E")?.kind).toBe("bearing");
     expect(findCatalogSheet("bearing_housing", "SKF", "SNL 205")?.kind).toBe("bearing_housing");
-    expect(findCatalogSheet("motor", "GAMAK", "AGM2E 80 M 2a")?.kind).toBe("motor");
+    expect(findCatalogSheet("motor", "GAMAK", "AGM3EL 71 M 2a")?.kind).toBe("motor");
     expect(findCatalogSheet("gearbox", "Yılmaz Redüktör", "DT072")?.kind).toBe("gearbox");
   });
 
@@ -157,7 +160,7 @@ describe("model → sayfa eşlemesi", () => {
       ["gearbox", undefined, "Yılmaz Redüktör DT072"],
       ["gearbox", undefined, "FLENDER H3-14"],
       // motorBrand + motorModel (from: "brand" + "model")
-      ["motor", "GAMAK", "AGM2E 80 M 2a"],
+      ["motor", "GAMAK", "AGM3EL 71 M 2a"],
       ["motor", "INNOMOTICS", "1LE1603-1CB2"],
       // 5.5b brakeBrand = "MARKA MODEL"
       ["brake", undefined, "SIBRE TE 160 Ed 23/5"],
@@ -218,6 +221,57 @@ describe("model → sayfa eşlemesi", () => {
     expect(hasCatalogSheets("coupling", "ÖZGÜN")).toBe(true);
     expect(hasCatalogSheets("coupling", "BİLİNMEYEN")).toBe(false);
   });
+
+  it("GAMAK 2026 ve ELK motorlarında teknik + B3 ölçü sayfasını birlikte verir", () => {
+    const gamak = findCatalogSheet("motor", "GAMAK", "AGM3EL 71 M 2a");
+    const elk = findCatalogSheet("motor", "ELK", "3EL063M2A");
+    expect(gamak?.images).toHaveLength(2);
+    expect(gamak?.source).toBe("GAMAK Teknik Katalog TR 2026.pdf");
+    expect(elk?.images).toHaveLength(2);
+    expect(elk?.source).toBe("elk-motor-katalog-tr.pdf");
+  });
+
+  it("Yılmaz DT/DR ile KT/KR aynı performansı, farklı bağlantı ölçüsünü gösterir", () => {
+    const dt = findCatalogSheet("gearbox", "Yılmaz Redüktör", "DT072");
+    const dr = findCatalogSheet("gearbox", "Yılmaz Redüktör", "DR072");
+    const kt = findCatalogSheet("gearbox", "Yılmaz Redüktör", "KT002");
+    const kr = findCatalogSheet("gearbox", "Yılmaz Redüktör", "KR002");
+    for (const sheet of [dt, dr, kt, kr]) expect(sheet?.images).toHaveLength(2);
+    expect(dt?.images[0]).toBe(dr?.images[0]);
+    expect(dt?.images[1]).not.toBe(dr?.images[1]);
+    expect(kt?.images[0]).toBe(kr?.images[0]);
+    expect(kt?.images[1]).not.toBe(kr?.images[1]);
+  });
+
+  it("Yılmaz M teknik + ölçü sayfasını, H ise iki teknik + doğru ölçü sayfasını verir", () => {
+    expect(findCatalogSheet("gearbox", "Yılmaz Redüktör", "MT002")?.images).toHaveLength(2);
+
+    const h900 = findCatalogSheet(
+      "gearbox", "Yılmaz Redüktör", "HT1423", { inputRpm: 900 }
+    );
+    const h1400 = findCatalogSheet(
+      "gearbox", "Yılmaz Redüktör", "HT1423", { inputRpm: 1400 }
+    );
+    expect(h900?.images).toHaveLength(3);
+    expect(h900?.printedPages).toContain("s.144");
+    expect(h900?.printedPages).toContain("s.145");
+    expect(h900?.printedPages).toContain("298");
+    expect(h1400?.images).toHaveLength(3);
+    expect(h1400?.id).not.toBe(h900?.id);
+  });
+
+  it("SNL, SIBRE, halat ve yük hücresi detayları manifestte bağlıdır", () => {
+    expect(findCatalogSheet("bearing_housing", "SKF", "SNL 216")?.images).toHaveLength(2);
+    expect(findCatalogSheet("coupling", "SIBRE", "APC-AT 160")?.source)
+      .toContain("APC-AT 2021_EN.pdf");
+    expect(findCatalogSheet("brake", "SIBRE", "TEc200/23/5")?.images).toHaveLength(1);
+    expect(findCatalogSheet("brake", "SIBRE", "USB5-05 D250 23/5")?.images).toHaveLength(2);
+    expect(findCatalogSheet("brake", "SIBRE", "SHI 75-1")?.images).toHaveLength(2);
+    expect(findCatalogSheet("load_cell", "Esit", "PLC 2000")?.images).toHaveLength(1);
+    expect(findCatalogSheet("load_cell", "Kobastar", "LPW1 5t")?.images).toHaveLength(2);
+    expect(hasCatalogSheets("rope", "Haşçelik")).toBe(true);
+    expect(hasCatalogSheets("rope", "İzmit A.Ş.")).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -253,6 +307,21 @@ describe("katalog sayfası adresi (ekipman listesi bağlantıları)", () => {
   it("marka alanı yoksa (\"-\") adrese yazılmaz", () => {
     const url = new URL(catalogSheetPageUrl("gearbox", "-", "B3SH 13", "https://ornek"));
     expect(url.searchParams.has("marka")).toBe(false);
+  });
+
+  it("H serisi adresinde gerçek katalog giriş devrini taşır", () => {
+    const url = new URL(catalogSheetPageUrl(
+      "gearbox", "Yılmaz Redüktör", "HT1423", "https://ornek", { inputRpm: 900 }
+    ));
+    expect(url.searchParams.get("n1")).toBe("900");
+    const sheet = findCatalogSheet(
+      url.searchParams.get("tur")!,
+      url.searchParams.get("marka"),
+      url.searchParams.get("model"),
+      { inputRpm: Number(url.searchParams.get("n1")) }
+    );
+    expect(sheet?.inputRpm).toBe(900);
+    expect(sheet?.printedPages).toContain("298");
   });
 });
 

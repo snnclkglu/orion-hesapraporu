@@ -308,6 +308,8 @@ export interface TravelSelections {
   motorCount: number;
   motorShaftMm: number;
   gearboxModel: string;
+  /** Seçilen katalog satırının gerçek giriş devri; doğru teknik sayfa için. */
+  gearboxCatalogInputRpm?: number;
   /** Redüktör çıkış özelliği sipariş kodu (00/01/02/03/0S) → DT472.03 */
   gearboxOutputFeature?: string;
   /** Redüktör çıkış mili/flanş yönü + giriş mili adedi (R1/L1/…/V2) */

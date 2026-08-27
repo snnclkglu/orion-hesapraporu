@@ -2907,6 +2907,12 @@ export function RevisionEditor({
                           kind={catalogMapping.kind}
                           brand={value(brandField)}
                           model={value(modelField) ?? value(combinedField)}
+                          inputRpm={
+                            catalogMapping.kind === "gearbox" &&
+                            typeof (sel as Record<string, unknown>).gearboxCatalogInputRpm === "number"
+                              ? (sel as Record<string, number>).gearboxCatalogInputRpm
+                              : undefined
+                          }
                         />
                       );
                     })()}
