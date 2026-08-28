@@ -1268,7 +1268,11 @@ Kullanıcı kararı (28.08.2026): `11.2 Elektrik Odası` içinde **Pano Adedi**
 doğrudan seçilir ve her pano `1. Pano … n. Pano` olarak ayrı bir en satırı
 taşır. Standart enler 400 / 500 / 600 / 700 / 800 / 1000 / 1200 mm'dir;
 yeni satır `Yeni Pano Ekle` düğmesiyle 800 mm olarak açılır ve `panelCount`
-aynı işlemde artırılır. Yükseklik (1400 / 1600 / 1800 / 2000 mm) **ilk pano
+aynı işlemde artırılır. Her pano kartındaki `Sil` düğmesi yalnız o satırı ve
+ona ait eni kaldırır; kalan panoları 1…n olarak yeniden sıralar ve `panelCount`
+değerini aynı işlemde azaltır. Son pano da silinebilir; boş durumda yeni pano
+düğmesi ilk satırı yeniden 800 mm olarak kurar. Yükseklik
+(1400 / 1600 / 1800 / 2000 mm) **ilk pano
 satırından** seçilir ve bütün panolarda ortaktır; sonraki satırlar bu bağı açıkça
 gösterir. Derinlik (400 / 600 / 700 mm) de bütün panolarda ortaktır. Her panonun
 altında sabit **200 mm baza** vardır. Eski revizyonlarda bulunmayan alanlar

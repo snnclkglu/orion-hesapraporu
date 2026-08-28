@@ -71,6 +71,7 @@ import type { WheelLoadInputs } from "@/lib/calc/modules/wheelLoads";
 import {
   addRoomPanel,
   cabinInputsForDisplay,
+  removeRoomPanel,
   type CabinInputs,
 } from "@/lib/calc/modules/cabin";
 import { WheelSpacingEditor } from "@/components/wheel-spacing-editor";
@@ -2766,6 +2767,17 @@ export function RevisionEditor({
                   ...addRoomPanel(
                     cabinInputs.roomPanelWidthsText,
                     cabinInputs.panelCount
+                  ),
+                });
+              }}
+              onRemovePanel={(index) => {
+                const cabinInputs = inputs as CabinInputs;
+                setModuleInputs(key, {
+                  ...(inputs as object),
+                  ...removeRoomPanel(
+                    cabinInputs.roomPanelWidthsText,
+                    cabinInputs.panelCount,
+                    index
                   ),
                 });
               }}

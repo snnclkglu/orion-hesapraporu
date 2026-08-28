@@ -186,6 +186,20 @@ export function addRoomPanel(
   };
 }
 
+/** Seçilen pano satırını ve ona ait eni kaldırır; kalan panoları yeniden sıralar. */
+export function removeRoomPanel(
+  text: string | undefined,
+  panelCountValue: number,
+  index: number
+): Pick<CabinInputs, "panelCount" | "roomPanelWidthsText"> {
+  const widths = roomPanelWidths(text, panelCountValue);
+  if (index >= 0 && index < widths.length) widths.splice(index, 1);
+  return {
+    panelCount: widths.length,
+    roomPanelWidthsText: widths.join("; "),
+  };
+}
+
 /** Oda ölçüleri ve ortak pano boyutlarından yerleşim ölçülerini türetir. */
 export function roomPanelLayout(inp: CabinInputs): RoomPanelLayout {
   const widthsMm = roomPanelWidths(inp.roomPanelWidthsText, inp.panelCount);

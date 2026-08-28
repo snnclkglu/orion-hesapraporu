@@ -5,6 +5,7 @@ import {
   ROOM_PANEL_BASE_HEIGHT_MM,
   addRoomPanel,
   cabinInputsForDisplay,
+  removeRoomPanel,
   roomPanelLayout,
   roomPanelWidths,
 } from "../modules/cabin";
@@ -58,6 +59,17 @@ describe("elektrik odası pano yerleşimi", () => {
     expect(addRoomPanel("", 0)).toEqual({
       panelCount: 1,
       roomPanelWidthsText: "800",
+    });
+  });
+
+  it("seçilen panoyu siler, enini kaldırır ve kalan satırları yeniden numaralar", () => {
+    expect(removeRoomPanel("400; 600; 1000; 1200", 4, 1)).toEqual({
+      panelCount: 3,
+      roomPanelWidthsText: "400; 1000; 1200",
+    });
+    expect(removeRoomPanel("800", 1, 0)).toEqual({
+      panelCount: 0,
+      roomPanelWidthsText: "",
     });
   });
 
