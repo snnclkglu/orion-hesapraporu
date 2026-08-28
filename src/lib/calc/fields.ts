@@ -16,7 +16,10 @@ import {
 } from "./safety-brake";
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
 import type { FieldGroupKey } from "./field-groups";
-import { BRIDGE_WEIGHT_READER_KEYS } from "./presentation/module-family";
+import {
+  BRIDGE_WEIGHT_READER_KEYS,
+  MAIN_TROLLEY_WEIGHT_READER_KEYS,
+} from "./presentation/module-family";
 import type { ModuleKey } from "./presentation/module-family";
 import {
   GIRDER_ARRANGEMENT_LABELS,
@@ -26,6 +29,7 @@ import {
   HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
   HOIST_EQUIPMENT_ARRANGEMENTS,
   hoistEquipmentArrangement,
+  travelArrangement,
   type TechnicalSpecs,
 } from "./types";
 
@@ -223,6 +227,7 @@ export const SPEC_GROUPS: readonly SpecGroup[] = [
   {
     key: "trolley",
     title: "Ana Araba Yürütme",
+    requiresModule: "trolley",
   },
   {
     key: "auxTrolley",
@@ -828,7 +833,13 @@ export const ELECTRICAL_PANEL_IP_CLASSES = ["IP54", "IP55", "IP65"] as const;
 
 export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   // --- Vinç tanımı ve sınıflandırma
-  { key: "spanM", label: "Açıklık", unit: "m", type: "number", group: "crane" },
+  {
+    key: "spanM", label: "Açıklık", unit: "m", type: "number", group: "crane",
+    requiresAnyModule: [
+      "trolley", "auxTrolley", "mono1Trolley", "mono2Trolley", "bridge",
+      "wheelLoads", "girder", "girder2", "buckling", "endCarriage",
+    ],
+  },
   {
     // Yürüme yolu KÖPRÜNÜN yoludur (arabanınki açıklıktır, bkz. travelGroup
     // `travelFestoonDistanceM`) — köprü yürütme kapalıyken sorusu kalmaz.
@@ -881,18 +892,19 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
     key: "auxTrolleyMode", label: "Yardımcı Kaldırma Arabası", type: "select",
     options: AUX_TROLLEY_MODES, optionLabels: AUX_TROLLEY_MODE_LABELS,
     group: "config", requiresModule: "aux",
+    visible: (s) => travelArrangement(s) !== "fixed",
     hint: "Ayrı araba seçilirse bağımsız bir yardımcı araba yürütme bölümü açılır.",
   },
   {
     key: "monorailCount", label: "Monoray Kaldırma Grubu", type: "select",
     options: MONORAIL_COUNTS, optionLabels: MONORAIL_COUNT_LABELS, numeric: true,
-    group: "config",
+    group: "config", visible: (s) => travelArrangement(s) !== "fixed",
     hint: "Her monoray grubu kendi kaldırma, kanca bloğu ve araba yürütme bölümlerini açar.",
   },
   {
     key: "girderArrangement", label: "Taşıyıcı Kiriş Düzeni", type: "select",
     options: GIRDER_ARRANGEMENTS, optionLabels: GIRDER_ARRANGEMENT_LABELS,
-    group: "config",
+    group: "config", requiresModule: "bridge",
     hint:
       "Dört kirişli seçilirse ikinci bir ana kiriş bölümü açılır: " +
       "Ana Kiriş - 1 ANA kaldırma yükünü, Ana Kiriş - 2 YARDIMCI kaldırma " +
@@ -901,7 +913,11 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   },
 
   // --- Ağırlıklar (tüm yürütme ve yapı hesapları buradan okur)
-  { key: "mainTrolleyWeightT", label: "Ana Araba Ağırlığı", unit: "t", type: "number", group: "weights" },
+  {
+    key: "mainTrolleyWeightT", label: "Ana Araba Ağırlığı", unit: "t", type: "number",
+    group: "weights",
+    requiresAnyModule: MAIN_TROLLEY_WEIGHT_READER_KEYS,
+  },
   {
     key: "auxTrolleyWeightT", label: "Yardımcı Araba Ağırlığı", unit: "t", type: "number",
     group: "weights", requiresModule: "auxTrolley",
@@ -1087,7 +1103,13 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   { key: "hoistBrakeType", label: "Kaldırma Freni Tipi", type: "select", options: HOIST_BRAKE_TYPES, group: "brakes" },
   { key: "hoistSafetyBrake", label: "Kaldırma Emniyet Freni", type: "select", options: SAFETY_BRAKE_SCOPE, group: "brakes",
     hint: "Emniyet freni tamburun üstüne oturur; hangi kaldırma gruplarında bulunacağı burada seçilir. Seçilen gruplara \"Emniyet Freni\" hesap bölümü eklenir." },
-  { key: "travelBrakeType", label: "Yürütme Freni Tipi", type: "select", options: TRAVEL_BRAKE_TYPES, group: "brakes" },
+  {
+    key: "travelBrakeType", label: "Yürütme Freni Tipi", type: "select",
+    options: TRAVEL_BRAKE_TYPES, group: "brakes",
+    requiresAnyModule: [
+      "trolley", "auxTrolley", "mono1Trolley", "mono2Trolley", "bridge",
+    ],
+  },
 
   // --- Elektrik
   { key: "supplyVoltage", label: "Besleme Gerilimi", type: "select", options: SUPPLY_VOLTAGES, group: "electrical" },

@@ -32,7 +32,11 @@ import {
 import { docCode } from "@/lib/pdf/doc-naming";
 // Vinç tipi listesi TEK YERDEDİR (`lib/crane-types.ts`): aynı liste yönetim
 // panelinde, proje düzenleme penceresinde ve burada görünür.
-import { DEFAULT_CRANE_TYPE, craneTypeOptions } from "@/lib/crane-types";
+import {
+  DEFAULT_CRANE_TYPE,
+  craneTypeOptions,
+  offerCraneTypeOptions,
+} from "@/lib/crane-types";
 import { adBuyuk } from "@/lib/tr-text";
 import { cn } from "@/lib/utils";
 import {
@@ -89,10 +93,12 @@ export function NewProjectDialog({
   const [pending, startTransition] = useTransition();
   const [filePending, startFileTransition] = useTransition();
   const fileInputId = useId();
-  const craneTypes = craneTypeOptions(defaultCraneType);
+  const offerContext = reportContext === OFFER_REPORT_CONTEXT;
+  const craneTypes = offerContext
+    ? offerCraneTypeOptions(defaultCraneType)
+    : craneTypeOptions(defaultCraneType);
   const [craneType, setCraneType] = useState(defaultCraneType);
 
-  const offerContext = reportContext === OFFER_REPORT_CONTEXT;
   const showJobSelect = !offerContext && (jobs?.length ?? 0) > 0;
   const [selectedJobId, setSelectedJobId] = useState<string>(NO_JOB);
   const selectedJob = useMemo(

@@ -1679,3 +1679,19 @@ kalmaz. Fonksiyon teklif yazma yetkisini kendi içinde de sorar ve bağlamı
 daima `offer`, iş bağını daima `null` yazar. Müşteri/logo UUID'leri taşınmaz:
 dosya kurumlar arasında taşınabilir kalır, rapor markası ve logo yeni
 projede bilinçli olarak seçilir.
+
+## TEKLIF-73 — Yer Vinci teklif hesap raporu yürütmesiz ve köprüsüzdür.
+
+Kullanıcı kararı (28.08.2026): **Yer Vinci** seçeneği yalnız Teklif Hesap
+Raporları vinç tipi listesine eklenir; Mühendislik varsayılan tip listesine ve
+yönetim varsayılanına sızmaz. Teklif raporunun yeni kayıt ve proje bilgisi
+düzenleme pencereleri aynı `offerCraneTypeOptions` kaynağını kullanır. Serbest
+metin koruması devam eder: böyle bir kayıt başka bağlamda açılırsa seçim kutusu
+mevcut değeri sessizce değiştirmez.
+
+Yer Vinci zemine/kaideye sabit kaldırma düzenidir. V0 snapshot'ı
+`travelArrangement: "fixed"` taşır; ana/yardımcı/monoray araba yürütmeleri,
+köprü yürütme, teker yükleri ve köprü taşıyıcı yapı bölümleri hesap/PDF/Excel
+kapsamına girmez. AI dosyasından oluşturma da proje tipini ayrıştırdıktan sonra
+aynı V0 topoloji tohumunu hesap yeniden çalışmadan önce uygular. Ayrıntılı
+hesap değişmezi HESAP-8g'dedir.

@@ -336,6 +336,21 @@ export const GIRDER_ARRANGEMENT_LABELS: Record<GirderArrangement, string> = {
   dort: "Dört Kirişli",
 };
 
+/**
+ * Vincin yürütme topolojisi.
+ *
+ * `traveling`: ana/yardımcı arabalar ve köprü, diğer konfigürasyon kararlarına
+ * göre yürütme grubu açabilir.
+ * `fixed`: zemine/kaideye sabit kaldırma düzeni; hiçbir araba ya da köprü
+ * yürütme modülü hesaplanmaz. Alan opsiyoneldir; eski revizyonlar `traveling`
+ * okunur.
+ */
+export type TravelArrangement = "traveling" | "fixed";
+
+export function travelArrangement(specs: TechnicalSpecs): TravelArrangement {
+  return specs.travelArrangement === "fixed" ? "fixed" : "traveling";
+}
+
 /** 01-TEKNİK ÖZELLİKLER girdileri */
 export interface TechnicalSpecs {
   mainCapacityT: number;        // ana kaldırma kapasitesi [ton]
@@ -461,6 +476,8 @@ export interface TechnicalSpecs {
   electricalPanelAirConditioningRedundancy?: AirConditioningRedundancy;
 
   // ------------------------------------------------- Vinç konfigürasyonu
+  /** Yürütmeli vinç veya zemine/kaideye sabit, yürütmesiz kaldırma düzeni. */
+  travelArrangement?: TravelArrangement;
   /**
    * Yardımcı kaldırma ayrı bir arabada mı çalışıyor. `separate` seçilirse
    * "Yardımcı Araba Yürütme" hesap bölümü açılır. Verilmezse `shared`.

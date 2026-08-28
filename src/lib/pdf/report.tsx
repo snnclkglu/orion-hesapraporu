@@ -776,9 +776,10 @@ export function summarySpecsForReport(input: CalcInput): {
   const printed = (key: string) => defs.some((f) => f.key === key);
 
   const attachmentWeightT = Math.max(0, (input.mainHoist?.inputs.hookBlockWeightKg ?? 0) / 1000);
+  const trolleyPrinted = printed("mainTrolleyWeightT");
   const bridgePrinted = printed("bridgeWeightT");
   const craneTotalWeightT =
-    Math.max(0, input.specs.mainTrolleyWeightT ?? 0) +
+    (trolleyPrinted ? Math.max(0, input.specs.mainTrolleyWeightT ?? 0) : 0) +
     (bridgePrinted ? Math.max(0, input.specs.bridgeWeightT ?? 0) : 0) +
     attachmentWeightT;
   source.summaryAttachmentWeightT = attachmentWeightT;

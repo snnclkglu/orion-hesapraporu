@@ -53,6 +53,7 @@ import {
   type RevisionInputsJson,
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
+import { applyCraneTypeRevisionPreset } from "@/lib/crane-types";
 
 export const OFFER_REPORT_TRANSFER_FORMAT = "orion-offer-calculation-report";
 export const OFFER_REPORT_TRANSFER_VERSION = 1;
@@ -668,10 +669,19 @@ export function parseOfferReportTransferText(text: string): ParsedOfferReportTra
     parsed.data.revision.inputs,
     parsed.data.revision.selections
   );
+  // Dosyayla oluşturma `createRevision` yolunu kullanmaz. Bu yüzden vinç
+  // tipinin V0 topoloji tohumu burada, hesap yeniden koşturulmadan ÖNCE
+  // uygulanır. AI "Yer Vinci" yazıp örnek raporun yürütme girdilerini bıraksa
+  // bile sonuçta araba/köprü yürütmesi DB'ye giremez.
+  const effectiveInputs = applyCraneTypeRevisionPreset(
+    0,
+    parsed.data.project.craneType,
+    canonical.inputs as Record<string, unknown>
+  ) as RevisionInputsJson;
 
   let result: CalcResult;
   try {
-    const calcInput = calcInputFromRevision(canonical.inputs, canonical.selections);
+    const calcInput = calcInputFromRevision(effectiveInputs, canonical.selections);
     result = runCalc(calcInput);
     assertSafeJson(result);
   } catch (error) {
@@ -682,7 +692,7 @@ export function parseOfferReportTransferText(text: string): ParsedOfferReportTra
 
   return {
     project: parsed.data.project,
-    inputs: canonical.inputs,
+    inputs: effectiveInputs,
     selections: canonical.selections,
     results: jsonClone(result),
     reviewNotes: parsed.data.reviewNotes,

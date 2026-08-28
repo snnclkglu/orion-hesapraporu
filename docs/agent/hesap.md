@@ -437,7 +437,7 @@ ekipman listesine girmez, girdileri korunur.
 yerinde: `runCalc`, `activeModules` ve `loadRevision` `crane_type`ı hiç
 görmez. `createRevision` tipi YALNIZ V0 doğarken okur ve `inputs
 .disabledModules` listesine `TROLLEY_ONLY_DISABLED_MODULES`u ÖNERİ olarak
-yazar (`craneTypePresetInputs`); karar o andan sonra revizyonun kendi
+yazar (`applyCraneTypeRevisionPreset`); karar o andan sonra revizyonun kendi
 verisidir, mühendis ilk ekranda geri açabilir ve tip sonradan değişse bile
 mevcut revizyonlar etkilenmez. Şablondan kopyalanan snapshot EZİLMEZ, kapalı
 liste BİRLEŞTİRİLİR.
@@ -471,6 +471,29 @@ BASILAN satırlardan türer ve köprü ağırlığı basılmıyorsa satırın ad
 Ekipman listesinde boş grup bandı hiç basılmaz ve elle eklenmiş bir satır
 kapalı bölümün başlığını DİRİLTMEZ (satır "Ek Ekipman" altında durur;
 `absentModuleGroupNames`).
+
+## HESAP-8g — YER VİNCİ: sabit kaldırma, yürütme ve köprü YOK.
+
+Kullanıcı kararı (28.08.2026): teklif hesap raporlarında `"Yer Vinci"`,
+zemine/kaideye sabit bir kaldırma grubu olarak modellenir. Ana araba,
+yardımcı/monoray araba ve köprü yürütmesi yoktur; dolayısıyla teker yükleri,
+ana kiriş takımları, buruşma ve başkiriş de rapora/ekipman listesine girmez.
+Kalan çekirdek ana kaldırma + kanca bloğudur; yardımcı kaldırma ayrıca
+açılırsa kendi kaldırma/kanca zinciri çalışabilir ama yürütme bölümü açılmaz.
+
+**TİP YİNE MOTORA GİRMEZ.** `applyCraneTypeRevisionPreset`, yalnız V0 doğarken
+revizyonun `specs.travelArrangement = "fixed"` teknik topoloji kararını ve
+`GROUND_CRANE_DISABLED_MODULES` kapalı yapı kapsamını yazar. Motor bütün
+yürütme ailesini `moduleAllowedByConfig` içinde bu teknik snapshot'tan düşürür.
+Alanı taşımayan eski revizyonlar `traveling` okunur; yayınlanmış hesapların
+kapsamı değişmez. Vinç tipi sonradan düzenlenirse mevcut revizyon geriye dönük
+yeniden şekillendirilmez.
+
+**DOSYADAN OLUŞTURMA AYNI KAPIDAN GEÇER.** Bu akış `createRevision` çağırmadığı
+için AI aktarım ayrıştırıcısı V0 tohumunu `runCalc`ten önce uygular. Yer Vinci
+yazan bir dosya gezer köprülü örneğin yürütme girdilerini bıraksa dahi bu
+girdiler korunur ama aktif hesaba, sonuç snapshot'ına, PDF'ye ve ekipman
+listesine giremez.
 
 ## HESAP-12 — Buruşma ana kirişin bir kontrolüdür, bağımsız bir modül değil.
 

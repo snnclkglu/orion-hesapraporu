@@ -233,3 +233,17 @@ export const BRIDGE_WEIGHT_READER_KEYS: readonly ModuleKey[] = [
   "girder2",
   "endCarriage",
 ];
+
+/**
+ * ANA ARABA AĞIRLIĞINI okuyan bölümler — teknik özellik ve ressam özeti aynı
+ * kümeden karar verir. Sabit yer vincinde bu bölümlerin hiçbiri yoktur; ağırlık
+ * satırı ve toplamdan da düşmelidir.
+ */
+export const MAIN_TROLLEY_WEIGHT_READER_KEYS: readonly ModuleKey[] = [
+  "trolley",
+  "bridge",
+  "wheelLoads",
+  "girder",
+  "girder2",
+  "endCarriage",
+];

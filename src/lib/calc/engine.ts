@@ -85,6 +85,7 @@ import {
   hasSeparateAuxTrolley,
   hookBlockLoadShare,
   monorailCount,
+  travelArrangement,
 } from "./types";
 
 /**
@@ -332,6 +333,23 @@ function presentSet(input: CalcInput): Set<string> {
  * kopya, kutucuğun ekranda görünüp hesaba girmemesinin en kısa yoluydu).
  */
 export function moduleAllowedByConfig(specs: TechnicalSpecs, key: ModuleKey): boolean {
+  // Sabit yer vincinde hiçbir hareket ekseni ve köprü taşıyıcı yapısı yoktur.
+  // Karar vinç tipi metninden değil revizyonun teknik topolojisinden gelir;
+  // eski revizyonlarda alan yoksa geriye uyumlu olarak "traveling" okunur.
+  // Yardımcı kaldırma aynı sabit düzende bulunabilir; kabin/elektrik mahalli de
+  // kaldırma hareketinden bağımsızdır. Diğer bütün modüller hareket veya köprü
+  // geometrisi varsaydığı için yapısal olarak açılamaz.
+  if (
+    travelArrangement(specs) === "fixed" &&
+    key !== "main" &&
+    key !== "hookBlock" &&
+    key !== "aux" &&
+    key !== "auxHookBlock" &&
+    key !== "cabin"
+  ) {
+    return false;
+  }
+
   const monos = monorailCount(specs);
   switch (key) {
     case "auxTrolley":

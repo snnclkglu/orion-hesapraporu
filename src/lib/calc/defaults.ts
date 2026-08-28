@@ -73,6 +73,7 @@ export const V5_SPECS: TechnicalSpecs = {
   electricalRoomHasAirConditioner: "no",
   electricalPanelHasAirConditioner: "no",
   // Konfigürasyon ve ağırlıklar
+  travelArrangement: "traveling",
   auxTrolleyMode: "shared",
   monorailCount: 0,
   // Taşıyıcı kiriş düzeni AÇIKÇA yazılır: alan boş bırakılsaydı seçim
@@ -335,6 +336,7 @@ export const NEW_WORK_SPECS: TechnicalSpecs = {
   electricalRoomHasAirConditioner: "no",
   electricalPanelHasAirConditioner: "no",
 
+  travelArrangement: "traveling",
   auxTrolleyMode: "shared",
   monorailCount: 0,
   // Taşıyıcı kiriş düzeni AÇIKÇA yazılır: alan boş bırakılsaydı seçim

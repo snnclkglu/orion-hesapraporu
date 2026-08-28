@@ -338,7 +338,7 @@ export interface LoadedRevision {
  * **HENÜZ KAYDEDİLMEMİŞ revizyonda 2. ve 3. kural çalışmaz.** Ölçüt
  * `disabledModules` anahtarının varlığı DEĞİL, snapshot'ta bir MODÜL ALANININ
  * bulunup bulunmadığıdır: yeni revizyon `{}` ile de doğabilir, vinç tipinin
- * tohumladığı `{ disabledModules: [...] }` ile de (`craneTypePresetInputs`).
+ * tohumladığı `{ disabledModules: [...] }` ile de (`applyCraneTypeRevisionPreset`).
  * Ölçüt "nesne boş mu" olsaydı tohumlanmış revizyonda hiçbir modül alanı
  * bulunamaz ve BÜTÜN bölümler kapalı sayılırdı — tohum, kapatmayı istemediği
  * bölümleri de kapatırdı.

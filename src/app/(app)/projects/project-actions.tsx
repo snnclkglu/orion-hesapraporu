@@ -37,7 +37,11 @@ import {
 } from "@/components/ui/select";
 // Saf yardımcı — kod önizlemesi ile basılan belge AYNI fonksiyondan çıkar.
 import { docCode } from "@/lib/pdf/doc-naming";
-import { DEFAULT_CRANE_TYPE, craneTypeOptions } from "@/lib/crane-types";
+import {
+  DEFAULT_CRANE_TYPE,
+  craneTypeOptions,
+  offerCraneTypeOptions,
+} from "@/lib/crane-types";
 import { adBuyuk } from "@/lib/tr-text";
 import {
   ENGINEERING_REPORT_CONTEXT,
@@ -283,11 +287,13 @@ export function EditProjectDetailsDialog({
   customers,
   open,
   onOpenChange,
+  reportContext = ENGINEERING_REPORT_CONTEXT,
 }: {
   project: ProjectSummary;
   customers: CustomerOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  reportContext?: ReportContext;
 }) {
   const [pending, startTransition] = useTransition();
   const [docNo, setDocNo] = useState(project.doc_no);
@@ -301,7 +307,13 @@ export function EditProjectDetailsDialog({
     project.report_brand_customer_id ?? NO_CUSTOMER
   );
   const [craneType, setCraneType] = useState(project.crane_type || DEFAULT_CRANE_TYPE);
-  const craneTypes = useMemo(() => craneTypeOptions(project.crane_type), [project.crane_type]);
+  const craneTypes = useMemo(
+    () =>
+      reportContext === OFFER_REPORT_CONTEXT
+        ? offerCraneTypeOptions(project.crane_type)
+        : craneTypeOptions(project.crane_type),
+    [project.crane_type, reportContext]
+  );
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -416,9 +428,9 @@ export function EditProjectDetailsDialog({
           </div>
           {/* Vinç tipi: hesap bölümlerini doğrudan açmaz (topoloji kararı
               Teknik Özellikler'dedir) ama rapor kapağına ve listeye basılır.
-              TEK İSTİSNA "Vinç Arabası"dır ve o da GERİYE DÖNÜK DEĞİLDİR: tip
-              yalnız YENİ bir raporun İLK revizyonu doğarken köprü tarafındaki
-              bölümleri kapalı ÖNERİR (`craneTypePresetInputs`). Buradan tipi
+              "Vinç Arabası" ve tekliflerdeki "Yer Vinci" yalnız YENİ bir
+              raporun İLK revizyonu doğarken revizyon topolojisini ÖNERİR
+              (`applyCraneTypeRevisionPreset`). Buradan tipi
               değiştirmek mevcut revizyonların kapalı bölüm listesine
               dokunmaz — o karar artık revizyonun kendi verisidir. */}
           <div className="grid gap-2">
@@ -690,6 +702,7 @@ export function ProjectRowActions({
         <EditProjectDetailsDialog
           project={project}
           customers={customers}
+          reportContext={reportContext}
           open
           onOpenChange={(o) => !o && setActive(null)}
         />
@@ -767,6 +780,7 @@ export function ProjectDetailActions({
         <EditProjectDetailsDialog
           project={project}
           customers={customers}
+          reportContext={reportContext}
           open
           onOpenChange={(o) => !o && setActive(null)}
         />

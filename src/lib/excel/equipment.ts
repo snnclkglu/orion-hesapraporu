@@ -24,6 +24,7 @@ import { MODULE_LABELS } from "@/lib/calc/labels";
 import { moduleResult, moduleState } from "@/lib/calc/presentation/module-access";
 import {
   BRIDGE_WEIGHT_READER_KEYS,
+  MAIN_TROLLEY_WEIGHT_READER_KEYS,
   HOIST_OF_HOOKBLOCK,
   MODULE_ORDER,
   isHoistKey,
@@ -2043,9 +2044,14 @@ export function buildSummarySections(
   }
 
   // Ağırlıklar artık teknik özelliklerdedir; yürütme grupları oradan okur.
-  const weightRows: SummaryRow[] = [
-    { label: "Ana araba ağırlığı", value: input.specs.mainTrolleyWeightT, unit: "t" },
-  ];
+  const weightRows: SummaryRow[] = [];
+  if (MAIN_TROLLEY_WEIGHT_READER_KEYS.some((k) => moduleState(input, k) !== undefined)) {
+    weightRows.push({
+      label: "Ana araba ağırlığı",
+      value: input.specs.mainTrolleyWeightT,
+      unit: "t",
+    });
+  }
   if (input.auxTrolley && input.specs.auxTrolleyWeightT) {
     weightRows.push({
       label: "Yardımcı araba ağırlığı",

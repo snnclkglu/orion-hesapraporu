@@ -34,6 +34,17 @@ export const CRANE_TYPES = [
 ] as const;
 
 /**
+ * Yalnız TEKLİF hesap raporunda sunulan ilave tipler.
+ *
+ * "Yer Vinci" bina içinde zemine/kaideye sabitlenen bir kaldırma grubudur:
+ * araba yürütmesi, köprü yürütmesi ve köprü taşıyıcı yapısı yoktur. Mühendislik
+ * arşivinin genel tip listesine eklenmez; kayıt başka bağlama taşınmışsa
+ * `craneTypeOptions` mevcut serbest metni yine korur.
+ */
+export const GROUND_CRANE_TYPE = "Yer Vinci" as const;
+export const OFFER_CRANE_TYPES = [...CRANE_TYPES, GROUND_CRANE_TYPE] as const;
+
+/**
  * "Vinç Arabası" tipiyle açılan raporun İLK revizyonunda kapalı gelen hesap
  * bölümleri — bir ÖNERİdir, kural değil.
  *
@@ -53,12 +64,69 @@ export const TROLLEY_ONLY_DISABLED_MODULES: readonly string[] = [
   "endCarriage",
 ];
 
+/**
+ * Sabit yer vincinde köprü/yapı tarafında bulunmayan bölümler.
+ *
+ * Yürütme modülleri bu listeden değil `specs.travelArrangement = "fixed"`
+ * topolojisinden düşer. Liste yalnız köprü kapalıyken de bağımsız çalışabilen
+ * buruşma ve başkiriş gibi yapı bölümlerinin şablondan sızmasını önler.
+ */
+export const GROUND_CRANE_DISABLED_MODULES: readonly string[] = [
+  ...TROLLEY_ONLY_DISABLED_MODULES,
+];
+
 /** Yalnız araba raporu mu — vinç tipi künyesine bakar. */
 export function isTrolleyOnlyCraneType(craneType: string | null | undefined): boolean {
   return (craneType ?? "").trim() === "Vinç Arabası";
 }
 
-export type CraneType = (typeof CRANE_TYPES)[number];
+/** Zemine/kaideye sabit, hiçbir yürütme ekseni olmayan teklif vinci mi. */
+export function isGroundCraneType(craneType: string | null | undefined): boolean {
+  return (craneType ?? "").trim() === GROUND_CRANE_TYPE;
+}
+
+/**
+ * Vinç tipinin yalnız V0 doğarken yazdığı revizyon TOHUMU.
+ *
+ * Tip hesap motoruna girmez. Bu saf yardımcı tipten, revizyonun kendi teknik
+ * topoloji ve kapalı bölüm verisini üretir; motor daha sonra yalnız bu snapshot'ı
+ * okur. Şablonun değerleri ezilmez, kapalı listeler birleştirilir.
+ */
+export function applyCraneTypeRevisionPreset(
+  revNo: number,
+  craneType: string | null | undefined,
+  inherited: Record<string, unknown>
+): Record<string, unknown> {
+  if (revNo !== 0) return inherited;
+
+  const trolleyOnly = isTrolleyOnlyCraneType(craneType);
+  const groundCrane = isGroundCraneType(craneType);
+  if (!trolleyOnly && !groundCrane) return inherited;
+
+  const previous = Array.isArray(inherited.disabledModules)
+    ? inherited.disabledModules.filter((key): key is string => typeof key === "string")
+    : [];
+  const prescribed = trolleyOnly
+    ? TROLLEY_ONLY_DISABLED_MODULES
+    : GROUND_CRANE_DISABLED_MODULES;
+
+  const storedSpecs =
+    inherited.specs &&
+    typeof inherited.specs === "object" &&
+    !Array.isArray(inherited.specs)
+      ? (inherited.specs as Record<string, unknown>)
+      : {};
+
+  return {
+    ...inherited,
+    ...(groundCrane
+      ? { specs: { ...storedSpecs, travelArrangement: "fixed" } }
+      : {}),
+    disabledModules: [...new Set([...previous, ...prescribed])],
+  };
+}
+
+export type CraneType = (typeof OFFER_CRANE_TYPES)[number];
 
 export const DEFAULT_CRANE_TYPE: string = CRANE_TYPES[0];
 
@@ -67,7 +135,21 @@ export const DEFAULT_CRANE_TYPE: string = CRANE_TYPES[0];
  * eklenir; hiçbir kayıt seçim kutusu yüzünden değişmez.
  */
 export function craneTypeOptions(...current: (string | null | undefined)[]): string[] {
-  const out: string[] = [...CRANE_TYPES];
+  return optionsWithCurrent(CRANE_TYPES, current);
+}
+
+/** Teklif hesap raporu seçimleri; "Yer Vinci" burada görünür. */
+export function offerCraneTypeOptions(
+  ...current: (string | null | undefined)[]
+): string[] {
+  return optionsWithCurrent(OFFER_CRANE_TYPES, current);
+}
+
+function optionsWithCurrent(
+  base: readonly string[],
+  current: readonly (string | null | undefined)[]
+): string[] {
+  const out: string[] = [...base];
   for (const value of current) {
     const v = (value ?? "").trim();
     if (v && !out.includes(v)) out.unshift(v);

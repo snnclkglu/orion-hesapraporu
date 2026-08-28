@@ -7,11 +7,15 @@ import { createClient } from "@/lib/supabase/server";
 import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import {
   DEFAULT_CRANE_TYPE,
-  TROLLEY_ONLY_DISABLED_MODULES,
-  isTrolleyOnlyCraneType,
+  applyCraneTypeRevisionPreset,
 } from "@/lib/crane-types";
 import { adBuyuk } from "@/lib/tr-text";
-import { ENGINE_VERSION } from "@/lib/calc/engine";
+import { ENGINE_VERSION, runCalc } from "@/lib/calc/engine";
+import {
+  calcInputFromRevision,
+  type RevisionInputsJson,
+  type RevisionSelectionsJson,
+} from "@/lib/revision-load";
 import { canEditOffers } from "@/lib/roles";
 import {
   OFFER_REPORT_TRANSFER_FORMAT,
@@ -791,40 +795,6 @@ export async function setProjectArchived(
   return {};
 }
 
-/**
- * Vinç tipinin İLK revizyona yazdığı TOHUM — bir öneri, bir kural değil.
- *
- * "Vinç Arabası" tipiyle açılan rapor, mevcut bir vincin yalnız arabasının
- * yenilendiği iştir: köprü yürütme, teker yükleri, ana kirişler, buruşma ve
- * başkiriş bölümleri o belgede yoktur. Mühendisi her yeni raporda altı
- * kutucuğu tek tek kapatmaya bırakmak, unutulduğunda müşteriye olmayan bir
- * köprünün hesabını göndermek demekti.
- *
- * **VİNÇ TİPİ MOTORA GİRMEZ** (HESAP-8b). Kural ihlal edilmiyor çünkü tip
- * BİR KEZ, V0 doğarken okunur; ürettiği şey revizyonun kendi
- * `inputs.disabledModules` verisidir ve kararın sahibi o andan sonra
- * revizyondur. `runCalc`, `activeModules` ve `loadRevision` `crane_type`ı hiç
- * görmez; mühendis kutucukları ilk ekranda geri açabilir ve tip sonradan
- * değişse bile mevcut revizyonlar etkilenmez.
- *
- * Şablondan kopyalanan snapshot EZİLMEZ, yalnız kapalı bölüm listesi
- * BİRLEŞTİRİLİR: şablonun kendi kararı (ör. buruşma kapalı) korunur.
- */
-function craneTypePresetInputs(
-  revNo: number,
-  craneType: string | null | undefined,
-  inherited: Record<string, unknown>
-): Record<string, unknown> {
-  if (revNo !== 0 || !isTrolleyOnlyCraneType(craneType)) return inherited;
-  const previous = Array.isArray(inherited.disabledModules)
-    ? (inherited.disabledModules as unknown[]).filter((k): k is string => typeof k === "string")
-    : [];
-  return {
-    ...inherited,
-    disabledModules: [...new Set([...previous, ...TROLLEY_ONLY_DISABLED_MODULES])],
-  };
-}
-
 export async function createRevision(projectId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const {
@@ -832,8 +802,8 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı" };
 
-  // Vinç tipi YALNIZ BURADA okunur (bkz. `craneTypePresetInputs`): ilk
-  // revizyonun kapalı bölüm listesine bir ÖNERİ yazmak için.
+  // Vinç tipi YALNIZ BURADA okunur (bkz. `applyCraneTypeRevisionPreset`): ilk
+  // revizyonun teknik topoloji/kapalı bölüm tohumunu yazmak için.
   const { data: proje } = await supabase
     .from("projects")
     .select("crane_type, report_context")
@@ -868,20 +838,48 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
     }
   }
 
+  const inheritedInputs = (last?.inputs ?? {}) as Record<string, unknown>;
+  const revisionInputs = applyCraneTypeRevisionPreset(
+    revNo,
+    proje?.crane_type,
+    inheritedInputs
+  );
+  const revisionSelections = (last?.selections ?? {}) as RevisionSelectionsJson;
+  let revisionResults = last?.results ?? {};
+  let revisionEngineVersion = last?.engine_version || ENGINE_VERSION;
+
+  // Özel V0 tohumu kapsamı değiştirdiyse sonuç snapshot'ı da aynı anda
+  // değişmelidir. Aksi hâlde editör doğru hesabı gösterirken üst eylem şeridi
+  // şablondan kopyalanmış gezer-köprü kontrollerini sayar.
+  if (revisionInputs !== inheritedInputs) {
+    try {
+      revisionResults = JSON.parse(
+        JSON.stringify(
+          runCalc(
+            calcInputFromRevision(
+              revisionInputs as RevisionInputsJson,
+              revisionSelections
+            )
+          )
+        )
+      );
+      revisionEngineVersion = ENGINE_VERSION;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Bilinmeyen hesap hatası";
+      return { error: `Vinç tipi başlangıç hesabı oluşturulamadı: ${message}` };
+    }
+  }
+
   const { data: revision, error } = await supabase
     .from("revisions")
     .insert({
       project_id: projectId,
       rev_no: revNo,
       label: `V${revNo}`,
-      inputs: craneTypePresetInputs(
-        revNo,
-        proje?.crane_type,
-        (last?.inputs ?? {}) as Record<string, unknown>
-      ),
-      selections: last?.selections ?? {},
-      results: last?.results ?? {},
-      engine_version: last?.engine_version || ENGINE_VERSION,
+      inputs: revisionInputs,
+      selections: revisionSelections,
+      results: revisionResults,
+      engine_version: revisionEngineVersion,
       created_by: user.id,
     })
     .select("id")

@@ -6,6 +6,10 @@ import {
   parseOfferReportTransferText,
   stringifyOfferReportTransferFile,
 } from "@/lib/offer-report-transfer";
+import {
+  GROUND_CRANE_DISABLED_MODULES,
+  GROUND_CRANE_TYPE,
+} from "@/lib/crane-types";
 
 function exampleFile() {
   return buildOfferReportTransferFile({
@@ -75,6 +79,23 @@ describe("teklif hesap raporu AI aktarım dosyası", () => {
     expect(parsed.reviewNotes).toEqual([
       "revision.inputs.specs.runwayLengthM şartnamede bulunamadı.",
     ]);
+  });
+
+  it("Yer Vinci dosyasında örnek raporun yürütme girdilerini hesaba sokmaz", () => {
+    const raw = exampleFile() as unknown as Record<string, unknown>;
+    const project = raw.project as Record<string, unknown>;
+    project.craneType = GROUND_CRANE_TYPE;
+
+    // AI yalnız tipi değiştirmiş, örnek gezer köprülü vincin diğer snapshot'ını
+    // olduğu gibi bırakmış olsun. İçe aktarım V0 topolojisini sonuçtan önce
+    // zorunlu olarak sabit düzene çevirir.
+    const parsed = parseOfferReportTransferText(JSON.stringify(raw));
+    expect(parsed.inputs.specs?.travelArrangement).toBe("fixed");
+    expect(parsed.results.trolley).toBeUndefined();
+    expect(parsed.results.bridge).toBeUndefined();
+    for (const key of GROUND_CRANE_DISABLED_MODULES) {
+      expect(parsed.inputs.disabledModules, key).toContain(key);
+    }
   });
 
   it("sayı alanına birimli metin yazılırsa yolu gösteren hata verir", () => {
