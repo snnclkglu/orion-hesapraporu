@@ -17,7 +17,8 @@ import type {
   EqGroup, SummarySection,
 } from "@/lib/excel/equipment";
 import {
-  attachmentSummaryText, canLinkEquipmentModel, dsKey, rowSheetUrl, summaryRowValue,
+  attachmentSummaryText, canLinkEquipmentModel, dsKey, rowCatalogSheetKey,
+  rowSheetUrl, summaryRowValue,
 } from "@/lib/excel/equipment";
 import {
   BRAND, BrandBand, BrandPage, FONTS, PageHeader, RuleRed, T, trUpper,
@@ -436,11 +437,8 @@ export function EquipmentDocument({
       // kimliğin kendisidir. Kullanıcının yüklediği ek onu tamamlar; sayfa
       // yoksa ad doğrudan eke gider, böylece defterde karşılığı olmayan
       // ürünlerin (kanca, makara, teker…) adı da tıklanabilir olur.
-      const sheetAnchor = row.kind
-        ? anchorByKey.get(
-            dsKey(row.kind, row.brand, row.model, row.catalogInputRpm)
-          )
-        : undefined;
+      const sheetKey = rowCatalogSheetKey(row);
+      const sheetAnchor = sheetKey ? anchorByKey.get(sheetKey) : undefined;
       if (sheetAnchor) return `#${sheetAnchor}`;
       if (row.rowKey && coverKeys.has(row.rowKey)) {
         return `#${attachmentAnchorId(row.rowKey)}`;

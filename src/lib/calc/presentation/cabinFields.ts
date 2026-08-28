@@ -9,7 +9,12 @@ import {
   ROOM_INSULATION_LABELS,
   ROOM_INSULATION_OPTIONS,
 } from "../fields";
-import type { CabinInputs, CabinSelections } from "../modules/cabin";
+import {
+  ROOM_PANEL_DEPTH_OPTIONS_MM,
+  ROOM_PANEL_HEIGHT_OPTIONS_MM,
+  type CabinInputs,
+  type CabinSelections,
+} from "../modules/cabin";
 
 /** Cam tipi seçenekleri — değerler `GlazingKind` ile birebir. */
 export const GLAZING_KINDS = ["single", "double", "reflective"] as const;
@@ -72,6 +77,27 @@ export const CABIN_INPUT_FIELDS: FieldDef<CabinInputs>[] = [
     hint: "Hem zarf ısı geçişine hem basınçlandırma sızıntısına girer.",
   },
   {
+    key: "roomDoorWidthMm", label: "Kapı Genişliği", unit: "mm", type: "number",
+    hint: "Oda ön görünüşünde ölçülendirilir ve kapı ısı geçiş alanına girer.",
+  },
+  {
+    key: "roomDoorHeightMm", label: "Kapı Yüksekliği", unit: "mm", type: "number",
+    hint: "Oda ön görünüşünde ölçülendirilir ve kapı ısı geçiş alanına girer.",
+  },
+  { key: "panelCount", label: "Pano Adedi", unit: "adet", type: "number" },
+  {
+    key: "roomPanelHeightMm", label: "Ortak Pano Yüksekliği", unit: "mm",
+    type: "select", numeric: true,
+    options: ROOM_PANEL_HEIGHT_OPTIONS_MM.map(String),
+    hint: "Bütün panolar için ortaktır; her panonun altında ayrıca 200 mm baza çizilir.",
+  },
+  {
+    key: "roomPanelDepthMm", label: "Ortak Pano Derinliği", unit: "mm",
+    type: "select", numeric: true,
+    options: ROOM_PANEL_DEPTH_OPTIONS_MM.map(String),
+    hint: "Bütün panolar için ortaktır; yan görünüşte kalan yürüme mesafesini belirler.",
+  },
+  {
     key: "roomDeviceHeatKw", label: "Pano Kayıp Gücü", unit: "kW", type: "number",
     hint: "Otomatikken seçilmiş motor güçlerinden türetilir (ABB ACS880 katalog kayıpları, ağır hizmet seçimi + yardımcı ekipman + eşzamanlılık).",
   },
@@ -80,7 +106,6 @@ export const CABIN_INPUT_FIELDS: FieldDef<CabinInputs>[] = [
     hint: "Oda kızgın yükü DOĞRUDAN görüyorsa girin. Platform ya da ısı kalkanı varsa boş bırakın.",
   },
   // --- Pano tipi yerleşim
-  { key: "panelCount", label: "Pano Adedi", unit: "adet", type: "number" },
   {
     key: "panelIpClass", label: "Pano Koruma Sınıfı", type: "select",
     options: ELECTRICAL_PANEL_IP_CLASSES,

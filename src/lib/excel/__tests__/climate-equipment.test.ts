@@ -33,6 +33,9 @@ describe("kabin ve elektrik odası", () => {
           ...CABIN.inputs,
           cabinWidthM: 2.2, cabinLengthM: 2.8, cabinHeightM: 2.4,
           roomWidthM: 3, roomLengthM: 5, roomHeightM: 2.6,
+          panelCount: 3, roomPanelWidthsText: "400; 600; 800",
+          roomPanelHeightMm: 1800, roomPanelDepthMm: 600,
+          roomDoorWidthMm: 800, roomDoorHeightMm: 2000,
           roomAcRedundancy: "nPlusOne",
         },
         selections: {
@@ -67,11 +70,21 @@ describe("kabin ve elektrik odası", () => {
     expect(roomAc?.spec).not.toContain("industrial");
     // Ortam sıcaklığı sınırı yayımlanmayan üründe bu açıkça belirtilir.
     expect(roomAc?.spec).toContain("Yayımlanmamış");
+    const room = rows.find((r) => r.rowKey === "cabin:electrical-room");
+    expect(room?.spec).toContain("3 Pano (P1 400, P2 600, P3 800)");
+    expect(room?.spec).toContain("200 mm Baza");
+    expect(room?.spec).toContain("Kapı 800 × 2000 mm");
+    expect(room?.spec).toContain("Pano Önü Geçiş 2400 mm");
 
     const summary = buildSummarySections(input, runCalc(input));
     expect(summary.map((section) => section.name)).toEqual(
       expect.arrayContaining(["Operatör Kabini", "Elektrik Odası"])
     );
+    const roomSummary = summary.find((section) => section.name === "Elektrik Odası")!;
+    expect(roomSummary.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "Pano adedi", value: 3 }),
+      expect.objectContaining({ label: "Pano önü yürüme mesafesi", value: 2400 }),
+    ]));
   });
 
   it("ortam sıcaklığı sınırı yetersiz klimayı engelleyici kontrolle düşürür", () => {

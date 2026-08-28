@@ -728,6 +728,15 @@ export interface HoistInputs {
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */
 export interface HoistSelections {
   ropeBrand: string;
+  /**
+   * Katalog satırının birebir ürün kimliği (örn. "Ø20 6x36 WS IWRC 1960 MPa").
+   *
+   * Görünen ekipman modeli sağ/sol helisi de taşır; o metin üretici katalog
+   * satırının modeli değildir. Bu alan katalog sayfası bağlantısının revizyon
+   * yeniden açıldığında da aynı ürünü bulmasını sağlar. Eski revizyonlarda
+   * yoktur; ekipman katmanı seçim ölçülerinden güvenli bir geri dönüş kurar.
+   */
+  ropeCatalogModel?: string;
   ropeDiaMm: number;
   ropeConstruction: string;     // ör. "6x36"
   ropeCore: string;

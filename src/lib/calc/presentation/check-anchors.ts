@@ -198,6 +198,9 @@ const CABIN_ANCHORS: AnchorMap = {
     "cabinAc.radiationScope": "cabinAc.radiation",
   },
   "11.2": {
+    "room.panelWidthFit": "room.panelTotalWidth",
+    "room.panelHeightFit": "room.panelOverallHeight",
+    "room.panelDepthFit": "room.walkingClearance",
     "roomAc.selected": "roomAc.coolingMax",
     "roomAc.ambient": "roomAc.ambientMax",
     // Kapasite kontrolü, karşılaştırdığı iki sayıdan HESAPLANAN olanın

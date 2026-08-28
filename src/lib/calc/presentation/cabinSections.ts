@@ -40,6 +40,13 @@ export interface CabinRowDef {
   digits?: number;
 }
 
+export interface CabinTableDef {
+  title: string;
+  headers: string[];
+  build: (ctx: CabinCtx) => (string | number)[][];
+  note?: string;
+}
+
 export interface CabinSectionDef {
   id: string;
   title: string;
@@ -48,6 +55,10 @@ export interface CabinSectionDef {
   inputKeys: (keyof CabinInputs & string)[];
   selectionKeys: (keyof CabinSelections & string)[];
   rows: CabinRowDef[];
+  /** Elektrik odasındaki pano enlerini satır satır seçen özel düzenleyici. */
+  editor?: "roomPanels";
+  /** Cihaz atık ısısı gibi değişken satır sayılı mühendislik dökümleri. */
+  table?: CabinTableDef;
   /** "cabin." öneki hariç kontrol id sonekleri */
   checkSuffixes: string[];
   /**
@@ -105,6 +116,16 @@ function climateRows(block: "cabinAc" | "roomAc" | "panelAc"): CabinRowDef[] {
     {
       key: `${block}.deviceHeat`, label: "Cihaz Isısı",
       formula: "pano kayıpları · kumanda · aydınlatma",
+      subst: block === "cabinAc"
+        ? undefined
+        : (x) => {
+            const auto = block === "roomAc"
+              ? x.inp.roomDeviceHeatAuto === true
+              : x.inp.panelDeviceHeatAuto === true;
+            return auto
+              ? `${n(x.v.inverterLossKw, 3)} kW invertör + %80 yardımcı pay · 0,6 eşzamanlılık`
+              : "Mühendis tarafından elle girildi";
+          },
       unit: "kW", digits: 2,
     },
     {
@@ -231,8 +252,11 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
     equipmentSlugs: ["electrical-room", "roomAc"],
     inputKeys: [
       "roomWidthM", "roomLengthM", "roomHeightM", "roomInsulation",
-      "roomDoorCount", "roomDeviceHeatKw", "roomRadiationKw", "roomAcRedundancy",
+      "roomDoorCount", "roomDoorWidthMm", "roomDoorHeightMm",
+      "panelCount", "roomPanelHeightMm", "roomPanelDepthMm",
+      "roomDeviceHeatKw", "roomRadiationKw", "roomAcRedundancy",
     ],
+    editor: "roomPanels",
     selectionKeys: [
       "roomAcBrand", "roomAcModel", "roomAcSeries", "roomAcApplication",
       "roomAcCoolingKwMin", "roomAcCoolingKwMax", "roomAcAmbientMaxC",
@@ -251,6 +275,47 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
         unit: "m³", digits: 2,
       },
       {
+        key: "room.doorSize", label: "Kapı Net Ölçüsü",
+        valueFrom: (x) => x.c["room.doorSize"],
+        formula: "genişlik × yükseklik",
+        subst: (x) => `${n(x.inp.roomDoorCount, 0)} adet`,
+        unit: "mm",
+      },
+      {
+        key: "room.panelCount", label: "Oda İçindeki Pano Adedi",
+        formula: "kullanıcı yerleşim girdisi",
+        unit: "adet", digits: 0,
+      },
+      {
+        key: "room.panelWidths", label: "Pano Enleri — P1…Pn",
+        valueFrom: (x) => x.c["room.panelWidths"],
+        formula: "her pano ayrı standart en seçimi",
+        unit: "mm",
+      },
+      {
+        key: "room.panelTotalWidth", label: "Toplam Pano Dizisi Genişliği",
+        formula: "L_pano = Σ pano enleri",
+        subst: (x) => x.v.roomPanelLayout.widthsMm.map((width) => n(width, 0)).join(" + "),
+        unit: "mm", digits: 0,
+      },
+      {
+        key: "room.panelOverallHeight", label: "Pano Toplam Yüksekliği (Baza Dâhil)",
+        formula: "H_toplam = H_pano + 200 mm baza",
+        subst: (x) => `${n(x.v.roomPanelLayout.panelHeightMm, 0)} + ${n(x.v.roomPanelLayout.baseHeightMm, 0)}`,
+        unit: "mm", digits: 0,
+      },
+      {
+        key: "room.panelDepth", label: "Ortak Pano Derinliği",
+        formula: "bütün panolarda ortak kullanıcı seçimi",
+        unit: "mm", digits: 0,
+      },
+      {
+        key: "room.walkingClearance", label: "Pano Önü Kalan Yürüme Mesafesi",
+        formula: "B_yürüme = B_oda − D_pano",
+        subst: (x) => `${n(x.inp.roomWidthM * 1000, 0)} − ${n(x.v.roomPanelLayout.panelDepthMm, 0)}`,
+        unit: "mm", digits: 0,
+      },
+      {
         key: "room.acUnitCount", label: "Klima Ünitesi Adedi",
         formula: "kurulu yedek 1+1 ise 2, değilse 1",
         subst: (x) => (x.inp.roomAcRedundancy === "nPlusOne" ? "1 + 1" : "1"),
@@ -258,7 +323,35 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
       },
       ...climateRows("roomAc"),
     ],
+    table: {
+      title: "Cihaz Atık Isısı ve Pano Kayıp Gücü Dökümü",
+      headers: [
+        "Tahrik / Cihaz", "Motor Gücü", "Adet", "Seçilen Sürücü Sınıfı",
+        "Tek Sürücü Kaybı", "Grup Kaybı",
+      ],
+      build: (x) => [
+        ...x.v.driveHeatItems.map((item) => [
+          item.label,
+          `${n(item.motorPowerKw, 2)} kW`,
+          item.motorCount,
+          item.scaledAboveCatalog
+            ? `ACS880-104 · katalog üstü oranlama`
+            : `ACS880-104 · P_Hd ${n(item.selectedHeavyDutyKw, 2)} kW`,
+          `${n(item.lossKw, 3)} kW`,
+          `${n(item.groupLossKw, 3)} kW`,
+        ]),
+        ["Σ İnvertör Kayıpları", "—", "—", "—", "—", `${n(x.v.inverterLossKw, 3)} kW`],
+        ["Yardımcı Ekipman Payı", "—", "—", "İnvertör toplamının %80'i", "—", `${n(x.v.auxiliaryLossKw, 3)} kW`],
+        ["Otomatik Pano Kayıp Gücü", "—", "—", "Toplam × 0,6 eşzamanlılık", "—", `${n(x.c["drive.panelHeat"] as number, 3)} kW`],
+      ],
+      note:
+        "Her motor için ABB ACS880-104 tablosunda motor gücünü karşılayan en küçük ağır hizmet " +
+        "P_Hd sınıfı seçilir. Katalog atık ısıları toplanır; besleme ünitesi, trafo, PLC, " +
+        "UPS ve aydınlatma için %80 yardımcı pay eklenir, vinç görev çevrimi için 0,6 " +
+        "eşzamanlılık uygulanır.",
+    },
     checkSuffixes: [
+      "room.panelWidthFit", "room.panelHeightFit", "room.panelDepthFit",
       "roomAc.selected", "roomAc.ambient", "roomAc.capacity", "roomAc.radiationScope",
     ],
   },

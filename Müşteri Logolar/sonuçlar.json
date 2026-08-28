@@ -1,0 +1,215 @@
+[
+  {
+    "file": "ASTOR.png",
+    "company": "ASTOR A.Ş.",
+    "source": "https://astoras.com.tr/wp-content/uploads/2025/01/astor-yatay-logo-2.png",
+    "page": "https://astoras.com.tr/",
+    "ok": true,
+    "input": "2634×1380",
+    "output": "1800×374"
+  },
+  {
+    "file": "ERDEMİR.png",
+    "company": "EREĞLİ DEMİR ÇELİK FABRİKALARI T.A.Ş.",
+    "source": "https://upload.wikimedia.org/wikipedia/en/3/3e/Erdemir_Logo.svg",
+    "page": "https://www.erdemir.com.tr/",
+    "note": "Resmî sitedeki ters renkli SVG yerine, aynı kurumsal logonun renkli SVG dosyası kullanıldı.",
+    "ok": true,
+    "input": "4026×2165",
+    "output": "1674×900"
+  },
+  {
+    "file": "GALVASUN.png",
+    "company": "GALVASUN GALVANİZ SAN.TİC.İTH.İHR.LTD.ŞTİ.",
+    "source": "https://www.galvasun.com.tr/wp-content/uploads/2026/06/galvasun-logo.png",
+    "page": "https://www.galvasun.com.tr/",
+    "ok": true,
+    "input": "750×250",
+    "output": "662×103"
+  },
+  {
+    "file": "HABAŞ.png",
+    "company": "HABAŞ",
+    "source": "https://www.habas.com.tr/Content/images/uploads/F300/habas_3D_logo.png",
+    "page": "https://www.habas.com.tr/",
+    "ok": true,
+    "input": "1536×1024",
+    "output": "1528×900"
+  },
+  {
+    "file": "İNFEED.png",
+    "company": "İNFEED OTOMASYON ELEKTRİK ELEKTRONİK SAN.VE TİC.LTD.ŞTİ.",
+    "source": "https://www.infeed.com.tr/assets/uploads/0656dd265bc196brk25.webp",
+    "page": "https://www.infeed.com.tr/",
+    "ok": true,
+    "input": "3092×1398",
+    "output": "1800×814"
+  },
+  {
+    "file": "İSDEMİR.png",
+    "company": "İSKENDERUN DEMİR VE ÇELİK A.Ş.",
+    "source": "https://upload.wikimedia.org/wikipedia/en/6/66/Isdemir_logo.PNG",
+    "page": "https://www.isdemir.com.tr/",
+    "note": "Resmî sitedeki ters renkli SVG yerine, aynı kurumsal logonun renkli PNG dosyası kullanıldı.",
+    "ok": true,
+    "input": "283×168",
+    "output": "283×159"
+  },
+  {
+    "file": "İDÇ.png",
+    "company": "İZMİR DEMİR ÇELİK SANAYİ A.Ş.",
+    "source": "https://www.izdemir.com.tr/assets/svg/logotype-color.svg",
+    "page": "https://www.izdemir.com.tr/",
+    "ok": true,
+    "input": "708×208",
+    "output": "706×208"
+  },
+  {
+    "file": "KARÇEL.png",
+    "company": "KARÇEL KARDEMİR ÇELİK YAPI İMALAT SAN.VE TİC.LTD.ŞTİ.",
+    "source": "https://www.karcel.com.tr/images/icerik/karcellog%20kopya_4_2.jpg",
+    "page": "https://www.karcel.com.tr/",
+    "ok": true,
+    "input": "1024×768",
+    "output": "800×477"
+  },
+  {
+    "file": "KARDEMİR.png",
+    "company": "KARDEMİR A.Ş.",
+    "source": "https://www.kardemir.com/images/anasayfa/logotr.png",
+    "page": "https://www.kardemir.com/",
+    "ok": true,
+    "input": "317×50",
+    "output": "317×50"
+  },
+  {
+    "file": "KARDEMİR ÇELİK.png",
+    "company": "KARDEMİR ÇELİK SANAYİ A.Ş. (ÇELİKHANE)",
+    "source": "https://www.kar-demir.com.tr/wp-content/uploads/2024/07/kardemir-logo-new-1.png",
+    "page": "https://www.kar-demir.com.tr/",
+    "ok": true,
+    "input": "1080×288",
+    "output": "871×244"
+  },
+  {
+    "file": "LITEC.png",
+    "company": "LITEC MAKİNA SAN. VE TİC. A.Ş.",
+    "source": "https://litec.com.tr/wp-content/uploads/2024/11/LITEC-logo-r0.jpg",
+    "page": "https://litec.com.tr/",
+    "ok": true,
+    "input": "714×226",
+    "output": "678×189"
+  },
+  {
+    "file": "MKE.png",
+    "company": "MAKİNE VE KİMYA ENDÜSTRİSİ ANONİM ŞİRKETİ",
+    "source": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Makine_ve_Kimya_End%C3%BCstrisi_Kurumu_logo.svg/3840px-Makine_ve_Kimya_End%C3%BCstrisi_Kurumu_logo.svg.png",
+    "page": "https://www.mke.gov.tr/",
+    "note": "Resmî sitedeki beyaz başlık logosu yerine aynı kurumsal amblemin renkli sürümü kullanıldı.",
+    "ok": true,
+    "input": "3840×3840",
+    "output": "900×900"
+  },
+  {
+    "file": "MTC.png",
+    "company": "MTC PASLANMAZ",
+    "source": "https://www.mtcpaslanmaz.com/mtc_logo_red.png",
+    "page": "https://www.mtcpaslanmaz.com/",
+    "ok": true,
+    "input": "934×504",
+    "output": "783×332"
+  },
+  {
+    "file": "ORHUN.png",
+    "company": "ORHUN MAKİNA",
+    "source": "https://orhunmakina.com.tr/wp-content/uploads/2023/10/o-logo.png",
+    "page": "https://orhunmakina.com.tr/",
+    "ok": true,
+    "input": "601×157",
+    "output": "599×157"
+  },
+  {
+    "file": "ORION.png",
+    "company": "ORİON VİNÇ MÜHENDİSLİK MAKİNA SAN.TİC.LTD.ŞTİ.",
+    "local": "C:\\Users\\HP\\Desktop\\ORION\\HESAP RAPORU KOD\\orion-hesapraporu\\public\\brand\\orion-logo.png",
+    "page": "https://orioncranes.com/",
+    "note": "İnternetteki kopya yerine uygulamanın kendi resmî marka dosyası kullanıldı.",
+    "ok": true,
+    "input": "596×67",
+    "output": "593×64"
+  },
+  {
+    "file": "PİMSUN.png",
+    "company": "PİMSUN",
+    "source": "https://www.pimsun.com.tr/wp-content/uploads/2021/04/pimsun-logo-2021-1.png",
+    "page": "https://www.pimsun.com.tr/",
+    "ok": true,
+    "input": "200×57",
+    "output": "186×49"
+  },
+  {
+    "file": "PLASTIC MASTER.png",
+    "company": "PLASTIC MASTER PLASTİK SANAYİ VE TİC.LTD.ŞTİ.",
+    "source": "https://www.plasticmaster.com.tr/wp-content/uploads/2024/08/Untitled-design-1-1024x187.png",
+    "page": "https://www.plasticmaster.com.tr/",
+    "note": "Resmî sayfanın tarayıcı varlıklarından alındı.",
+    "ok": true,
+    "input": "1020×186",
+    "output": "966×162"
+  },
+  {
+    "file": "SAKA.png",
+    "company": "SAKA DEMİR ÇELİK SANAYİ VE TİCARET A.Ş.",
+    "source": "https://www.sakadc.com.tr/assets/img/SAKA%20DEM%C4%B0R2.png",
+    "page": "https://www.sakadc.com.tr/",
+    "ok": true,
+    "input": "1346×734",
+    "output": "1265×686"
+  },
+  {
+    "file": "Sİ-MA.png",
+    "company": "Sİ-MA MAKİNA ELEKTRİK ELEKTRONİK İNŞ.KİMYEVİ MAD.PET.ÜRÜN.SAN.TİC.LTD.ŞTİ",
+    "source": "https://si-ma.com/wp-content/uploads/500_png.png",
+    "page": "https://si-ma.com/",
+    "ok": true,
+    "input": "500×500",
+    "output": "480×494"
+  },
+  {
+    "file": "SMT.png",
+    "company": "SMT GRUP",
+    "source": "https://www.smtendustriyel.com/wp-content/uploads/2022/04/Adsiz_tasarim__66_-removebg-preview.png",
+    "page": "https://www.smtendustriyel.com/",
+    "ok": true,
+    "input": "250×125",
+    "output": "223×47"
+  },
+  {
+    "file": "TOSÇELİK.png",
+    "company": "TOSÇELİK PROFİL",
+    "source": "https://c.toscelik.com.tr/images/641068toscelikpng",
+    "page": "https://www.toscelik.com.tr/",
+    "ok": true,
+    "input": "470×162",
+    "output": "462×159"
+  },
+  {
+    "file": "YALCO.png",
+    "company": "YALCO DIŞ TİCARET VE MÜMESSİLLİK LTD. ŞTİ.",
+    "source": "https://www.yalco.com.tr/images/logo.png",
+    "page": "https://www.yalco.com.tr/",
+    "ok": true,
+    "input": "263×55",
+    "output": "263×55"
+  },
+  {
+    "file": "YILMAZLAR.png",
+    "company": "YILMAZLAR TEMELLİ VİNÇ HİZM. TİC. LTD. ŞTİ.",
+    "generated": true,
+    "page": "https://temelliyilmazlarvinc.com.tr/",
+    "note": "Resmî site bağımsız bir logo dosyası yayımlamadığı için sitedeki kurumsal ad başlığı PNG olarak düzenlendi.",
+    "ok": true,
+    "input": "5833×1500",
+    "output": "1800×462"
+  }
+]

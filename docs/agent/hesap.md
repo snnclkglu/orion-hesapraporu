@@ -1061,7 +1061,7 @@ Yanlış ölçü resmi, hiç resim olmamasından kötüdür.
 Model kodu ÜÇ yazımla gelir ve üçü de tanınır: **TE315/50/6** (üreticinin
 sipariş düzeni), **TE 315 Ed 50/6** ve **TE 315 50/6** (eski revizyonlar),
 marka önekli **SIBRE TE250 Ed 50/6**. Kimlik alanı bölüme göre değişir: kaldırmada ayrı
-`brakeModel`, köprü yürütmede birleşik `brakeBrand` ("MARKA MODEL" —
+`brakeModel`, yürütmede birleşik `brakeBrand` ("MARKA MODEL" —
 `catalog-mapping` 5.5b).
 
 **AYNI SAYILAR İKİ YERDE YAŞAR** (defter + `cat_equipment`) ve bedeli
@@ -1242,3 +1242,63 @@ serbest uçtadır. Bu nedenle standart tek tamburlu düzende rulman ve yatak
 düzeninde **2'şer adet** ekipman listesine girer. Vinç ile yalnız vinç arabası
 raporu arasında bu adet kuralı değişmez. İkiz donanım ise iki bağımsız hazır
 ekipman setidir ve mevcut set çarpanını ayrıca uygular.
+
+## HESAP-33 — Yürütme freni bütün yürütme eksenlerinde hesaplanır; teker sertliği seçilebilir.
+
+Kullanıcı kararı (28.08.2026): Araba Yürütme, Köprü Yürütme ile aynı `5.5b`
+Yürütme Freni bölümünü taşır. Kural ana, yardımcı ve monoray arabaları için de
+aynıdır; yürütme ailesinin tek tanımı ayrıştırılmaz. Gereken fren torku her
+bağımsız tahrikin motor/redüktör giriş torkunun fren emniyet katsayılı
+değeridir (`T_f = T_g · k_f`). Bölüm, katalog seçimi, fren şeması, kontrol,
+PDF hesap raporu, ana ekipman özeti ve ekipman listesinde bütün yürütme
+varyantlarında birlikte görünür. Eski araba snapshot'larındaki hesap dışı `0`
+katsayısı, yeni alan işareti yoksa yüklemede `1,6` değerine taşınır; seçim
+yapılmamışsa kontrol yayın engelleyici olarak uygun değildir.
+
+Tekerlek bölümünde `wheelDiaMm` alanının hemen ardından `wheelHardness` seçimi
+gelir. Yeni ve eski işler `32-35 HRC` ile tamamlanır; seçenekler `Yok`,
+`32-35 HRC`, `35-40 HRC`, `40-45 HRC`, `45-50 HRC`, `50-55 HRC`dir. `Yok`
+uygulamada kutuyu erişilebilir bırakır fakat hesap raporundaki sertlik satırını,
+ana ekipman özetindeki sertlik parçasını ve ekipman açıklamasındaki sertlik
+metnini sessizce düşürür.
+
+## HESAP-34 — Elektrik odası gerçek pano dizisiyle boyutlandırılır; otomatik kayıp değeri kaynağını gösterir.
+
+Kullanıcı kararı (28.08.2026): `11.2 Elektrik Odası` içinde **Pano Adedi**
+doğrudan seçilir ve her pano `1. Pano … n. Pano` olarak ayrı bir en satırı
+taşır. Standart enler 400 / 500 / 600 / 700 / 800 / 1000 / 1200 mm'dir;
+yeni satır 800 mm ile açılır. Yükseklik (1400 / 1600 / 1800 / 2000 mm) ve
+derinlik (400 / 600 / 700 mm) bütün panolarda ortaktır. Her panonun altında
+sabit **200 mm baza** vardır. Eski revizyonlarda bulunmayan alanlar 800 mm en,
+1800 mm gövde yüksekliği ve 600 mm derinlikle tamamlanır; kayıtlı `panelCount`
+korunur ve eksik en satırları 800 mm olur.
+
+Oda yerleşimi iki görünüşlüdür. Ön görünüş kapıyı (varsayılan 800 × 2000 mm),
+P1…Pn pano enlerini, ortak gövde yüksekliğini ve bazayı çizer. Yan görünüş pano
+derinliğini ve pano önünde kalan yürüme mesafesini ölçülendirir:
+
+    L_pano = Σ pano enleri
+    H_toplam = H_pano + 200 mm
+    B_yürüme = B_oda − D_pano
+
+Bu üç geometri oda uzunluğu, oda yüksekliği ve oda genişliğine karşı ayrı
+uygunluk kontrolleridir. Kapı eni/yüksekliği artık elektrik odası girdisidir ve
+iletim alanına da aynı gerçek ölçü girer; operatör kabininin 700 × 1900 mm kapı
+kabulü değişmez. Excel ekipman listesi ile teknik çizim özeti aynı pano dizisi,
+baza, kapı ve yürüme ölçülerini okur.
+
+**`0 kW` GÖSTERİM HATASININ KÖK NEDENİ:** hesap motoru otomatik pano kaybını
+doğru türetiyor ve iklimlendirme hesabına veriyordu, fakat editör/PDF girdi
+tablosu snapshot'ta saklanan elle-giriş alanını (`roomDeviceHeatKw`, çoğunlukla
+0) basıyordu. Otomatik anahtar açıkken artık form ve rapor, motorun ürettiği
+`drive.panelHeat` hücresini gösterir; snapshot'taki manuel değer EZİLMEZ ve
+anahtar kapatılırsa yeniden kullanılabilir. Gösterim 0,001 kW'a yuvarlanır;
+hesap hücresi tam hassasiyetini korur.
+
+`Hesap ve Kontroller` altındaki cihaz dökümü her aktif tahrik grubu için motor
+gücünü, adedi, motoru karşılayan en küçük ABB ACS880-104 ağır hizmet `P_Hd`
+sınıfını, tek sürücü ve grup atık ısısını listeler. Ardından invertör kayıpları,
+%80 yardımcı ekipman payı ve toplam üzerine uygulanan 0,6 eşzamanlılık ayrı
+satırlardır. Böylece otomatik pano kayıp gücü yalnız sonuç değil, izlenebilir bir
+seçim zinciridir; motor gücü katalog üst sınırını aşarsa son sınıf oransal
+ölçeklenir ve bu durum seçim kaydında işaretlenir.

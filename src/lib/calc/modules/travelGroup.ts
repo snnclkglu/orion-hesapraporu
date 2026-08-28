@@ -9,7 +9,8 @@
 // Varyant farkları (mühendislik gerekçeleriyle):
 //   · Köprüde tekerlek yükleri arabanın yanaşma eksantrikliğiyle hesaplanır;
 //     arabada yük dört tekere eşit paylaştırılır.
-//   · Yürütme freni yalnız köprü mekanizmasında hesaplanır.
+//   · Yürütme freni bütün araba ve köprü mekanizmalarında aynı giriş torku
+//     üzerinden hesaplanır.
 //   · Köprü tamponunda çarpma hızı olarak nominal hızın %70'i alınır
 //     (köprü kütlesi büyük olduğundan tam hızda çarpışma kabul edilmez).
 //   · Çevrim oranı sapma bandı arabada +10/−5 %, köprüde +5/−10 %'dir:
@@ -54,6 +55,24 @@ import type {
  */
 export const TRAVEL_YES = "Evet";
 export const TRAVEL_NO = "Hayır";
+
+/** Yürütme tekeri sertlik seçimi — uygulama, PDF ve ekipman çıktıları ortaktır. */
+export const TRAVEL_WHEEL_HARDNESS_NONE = "Yok";
+export const TRAVEL_WHEEL_HARDNESS_OPTIONS = [
+  TRAVEL_WHEEL_HARDNESS_NONE,
+  "32-35 HRC",
+  "35-40 HRC",
+  "40-45 HRC",
+  "45-50 HRC",
+  "50-55 HRC",
+] as const;
+export const DEFAULT_TRAVEL_WHEEL_HARDNESS = "32-35 HRC";
+
+/** "Yok" ve boş değer rapor metnine dönüşmez. */
+export function travelWheelHardnessText(value: unknown): string | null {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text !== "" && text !== TRAVEL_WHEEL_HARDNESS_NONE ? text : null;
+}
 
 /** Bozuk/çok eski metinlerde hesabı düşürmeyen güvenli malzeme çözümleyicisi. */
 function travelShaftMaterial(material: string): ShaftMaterial {
@@ -218,7 +237,7 @@ export interface TravelInputs {
    * redüktör katalogdan seçilince anahtar kendiliğinden kapanır.
    */
   gearboxRatioAuto?: boolean;
-  brakeServiceFactor: number;   // fren emniyet katsayısı (sadece köprü)
+  brakeServiceFactor: number;   // yürütme freni emniyet katsayısı
   motorCouplingServiceFactor: number; // motor kaplini emniyet katsayısı
   wheelCouplingServiceFactor: number; // teker kaplini emniyet katsayısı
   bufferApproachM: number;      // tampon hesabında araba yanaşması [m] (sadece köprü)
@@ -273,6 +292,8 @@ export interface TravelSelections {
   wheelMaterial: string;
   wheelTensileNmm2: number;     // teker malzemesi çekme dayanımı [N/mm²]
   wheelDiaMm: number;           // tekerlek çapı [mm]
+  /** Tekerlek yüzey sertliği; "Yok" seçimi rapordan sessizce düşer. */
+  wheelHardness: string;
   shaftMaterial: string;        // teker mili malzemesi
   /** Kabul edilen rulman markaları (çoklu, virgülle ayrık: "SKF, FAG") */
   bearingBrand?: string;
@@ -326,7 +347,7 @@ export interface TravelSelections {
   gearboxOutputShaftMm: number;
   /** Frenin sipariş opsiyonları (çoklu, virgülle ayrık: "İçten Yaylı, Elle Açma Kolu") */
   brakeOptions?: string;
-  brakeBrand: string;           // yürütme freni (sadece köprü)
+  brakeBrand: string;           // yürütme freni
   brakeTorqueNm: number;
   brakeWheelDiaMm: number;
   /** Arabada kapline bağlanan motor mili ayrı girilir; köprüde motor mili çapı
@@ -460,8 +481,8 @@ export interface TravelValues {
   nominalOutputTorqueNm: number;
   requiredMinOutputTorqueNm: number;
   gearboxActualSafety: number;
-  // Fren (sadece köprü)
-  requiredBrakeTorqueNm: number | null;
+  // Yürütme freni
+  requiredBrakeTorqueNm: number;
   // Kaplinler
   requiredMotorCouplingTorqueNm: number;
   motorCouplingShaftMm: number;
@@ -1106,20 +1127,20 @@ export function computeTravelGroup(
     kind: "firma", severity: "engelleyici",
   });
 
-  // --- Yürütme Freni (sadece köprü) ----------------------------------------
-  let requiredBrakeTorque: number | null = null;
-  if (!isTrolley) {
-    requiredBrakeTorque = requiredInputTorque * inp.brakeServiceFactor;
-    set("brake.requiredTorque", requiredBrakeTorque);
-    checks.push({
-      id: `${which}.brake.torque`,
-      label: "Köprü Yürütme Freni Torku",
-      required: requiredBrakeTorque, provided: sel.brakeTorqueNm, unit: "Nm", op: ">=",
-      computedSide: "required",
-      pass: sel.brakeTorqueNm >= requiredBrakeTorque,
-      kind: "standart", severity: "engelleyici",
-    });
-  }
+  // --- Yürütme Freni --------------------------------------------------------
+  // Her bağımsız tahrikte fren motor/redüktör giriş milini durdurur. Bu nedenle
+  // gereken kapasite, motor başına gereken giriş torkunun emniyet katsayılı
+  // değeridir; araba ve köprü aynı fiziksel bağıntıyı kullanır.
+  const requiredBrakeTorque = requiredInputTorque * inp.brakeServiceFactor;
+  set("brake.requiredTorque", requiredBrakeTorque);
+  checks.push({
+    id: `${which}.brake.torque`,
+    label: `${isTrolley ? "Araba" : "Köprü"} Yürütme Freni Torku`,
+    required: requiredBrakeTorque, provided: sel.brakeTorqueNm, unit: "Nm", op: ">=",
+    computedSide: "required",
+    pass: sel.brakeTorqueNm >= requiredBrakeTorque,
+    kind: "standart", severity: "engelleyici",
+  });
 
   // --- Motor — Dişli Kutusu Kaplini ----------------------------------------
   const requiredMotorCouplingTorque = requiredInputTorque * inp.motorCouplingServiceFactor;

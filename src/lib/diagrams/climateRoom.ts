@@ -36,6 +36,9 @@ export interface ClimateRoomParams {
   doorCount: number;
   /** Kapı etiketi — pano yerleşiminde sızıntı yolu "Pano Kapağı"dır */
   doorLabel?: string;
+  /** Elektrik odası kapı net ölçüsü [mm] — ön görünüşte ölçülendirilir. */
+  doorWidthMm?: number;
+  doorHeightMm?: number;
   ambientTempC: number;
   ambientRhPct: number;
   roomTempC: number;
@@ -63,6 +66,11 @@ export interface ClimateRoomParams {
   deviceCount?: number;
   /** Dolap etiketi ("Pano"). Adet önüne yazılır: "6 Pano". */
   deviceLabel?: string;
+  /** Oda panolarının sıra bazlı enleri ve ortak gövde ölçüleri [mm]. */
+  panelWidthsMm?: readonly number[];
+  panelHeightMm?: number;
+  panelDepthMm?: number;
+  panelBaseHeightMm?: number;
 }
 
 const W = 700;
@@ -161,6 +169,16 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
   const boxBottom = by + bh;
   /** Metrenin piksel karşılığı — içerideki her şey bununla ölçeklenir. */
   const pxPerM = p.heightM > 0 ? bh / p.heightM : 0;
+  const pxPerLengthM = p.lengthM > 0 ? (bw - 14) / p.lengthM : 0;
+  const hasRoomPanelLayout =
+    Array.isArray(p.panelWidthsMm) && p.panelWidthsMm.length > 0;
+  const panelBodyHeightM = (p.panelHeightMm ?? PANEL_H_M * 1000) / 1000;
+  const panelBaseHeightM = (p.panelBaseHeightMm ?? 0) / 1000;
+  const panelOverallHeightM = panelBodyHeightM + panelBaseHeightM;
+
+  if (hasRoomPanelLayout) {
+    els.push(txt(bx, by - 31, "ÖN GÖRÜNÜŞ", 8.5, { fill: DCOL.muted, bold: true }));
+  }
 
   // Zarf: dış çizgi + yalıtım dolgusu + iç çizgi
   const t = 7; // yalıtım kalınlığı [px] — okunabilirlik için abartılı
@@ -202,13 +220,24 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
   const inner1 = bx + t;
   const inner2 = boxRight - t;
   if (p.doorCount > 0) {
-    const dh = Math.min(bh - 2 * t - 6, Math.max(26, DOOR_H_M * pxPerM));
+    const doorHeightM = hasRoomPanelLayout
+      ? (p.doorHeightMm ?? DOOR_H_M * 1000) / 1000
+      : DOOR_H_M;
+    const dh = Math.min(bh - 2 * t - 6, Math.max(26, doorHeightM * pxPerM));
+    const dw = hasRoomPanelLayout
+      ? Math.min((inner2 - inner1) * 0.42, Math.max(18, ((p.doorWidthMm ?? 800) / 1000) * pxPerLengthM))
+      : 5;
     els.push({
-      kind: "rect", x: bx + t - 1, y: floorY - dh, w: 5, h: dh,
+      kind: "rect", x: hasRoomPanelLayout ? inner1 + 2 : bx + t - 1,
+      y: floorY - dh, w: dw, h: dh,
       fill: DCOL.line, stroke: DCOL.ink, strokeWidth: 1,
     });
     els.push(
-      txt(inner1, belowY, `${fmtN(p.doorCount, 0)} ${p.doorLabel ?? "Kapı"}`, 8, {
+      txt(inner1, belowY,
+        hasRoomPanelLayout
+          ? `${fmtN(p.doorCount, 0)} ${p.doorLabel ?? "Kapı"} · ${fmtN(p.doorWidthMm ?? 800, 0)} × ${fmtN(p.doorHeightMm ?? 2000, 0)} mm`
+          : `${fmtN(p.doorCount, 0)} ${p.doorLabel ?? "Kapı"}`,
+        8, {
         fill: DCOL.muted, push: "down",
       })
     );
@@ -237,34 +266,70 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
 
   // Panolar: yan yana dolaplar. Adet verilmezse tek bir genel konsol.
   const cabCount = Math.max(0, Math.floor(p.deviceCount ?? 0));
-  const cabH = Math.min(bh - 2 * t - 8, Math.max(22, PANEL_H_M * pxPerM));
+  const cabH = Math.min(
+    bh - 2 * t - 8,
+    Math.max(22, (hasRoomPanelLayout ? panelOverallHeightM : PANEL_H_M) * pxPerM)
+  );
+  const baseH = hasRoomPanelLayout
+    ? Math.min(cabH, Math.max(3, panelBaseHeightM * pxPerM))
+    : 0;
   let deviceLeft: number;
   let deviceRight: number;
   if (cabCount > 0) {
-    // Nominal 0,8 m'lik pano gözü; sığmıyorsa mevcut zemine daraltılır.
+    // Oda görünüşünde pano enleri gerçek ölçekte, öteki mahallerde nominal
+    // 0,8 m'lik eşit gözlerdir. Sığmıyorsa yalnız çizim okunabilirliği için
+    // mevcut zemine oransal daraltılır; hesap satırı gerçek toplamı korur.
     const gap = 2.5;
-    const avail = (inner2 - inner1) * 0.62;
-    const wNom = Math.max(6, PANEL_W_M * ((bw - 2 * t) / Math.max(p.lengthM, 0.001)));
-    const wCab = Math.min(wNom, (avail - gap * (cabCount - 1)) / cabCount);
-    const total = wCab * cabCount + gap * (cabCount - 1);
+    const avail = (inner2 - inner1) * (hasRoomPanelLayout ? 0.68 : 0.62);
+    const widths = hasRoomPanelLayout
+      ? Array.from({ length: cabCount }, (_, index) =>
+          Math.max(6, ((p.panelWidthsMm?.[index] ?? 800) / 1000) * pxPerLengthM)
+        )
+      : Array.from({ length: cabCount }, () =>
+          Math.max(6, PANEL_W_M * ((bw - 2 * t) / Math.max(p.lengthM, 0.001)))
+        );
+    const rawTotal = widths.reduce((sum, width) => sum + width, 0) + gap * (cabCount - 1);
+    const scale = rawTotal > avail ? avail / rawTotal : 1;
+    const drawnWidths = widths.map((width) => width * scale);
+    const total = drawnWidths.reduce((sum, width) => sum + width, 0) + gap * (cabCount - 1);
     deviceRight = inner2 - 6;
     deviceLeft = deviceRight - total;
+    let panelX = deviceLeft;
     for (let i = 0; i < cabCount; i++) {
-      const x = deviceLeft + i * (wCab + gap);
+      const wCab = drawnWidths[i];
+      const x = panelX;
       els.push({
-        kind: "rect", x, y: floorY - cabH, w: wCab, h: cabH,
+        kind: "rect", x, y: floorY - cabH, w: wCab, h: cabH - baseH,
         fill: DCOL.line, stroke: DCOL.ink, strokeWidth: 0.9,
       });
+      if (baseH > 0) {
+        els.push({
+          kind: "rect", x, y: floorY - baseH, w: wCab, h: baseH,
+          fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 0.9,
+        });
+      }
       // Kapak kolu + havalandırma çizgileri — dolap olduğu okunsun
-      els.push(ln(x + wCab - 2.5, floorY - cabH * 0.55, x + wCab - 2.5, floorY - cabH * 0.42, DCOL.ink, 0.9));
+      els.push(ln(x + wCab - 2.5, floorY - cabH * 0.58, x + wCab - 2.5, floorY - cabH * 0.45, DCOL.ink, 0.9));
       for (let k = 1; k <= 3; k++) {
-        const yy = floorY - cabH + cabH * (0.16 * k);
+        const yy = floorY - cabH + (cabH - baseH) * (0.16 * k);
         els.push(ln(x + 2, yy, x + wCab - 4, yy, DCOL.muted, 0.5));
       }
+      if (hasRoomPanelLayout && wCab >= 18) {
+        els.push(txt(x + wCab / 2, floorY - cabH - 5,
+          `P${i + 1} · ${fmtN(p.panelWidthsMm?.[i] ?? 800, 0)}`, 7, {
+            anchor: "middle", fill: DCOL.muted,
+          }));
+      }
+      panelX += wCab + gap;
     }
     els.push(
-      txt((deviceLeft + deviceRight) / 2, belowY,
-        `${fmtN(cabCount, 0)} ${p.deviceLabel ?? "Pano"}`, 8, {
+      // Elektrik odasında kapı ölçüsü ilk alt satırdadır; pano özetini ikinci
+      // satıra indirerek uzun “800 × 2000 mm” etiketiyle üst üste bindirme.
+      txt((deviceLeft + deviceRight) / 2, hasRoomPanelLayout ? belowY + 12 : belowY,
+        hasRoomPanelLayout
+          ? `${fmtN(cabCount, 0)} ${p.deviceLabel ?? "Pano"} · H ${fmtN(p.panelHeightMm ?? 1800, 0)} + ${fmtN(p.panelBaseHeightMm ?? 0, 0)} Baza mm`
+          : `${fmtN(cabCount, 0)} ${p.deviceLabel ?? "Pano"}`,
+        8, {
         anchor: "middle", fill: DCOL.muted, push: "down",
       })
     );
@@ -413,6 +478,92 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
     })
   );
 
+  // ---------------------------------------------------------- oda yan görünüşü
+  // Yalnız gerçek pano ölçüleri bulunan elektrik odasında çizilir. Panolar
+  // bir duvara yaslanır; karşı duvar ile pano yüzü arasındaki net mesafe
+  // kullanıcının oda içindeki yürüme/servis koridorudur.
+  let contentBottom = boxBottom;
+  if (hasRoomPanelLayout) {
+    const sideTop = boxBottom + (p.radiationKw > 0 ? 106 : 72);
+    const sideMaxW = 250;
+    const sideMaxH = 116;
+    const sideRatio = p.widthM > 0 ? p.heightM / p.widthM : 0.8;
+    let sideW = sideMaxW;
+    let sideH = sideW * sideRatio;
+    if (sideH > sideMaxH) {
+      sideH = sideMaxH;
+      sideW = sideH / Math.max(sideRatio, 0.001);
+    }
+    const sideX = bx;
+    const sideY = sideTop;
+    const sideRight = sideX + sideW;
+    const sideBottom = sideY + sideH;
+    const sideT = 6;
+    const sideInnerLeft = sideX + sideT;
+    const sideInnerRight = sideRight - sideT;
+    const sideFloor = sideBottom - sideT;
+    const sidePxPerHeightM = p.heightM > 0 ? (sideH - 2 * sideT) / p.heightM : 0;
+    const sidePxPerWidthM = p.widthM > 0 ? (sideW - 2 * sideT) / p.widthM : 0;
+    const depthM = (p.panelDepthMm ?? 600) / 1000;
+    const panelDepthPx = Math.min(
+      sideInnerRight - sideInnerLeft,
+      Math.max(8, depthM * sidePxPerWidthM)
+    );
+    const overallPanelH = Math.min(
+      sideH - 2 * sideT,
+      Math.max(18, panelOverallHeightM * sidePxPerHeightM)
+    );
+    const sideBaseH = Math.min(
+      overallPanelH,
+      Math.max(3, panelBaseHeightM * sidePxPerHeightM)
+    );
+    const panelFaceX = sideInnerRight - panelDepthPx;
+
+    els.push(txt(sideX, sideY - 10, "YAN GÖRÜNÜŞ", 8.5, {
+      fill: DCOL.muted, bold: true,
+    }));
+    els.push({
+      kind: "rect", x: sideX, y: sideY, w: sideW, h: sideH,
+      fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1.3,
+    });
+    els.push({
+      kind: "rect", x: sideInnerLeft, y: sideY + sideT,
+      w: sideW - 2 * sideT, h: sideH - 2 * sideT,
+      fill: "#FFFFFF", stroke: DCOL.ink, strokeWidth: 0.8,
+    });
+    els.push({
+      kind: "rect", x: panelFaceX, y: sideFloor - overallPanelH,
+      w: panelDepthPx, h: overallPanelH - sideBaseH,
+      fill: DCOL.line, stroke: DCOL.ink, strokeWidth: 0.9,
+    });
+    els.push({
+      kind: "rect", x: panelFaceX, y: sideFloor - sideBaseH,
+      w: panelDepthPx, h: sideBaseH,
+      fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 0.9,
+    });
+    els.push(txt((panelFaceX + sideInnerRight) / 2, sideFloor - overallPanelH - 5,
+      `Pano D ${fmtN(p.panelDepthMm ?? 600, 0)} mm`, 7.5, {
+        anchor: "middle", fill: DCOL.muted,
+      }));
+
+    // Yürüme mesafesi ölçü zinciri — çift ok, pano yüzü ile karşı duvar arası.
+    const dimY = sideBottom + 18;
+    els.push(ln(sideInnerLeft, dimY, panelFaceX, dimY, DCOL.accent, 1));
+    els.push(arrowHead(sideInnerLeft, dimY, "left", DCOL.accent, 6, 2.4));
+    els.push(arrowHead(panelFaceX, dimY, "right", DCOL.accent, 6, 2.4));
+    els.push(ln(sideInnerLeft, sideFloor, sideInnerLeft, dimY + 4, DCOL.faint, 0.7));
+    els.push(ln(panelFaceX, sideFloor, panelFaceX, dimY + 4, DCOL.faint, 0.7));
+    const walkingMm = p.widthM * 1000 - (p.panelDepthMm ?? 600);
+    els.push(txt((sideInnerLeft + panelFaceX) / 2, dimY - 5,
+      `Yürüme Mesafesi ${fmtN(walkingMm, 0)} mm`, 8, {
+        anchor: "middle", fill: DCOL.accent, bold: true,
+      }));
+    els.push(txt(sideRight + 10, sideY + 14,
+      `Oda B ${fmtN(p.widthM * 1000, 0)} mm`, 7.5, { fill: DCOL.muted }));
+
+    contentBottom = dimY + 10;
+  }
+
   // ---------------------------------------------------------------- yük çubuğu
   const items: Item[] = [
     { label: "İletim", kw: p.transmissionKw, fill: "#8A8480" },
@@ -427,7 +578,7 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
   const barX = 96;
   // Çubuk, kesitin ALTINDAKİ en alçak öğeden sonra başlar: ışınım oku ve
   // içerik etiketleri oraya iniyor.
-  const barY = Math.max(262, boxBottom + (p.radiationKw > 0 ? 78 : 52));
+  const barY = Math.max(262, contentBottom + (hasRoomPanelLayout ? 34 : (p.radiationKw > 0 ? 78 : 52)));
   const barW = 520;
   const barH = 20;
   els.push(txt(barX, barY - 8, "YÜK DAĞILIMI", 8.5, { fill: DCOL.muted, fixed: true }));
@@ -474,5 +625,5 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
     })
   );
 
-  return fitDiagram(els, W, H);
+  return fitDiagram(els, W, hasRoomPanelLayout ? Math.max(520, barY + 72) : H);
 }

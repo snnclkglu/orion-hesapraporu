@@ -16,7 +16,7 @@
 //      aynı sonucu verir.
 
 import { describe, expect, it } from "vitest";
-import { V5_TEMPLATE } from "@/lib/calc/defaults";
+import { NEW_WORK_TEMPLATE, V5_TEMPLATE } from "@/lib/calc/defaults";
 import { runCalc, type CalcInput } from "@/lib/calc/engine";
 import { MODULE_ORDER } from "@/lib/calc/presentation/module-family";
 import {
@@ -172,6 +172,63 @@ describe("revizyon göçü — tambur mili ölçüleri cm → mm", () => {
     const merged = { drumSpanAMm: 60, shaftD1Mm: 60 };
     const out = migrateDrumShaftUnits({ drumWeightKg: 800 }, merged);
     expect(out).toEqual(merged);
+  });
+});
+
+describe("revizyon göçü — araba yürütme freni", () => {
+  it("eski yer tutucu sıfır katsayısını yeni 1,6 varsayılanına taşır", () => {
+    const selections = {
+      ...NEW_WORK_TEMPLATE.trolley!.selections,
+    } as Record<string, unknown>;
+    delete selections.wheelHardness;
+    const loaded = loadRevision(
+      {
+        trolley: {
+          ...NEW_WORK_TEMPLATE.trolley!.inputs,
+          brakeServiceFactor: 0,
+        },
+      },
+      { trolley: selections as unknown as RevisionSelectionsJson["trolley"] }
+    );
+    expect(loaded.full.trolley!.inputs.brakeServiceFactor).toBe(1.6);
+    expect(loaded.full.trolley!.selections.wheelHardness).toBe("32-35 HRC");
+  });
+
+  it("yeni snapshot'ta açıkça saklanan sıfır değeri göçle ezmez", () => {
+    const loaded = loadRevision(
+      {
+        trolley: {
+          ...NEW_WORK_TEMPLATE.trolley!.inputs,
+          brakeServiceFactor: 0,
+        },
+      },
+      { trolley: NEW_WORK_TEMPLATE.trolley!.selections }
+    );
+    expect(loaded.full.trolley!.inputs.brakeServiceFactor).toBe(0);
+  });
+});
+
+describe("revizyon göçü — elektrik odası pano yerleşimi", () => {
+  it("yeni alanları olmayan eski revizyonu güvenli standartlarla tamamlar", () => {
+    const legacyCabin = {
+      ...NEW_WORK_TEMPLATE.cabin!.inputs,
+    } as Record<string, unknown>;
+    delete legacyCabin.roomDoorWidthMm;
+    delete legacyCabin.roomDoorHeightMm;
+    delete legacyCabin.roomPanelWidthsText;
+    delete legacyCabin.roomPanelHeightMm;
+    delete legacyCabin.roomPanelDepthMm;
+
+    const loaded = loadRevision(
+      { cabin: legacyCabin } as unknown as RevisionInputsJson,
+      null
+    ).full.cabin!.inputs;
+
+    expect(loaded.roomDoorWidthMm).toBe(800);
+    expect(loaded.roomDoorHeightMm).toBe(2000);
+    expect(loaded.roomPanelWidthsText).toBe("800");
+    expect(loaded.roomPanelHeightMm).toBe(1800);
+    expect(loaded.roomPanelDepthMm).toBe(600);
   });
 });
 

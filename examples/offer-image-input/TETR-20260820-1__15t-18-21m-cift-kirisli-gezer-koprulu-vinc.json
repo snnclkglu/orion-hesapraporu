@@ -1,0 +1,565 @@
+{
+  "schemaVersion": "1.0",
+  "kind": "offer-item-image-input",
+  "source": {
+    "application": "ORION CRANES — İŞ YÖNETİM SİSTEMİ",
+    "offerUrl": "https://orion-hesapraporu.vercel.app/offers/ca683a77-b402-4c07-bd03-d90b4c2e39d4",
+    "exportedAt": "2026-08-27",
+    "offerId": "ca683a77-b402-4c07-bd03-d90b4c2e39d4",
+    "offerNo": "TETR-20260820-1",
+    "revisionId": "178ce121-3b5c-4c7a-abdd-717bf7efd49c",
+    "revisionNo": 0,
+    "revisionLabel": "R0",
+    "revisionStatus": "draft"
+  },
+  "offer": {
+    "issueDate": "2026-08-20",
+    "issuedOn": null,
+    "customerName": "HABAŞ",
+    "subject": "HADDE 5 - 15T X 18M VİNÇ",
+    "status": "sent",
+    "currency": "EUR"
+  },
+  "item": {
+    "id": "c8d97a76-1fa9-4aef-9d70-ad2d68c61707",
+    "title": "15T x 18.21m ÇİFT KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ",
+    "craneType": "ÇİFT KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ",
+    "capacityT": 15,
+    "spanM": 18.21,
+    "groups": [
+      {
+        "key": "general",
+        "title": "GENEL ÖZELLİKLER",
+        "specifications": [
+          {
+            "key": "capacity",
+            "label": "Kaldırma Kapasiteleri (Q)",
+            "value": "15 ton",
+            "parts": {
+              "main": "15"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "environment",
+            "label": "Çalışma Ortamı / Sıcaklığı",
+            "value": "AÇIK ALAN, -10 / +50 º C",
+            "parts": {
+              "place": "AÇIK ALAN",
+              "tempMin": "-10",
+              "tempMax": "+50"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "span",
+            "label": "Köprü Açıklığı",
+            "value": "18.21 m",
+            "parts": {
+              "value": "18.21"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "liftHeight",
+            "label": "Kaldırma Yüksekliği",
+            "value": "8 m",
+            "parts": {
+              "value": "8"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "craneClass",
+            "label": "Vinç Sınıfı / Çelik Yapı",
+            "value": "FEM 3m / ISO M6",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "runway",
+            "label": "Yürüme Yolu",
+            "value": "210",
+            "parts": {},
+            "scope": "orion"
+          }
+        ]
+      },
+      {
+        "key": "mainHoist",
+        "title": "KALDIRMA GRUBU",
+        "specifications": [
+          {
+            "key": "liftSpeed",
+            "label": "Kaldırma Hızı",
+            "value": "4 m/dk – FREKANS İNVERTÖRLÜ",
+            "parts": {
+              "range": "4",
+              "control": "FREKANS İNVERTÖRLÜ"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "reeving",
+            "label": "Halat Donanımı",
+            "value": "4/2",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "motor",
+            "label": "Motor",
+            "value": "GAMAK 15 kW 1500 d/dak",
+            "parts": {
+              "brand": "GAMAK",
+              "count": "1",
+              "power": "15",
+              "rpm": "1500"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "gearbox",
+            "label": "Redüktör",
+            "value": "YILMAZ R. HT SANDIK TİPİ, SANDIK TİPİ, Emniyet: 1.3",
+            "parts": {
+              "brand": "YILMAZ R.",
+              "series": "HT SANDIK TİPİ",
+              "mounting": "SANDIK TİPİ",
+              "safety": "1.3"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "brake",
+            "label": "Fren",
+            "value": "SIBRE ELEKTROHİDROLİK KASNAK FREN x 1 Adet",
+            "parts": {
+              "brand": "SIBRE",
+              "type": "ELEKTROHİDROLİK KASNAK FREN",
+              "count": "1"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "drive",
+            "label": "Sürücü",
+            "value": "VEIOKONG 37 kW",
+            "parts": {
+              "brand": "VEIOKONG",
+              "count": "1",
+              "power": "37"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "hook",
+            "label": "Kanca",
+            "value": "DIN 15401/P TEK AĞIZLI KANCA",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "rope",
+            "label": "Halat",
+            "value": "Ø18 6x36 WS Halat 1960 N/mm2 KENDİR ÖZLÜ",
+            "parts": {
+              "dia": "18",
+              "construction": "6x36 WS",
+              "grade": "1960 N/mm2",
+              "core": "KENDİR ÖZLÜ"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "controlType",
+            "label": "Kontrol Tipi",
+            "value": "İNVERTÖR KONTROLLÜ",
+            "parts": {},
+            "scope": "orion"
+          }
+        ]
+      },
+      {
+        "key": "trolley",
+        "title": "VİNÇ ARABASI",
+        "specifications": [
+          {
+            "key": "travelSpeed",
+            "label": "Yürüme Hızı",
+            "value": "30 m/dk – ÇİFT HIZ KONTROLÜ",
+            "parts": {
+              "range": "30",
+              "control": "ÇİFT HIZ KONTROLÜ"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "motor",
+            "label": "Motor",
+            "value": "ELK 2 x 2,2 kW 1500 d/dak",
+            "parts": {
+              "brand": "ELK",
+              "count": "2",
+              "power": "2,2",
+              "rpm": "1500"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "gearbox",
+            "label": "Redüktör",
+            "value": "YILMAZ R. DR TİPİ, PARALEL ŞAFT, Emniyet: 1.6",
+            "parts": {
+              "brand": "YILMAZ R.",
+              "series": "DR TİPİ",
+              "mounting": "PARALEL ŞAFT",
+              "safety": "1.6"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "brake",
+            "label": "Fren",
+            "value": "DERELİ ELEKTROMANYETİK MOTOR FRENİ x 1 Adet",
+            "parts": {
+              "brand": "DERELİ",
+              "type": "ELEKTROMANYETİK MOTOR FRENİ",
+              "count": "1"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "drive",
+            "label": "Sürücü",
+            "value": "VEIOKONG 5,5 kW",
+            "parts": {
+              "brand": "VEIOKONG",
+              "count": "1",
+              "power": "5,5"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "driveSystem",
+            "label": "Tahrik Sistemi",
+            "value": "2 TEKERDEN TAHRİK",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "wheel",
+            "label": "Tekerlek",
+            "value": "4 x Ø250 DIN15090 C4140 35-42 HRC",
+            "parts": {
+              "count": "4",
+              "dia": "250",
+              "standard": "DIN15090",
+              "material": "C4140 35-42 HRC"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "controlType",
+            "label": "Kontrol Tipi",
+            "value": "İNVERTÖR KONTROLLÜ",
+            "parts": {},
+            "scope": "orion"
+          }
+        ]
+      },
+      {
+        "key": "bridge",
+        "title": "KÖPRÜ GRUBU",
+        "specifications": [
+          {
+            "key": "rail",
+            "label": "Köprü Rayı",
+            "value": "S46",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "travelSpeed",
+            "label": "Yürüme Hızı",
+            "value": "60 m/dk – ÇİFT HIZ KONTROLÜ",
+            "parts": {
+              "range": "60",
+              "control": "ÇİFT HIZ KONTROLÜ"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "travelSystem",
+            "label": "Yürütme Sistemi",
+            "value": "4 TEKER",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "driveSystem",
+            "label": "Tahrik Sistemi",
+            "value": "2 TEKERDEN TAHRİK",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "motor",
+            "label": "Motor",
+            "value": "ELK 2 x 4 kW 1500 d/dak",
+            "parts": {
+              "brand": "ELK",
+              "count": "2",
+              "power": "4",
+              "rpm": "1500"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "gearbox",
+            "label": "Redüktör",
+            "value": "YILMAZ R. DR TİPİ, PARALEL ŞAFT, Emniyet: 1.6",
+            "parts": {
+              "brand": "YILMAZ R.",
+              "series": "DR TİPİ",
+              "mounting": "PARALEL ŞAFT",
+              "safety": "1.6"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "brake",
+            "label": "Fren",
+            "value": "DERELİ ELEKTROMANYETİK MOTOR FRENİ x 1 Adet",
+            "parts": {
+              "brand": "DERELİ",
+              "type": "ELEKTROMANYETİK MOTOR FRENİ",
+              "count": "1"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "drive",
+            "label": "Sürücü",
+            "value": "VEIOKONG 11 kW",
+            "parts": {
+              "brand": "VEIOKONG",
+              "count": "1",
+              "power": "11"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "wheel",
+            "label": "Tekerlek",
+            "value": "4 x Ø315 DIN15090 C4140 35-42 HRC",
+            "parts": {
+              "count": "4",
+              "dia": "315",
+              "standard": "DIN15090",
+              "material": "C4140 35-42 HRC"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "controlType",
+            "label": "Kontrol Tipi",
+            "value": "İNVERTÖR KONTROLLÜ",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "bearings",
+            "label": "Rulmanlar",
+            "value": "SKF/FAG",
+            "parts": {
+              "brand": "SKF/FAG"
+            },
+            "scope": "orion"
+          }
+        ]
+      },
+      {
+        "key": "steel",
+        "title": "ÇELİK KONSTRÜKSİYON",
+        "specifications": [
+          {
+            "key": "girder",
+            "label": "Kiriş",
+            "value": "KUTU ÇELİK KONSTRÜKSİYON",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "girderCalc",
+            "label": "Kiriş Hesabı",
+            "value": "FEM / DIN15018 - 1/1000 MAKSİMUM SEHİM",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "girderMaterial",
+            "label": "Kiriş Malzemesi",
+            "value": "S355JR",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "platform",
+            "label": "Platform",
+            "value": "TEK TARAFLI YÜRÜME PLATFORMU",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "paint",
+            "label": "Boya",
+            "value": "KUMLAMA + ASTAR + SON KAT, RENK : RAL1007 SARI",
+            "parts": {},
+            "scope": "orion"
+          }
+        ]
+      },
+      {
+        "key": "electrical",
+        "title": "ELEKTRİK SİSTEMİ",
+        "specifications": [
+          {
+            "key": "supplyVoltage",
+            "label": "Besleme Gerilimi",
+            "value": "380 VAC 50 Hz",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "controlVoltage",
+            "label": "Kontrol Gerilimi",
+            "value": "220 VAC",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "runwayPower",
+            "label": "Hol Boyu Elektrik",
+            "value": "MÜŞTERİ KAPSAMINDA",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "pendant",
+            "label": "Kumanda Şekli",
+            "value": "ELFATEK EN-MİD SERİSİ",
+            "parts": {
+              "brand": "ELFATEK",
+              "series": "EN-MİD SERİSİ"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "drives",
+            "label": "Sürücüler",
+            "value": "VEIOKONG",
+            "parts": {
+              "brand": "VEIOKONG"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "crossLimit",
+            "label": "Köprü ve Araba Limiti",
+            "value": "CROSSLIMIT",
+            "parts": {
+              "brand": "CROSSLIMIT"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "drumLimit",
+            "label": "Tambur Limiti",
+            "value": "TERR/STROMAG",
+            "parts": {
+              "brand": "TERR/STROMAG"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "isolationTrafo",
+            "label": "İzolasyon Trafosu",
+            "value": "EKA",
+            "parts": {
+              "brand": "EKA"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "powerSupply",
+            "label": "Güç Kaynağı",
+            "value": "OMRON",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "terminals",
+            "label": "Klemensler",
+            "value": "PHOENIX",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "loadcell",
+            "label": "Loadcell",
+            "value": "ESIT/KOBASTAR",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "signalization",
+            "label": "Sinyalizasyon",
+            "value": "MUCCO",
+            "parts": {
+              "brand": "MUCCO"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "cable",
+            "label": "Kablo",
+            "value": "ÜNTEL/HELUKABEL",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "resistors",
+            "label": "Dirençler",
+            "value": "RESSA",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "switchgear",
+            "label": "Pano İçi Şalt Malzemeler",
+            "value": "SCHNEIDER/SIEMENS",
+            "parts": {},
+            "scope": "orion"
+          },
+          {
+            "key": "panel",
+            "label": "Pano",
+            "value": "EAE/TEMPA",
+            "parts": {
+              "brand": "EAE/TEMPA"
+            },
+            "scope": "orion"
+          },
+          {
+            "key": "emBrakes",
+            "label": "Elektromanyetik Frenler",
+            "value": "380 VAC 50 Hz",
+            "parts": {},
+            "scope": "orion"
+          }
+        ]
+      }
+    ]
+  }
+}

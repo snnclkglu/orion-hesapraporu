@@ -26,7 +26,7 @@ import {
   BookOpen, ExternalLink, FileDown, FilePlus2, FileSpreadsheet, Link2, Loader2, Plus, Save, Trash2,
 } from "lucide-react";
 import type { EqGroup, EquipmentExtraRow, SummarySection } from "@/lib/excel/equipment";
-import { dsKey, summaryRowValue } from "@/lib/excel/equipment";
+import { dsKey, rowSheetUrl, summaryRowValue } from "@/lib/excel/equipment";
 import { EQUIPMENT_ATTACHMENT_BUCKET } from "@/lib/equipment-attachments";
 import { customerDrawingPathOf } from "@/lib/equipment-customer-link";
 import { createClient } from "@/lib/supabase/client";
@@ -463,7 +463,10 @@ export function EquipmentPanel({
    * görüntüleyicisine gider. Aynı adres Excel ve PDF çıktılarında da kullanılır.
    */
   function ComponentCell({ row }: { row: EqGroup["rows"][number] }) {
-    const url = row.kind ? sheetUrls[dsKey(row.kind, row.brand, row.model)] : undefined;
+    // H serisinde bağlantı anahtarı gerçek katalog n1 değerini de taşır.
+    // Anahtarı burada yeniden kurmak n1'i düşürmüş ve yalnız ekran düğmesini
+    // sessizce etkisiz bırakmıştı; PDF/Excel ile aynı yardımcı kullanılır.
+    const url = rowSheetUrl(row, sheetUrls);
     if (!url) return <span>{row.component}</span>;
     return (
       <a

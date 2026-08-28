@@ -57,11 +57,13 @@ describe("kapalı modül — ekipman listesi", () => {
     }
   });
 
-  it("köprüye özgü satırlar (yürütme freni) listeden düşer", () => {
+  it("her yürütme grubu kendi fren satırını taşır; yalnız kapalı köprü satırı düşer", () => {
     const keys = (input: CalcInput) =>
       buildEquipmentGroups(input).flatMap((g) => g.rows.map((r) => r.rowKey));
     expect(keys(FULL)).toContain("bridge:brake");
+    expect(keys(FULL)).toContain("trolley:brake");
     expect(keys(TROLLEY_ONLY)).not.toContain("bridge:brake");
+    expect(keys(TROLLEY_ONLY)).toContain("trolley:brake");
   });
 });
 

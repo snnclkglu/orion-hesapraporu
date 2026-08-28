@@ -234,11 +234,18 @@ describe("yürütme grubu — varyant davranışı", () => {
     expect(check?.pass).toBe(false);
   });
 
-  it("araba varyantında yürütme freni hesaplanmaz", () => {
-    const trolley = runModule("trolley");
-    expect(trolley.checks.find((c) => c.id === "trolley.brake.torque")).toBeUndefined();
-    expect(trolley.cells["brake.requiredTorque"]).toBeUndefined();
-    expect(trolley.values.requiredBrakeTorqueNm).toBeNull();
+  it("araba yürütme frenini köprüyle aynı giriş torku yöntemiyle hesaplar", () => {
+    const trolley = computeTravelGroup(
+      V5_SPECS,
+      "trolley",
+      { ...V5_TROLLEY_INPUTS, brakeServiceFactor: 1.6 },
+      V5_TROLLEY_SELECTIONS,
+      V5_TRAVEL_DEPS
+    );
+    const expected = trolley.values.requiredInputTorqueNm * 1.6;
+    expect(trolley.cells["brake.requiredTorque"]).toBeCloseTo(expected, 10);
+    expect(trolley.values.requiredBrakeTorqueNm).toBeCloseTo(expected, 10);
+    expect(trolley.checks.find((c) => c.id === "trolley.brake.torque")?.pass).toBe(false);
   });
 
   it("köprüde fren seçilmemişse fren kontrolü uygun çıkmaz", () => {
@@ -247,8 +254,8 @@ describe("yürütme grubu — varyant davranışı", () => {
     expect(brake?.pass).toBe(false);
   });
 
-  it("her iki varyant da aynı semantik anahtar kümesini üretir (fren ve köprüye özgü ağırlıklar dışında)", () => {
-    const onlyBridge = new Set(["brake.requiredTorque", "weight.crane", "weight.bridgeTotal"]);
+  it("her iki varyant da aynı semantik anahtar kümesini üretir (köprüye özgü ağırlıklar dışında)", () => {
+    const onlyBridge = new Set(["weight.crane", "weight.bridgeTotal"]);
     const trolleyKeys = Object.keys(runModule("trolley").cells).sort();
     const bridgeKeys = Object.keys(runModule("bridge").cells)
       .filter((k) => !onlyBridge.has(k))

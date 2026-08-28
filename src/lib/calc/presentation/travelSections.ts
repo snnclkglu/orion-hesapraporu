@@ -57,8 +57,6 @@ export interface TravelSectionDef {
   id: string;                 // "5.1" (araba numarası; UI köprüde 6.x'e çevirir)
   title: string;
   description?: string;
-  /** Sadece köprü varyantında gösterilir (yürütme freni bölümü) */
-  bridgeOnly?: boolean;
   /**
    * Bölüm yalnız bu koşul sağlanınca gösterilir (kaldırma tarafındaki
    * `HoistSectionDef.visible` deseniyle aynı). Tampon bölümü, teknik
@@ -116,7 +114,10 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     description:
       "Tekerlek yükleri ve ray temas basıncı kontrolü (FEM 1.001 4.2.4.1). Köprüde maksimum/minimum yükler araba yanaşma eksantrikliğiyle hesaplanır.",
     inputKeys: ["minApproachM", "wheelCount", "driveCount", "wheelsPerMotor"],
-    selectionKeys: ["railFamily", "railCode", "wheelMaterial", "wheelTensileNmm2", "wheelDiaMm"],
+    selectionKeys: [
+      "railFamily", "railCode", "wheelMaterial", "wheelTensileNmm2",
+      "wheelDiaMm", "wheelHardness",
+    ],
     rows: [
       {
         key: "drive.drivenWheels", label: "Tahrikli Teker Sayısı",
@@ -502,8 +503,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     id: "5.5b",
     title: "Yürütme Freni",
     description:
-      "Yalnız köprü yürütme mekanizmasında hesaplanır. Fren seçimi yapılmadan kontrol uygun olmaz.",
-    bridgeOnly: true,
+      "Araba ve köprü yürütme mekanizmalarında motor başına gereken giriş torku üzerinden hesaplanır. Fren seçimi yapılmadan kontrol uygun olmaz.",
     equipmentSlugs: ["brake"],
     inputKeys: ["brakeServiceFactor"],
     selectionKeys: ["brakeBrand", "brakeTorqueNm", "brakeWheelDiaMm", "brakeOptions"],

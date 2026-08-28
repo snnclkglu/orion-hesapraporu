@@ -67,7 +67,10 @@ import {
   type CabinSelections,
   type CabinValues,
 } from "./modules/cabin";
-import { driveGroupLossKw, panelHeatKw } from "./drive-losses";
+import {
+  panelHeatBreakdown,
+  type DriveHeatSource,
+} from "./drive-losses";
 import {
   HOIST_OF_HOOKBLOCK,
   MODULE_ORDER,
@@ -416,24 +419,68 @@ export function activeModules(
  * katalogu her gövdenin atık ısısını yayımlar (bkz. `drive-losses.ts`).
  * Yalnız hesaba GİREN (kapatılmamış) bölümlerin motorları sayılır.
  */
-export function cabinDepsFrom(input: CalcInput): CabinDeps {
-  let installedKw = 0;
-  let inverterLossKw = 0;
-  const add = (m: { selections: { motorPowerKw: number; motorCount: number } } | undefined) => {
-    if (!m) return;
-    const p = m.selections.motorPowerKw;
-    const n = m.selections.motorCount;
-    if (!Number.isFinite(p) || p <= 0) return;
-    const count = Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
-    installedKw += p * count;
-    inverterLossKw += driveGroupLossKw(p, count);
-  };
-  for (const which of ["main", "aux", "mono1", "mono2"] as const) add(input[HOIST_FIELD[which]]);
-  for (const key of TRAVEL_KEYS) add(input[key]);
+const CABIN_DRIVE_LABELS: Record<HoistKey | TravelKey, string> = {
+  main: "Ana Kaldırma",
+  aux: "Yardımcı Kaldırma",
+  mono1: "Monoray 1 Kaldırma",
+  mono2: "Monoray 2 Kaldırma",
+  trolley: "Ana Araba Yürütme",
+  auxTrolley: "Yardımcı Araba Yürütme",
+  mono1Trolley: "Monoray 1 Araba Yürütme",
+  mono2Trolley: "Monoray 2 Araba Yürütme",
+  bridge: "Köprü Yürütme",
+};
+
+type CabinDriveKey = keyof typeof CABIN_DRIVE_LABELS;
+type CabinDriveModuleState = { selections: object };
+
+/**
+ * Modül anahtarlı durumdan açıklanabilir pano kayıp gücü bağımlılığını kurar.
+ * Editör aynı yardımcıyı kullandığı için otomatik kutuda görünen değer ile
+ * hesap motorunun kullandığı değer aynı kaynak cihazlardan gelir.
+ */
+export function cabinDepsFromModuleStates(
+  modules: Partial<Record<CabinDriveKey, CabinDriveModuleState>>
+): CabinDeps {
+  const sources: DriveHeatSource[] = [];
+  for (const key of Object.keys(CABIN_DRIVE_LABELS) as CabinDriveKey[]) {
+    const state = modules[key];
+    if (!state) continue;
+    const selections = state.selections as Record<string, unknown>;
+    const motorPowerKw = Number(selections.motorPowerKw);
+    if (!Number.isFinite(motorPowerKw) || motorPowerKw <= 0) continue;
+    const rawCount = Number(selections.motorCount);
+    sources.push({
+      key,
+      label: CABIN_DRIVE_LABELS[key],
+      motorPowerKw,
+      motorCount: Number.isFinite(rawCount) && rawCount > 0 ? Math.floor(rawCount) : 1,
+    });
+  }
+  const breakdown = panelHeatBreakdown(sources);
   return {
-    installedDrivePowerKw: installedKw,
-    panelHeatKw: panelHeatKw(inverterLossKw),
+    panelHeatKw: breakdown.panelHeatKw,
+    installedDrivePowerKw: breakdown.installedDrivePowerKw,
+    inverterLossKw: breakdown.inverterLossKw,
+    auxiliaryLossKw: breakdown.auxiliaryLossKw,
+    beforeDiversityKw: breakdown.beforeDiversityKw,
+    diversityFactor: breakdown.diversityFactor,
+    driveHeatItems: breakdown.items,
   };
+}
+
+export function cabinDepsFrom(input: CalcInput): CabinDeps {
+  return cabinDepsFromModuleStates({
+    main: input.mainHoist,
+    aux: input.auxHoist,
+    mono1: input.mono1Hoist,
+    mono2: input.mono2Hoist,
+    trolley: input.trolley,
+    auxTrolley: input.auxTrolley,
+    mono1Trolley: input.mono1Trolley,
+    mono2Trolley: input.mono2Trolley,
+    bridge: input.bridge,
+  });
 }
 
 export function runCalc(input: CalcInput): CalcResult {

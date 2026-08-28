@@ -61,6 +61,7 @@ import {
   cabinHasAirConditioner,
   computeCabin,
   panelHasAirConditioner,
+  roomPanelLayout,
   roomHasAirConditioner,
   type CabinInputs,
   type CabinSelections,
@@ -86,7 +87,7 @@ import type {
   HookBlockValues,
 } from "@/lib/calc/modules/hookBlock";
 import {
-  bufferOrderQty, travelHasFestoon, travelSpecView,
+  bufferOrderQty, travelHasFestoon, travelSpecView, travelWheelHardnessText,
 } from "@/lib/calc/modules/travelGroup";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
 import { railTProfile } from "@/lib/calc/modules/mainGirder";
@@ -495,6 +496,71 @@ function balanceRows(
   return rows;
 }
 
+/**
+ * Eski revizyonlardaki kg/mm² değerini kataloğun basılı MPa sınıfına çevirir.
+ *
+ * Seed ters yönde `Math.round(MPa / 9.80665)` kullanır. Yuvarlanmış değeri
+ * genel bir çarpımla geri çevirmek 200 → 1961 üretir ve birebir ürün modeli
+ * olan `… 1960 MPa` bağlantısını koparır; bu yüzden yalnız kataloglarda
+ * gerçekten yayımlanan sınıfların ters tablosu kullanılır.
+ */
+const ROPE_GRADE_MPA_BY_KGMM2: Readonly<Record<number, number>> = {
+  180: 1770,
+  200: 1960,
+  220: 2160,
+  241: 2360,
+};
+
+/** Türkçe seçim etiketini kataloğun kısa öz koduna çevirir. */
+function ropeCatalogCoreCode(value: string): string {
+  const trimmed = value.trim();
+  const parenthesized = /\((FC|IWRC(?:-[A-Z]+)?)\)\s*$/i.exec(trimmed)?.[1];
+  if (parenthesized) return parenthesized.toUpperCase();
+  if (/^(FC|IWRC(?:-[A-Z]+)?)$/i.test(trimmed)) return trimmed.toUpperCase();
+  const upper = trimmed.toLocaleUpperCase("tr-TR");
+  if (upper.includes("ÇELİK")) return "IWRC";
+  if (upper.includes("ELYAF") || upper.includes("LİF")) return "FC";
+  return trimmed;
+}
+
+/** 2026 föyündeki tam konstrüksiyon adı; eski "6x36" kayıtlarıyla uyumlu. */
+function ropeCatalogConstruction(value: string): string {
+  const trimmed = value.trim();
+  return /^6\s*[x×]\s*36$/i.test(trimmed) ? "6x36 WS" : trimmed;
+}
+
+/**
+ * Halatın katalog ürünü kimliği.
+ *
+ * Yeni seçimlerde `ropeCatalogModel` birebir DB modelidir. Eski revizyonlarda
+ * bu alan yoktur; çap + konstrüksiyon + öz + standart mukavemet sınıfından
+ * aday kurulur. Mukavemet sınıfı basılmayan birkaç CASAR ürününde ikinci aday
+ * MPa parçası olmadan denenir. Aday ancak manifestte gerçekten bulunuyorsa
+ * seçilir; yakın ürün tahmini yapılmaz.
+ */
+function ropeCatalogModelOf(sel: HoistSelections): string | undefined {
+  const candidates: string[] = [];
+  const add = (value: string | undefined) => {
+    const trimmed = value?.trim();
+    if (trimmed && !candidates.includes(trimmed)) candidates.push(trimmed);
+  };
+  add(sel.ropeCatalogModel);
+
+  const diameter = Number(sel.ropeDiaMm);
+  const construction = ropeCatalogConstruction(sel.ropeConstruction ?? "");
+  const core = ropeCatalogCoreCode(sel.ropeCore ?? "");
+  if (Number.isFinite(diameter) && diameter > 0 && construction && core) {
+    const base = `Ø${fmt(diameter)} ${construction} ${core}`;
+    const grade = ROPE_GRADE_MPA_BY_KGMM2[Math.round(Number(sel.ropeWireStrength))];
+    if (grade) add(`${base} ${grade} MPa`);
+    add(base);
+  }
+
+  return candidates.find((model) =>
+    findCatalogSheet("rope", sel.ropeBrand, model)
+  ) ?? candidates[0];
+}
+
 /** Ana / yardımcı kaldırma grubu bileşen satırları (aynı set) */
 function hoistRows(
   moduleKey: HoistKey,
@@ -513,6 +579,9 @@ function hoistRows(
       component: "Çelik halat",
       brand: textOr(sel.ropeBrand),
       model: `${textOr(sel.ropeConstruction)} ${layLabel}`,
+      // Sağ/sol helis satın alma satırının görünür modelidir; üretici katalog
+      // sayfası ise çap + konstrüksiyon + öz + MPa ürün kimliğiyle bulunur.
+      catalogModel: ropeCatalogModelOf(sel),
       spec:
         `Ø${fmt(sel.ropeDiaMm)} mm, öz: ${textOr(sel.ropeCore)}, ` +
         `tel ${fmt(sel.ropeWireStrength)} kg/mm², ` +
@@ -610,13 +679,13 @@ function hoistRows(
 /** Araba / köprü yürütme grubu bileşen satırları */
 function travelRows(
   moduleKey: string,
-  which: "trolley" | "bridge",
   inp: TravelInputs,
   sel: TravelSelections,
   /** Bu eksende enerji beslemesi feston mu (teknik özellik) */
   hasFestoon: boolean
 ): EqRow[] {
   const rk = (slug: string) => `${moduleKey}:${slug}`;
+  const wheelHardness = travelWheelHardnessText(sel.wheelHardness);
   const rows: EqRow[] = [
     {
       rowKey: rk("wheel"),
@@ -624,7 +693,7 @@ function travelRows(
       component: "Tekerlek",
       brand: "-",
       model: "-",
-      spec: `Ø${fmt(sel.wheelDiaMm)} mm, malzeme ${textOr(sel.wheelMaterial)} (${fmt(sel.wheelTensileNmm2)} N/mm²), ray ${textOr(sel.railCode)}`,
+      spec: `Ø${fmt(sel.wheelDiaMm)} mm, malzeme ${textOr(sel.wheelMaterial)} (${fmt(sel.wheelTensileNmm2)} N/mm²)${wheelHardness ? `, sertlik ${wheelHardness}` : ""}, ray ${textOr(sel.railCode)}`,
       qty: inp.wheelCount,
     },
     {
@@ -665,24 +734,21 @@ function travelRows(
     },
   ];
 
-  // Fren bölümü yalnızca köprü grubunda seçilir.
-  if (which === "bridge") {
-    rows.push({
-      rowKey: rk("brake"),
-      kind: "brake",
-      component: "Fren",
-      brand: textOr(sel.brakeBrand, "Seçilmedi"),
-      model: "-",
-      // Yürütme freninin kimliği tek birleşik alandadır ve MARKA sütununda
-      // görünür; katalog sayfası o metinle aranır.
-      catalogModel: sel.brakeBrand,
-      spec:
-        sel.brakeTorqueNm > 0
-          ? `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm${brakeOptionsNote(sel.brakeOptions)}`
-          : "Seçim yapılmadı",
-      qty: sel.brakeTorqueNm > 0 ? sel.motorCount : "-",
-    });
-  }
+  rows.push({
+    rowKey: rk("brake"),
+    kind: "brake",
+    component: "Fren",
+    brand: textOr(sel.brakeBrand, "Seçilmedi"),
+    model: "-",
+    // Yürütme freninin kimliği tek birleşik alandadır ve MARKA sütununda
+    // görünür; katalog sayfası o metinle aranır.
+    catalogModel: sel.brakeBrand,
+    spec:
+      sel.brakeTorqueNm > 0
+        ? `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm${brakeOptionsNote(sel.brakeOptions)}`
+        : "Seçim yapılmadı",
+    qty: sel.brakeTorqueNm > 0 ? sel.motorCount : "-",
+  });
 
   rows.push(
     {
@@ -981,7 +1047,6 @@ function moduleEquipmentRows(
   if (isTravelKey(key)) {
     return travelRows(
       key,
-      key === "bridge" ? "bridge" : "trolley",
       inputs as TravelInputs,
       selections as TravelSelections,
       travelHasFestoon(specs, key)
@@ -1054,12 +1119,22 @@ function cabinRows(
   }
 
   if (specs.electricalAccommodationType === "room") {
+    const layout = values?.roomPanelLayout ?? roomPanelLayout(inp);
+    const panelWidths = layout.widthsMm
+      .map((width, index) => `P${index + 1} ${fmt(width, 0)}`)
+      .join(", ");
     rows.push({
       rowKey: "cabin:electrical-room",
       component: "Elektrik odası",
       brand: "-",
       model: "İzole elektrik odası",
-      spec: `${fmt(inp.roomWidthM, 2)} × ${fmt(inp.roomLengthM, 2)} × ${fmt(inp.roomHeightM, 2)} m; izolasyon ${ROOM_INSULATION_LABELS[inp.roomInsulation ?? "rockWool100"]}`,
+      spec:
+        `${fmt(inp.roomWidthM, 2)} × ${fmt(inp.roomLengthM, 2)} × ${fmt(inp.roomHeightM, 2)} m; ` +
+        `izolasyon ${ROOM_INSULATION_LABELS[inp.roomInsulation ?? "rockWool100"]}; ` +
+        `${layout.count} pano (${panelWidths}); ortak H ${fmt(layout.panelHeightMm, 0)} + ` +
+        `${fmt(layout.baseHeightMm, 0)} mm baza, D ${fmt(layout.panelDepthMm, 0)} mm; ` +
+        `kapı ${fmt(layout.doorWidthMm, 0)} × ${fmt(layout.doorHeightMm, 0)} mm; ` +
+        `pano önü geçiş ${fmt(layout.walkingClearanceMm, 0)} mm`,
       qty: 1,
     });
     acRow(CABIN_CLIMATE_SITES[1], inp.roomAcRedundancy === "nPlusOne" ? "2 (1+1)" : 1, values?.roomLoad);
@@ -1444,6 +1519,22 @@ export function dsKey(
 }
 
 /**
+ * Ekipman satırının ekran/Excel/PDF bağlantı sözlüğündeki tek anahtarı.
+ *
+ * H serisinde `n1` anahtarın parçasıdır. Anahtarı çağrı yerlerinde yeniden
+ * kurmak ekran düğmesinin `n1`i unutmasına, PDF'nin ise doğru çalışmasına yol
+ * açmıştı; bütün yüzeyler artık bu yardımcıyı kullanır.
+ */
+export function rowCatalogSheetKey(
+  row: Pick<EqRow, "kind" | "brand" | "model" | "catalogModel" | "catalogInputRpm">
+): string | undefined {
+  if (!row.kind) return undefined;
+  const model = (row.catalogModel ?? row.model ?? "").trim();
+  if (!model || model === "-") return undefined;
+  return dsKey(row.kind, row.brand, model, row.catalogInputRpm);
+}
+
+/**
  * Satır → KATALOG SAYFASI adresi eşlemesi.
  *
  * `datasheetUrls` ile karıştırılmaz: o, yönetim panelinden elle girilen ÜRETİCİ
@@ -1461,9 +1552,10 @@ export function buildCatalogSheetUrls(groups: EqGroup[], origin = ""): Map<strin
     for (const row of group.rows) {
       const id = catalogIdentityOf(row);
       if (!id) continue;
-      // Anahtar GÖRÜNEN sütunlardan üretilir: panelde, Excel'de ve PDF'te satır
-      // aynı anahtarla aranır, arama kimliği ise ayrı olabilir.
-      const key = dsKey(row.kind!, row.brand, row.model, row.catalogInputRpm);
+      // Anahtar gerçek katalog kimliğinden üretilir: ana ve yardımcı kaldırma
+      // aynı görünen halat modelini taşısa bile çap/öz/MPa ürünü çakışmaz.
+      const key = rowCatalogSheetKey(row);
+      if (!key) continue;
       if (urls.has(key)) continue;
       if (!findCatalogSheet(id.kind, id.brand, id.model, { inputRpm: id.inputRpm })) continue;
       urls.set(
@@ -1499,11 +1591,12 @@ export function catalogIdentityOf(
 
 /** Satırın katalog sayfası adresi (yoksa undefined). */
 export function rowSheetUrl(
-  row: Pick<EqRow, "kind" | "brand" | "model" | "catalogInputRpm">,
+  row: Pick<EqRow, "kind" | "brand" | "model" | "catalogModel" | "catalogInputRpm">,
   urls?: Map<string, string> | Record<string, string>
 ): string | undefined {
-  if (!row.kind || !urls) return undefined;
-  const key = dsKey(row.kind, row.brand, row.model, row.catalogInputRpm);
+  if (!urls) return undefined;
+  const key = rowCatalogSheetKey(row);
+  if (!key) return undefined;
   return urls instanceof Map ? urls.get(key) : urls[key];
 }
 
@@ -1685,6 +1778,7 @@ export function buildSummarySections(
   }
 
   if (cabin && specs.electricalAccommodationType === "room") {
+    const layout = roomPanelLayout(cabin.inputs);
     sections.push({
       name: "Elektrik Odası",
       rows: [
@@ -1692,6 +1786,12 @@ export function buildSummarySections(
         { label: "Oda uzunluğu", value: cabin.inputs.roomLengthM || "-", unit: "m" },
         { label: "Oda yüksekliği", value: cabin.inputs.roomHeightM || "-", unit: "m" },
         { label: "Oda izolasyonu", value: ROOM_INSULATION_LABELS[cabin.inputs.roomInsulation ?? "rockWool100"] },
+        { label: "Kapı ölçüsü", value: `${layout.doorWidthMm} × ${layout.doorHeightMm}`, unit: "mm" },
+        { label: "Pano adedi", value: layout.count, unit: "adet" },
+        { label: "Pano enleri", value: layout.widthsMm.join(" + "), unit: "mm" },
+        { label: "Pano yüksekliği", value: `${layout.panelHeightMm} + ${layout.baseHeightMm} baza`, unit: "mm" },
+        { label: "Pano derinliği", value: layout.panelDepthMm, unit: "mm" },
+        { label: "Pano önü yürüme mesafesi", value: layout.walkingClearanceMm, unit: "mm" },
         {
           label: "Elektrik odası kliması",
           value: roomHasAirConditioner(specs)
@@ -1752,6 +1852,9 @@ export function buildSummarySections(
       },
       { label: "Teker bandaj genişliği", value: inp.wheelWidthMm ?? "-", unit: "mm" },
       { label: "Teker malzemesi", value: textOr(sel.wheelMaterial) },
+      ...(travelWheelHardnessText(sel.wheelHardness)
+        ? [{ label: "Teker sertliği", value: travelWheelHardnessText(sel.wheelHardness)! }]
+        : []),
       // Teker mili ölçüleri doğrudan teknik resme geçer.
       { label: "Teker mili çapı", value: inp.shaftDiaMm, unit: "mm", diameter: true },
       { label: "Teker mili mesnet ölçüsü a", value: inp.shaftSpanAMm, unit: "mm" },

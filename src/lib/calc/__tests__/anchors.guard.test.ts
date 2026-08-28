@@ -95,7 +95,11 @@ import type { AnyCheck } from "../types";
 //   ikisi de OTOMATİK seçimden. Denge makarası varyantı (`balance.sheaveDia`)
 //   ve elle rulman (`balance.bearing`) şablonda üretilmez; suffixleri yine de
 //   2.9/2.10 checkSuffixes'te bağlıdır. Hepsi `uyari`.
-const EXPECTED_CHECK_COUNT = 309;
+// 313 = 309 + 4: ana/yardımcı/iki monoray araba yürütme grubuna yürütme freni
+//   kontrolü eklendi. Köprü yürütme freni önceki sayımda zaten vardı.
+// 316 = 313 + 3: elektrik odasında pano dizisi boy, yükseklik+baza ve
+//   derinlik sonrası geçiş alanı fiziksel oda ölçülerine karşı kontrol edilir.
+const EXPECTED_CHECK_COUNT = 316;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 

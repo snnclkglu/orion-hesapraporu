@@ -615,6 +615,54 @@ describe("yalnız köprüde sorulan girdiler", () => {
   it("arabada kutu düşse de diğer girdiler yerinde kalır", () => {
     expect(kutular("trolley", "5.1")).toEqual(["wheelCount", "driveCount", "wheelsPerMotor"]);
   });
+
+  it("yürütme freni bölümü bütün araba ve köprü varyantlarında bulunur", () => {
+    for (const key of ["trolley", "auxTrolley", "mono1Trolley", "mono2Trolley", "bridge"] as const) {
+      const section = MODULE_ADAPTERS.find((a) => a.key === key)!
+        .sections.find((s) => s.rawId === "5.5b");
+      expect(section?.inputDefs.map((d) => d.key), key).toContain("brakeServiceFactor");
+      expect(section?.selectionDefs.map((d) => d.key), key).toContain("brakeTorqueNm");
+    }
+  });
+
+  it("teker sertliği çapın yanında açılır ve Yok seçimi yalnız rapor satırını gizler", () => {
+    const section = MODULE_ADAPTERS.find((a) => a.key === "trolley")!
+      .sections.find((s) => s.rawId === "5.1")!;
+    const keys = section.selectionDefs.map((d) => d.key);
+    expect(keys.indexOf("wheelHardness")).toBe(keys.indexOf("wheelDiaMm") + 1);
+    const hardness = section.selectionDefs.find((d) => d.key === "wheelHardness")!;
+    expect(hardness.options).toEqual([
+      "Yok", "32-35 HRC", "35-40 HRC", "40-45 HRC", "45-50 HRC", "50-55 HRC",
+    ]);
+    expect(hardness.reportVisibleWhen?.({ wheelHardness: "Yok" })).toBe(false);
+    expect(hardness.reportVisibleWhen?.({ wheelHardness: "32-35 HRC" })).toBe(true);
+    expect(NEW_WORK_TEMPLATE.trolley!.selections.wheelHardness).toBe("32-35 HRC");
+  });
+});
+
+describe("elektrik odası pano yerleşimi sunumu", () => {
+  const section = MODULE_ADAPTERS.find((a) => a.key === "cabin")!
+    .sections.find((s) => s.rawId === "11.2")!;
+
+  it("pano adedi, ortak ölçüler ve kapı ölçülerini aynı bölümde sorar", () => {
+    expect(section.inputDefs.map((field) => field.key)).toEqual(expect.arrayContaining([
+      "roomDoorWidthMm", "roomDoorHeightMm", "panelCount",
+      "roomPanelHeightMm", "roomPanelDepthMm",
+    ]));
+    expect(section.editor).toBe("roomPanels");
+  });
+
+  it("ortak pano yüksekliği ve derinliği yalnız standart dropdown seçeneklerini taşır", () => {
+    expect(section.inputDefs.find((field) => field.key === "roomPanelHeightMm")?.options)
+      .toEqual(["1400", "1600", "1800", "2000"]);
+    expect(section.inputDefs.find((field) => field.key === "roomPanelDepthMm")?.options)
+      .toEqual(["400", "600", "700"]);
+  });
+
+  it("cihaz atık ısısı döküm tablosunu hesap raporuyla paylaşır", () => {
+    expect(section.table?.title).toContain("Cihaz Atık Isısı");
+    expect(section.table?.headers).toContain("Seçilen Sürücü Sınıfı");
+  });
 });
 
 const EDITOR_SRC = readFileSync(

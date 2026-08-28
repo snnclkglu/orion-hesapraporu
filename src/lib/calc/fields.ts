@@ -115,6 +115,11 @@ export interface FieldDef<T> {
    */
   visibleWhen?: (source: Record<string, unknown>) => boolean;
   /**
+   * Alan uygulamadaki seçim kutusunda her zaman erişilebilir kalırken yalnız
+   * hesap raporundaki satırı koşullu olarak gizler (ör. teker sertliği "Yok").
+   */
+  reportVisibleWhen?: (source: Record<string, unknown>) => boolean;
+  /**
    * Ölçü bir ÇAPTIR — gösterilen değerin başına "Ø" konur ("Ø 400 mm").
    * Etikete yazılmaz; işaret ölçünün kendisine aittir. Arayüz ve PDF aynı
    * bayrağı okur, `withDiameterSign` ile biçimlendirir (tek kaynak).

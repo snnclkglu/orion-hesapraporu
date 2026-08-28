@@ -5,10 +5,11 @@
 // yöntemini tanımlamazlar. Yöntem travelGroup.ts'tedir ve FEM 1.001 / CMAA 70'e
 // dayanır.
 
-import type {
-  TravelDeps,
-  TravelInputs,
-  TravelSelections,
+import {
+  DEFAULT_TRAVEL_WHEEL_HARDNESS,
+  type TravelDeps,
+  type TravelInputs,
+  type TravelSelections,
 } from "../modules/travelGroup";
 
 /** Modüller arası bağımlılıklar */
@@ -64,7 +65,9 @@ export const V5_TROLLEY_INPUTS: TravelInputs = {
   // Referans işte redüktör KATALOGDAN seçilmiştir (YILMAZ R DT283, i = 29);
   // oran bir seçimdir, gereken orana eşitlenmiş bir bekleme değeri değil.
   gearboxRatioAuto: false,
-  brakeServiceFactor: 0,        // arabada yürütme freni hesaplanmaz
+  // Tarihsel V5 snapshot'ında araba freni hesap dışıydı ve katsayı 0'dı.
+  // Yeni iş şablonu ile eski kayıt göçü bunu 1,6'ya taşır.
+  brakeServiceFactor: 0,
   motorCouplingServiceFactor: 1.8,
   wheelCouplingServiceFactor: 2,
   bufferApproachM: 0,           // yalnız köprü varyantında kullanılır
@@ -86,6 +89,7 @@ export const V5_TROLLEY_SELECTIONS: TravelSelections = {
   wheelMaterial: "AISI 4140+QT",
   wheelTensileNmm2: 800,        // teker malzemesi çekme dayanımı [N/mm²]
   wheelDiaMm: 250,
+  wheelHardness: DEFAULT_TRAVEL_WHEEL_HARDNESS,
   shaftMaterial: "42CrMo4",
   bearingType: "Çift Sıra Makaralı Rulman",
   bearingCode: "22210",
@@ -107,7 +111,7 @@ export const V5_TROLLEY_SELECTIONS: TravelSelections = {
   gearboxInputShaftText: "-",
   gearboxInputShaftMm: 0,
   gearboxOutputShaftMm: 60,
-  brakeBrand: "",               // arabada yürütme freni hesaplanmaz
+  brakeBrand: "",               // tarihsel V5'te seçim yapılmamıştı
   brakeTorqueNm: 0,
   brakeWheelDiaMm: 0,
   couplingMotorShaftMm: 22,     // kapline bağlanan motor mili [mm]
@@ -186,6 +190,7 @@ export const V5_BRIDGE_SELECTIONS: TravelSelections = {
   wheelMaterial: "AISI 4140+QT",
   wheelTensileNmm2: 800,
   wheelDiaMm: 315,
+  wheelHardness: DEFAULT_TRAVEL_WHEEL_HARDNESS,
   shaftMaterial: "42CrMo4",
   bearingType: "Çift Sıra Makaralı Rulman",
   bearingCode: "22216",

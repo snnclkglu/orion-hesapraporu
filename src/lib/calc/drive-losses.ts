@@ -51,6 +51,46 @@ const ACS880_104_400V: readonly DriveRow[] = [
   { heavyDutyKw: 710, lossKw: 20 },
 ] as const;
 
+/** Bir motor gücü için ağır hizmet sütunundan yapılan sürücü seçimi. */
+export interface DriveLossSelection {
+  /** Motorun anma gücü [kW]. */
+  motorPowerKw: number;
+  /** Motoru karşılayan ACS880 ağır hizmet güç sınıfı P_Hd [kW]. */
+  selectedHeavyDutyKw: number;
+  /** Tek sürücü gövdesinin katalog atık ısısı [kW]. */
+  lossKw: number;
+  /** Motor katalog tablosunun üstündeyse son satır oranıyla ölçeklendi. */
+  scaledAboveCatalog: boolean;
+}
+
+/** Pano kayıp hesabına giren tek tahrik grubunun açıklanabilir dökümü. */
+export interface DriveHeatItem extends DriveLossSelection {
+  key: string;
+  label: string;
+  motorCount: number;
+  installedPowerKw: number;
+  groupLossKw: number;
+}
+
+/** Bir tahrik grubunu pano kayıp hesabına eklemek için gereken yalın veri. */
+export interface DriveHeatSource {
+  key: string;
+  label: string;
+  motorPowerKw: number;
+  motorCount: number;
+}
+
+/** Pano kayıp gücünün cihaz, yardımcı ekipman ve eşzamanlılık dökümü. */
+export interface PanelHeatBreakdown {
+  items: DriveHeatItem[];
+  installedDrivePowerKw: number;
+  inverterLossKw: number;
+  auxiliaryLossKw: number;
+  beforeDiversityKw: number;
+  diversityFactor: number;
+  panelHeatKw: number;
+}
+
 /**
  * Besleme ünitesi, trafo, kumanda, UPS ve aydınlatma payı.
  *
@@ -71,17 +111,32 @@ export const AUXILIARY_LOSS_FACTOR = 0.8;
  */
 export const DUTY_DIVERSITY_FACTOR = 0.6;
 
-/** Motor gücünü karşılayan sürücünün atık ısısı [kW]. */
-export function driveLossKw(motorPowerKw: number): number {
-  if (!Number.isFinite(motorPowerKw) || motorPowerKw <= 0) return 0;
+/** Motor gücünü karşılayan ağır hizmet sınıfını ve atık ısısını döndürür. */
+export function driveLossSelection(motorPowerKw: number): DriveLossSelection | null {
+  if (!Number.isFinite(motorPowerKw) || motorPowerKw <= 0) return null;
   const row = ACS880_104_400V.find((r) => r.heavyDutyKw >= motorPowerKw);
   // Tablonun üstünü aşan güçte son satırın kayıp oranıyla ölçeklenir; vinç
   // tahriklerinde bu banda çıkılmaz, sessizce sıfır dönmek yanlış olurdu.
   if (!row) {
     const last = ACS880_104_400V[ACS880_104_400V.length - 1];
-    return (last.lossKw / last.heavyDutyKw) * motorPowerKw;
+    return {
+      motorPowerKw,
+      selectedHeavyDutyKw: motorPowerKw,
+      lossKw: (last.lossKw / last.heavyDutyKw) * motorPowerKw,
+      scaledAboveCatalog: true,
+    };
   }
-  return row.lossKw;
+  return {
+    motorPowerKw,
+    selectedHeavyDutyKw: row.heavyDutyKw,
+    lossKw: row.lossKw,
+    scaledAboveCatalog: false,
+  };
+}
+
+/** Motor gücünü karşılayan sürücünün atık ısısı [kW]. */
+export function driveLossKw(motorPowerKw: number): number {
+  return driveLossSelection(motorPowerKw)?.lossKw ?? 0;
 }
 
 /** Bir tahrik grubunun (motor gücü × adet) toplam sürücü kaybı [kW]. */
@@ -96,4 +151,44 @@ export function driveGroupLossKw(motorPowerKw: number, motorCount: number): numb
  */
 export function panelHeatKw(inverterLossKw: number): number {
   return inverterLossKw * (1 + AUXILIARY_LOSS_FACTOR) * DUTY_DIVERSITY_FACTOR;
+}
+
+/**
+ * Pano kayıp gücünü kaynak cihazlarıyla birlikte hesaplar.
+ *
+ * Aynı fonksiyon hesap motoru, rapor tablosu ve otomatik alan gösterimi için
+ * kullanılır; böylece “1,1 kW nereden geldi?” sorusunun cevabı yüzeylere göre
+ * ayrışmaz.
+ */
+export function panelHeatBreakdown(
+  sources: readonly DriveHeatSource[]
+): PanelHeatBreakdown {
+  const items = sources.flatMap((source): DriveHeatItem[] => {
+    const selection = driveLossSelection(source.motorPowerKw);
+    if (!selection) return [];
+    const motorCount = Number.isFinite(source.motorCount) && source.motorCount > 0
+      ? Math.floor(source.motorCount)
+      : 1;
+    return [{
+      ...selection,
+      key: source.key,
+      label: source.label,
+      motorCount,
+      installedPowerKw: selection.motorPowerKw * motorCount,
+      groupLossKw: selection.lossKw * motorCount,
+    }];
+  });
+  const installedDrivePowerKw = items.reduce((sum, item) => sum + item.installedPowerKw, 0);
+  const inverterLossKw = items.reduce((sum, item) => sum + item.groupLossKw, 0);
+  const auxiliaryLossKw = inverterLossKw * AUXILIARY_LOSS_FACTOR;
+  const beforeDiversityKw = inverterLossKw + auxiliaryLossKw;
+  return {
+    items,
+    installedDrivePowerKw,
+    inverterLossKw,
+    auxiliaryLossKw,
+    beforeDiversityKw,
+    diversityFactor: DUTY_DIVERSITY_FACTOR,
+    panelHeatKw: beforeDiversityKw * DUTY_DIVERSITY_FACTOR,
+  };
 }

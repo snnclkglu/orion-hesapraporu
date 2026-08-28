@@ -65,7 +65,9 @@ export const THERMAL_BRIDGE_FACTOR = 0.15;
 export const DOOR_U_VALUE = 2.0;
 
 /**
- * Kapı ölçüsü [m] — kapı alanı adetten türetilir, ayrıca sorulmaz.
+ * Mahal kapısı için geriye uyumlu ölçü [m]. Elektrik odası bu değeri kullanıcı
+ * girdisiyle (varsayılan 0,8 × 2,0 m) ezer; pano/kabin dışındaki eski çağrılar
+ * için burada tutulur.
  *
  * Mahal türüne göre AYRIDIR: operatör kabini küçük bir hacimdir ve oda kapısı
  * ölçüsü (1,0 × 2,1 m) orada duvarın dörtte birini kaplayarak iletim yükünü

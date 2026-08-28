@@ -68,8 +68,13 @@ import type { TravelInputs, TravelValues } from "@/lib/calc/modules/travelGroup"
 import type { GirderSelections } from "@/lib/calc/modules/mainGirder";
 import type { HookBlockInputs, HookBlockValues } from "@/lib/calc/modules/hookBlock";
 import type { WheelLoadInputs } from "@/lib/calc/modules/wheelLoads";
+import {
+  cabinInputsForDisplay,
+  type CabinInputs,
+} from "@/lib/calc/modules/cabin";
 import { WheelSpacingEditor } from "@/components/wheel-spacing-editor";
 import { SheaveOffsetsEditor } from "@/components/sheave-offsets-editor";
+import { RoomPanelWidthsEditor } from "@/components/room-panel-widths-editor";
 import {
   ADAPTER_BY_KEY,
   MODULE_ADAPTERS,
@@ -623,6 +628,9 @@ function Field({
                 ? draft
                 : def.key === "bufferCatalogType"
                   ? attrValueLabel("type", v)
+                  : (def.key === "roomDeviceHeatKw" || def.key === "panelDeviceHeatKw") &&
+                      typeof v === "number"
+                    ? String(Math.round(v * 1000) / 1000)
                   : String(v ?? "")
             }
             disabled={locked}
@@ -2252,7 +2260,7 @@ export function RevisionEditor({
     // yazılmış kod) kutu HİÇ GÖRÜNMEZ — uydurma ağırlık yazılmaz (md. 4).
     //
     // Kimlik alanı iki bölümde farklıdır: kaldırmada ayrı `brakeModel`,
-    // köprü yürütmede birleşik `brakeBrand` ("MARKA MODEL").
+    // yürütmede birleşik `brakeBrand` ("MARKA MODEL").
     const brakeWeight = (() => {
       const isBrakeSection =
         (isHoistKey(key) && section.rawId === "2.5") ||
@@ -2267,7 +2275,15 @@ export function RevisionEditor({
       return { spec, qty };
     })();
     const { byRow, rest } = distributeChecks(key, section);
-    const scopedInputs = section.inputScope ? section.inputScope.get(inputs) : inputs;
+    // Pano kayıp gücü otomatikken kayıt içindeki elle-giriş değeri değil,
+    // motorun gerçekten hesapladığı değer görünür. Anahtar kapanırsa saklanan
+    // elle değer korunur; PDF de aynı yardımcıyı kullanır.
+    const displayedInputs = key === "cabin"
+      ? cabinInputsForDisplay(inputs as CabinInputs, moduleResult(key)?.cells)
+      : inputs;
+    const scopedInputs = section.inputScope
+      ? section.inputScope.get(displayedInputs)
+      : displayedInputs;
     // `visibleWhen`: alan MODÜLÜN KENDİ girdilerine bağlıdır (ör. ray altı T
     // profil ölçüleri yalnız anahtar "Var" iken görünür). Gizlenen alanın
     // DEĞERİ KORUNUR — sıfırlanmaz, anahtar geri açıldığında geri gelir
@@ -2351,8 +2367,20 @@ export function RevisionEditor({
       const rec = inputs as unknown as Record<string, unknown>;
       return {
         on: rec[flag] === true,
-        onToggle: (next) =>
-          setModuleInputs(key, { ...(inputs as object), [flag]: next }),
+        onToggle: (next) => {
+          const patch: Record<string, unknown> = { ...(inputs as object), [flag]: next };
+          // Otomatik değer elle girişe çevrilirken ekranda görünen son doğru
+          // değeri başlangıç olarak koru; kullanıcı sıfırla karşılaşmasın.
+          if (!next && key === "cabin" && (
+            fieldKey === "roomDeviceHeatKw" || fieldKey === "panelDeviceHeatKw"
+          )) {
+            const derived = moduleResult(key)?.cells?.["drive.panelHeat"];
+            if (typeof derived === "number" && Number.isFinite(derived)) {
+              patch[fieldKey] = Math.round(derived * 1000) / 1000;
+            }
+          }
+          setModuleInputs(key, patch);
+        },
         warning: warnings.find((w) => w.field === fieldKey)?.message,
       };
     }
@@ -2708,6 +2736,21 @@ export function RevisionEditor({
                 ))}
               </div>
             </div>
+          )}
+          {section.editor === "roomPanels" && key === "cabin" && (
+            <RoomPanelWidthsEditor
+              panelCount={(inputs as CabinInputs).panelCount}
+              value={(inputs as CabinInputs).roomPanelWidthsText}
+              panelHeightMm={(inputs as CabinInputs).roomPanelHeightMm}
+              panelDepthMm={(inputs as CabinInputs).roomPanelDepthMm}
+              onChange={(next) =>
+                setModuleInputs(key, {
+                  ...(inputs as object),
+                  roomPanelWidthsText: next,
+                })
+              }
+              disabled={readOnly}
+            />
           )}
           {/* Madde 7: İZİN VERİLEN / OLUŞAN özeti girdilerin hemen altında,
               katalog seçiminin üstünde. Ayrıntılı hesap alt bölümde kalır. */}

@@ -25,6 +25,12 @@ const DRAWING_NOTE_FIXTURE = [
 export default function EquipmentPreviewPage() {
   if (process.env.NODE_ENV !== "development") notFound();
 
+  // H serisi gerçek katalog giriş devri bağlantı anahtarının parçasıdır.
+  // Önizleme bunu özellikle taşır; UI anahtarı n1'i yeniden unutursa
+  // Redüktör satırındaki kitap düğmesi burada gözle görülür biçimde kaybolur.
+  const previewInput = structuredClone(V5_TEMPLATE);
+  previewInput.mainHoist!.selections.gearboxCatalogInputRpm = 900;
+
   // "Ek Belge" sütunu da GERÇEK veriyle bakılabilsin diye bir satıra iki
   // yükleme takılır; önizlemede yükleme/silme depoya gitmez (kimlikler sahte),
   // amaç sütun genişliği ve satır yüksekliğinin görünmesidir.
@@ -35,12 +41,12 @@ export default function EquipmentPreviewPage() {
     ],
   };
   const groups = buildEquipmentGroups(
-    V5_TEMPLATE,
+    previewInput,
     { "main:rope": "Galvanizli, müşteri onayına tabi" },
     undefined,
     attachments
   );
-  const summary = buildSummarySections(V5_TEMPLATE, runCalc(V5_TEMPLATE), {
+  const summary = buildSummarySections(previewInput, runCalc(previewInput), {
     itemNo: "0055-00",
     rows: [
       { id: "a", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", status: "cizildi", drawnBy: null, drawnByName: "", note: "" },

@@ -929,6 +929,11 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
     kind: "rope",
     fields: [
       { sel: "ropeBrand", from: "brand" },
+      // Görünen ekipman modeli "6x36 WS Sağ/Sol Helis"tir; katalog ürünü ise
+      // çap + konstrüksiyon + öz + MPa kimliğini taşır. Birebir DB modelini
+      // saklamazsak ekipman listesi düğmesi ve iki PDF bağlantısı sessizce
+      // boş kalır.
+      { sel: "ropeCatalogModel", from: "model" },
       { sel: "ropeDiaMm", from: { attr: "dia_mm" } },
       { sel: "ropeConstruction", from: { attr: "construction" } },
       { sel: "ropeCore", from: { attr: "core" }, translate: true },
@@ -1167,7 +1172,7 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "gearboxInputShaftMm", from: { attr: "input_shaft_mm" } },
     ],
   },
-  // 5.5b Yürütme freni (köprü)
+  // 5.5b Yürütme freni (araba ve köprü)
   "5.5b": {
     kind: "brake",
     fields: [

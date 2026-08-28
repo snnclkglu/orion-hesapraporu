@@ -189,6 +189,8 @@ export interface AnyFieldDef {
    * kancada DIN 15400 mukavemet sınıfı). Bayrağı sunum katmanı koyar.
    */
   visibleWhen?: (source: Record<string, unknown>) => boolean;
+  /** Alan uygulamada görünür kalır; bu koşul yalnız belge çıktısını süzer. */
+  reportVisibleWhen?: (source: Record<string, unknown>) => boolean;
   /** Alanın görsel öbeği (başlık + renk, `field-groups.ts`) */
   fieldGroup?: FieldGroupKey;
   /** select seçeneklerinin gösterim etiketi */
@@ -320,7 +322,7 @@ export interface AdapterSection {
    * ızgarasıyla anlatılamayan geometriler için arayüz adanmış bir bileşen
    * çizer (teker düzeni ölçü zinciri). PDF tarafı bu alanı yok sayar.
    */
-  editor?: "wheelSpacing" | "festoon" | "sheaveOffsets";
+  editor?: "wheelSpacing" | "festoon" | "sheaveOffsets" | "roomPanels";
   /** Bölüm başlığında gösterilen ve uygunluk kontrolünü besleyen ölçü onayı. */
   confirmation?: {
     inputKey: string;
@@ -889,7 +891,7 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
     key: which,
     title: `${isBridge ? "06" : "05"} · ${TRAVEL_TITLES[which]}`,
     checkPrefix: `${which}.`,
-    sections: TRAVEL_SECTIONS.filter((s) => isBridge || !s.bridgeOnly).map((s) => ({
+    sections: TRAVEL_SECTIONS.map((s) => ({
       id: isBridge ? BRIDGE_ID_MAP[s.id] ?? s.id.replace(/^5/, "6") : s.id,
       rawId: s.id,
       title: s.editor === "festoon" ? `${FESTOON_TITLES[which]} Feston` : s.title,
@@ -1240,33 +1242,45 @@ function cabinAdapter(): ModuleAdapter {
     key: "cabin",
     title: "11 · Kabin ve Elektrik Odası",
     checkPrefix: "cabin.",
-    sections: CABIN_SECTIONS.map((s) => ({
-      id: s.id,
-      rawId: s.id,
-      title: s.title,
-      description: s.description,
-      visible: s.visible,
-      inputDefs: defs(s.inputKeys, CABIN_INPUT_MAP),
-      selectionDefs: defs(s.selectionKeys, CABIN_SELECTION_MAP),
-      selectionKeys: s.selectionKeys,
-      checkSuffixes: s.checkSuffixes,
-      rows: s.rows.map((r) => {
-        const sub = r.subst;
-        const from = r.valueFrom;
-        return {
-          key: r.key,
-          anchorId: r.key,
-          label: r.label,
-          formula: r.formula,
-          unit: r.unit,
-          digits: r.digits,
-          read: from
-            ? (ctx: unknown) => from(ctx as CabinCtx)
-            : (ctx: unknown) => (ctx as CabinCtx).c[r.key],
-          subst: sub ? (ctx: unknown) => sub(ctx as CabinCtx) : undefined,
-        };
-      }),
-    })),
+    sections: CABIN_SECTIONS.map((s) => {
+      const table = s.table;
+      return {
+        id: s.id,
+        rawId: s.id,
+        title: s.title,
+        description: s.description,
+        visible: s.visible,
+        inputDefs: defs(s.inputKeys, CABIN_INPUT_MAP),
+        selectionDefs: defs(s.selectionKeys, CABIN_SELECTION_MAP),
+        selectionKeys: s.selectionKeys,
+        editor: s.editor,
+        checkSuffixes: s.checkSuffixes,
+        table: table
+          ? {
+              title: table.title,
+              headers: table.headers,
+              note: table.note,
+              build: (ctx: unknown) => table.build(ctx as CabinCtx),
+            }
+          : undefined,
+        rows: s.rows.map((r) => {
+          const sub = r.subst;
+          const from = r.valueFrom;
+          return {
+            key: r.key,
+            anchorId: r.key,
+            label: r.label,
+            formula: r.formula,
+            unit: r.unit,
+            digits: r.digits,
+            read: from
+              ? (ctx: unknown) => from(ctx as CabinCtx)
+              : (ctx: unknown) => (ctx as CabinCtx).c[r.key],
+            subst: sub ? (ctx: unknown) => sub(ctx as CabinCtx) : undefined,
+          };
+        }),
+      };
+    }),
   };
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import { PDFDocument, PDFName, type PDFDict } from "pdf-lib";
 import { renderEquipmentPdf, breakEquipmentModelCode } from "@/lib/pdf/equipment-report";
+import { rowCatalogSheetKey } from "@/lib/excel/equipment";
 
 describe("ekipman listesi PDF düzeni", () => {
   it("uzun katalog kodlarına satır kırma noktası ekler ve yatay PDF üretir", async () => {
@@ -49,6 +50,25 @@ const META = {
   revLabel: "V0", revNo: 0, date: "11.08.2026",
 };
 
+/** PDF sayfalarındaki bağlantı eylemlerinin `/URI` / `/GoTo` türleri. */
+async function linkActionKinds(pdf: Uint8Array): Promise<string[]> {
+  const document = await PDFDocument.load(pdf, { updateMetadata: false });
+  const kinds: string[] = [];
+  for (const page of document.getPages()) {
+    const annotations = page.node.Annots();
+    if (!annotations) continue;
+    for (const ref of annotations.asArray()) {
+      const annotation = document.context.lookup(ref) as PDFDict;
+      const actionRef = annotation.get(PDFName.of("A"));
+      if (!actionRef) continue;
+      const action = document.context.lookup(actionRef) as PDFDict;
+      const kind = action.get(PDFName.of("S"));
+      if (kind) kinds.push(String(kind));
+    }
+  }
+  return kinds;
+}
+
 const GROUPS = [
   {
     name: "Ana Kaldırma",
@@ -67,6 +87,46 @@ const GROUPS = [
 ];
 
 describe("detaylı listenin ek sayfaları", () => {
+  it("standart PDF dış, detaylı PDF belge içi katalog bağlantısı üretir", async () => {
+    const row = {
+      rowKey: "main:rope",
+      kind: "rope",
+      component: "Çelik Halat",
+      brand: "HAŞÇELİK",
+      model: "6X36 WS SAĞ HELİS",
+      catalogModel: "Ø20 6x36 WS IWRC 1960 MPa",
+      spec: "Ø20 mm · IWRC · 1960 MPa",
+      qty: 2,
+    };
+    const key = rowCatalogSheetKey(row)!;
+    const [standard, detailed] = await Promise.all([
+      renderEquipmentPdf({
+        meta: META,
+        groups: [{ name: "Ana Kaldırma", rows: [row] }],
+        sheetUrls: new Map([
+          [key, "https://orion.example/paylas/katalog?tur=rope&model=halat"],
+        ]),
+      }),
+      renderEquipmentPdf({
+        meta: META,
+        groups: [{ name: "Ana Kaldırma", rows: [row] }],
+        sheetPages: [{
+          keys: [key],
+          title: "Haşçelik 6x36 WS",
+          model: row.model,
+          source: "Hasçelik 6x36 WS.pdf",
+          printedPages: "s.1-2",
+          images: [{
+            data: await jpeg(990, 1400), format: "jpg", orientation: "portrait",
+          }],
+        }],
+      }),
+    ]);
+
+    expect(await linkActionKinds(standard)).toContain("/URI");
+    expect(await linkActionKinds(detailed)).toContain("/GoTo");
+  }, 120_000);
+
   it("YATAY taranmış katalog sayfası YATAY basılır", async () => {
     // Ek sayfalar bir süre HEPSİ dikey basılıyordu; yatay bir ölçü tablosu
     // dikey A4'e sığdırılınca yüksekliğin üçte birine iniyor ve okunmuyordu

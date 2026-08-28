@@ -34,7 +34,22 @@ import {
   type InstallationEnvironment,
   type RoomInsulationKind,
 } from "../climate-load";
+import type { DriveHeatItem } from "../drive-losses";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "../types";
+
+/** Elektrik odasında seçilebilen standart pano gözü enleri [mm]. */
+export const ROOM_PANEL_WIDTH_OPTIONS_MM = [400, 500, 600, 700, 800, 1000, 1200] as const;
+/** Bütün oda panolarında ortak gövde yüksekliği seçenekleri [mm]. */
+export const ROOM_PANEL_HEIGHT_OPTIONS_MM = [1400, 1600, 1800, 2000] as const;
+/** Bütün oda panolarında ortak gövde derinliği seçenekleri [mm]. */
+export const ROOM_PANEL_DEPTH_OPTIONS_MM = [400, 600, 700] as const;
+/** Her pano gövdesinin altındaki sabit baza yüksekliği [mm]. */
+export const ROOM_PANEL_BASE_HEIGHT_MM = 200;
+export const DEFAULT_ROOM_PANEL_WIDTH_MM = 800;
+export const DEFAULT_ROOM_PANEL_HEIGHT_MM = 1800;
+export const DEFAULT_ROOM_PANEL_DEPTH_MM = 600;
+export const DEFAULT_ROOM_DOOR_WIDTH_MM = 800;
+export const DEFAULT_ROOM_DOOR_HEIGHT_MM = 2000;
 
 /** Bir mahallin iklimlendirme seçimi — kabin, elektrik odası ve pano ortak. */
 export interface AirConditionerPick {
@@ -94,6 +109,16 @@ export interface CabinInputs {
   /** Kurulu yedek klima düzeni (`AirConditioningRedundancy`) */
   roomAcRedundancy: string;
   roomDoorCount: number;
+  /** Elektrik odası kapısının net eni ve yüksekliği [mm]. */
+  roomDoorWidthMm: number;
+  roomDoorHeightMm: number;
+  /**
+   * Oda içindeki panoların enleri [mm], pano sırasıyla noktalı virgül ayrımlı.
+   * Adet `panelCount` alanındadır; yükseklik ve derinlik bütün panolarda ortaktır.
+   */
+  roomPanelWidthsText: string;
+  roomPanelHeightMm: number;
+  roomPanelDepthMm: number;
   /** Pano kayıp gücü [kW]; otomatikken motor güçlerinden türetilir. */
   roomDeviceHeatKw: number;
   /** Pano kayıp gücü otomatik: seçilmiş motor güçlerinden (bkz. derive.ts). */
@@ -108,6 +133,86 @@ export interface CabinInputs {
   panelDeviceHeatKw: number;
   panelDeviceHeatAuto?: boolean;
   panelRadiationKw: number;
+}
+
+/** Elektrik odası pano ve geçiş geometrisinin hesaplanmış görünümü. */
+export interface RoomPanelLayout {
+  count: number;
+  widthsMm: number[];
+  panelHeightMm: number;
+  panelDepthMm: number;
+  baseHeightMm: number;
+  overallHeightMm: number;
+  totalWidthMm: number;
+  walkingClearanceMm: number;
+  doorWidthMm: number;
+  doorHeightMm: number;
+}
+
+const positiveOr = (value: number | undefined, fallback: number): number =>
+  Number.isFinite(value) && (value ?? 0) > 0 ? (value as number) : fallback;
+
+/**
+ * Pano en metnini adet kadar sıraya açar. Eski revizyonda en bulunmuyorsa veya
+ * pano adedi sonradan artırılmışsa yeni satırlar 800 mm standartla gelir.
+ */
+export function roomPanelWidths(
+  text: string | undefined,
+  panelCount: number
+): number[] {
+  const count = Number.isFinite(panelCount) && panelCount > 0
+    ? Math.floor(panelCount)
+    : 0;
+  const parsed = String(text ?? "")
+    .split(/[;|]+/)
+    .map((part) => Number(part.trim().replace(",", ".")))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  return Array.from({ length: count }, (_, index) =>
+    parsed[index] ?? DEFAULT_ROOM_PANEL_WIDTH_MM
+  );
+}
+
+/** Oda ölçüleri ve ortak pano boyutlarından yerleşim ölçülerini türetir. */
+export function roomPanelLayout(inp: CabinInputs): RoomPanelLayout {
+  const widthsMm = roomPanelWidths(inp.roomPanelWidthsText, inp.panelCount);
+  const panelHeightMm = positiveOr(inp.roomPanelHeightMm, DEFAULT_ROOM_PANEL_HEIGHT_MM);
+  const panelDepthMm = positiveOr(inp.roomPanelDepthMm, DEFAULT_ROOM_PANEL_DEPTH_MM);
+  return {
+    count: widthsMm.length,
+    widthsMm,
+    panelHeightMm,
+    panelDepthMm,
+    baseHeightMm: ROOM_PANEL_BASE_HEIGHT_MM,
+    overallHeightMm: panelHeightMm + ROOM_PANEL_BASE_HEIGHT_MM,
+    totalWidthMm: widthsMm.reduce((sum, width) => sum + width, 0),
+    walkingClearanceMm: positiveOr(inp.roomWidthM, 0) * 1000 - panelDepthMm,
+    doorWidthMm: positiveOr(inp.roomDoorWidthMm, DEFAULT_ROOM_DOOR_WIDTH_MM),
+    doorHeightMm: positiveOr(inp.roomDoorHeightMm, DEFAULT_ROOM_DOOR_HEIGHT_MM),
+  };
+}
+
+/**
+ * Otomatik pano kaybı açıkken form ve rapor girdisinde gösterilecek kaynak.
+ * Kayıttaki elle-giriş değeri korunur; anahtar kapatılırsa kullanıcı kendi
+ * değerine dönebilir. Otomatikken ise hesap motorunun gerçek değeri görünür.
+ */
+export function cabinInputsForDisplay(
+  inp: CabinInputs,
+  cells: Record<string, number | string> | undefined
+): CabinInputs {
+  const derived = cells?.["drive.panelHeat"];
+  if (typeof derived !== "number" || !Number.isFinite(derived)) return inp;
+  // IEEE-754 artıkları (örn. 1.7280000000000002) kullanıcı girdisi gibi
+  // görünmemeli; hesap satırlarının kW hassasiyetiyle aynı çözünürlüğü kullan.
+  const displayed = Math.round(derived * 1000) / 1000;
+  const roomDiffers = inp.roomDeviceHeatAuto === true && inp.roomDeviceHeatKw !== displayed;
+  const panelDiffers = inp.panelDeviceHeatAuto === true && inp.panelDeviceHeatKw !== displayed;
+  if (!roomDiffers && !panelDiffers) return inp;
+  return {
+    ...inp,
+    ...(roomDiffers ? { roomDeviceHeatKw: displayed } : {}),
+    ...(panelDiffers ? { panelDeviceHeatKw: displayed } : {}),
+  };
 }
 
 export interface CabinSelections {
@@ -146,6 +251,15 @@ export interface CabinDeps {
   panelHeatKw: number;
   /** Türetmeye giren kurulu tahrik gücü [kW] — raporda gösterilir */
   installedDrivePowerKw: number;
+  /** Sürücü gövdelerinin katalog kayıpları toplamı [kW]. */
+  inverterLossKw: number;
+  /** Besleme/trafo/PLC/UPS/aydınlatma için eklenen yardımcı pay [kW]. */
+  auxiliaryLossKw: number;
+  /** Eşzamanlılık uygulanmadan önceki cihaz kaybı [kW]. */
+  beforeDiversityKw: number;
+  diversityFactor: number;
+  /** Motor grubu bazında seçilen ağır hizmet sınıfı ve atık ısı. */
+  driveHeatItems: DriveHeatItem[];
 }
 
 export interface CabinValues {
@@ -156,6 +270,7 @@ export interface CabinValues {
   cabinVolumeM3: number;
   roomFloorAreaM2: number;
   roomVolumeM3: number;
+  roomPanelLayout: RoomPanelLayout;
   /** Kurulu yedekle birlikte elektrik odasına takılacak klima adedi */
   roomAcUnitCount: number;
   /** Pano başına klima × pano adedi (yedek dâhil) */
@@ -170,6 +285,12 @@ export interface CabinValues {
   cabinLoad?: ClimateLoadResult;
   roomLoad?: ClimateLoadResult;
   panelLoad?: ClimateLoadResult;
+  /** Pano kayıp gücünün raporda gösterilen açıklanabilir cihaz dökümü. */
+  driveHeatItems: DriveHeatItem[];
+  inverterLossKw: number;
+  auxiliaryLossKw: number;
+  beforeDiversityKw: number;
+  diversityFactor: number;
 }
 
 /** Operatör kabini projeye dâhil mi (teknik özellik). */
@@ -273,6 +394,7 @@ export function computeCabin(
   const cabinVolumeM3 = cabinFloorAreaM2 * nonNeg(inp.cabinHeightM);
   const roomFloorAreaM2 = nonNeg(inp.roomWidthM) * nonNeg(inp.roomLengthM);
   const roomVolumeM3 = roomFloorAreaM2 * nonNeg(inp.roomHeightM);
+  const panelLayout = roomPanelLayout(inp);
   const roomAcUnitCount = redundancyUnits(inp.roomAcRedundancy);
   const panelCount = Math.max(0, Math.floor(nonNeg(inp.panelCount)));
   const panelAcUnitCount = panelCount * redundancyUnits(inp.panelAcRedundancy);
@@ -285,6 +407,7 @@ export function computeCabin(
     widthM: number, lengthM: number, heightM: number,
     insulation: string, doorCount: number,
     deviceHeatKw: number, radiationKw: number,
+    roomDoorSize?: { width: number; height: number },
     cabinSpecific?: {
       occupantCount: number;
       glazingAreaM2: number;
@@ -294,7 +417,7 @@ export function computeCabin(
     widthM, lengthM, heightM,
     insulation: insulationKind(insulation),
     doorCount,
-    doorSize: cabinSpecific ? CABIN_DOOR_SIZE_M : ROOM_DOOR_SIZE_M,
+    doorSize: cabinSpecific ? CABIN_DOOR_SIZE_M : (roomDoorSize ?? ROOM_DOOR_SIZE_M),
     glazingAreaM2: cabinSpecific?.glazingAreaM2,
     glazingKind: cabinSpecific?.glazingKind,
     occupantCount: cabinSpecific?.occupantCount,
@@ -315,6 +438,7 @@ export function computeCabin(
   const cabinLoad = cabinPresent
     ? loadFor(inp.cabinWidthM, inp.cabinLengthM, inp.cabinHeightM, inp.cabinInsulation,
         inp.cabinDoorCount, nonNeg(inp.cabinDeviceHeatKw), nonNeg(inp.cabinRadiationKw),
+        undefined,
         {
           occupantCount: nonNeg(inp.cabinOccupantCount),
           glazingAreaM2: nonNeg(inp.cabinGlazingAreaM2),
@@ -323,7 +447,10 @@ export function computeCabin(
     : undefined;
   const roomLoad = roomPresent
     ? loadFor(inp.roomWidthM, inp.roomLengthM, inp.roomHeightM, inp.roomInsulation,
-        inp.roomDoorCount, roomDeviceHeatKw, nonNeg(inp.roomRadiationKw))
+        inp.roomDoorCount, roomDeviceHeatKw, nonNeg(inp.roomRadiationKw), {
+          width: panelLayout.doorWidthMm / 1000,
+          height: panelLayout.doorHeightMm / 1000,
+        })
     : undefined;
   // Pano yerleşiminde "mahal" panoların dizildiği hacimdir; ölçüsü ayrıca
   // sorulmaz, oda ölçüleri kullanılır ve kapı yerine PANO adedi sızıntıyı
@@ -341,6 +468,48 @@ export function computeCabin(
     set("room.floorArea", roomFloorAreaM2);
     set("room.volume", roomVolumeM3);
     set("room.acUnitCount", roomAcUnitCount);
+    set("room.doorSize", `${panelLayout.doorWidthMm} × ${panelLayout.doorHeightMm}`);
+    set("room.panelCount", panelLayout.count);
+    set("room.panelWidths", panelLayout.widthsMm.join(" + "));
+    set("room.panelHeight", panelLayout.panelHeightMm);
+    set("room.panelBaseHeight", panelLayout.baseHeightMm);
+    set("room.panelOverallHeight", panelLayout.overallHeightMm);
+    set("room.panelDepth", panelLayout.panelDepthMm);
+    set("room.panelTotalWidth", panelLayout.totalWidthMm);
+    set("room.walkingClearance", panelLayout.walkingClearanceMm);
+
+    const roomLengthMm = nonNeg(inp.roomLengthM) * 1000;
+    const roomHeightMm = nonNeg(inp.roomHeightM) * 1000;
+    const roomWidthMm = nonNeg(inp.roomWidthM) * 1000;
+    checks.push(
+      {
+        id: "cabin.room.panelWidthFit",
+        label: "Elektrik Odası — Pano Dizisi Boyuna Sığıyor",
+        required: panelLayout.totalWidthMm,
+        provided: roomLengthMm,
+        unit: "mm", op: ">=", computedSide: "required",
+        pass: roomLengthMm >= panelLayout.totalWidthMm,
+        kind: "firma", severity: "engelleyici",
+      },
+      {
+        id: "cabin.room.panelHeightFit",
+        label: "Elektrik Odası — Pano ve Baza Yüksekliği Sığıyor",
+        required: panelLayout.overallHeightMm,
+        provided: roomHeightMm,
+        unit: "mm", op: ">=", computedSide: "required",
+        pass: roomHeightMm >= panelLayout.overallHeightMm,
+        kind: "firma", severity: "engelleyici",
+      },
+      {
+        id: "cabin.room.panelDepthFit",
+        label: "Elektrik Odası — Pano Derinliği Sonrası Yürüme Alanı Kalıyor",
+        required: panelLayout.panelDepthMm,
+        provided: roomWidthMm,
+        unit: "mm", op: ">=", computedSide: "required",
+        pass: roomWidthMm > panelLayout.panelDepthMm,
+        kind: "firma", severity: "engelleyici",
+      }
+    );
   }
   if (panelPresent) {
     set("panel.count", panelCount);
@@ -348,6 +517,10 @@ export function computeCabin(
   }
   if (roomPresent || panelPresent) {
     set("drive.installedPower", deps.installedDrivePowerKw);
+    set("drive.inverterLoss", deps.inverterLossKw);
+    set("drive.auxiliaryLoss", deps.auxiliaryLossKw);
+    set("drive.beforeDiversity", deps.beforeDiversityKw);
+    set("drive.diversityFactor", deps.diversityFactor);
     set("drive.panelHeat", autoPanelHeat);
   }
 
@@ -492,6 +665,7 @@ export function computeCabin(
     cabinVolumeM3,
     roomFloorAreaM2,
     roomVolumeM3,
+    roomPanelLayout: panelLayout,
     roomAcUnitCount,
     panelAcUnitCount,
     ambientTempMaxC,
@@ -502,6 +676,11 @@ export function computeCabin(
     cabinLoad,
     roomLoad,
     panelLoad,
+    driveHeatItems: deps.driveHeatItems,
+    inverterLossKw: deps.inverterLossKw,
+    auxiliaryLossKw: deps.auxiliaryLossKw,
+    beforeDiversityKw: deps.beforeDiversityKw,
+    diversityFactor: deps.diversityFactor,
   };
 
   return { values, checks, cells };

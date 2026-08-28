@@ -466,6 +466,25 @@ export function migrateRailFamily<T extends object>(
 }
 
 /**
+ * Araba yürütme freninin eklenmesinden önceki snapshot'larda katsayı alanı
+ * hesap dışı bir yer tutucu olarak `0` saklanıyordu. Aynı sürümde eklenen
+ * `wheelHardness` alanı snapshot sürüm işaretidir: işaret yoksa sıfır değer
+ * kullanıcı kararı değildir ve yeni ortak fren varsayılanına taşınır.
+ */
+export function migrateTravelBrakeInputs<T extends object>(
+  storedInputs: object | null | undefined,
+  storedSelections: object | null | undefined,
+  merged: T
+): T {
+  const legacyFactor = storedInputs && "brakeServiceFactor" in storedInputs
+    ? Number((storedInputs as Record<string, unknown>).brakeServiceFactor)
+    : Number.NaN;
+  const hasBrakeEraMarker = !!storedSelections && "wheelHardness" in storedSelections;
+  if (legacyFactor !== 0 || hasBrakeEraMarker) return merged;
+  return { ...merged, brakeServiceFactor: 1.6 } as T;
+}
+
+/**
  * Denge düzeni alanı eklenmeden önce bütün şemalar denge makaralıydı. Yeni iş
  * şablonu denge traversli gelir; fakat eski bir revizyona şablon değeri
  * miras bırakmak, teslim edilmiş halat adedi ve şemasını değiştirirdi.
@@ -825,6 +844,7 @@ function fullInput(
     const tpl = template[field];
     if (!tpl) continue;
     const storedModuleInputs = storedInputs[field] as object | null | undefined;
+    const storedModuleSelections = storedSelections[field] as object | null | undefined;
     const merged: { inputs: object; selections?: object } = {
       // Otomatik anahtarlar şablondan MİRAS ALINMAZ: kayıtlı revizyonda anahtar
       // yoksa değer elle girilmiştir ve türetme onu ezmemelidir.
@@ -844,6 +864,13 @@ function fullInput(
         )
       ),
     };
+    if (isTravelKey(key) && key !== "bridge") {
+      merged.inputs = migrateTravelBrakeInputs(
+        storedModuleInputs,
+        storedModuleSelections,
+        merged.inputs
+      );
+    }
     let derivedBlockSheaveCount: number | undefined;
     if (isHookBlockKey(key)) {
       const hoistState = target[CALC_FIELD[HOIST_OF_HOOKBLOCK[key]]];
@@ -855,7 +882,6 @@ function fullInput(
       merged.inputs = migrateHookShaftCenter(storedModuleInputs, merged.inputs, sheaveCount);
     }
     if (tpl.selections) {
-      const storedModuleSelections = storedSelections[field] as object | null | undefined;
       merged.selections = withDefaults(
         storedModuleSelections,
         tpl.selections

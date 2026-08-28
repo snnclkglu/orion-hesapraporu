@@ -84,6 +84,14 @@ yalnız modelle arama yeterli değildir: çıkarıcı PDF'i okurken kesin
 `n1=…` parametresiyle doğru bloğa döner. Katalog `n1` değeri gerçek motor
 devrine yuvarlanmaz.
 
+**Halatın görünen modeli katalog kimliği değildir.** Ekipman satırında satın
+alma için `6X36 WS SAĞ HELİS` / `SOL HELİS` görünür; üretici katalog ürünü ise
+`Ø20 6x36 WS IWRC 1960 MPa` biçimindedir. Katalogdan seçim birebir modeli
+`ropeCatalogModel` alanında revizyona taşır. Bu alanı taşımayan eski
+revizyonlarda ekipman katmanı yalnız basılı standart sınıflar için çap +
+konstrüksiyon + öz + kg/mm²→MPa ters tablosundan aday kurar ve aday manifestte
+birebir bulunursa kullanır; yakın ürün tahmini yapmaz.
+
 **Resmi PDF indirilemiyorsa üretici sayfası arşivi istisnadır.** Esit PLC'nin
 tekil çizim bağlantıları giriş ekranına bağlı olduğundan erişim aşılmaz;
 üreticinin kamuya açık PLC ürün sayfasının arşivlenmiş ilk yaprağı kullanılır.
@@ -117,6 +125,12 @@ daha önce indirilmiş bir Excel'in bağlantısı ölü kalmaz. Adresi
 `catalogSheetPageUrl` üretir, listedeki eşlemeyi `buildCatalogSheetUrls`
 kurar; tur `__tests__/catalog-sheets.test.ts`te kapanır. Model hücresindeki
 bağlantı BAŞKA bir şeydir (yönetim panelinden girilen üretici datasheet'i).
+Ekran, Excel, standart PDF ve detaylı PDF'nin sözlük anahtarı
+`rowCatalogSheetKey` ile TEK YERDE ve `catalogModel` üzerinden kurulur; H
+serisinin `n1` parçasını çağrı yerlerinden birinin unutması düğmeyi sessizce
+etkisiz bırakamaz. Görünen model anahtar değildir: ana ve yardımcı kaldırmanın
+ikisi de `6X36 WS SAĞ HELİS` yazarken çapları farklı olabilir; gerçek katalog
+modeli kullanılmazsa yardımcı satır ana halatın URL'sini alır.
 
 **Eşleme MARKA sütunundaki "-"yi marka SAYMAZ.** Ekipman listesi markası
 olmayan satıra "-" yazar; bu metin marka gibi ele alındığında kimliği tek
@@ -135,6 +149,11 @@ içindeki o yaprağa gider (`Link src="#…"` + `View id="…"`). Görüntüler
 katmanına hazır tampon olarak girer. Aynı katalog sayfasına düşen iki ürün
 yaprağı iki kez bastırmaz, ikisi de aynı çapaya bağlanır
 (`CatalogSheetPage.keys` çoğuldur).
+
+Detaylı PDF'deki katalog destesi manifest sırasını değil **ekipman listesinin
+grup + satır sırasını** izler. Sayfayı paylaşan iki ürün tek yaprağa
+tekilleştirilir; yaprağın yeri ilk geçtiği ekipman satırıdır. Böylece halat,
+rulman, redüktör, motor, fren ve kaplin föyleri tablodaki okuma sırasıyla gelir.
 
 **Ek yaprağın YÖNÜ ölçülür, varsayılmaz.** Sayfalar bir süre HEPSİ dikey
 basıldı ("kaynak taramalar dikeydir"); varsayım yanlıştı — çok sütunlu boy

@@ -116,7 +116,9 @@ describe("sectionDisplayNumbers", () => {
     // Ana araba yürütme (5.x) rapora 3. bölüm olarak giriyorsa: 5.1 → 3.1 …
     const nos = sectionDisplayNumbers(adapterOf("trolley").sections, 3, all);
     expect(nos.get("5.1")).toBe("3.1");
-    expect(nos.get("5.7")).toBe("3.7");
+    // 5.5b yürütme freni de bağımsız bir rapor alt bölümüdür.
+    expect(nos.get("5.5b")).toBe("3.6");
+    expect(nos.get("5.7")).toBe("3.8");
   });
 
   it("gizlenen bölüm numarasını da götürür — sonrakiler bir öne kayar", () => {
@@ -124,16 +126,19 @@ describe("sectionDisplayNumbers", () => {
     const nos = sectionDisplayNumbers(adapterOf("trolley").sections, 3, without("5.6"));
     expect(nos.has("5.6")).toBe(false);
     expect(nos.get("5.5")).toBe("3.5");
-    expect(nos.get("5.7")).toBe("3.6");
-    expect(nos.get("5.8")).toBe("3.7");
+    expect(nos.get("5.5b")).toBe("3.6");
+    expect(nos.get("5.7")).toBe("3.7");
+    expect(nos.get("5.8")).toBe("3.8");
     // Basılan numaralar boşluksuz bir dizidir.
-    expect([...nos.values()]).toEqual(["3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8"]);
+    expect([...nos.values()]).toEqual([
+      "3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9",
+    ]);
   });
 
   it("koşullu bölüm (o vinçte yok) de boşluk bırakmaz", () => {
     // Tamponsuz bir arabada 5.8 hiç çizilmez; feston (5.9) onun yerine geçer.
     const nos = sectionDisplayNumbers(adapterOf("trolley").sections, 3, without("5.8"));
-    expect(nos.get("5.9")).toBe("3.8");
+    expect(nos.get("5.9")).toBe("3.9");
   });
 
   it("alt kırılımı korur: 2.2.x ailesi tek üst numara altında 1'den sayar", () => {

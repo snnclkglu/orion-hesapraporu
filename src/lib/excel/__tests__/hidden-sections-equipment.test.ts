@@ -147,8 +147,7 @@ describe("alt bölüm gizleme — ekipman listesi", () => {
         ...slugsOf(travelKeys, "hookBlock"),
         ...slugsOf(rowKeysOf(doubleDrumLiftingBeamInput()), "hookBlock"),
       ]),
-      // Fren satırı yalnız köprüde üretilir; yürütme ailesi iki varyantın
-      // BİRLEŞİMİYLE ölçülür.
+      // Yürütme ailesi bütün ortak satırlarını iki varyantta da üretir.
       travel: new Set([
         ...slugsOf(travelKeys, "trolley"),
         ...slugsOf(travelKeys, "bridge"),

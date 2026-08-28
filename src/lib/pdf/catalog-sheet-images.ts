@@ -22,7 +22,11 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { findCatalogSheet } from "@/lib/catalog-sheets";
-import { catalogIdentityOf, dsKey, type EqGroup } from "@/lib/excel/equipment";
+import {
+  catalogIdentityOf,
+  rowCatalogSheetKey,
+  type EqGroup,
+} from "@/lib/excel/equipment";
 import type { CatalogSheetImage, CatalogSheetPage } from "@/lib/pdf/equipment-report";
 
 const MAX_WIDTH = 1400;
@@ -83,9 +87,11 @@ export async function collectCatalogSheetPages(
     for (const row of group.rows) {
       const id = catalogIdentityOf(row);
       if (!id) continue;
-      // Anahtar GÖRÜNEN sütunlardan üretilir (listedeki bağlantıyla aynı),
-      // arama ise satırın katalog kimliğiyle yapılır.
-      const key = dsKey(row.kind!, row.brand, row.model, row.catalogInputRpm);
+      // Anahtar gerçek katalog kimliğinden üretilir (listedeki bağlantıyla
+      // aynı). Ana + yardımcı kaldırmada görünen "6x36 Sağ Helis" aynıyken
+      // çaplar farklı olabilir; görünen metin anahtar olursa iki ürün çakışır.
+      const key = rowCatalogSheetKey(row);
+      if (!key) continue;
       if (seenProduct.has(key)) continue;
       seenProduct.add(key);
 

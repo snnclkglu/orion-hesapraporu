@@ -38,7 +38,12 @@ import {
   BEARING_BRAND_HINT,
   type FieldDef,
 } from "../fields";
-import { TRAVEL_NO, TRAVEL_YES } from "../modules/travelGroup";
+import {
+  TRAVEL_NO,
+  TRAVEL_WHEEL_HARDNESS_OPTIONS,
+  TRAVEL_YES,
+  travelWheelHardnessText,
+} from "../modules/travelGroup";
 import type { TravelInputs, TravelSelections, TravelWhich } from "../modules/travelGroup";
 import { WHEEL_COUNT_OPTIONS } from "../modules/wheelLoads";
 import {
@@ -116,8 +121,8 @@ export const YES_NO = [TRAVEL_NO, TRAVEL_YES] as const;
  * Sunum adaptörü (`travelAdapter`) bu haritayı okuyup kutuyu ilgisiz
  * varyanttan düşürür — DEĞER KORUNUR, yalnız sorulmaz.
  *
- * Fren emniyet katsayısı (`brakeServiceFactor`) burada YOKTUR: onun bölümü
- * (5.5b) zaten `bridgeOnly` olduğu için arabada hiç açılmaz.
+ * Fren emniyet katsayısı (`brakeServiceFactor`) burada YOKTUR: 5.5b bölümü
+ * bütün yürütme varyantlarında ortak olduğu için ayrıca süzülmez.
  */
 export const TRAVEL_INPUT_VARIANT: Record<string, TravelWhich> = {
   // Araba açıklık üzerinde konumlanır → köprü teker yükü eksantrikliği.
@@ -224,7 +229,7 @@ export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
     key: "gearboxServiceFactor", label: "Redüktör Emniyet Katsayısı", type: "number",
     hint: "Otomatik: M1–M4 1,4 · M5 1,5 · M6 1,6 · M7 1,9 · M8 2,1.",
   },
-  { key: "brakeServiceFactor", label: "Fren Emniyet Katsayısı", type: "number" },        // sadece köprü
+  { key: "brakeServiceFactor", label: "Fren Emniyet Katsayısı", type: "number" },
   { key: "motorCouplingServiceFactor", label: "Motor Kaplini Emniyet Katsayısı", type: "number" },
   { key: "wheelCouplingServiceFactor", label: "Teker Kaplini Emniyet Katsayısı", type: "number" },
   { key: "bufferApproachM", label: "Tampon Hesabı Araba Yanaşması", unit: "m", type: "number" }, // sadece köprü
@@ -297,6 +302,11 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
     hint: "500–1000 N/mm² arası 50'şer basamakla önerilir; malzeme sertifikasındaki değer listede yoksa Elle Gir ile yazılabilir.",
   },
   { key: "wheelDiaMm", label: "Tekerlek Çapı", unit: "mm", type: "select", options: WHEEL_DIA_SERIES_MM, numeric: true, diameter: true },
+  {
+    key: "wheelHardness", label: "Sertlik Derecesi", type: "select",
+    options: TRAVEL_WHEEL_HARDNESS_OPTIONS,
+    reportVisibleWhen: (sel) => travelWheelHardnessText(sel.wheelHardness) !== null,
+  },
   { key: "shaftMaterial", label: "Mil Malzemesi", type: "select", options: WHEEL_SHAFT_MATERIALS },
   {
     key: "bearingBrand", label: "Rulman Markası", type: "multiselect",
@@ -412,14 +422,14 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   { key: "gearboxInputShaftText", label: "Giriş Mil Çapı (Eski Kayıt)", unit: "mm", type: "text", diameter: true },
   { key: "gearboxInputShaftMm", label: "Giriş Mil Çapı", unit: "mm", type: "number", diameter: true },
   { key: "gearboxOutputShaftMm", label: "Çıkış Mil Çapı", unit: "mm", type: "number", diameter: true },
-  { key: "brakeBrand", label: "Seçilen Fren", type: "text" },                            // sadece köprü
-  { key: "brakeTorqueNm", label: "Fren Torku", unit: "Nm", type: "number" },              // sadece köprü
+  { key: "brakeBrand", label: "Seçilen Fren", type: "text" },
+  { key: "brakeTorqueNm", label: "Fren Torku", unit: "Nm", type: "number" },
   {
-    key: "brakeOptions", label: "Fren Opsiyonları", type: "multiselect",                  // sadece köprü
+    key: "brakeOptions", label: "Fren Opsiyonları", type: "multiselect",
     options: BRAKE_OPTIONS as unknown as string[],
     hint: BRAKE_OPTIONS_HINT,
   },
-  { key: "brakeWheelDiaMm", label: "Fren Kasnak / Disk Çapı", unit: "mm", type: "number", diameter: true }, // sadece köprü
+  { key: "brakeWheelDiaMm", label: "Fren Kasnak / Disk Çapı", unit: "mm", type: "number", diameter: true },
   { key: "motorCouplingBrand", label: "Motor Kaplini Markası", type: "text" },
   { key: "motorCouplingModel", label: "Seçilen Motor Kaplini", type: "text" },
   { key: "motorCouplingTorqueNm", label: "Motor Kaplini Tork Kapasitesi", unit: "Nm", type: "number" },

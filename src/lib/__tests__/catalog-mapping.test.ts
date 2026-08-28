@@ -26,6 +26,29 @@ import { HOOKBLOCK_SELECTION_FIELDS } from "../calc/presentation/hookBlockFields
 import { HOOK_NUMBERS } from "../calc/hook-table";
 import { hookDesignationText } from "../calc/hook-standards";
 
+it("halat seçimi ekipman bağlantısı için birebir katalog modelini saklar", () => {
+  const mapping = getCatalogMapping("main", "2.1")!;
+  const row: CatalogRow = {
+    id: "rope-20",
+    brand: "Haşçelik",
+    model: "Ø20 6x36 WS IWRC 1960 MPa",
+    attrs: {
+      dia_mm: 20,
+      construction: "6x36 WS",
+      core: "IWRC",
+      wire_strength_kgmm2: 200,
+      breaking_load_kn: 279,
+      weight_kg_per_m: 1.64,
+    },
+  };
+
+  expect(applyCatalogPick(mapping, row)).toMatchObject({
+    ropeBrand: "Haşçelik",
+    ropeCatalogModel: row.model,
+    ropeDiaMm: 20,
+  });
+});
+
 const SKF_BEARING_HOUSING: CatalogRow = {
   id: "skf-se-212",
   brand: "SKF",

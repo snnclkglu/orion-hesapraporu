@@ -183,7 +183,13 @@ export function diagramForSection(
           occupantCount: 0,
           // Odanın içindekiler panolardır: kesitte yan yana dolap olarak
           // çizilir ki "bu odaya bu kadar pano sığar mı" şekilden okunsun.
-          deviceCount: inp.panelCount, deviceLabel: "Pano",
+          deviceCount: v.roomPanelLayout.count, deviceLabel: "Pano",
+          doorWidthMm: v.roomPanelLayout.doorWidthMm,
+          doorHeightMm: v.roomPanelLayout.doorHeightMm,
+          panelWidthsMm: v.roomPanelLayout.widthsMm,
+          panelHeightMm: v.roomPanelLayout.panelHeightMm,
+          panelDepthMm: v.roomPanelLayout.panelDepthMm,
+          panelBaseHeightMm: v.roomPanelLayout.baseHeightMm,
         });
       }
       if (rawSectionId === "11.3" && v.panelLoad) {
@@ -425,7 +431,7 @@ export function diagramForSection(
     // kaliperli/elektromanyetik fren) şema ÜRETMEZ.
     //
     // İki bölümde frenin kimliği FARKLI alanlarda durur: kaldırmada ayrı bir
-    // `brakeModel`, köprü yürütmede ise katalog eşlemesi gereği "MARKA MODEL"
+    // `brakeModel`, yürütmede ise katalog eşlemesi gereği "MARKA MODEL"
     // olarak birleşik `brakeBrand` alanında (bkz. catalog-mapping 5.5b). İkisi
     // de denenir; ayrıştırıcı marka önekini zaten yok sayar.
     if (isHoistKey(moduleKey as ModuleKey) && rawSectionId === "2.5") {
@@ -448,7 +454,7 @@ export function diagramForSection(
       const sel = st.selections;
       const spec = drumBrakeSpec(sel.brakeBrand);
       if (!spec) return null;
-      // Köprü yürütmesinde fren ADEDİ ayrı bir alan değildir; toplam ağırlık
+      // Yürütmede fren ADEDİ ayrı bir alan değildir; toplam ağırlık
       // satırı bu yüzden yazılmaz (uydurma adet girilmez — değişmez md. 4).
       return drumBrakeDiagram({ spec, selectedWheelDiaMm: sel.brakeWheelDiaMm });
     }

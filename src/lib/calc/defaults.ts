@@ -12,7 +12,15 @@
 import type { CalcInput } from "./engine";
 import { ROPE_POSITION_AUTO, type HoistInputs, type HoistSelections } from "./modules/hoistGroup";
 import type { TechnicalSpecs } from "./types";
-import type { CabinInputs, CabinSelections } from "./modules/cabin";
+import {
+  DEFAULT_ROOM_DOOR_HEIGHT_MM,
+  DEFAULT_ROOM_DOOR_WIDTH_MM,
+  DEFAULT_ROOM_PANEL_DEPTH_MM,
+  DEFAULT_ROOM_PANEL_HEIGHT_MM,
+  DEFAULT_ROOM_PANEL_WIDTH_MM,
+  type CabinInputs,
+  type CabinSelections,
+} from "./modules/cabin";
 import { STANDARD_SHEAVE_EFFICIENCY } from "./derive";
 import { V5_HOOKBLOCK_INPUTS, V5_HOOKBLOCK_SELECTIONS } from "./defaults/hookBlock";
 import {
@@ -276,6 +284,11 @@ export const DEFAULT_CABIN_INPUTS: CabinInputs = {
   roomInsulation: "rockWool100",
   roomAcRedundancy: "none",
   roomDoorCount: 1,
+  roomDoorWidthMm: DEFAULT_ROOM_DOOR_WIDTH_MM,
+  roomDoorHeightMm: DEFAULT_ROOM_DOOR_HEIGHT_MM,
+  roomPanelWidthsText: String(DEFAULT_ROOM_PANEL_WIDTH_MM),
+  roomPanelHeightMm: DEFAULT_ROOM_PANEL_HEIGHT_MM,
+  roomPanelDepthMm: DEFAULT_ROOM_PANEL_DEPTH_MM,
   roomDeviceHeatKw: 0,
   // Pano kaybı motor güçlerinden türetilir; mühendis anahtarı kapatıp kendi
   // elektrik taşeronundan gelen gerçek listeyi yazabilir.
@@ -574,6 +587,8 @@ const NEW_WORK_TROLLEY_INPUTS = {
   accelTorqueFactorKtAuto: true,
   gearboxServiceFactor: 1.6,
   gearboxServiceFactorAuto: true,
+  // Araba yürütme freni köprüyle aynı yöntemle hesaplanır.
+  brakeServiceFactor: 1.6,
   // İvme mekanizma sınıfından gelir (M6 → 0,15); anahtar kapatılıp elle
   // düzeltilebilir (bkz. `travelAcceleration`).
   accelerationMs2: 0.15,

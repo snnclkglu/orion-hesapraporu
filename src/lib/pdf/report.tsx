@@ -43,6 +43,11 @@ import {
 } from "@/lib/calc/fields";
 import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
 import { MODULE_LABELS } from "@/lib/calc/labels";
+import { travelWheelHardnessText } from "@/lib/calc/modules/travelGroup";
+import {
+  cabinInputsForDisplay,
+  type CabinInputs,
+} from "@/lib/calc/modules/cabin";
 import {
   MODULE_ORDER,
   isHoistKey,
@@ -835,6 +840,17 @@ export function fieldShownValue(f: AnyFieldDef, rec: Record<string, unknown>): s
   return f.diameter && val !== "—" ? `Ø${val}` : val;
 }
 
+/** Uygulama görünürlüğünden bağımsız, belgeye basılacak seçim alanları. */
+export function selectionDefsForReport(
+  defs: readonly AnyFieldDef[],
+  selections: Record<string, unknown>
+): AnyFieldDef[] {
+  return defs.filter((f) =>
+    (!f.visibleWhen || f.visibleWhen(selections)) &&
+    (!f.reportVisibleWhen || f.reportVisibleWhen(selections))
+  );
+}
+
 /**
  * Alan listesini iki sütuna bölerek etiket-değer tablosu basar.
  *
@@ -1108,6 +1124,7 @@ function AltOptionLine({
 }) {
   const color = pass === true ? BRAND.success : pass === false ? BRAND.red : BRAND.gray450;
   const rec: Record<string, unknown> = { ...fallback, ...option };
+  const shownDefs = selectionDefsForReport(defs, rec);
   return (
     <View
       style={[
@@ -1128,7 +1145,7 @@ function AltOptionLine({
       {/* Alanlar TEK bir Text içinde iç içe akar: kardeş <Text>'lerde baştaki
           boşluk dizgide kırpılıp etiket değere yapışıyordu (bkz. CheckComparison). */}
       <Text style={s.altFields}>
-        {defs.map((f, i) => (
+        {shownDefs.map((f, i) => (
           <React.Fragment key={f.key}>
             <Text style={s.altFieldLabel}>
               {`${i > 0 ? "   ·   " : ""}${fieldLabel(f, specs)} `}
@@ -1585,11 +1602,12 @@ function travelSelectionItems(st: { selections: object } | undefined): SummaryGr
   const sel = st.selections as Record<string, unknown>;
   const n = (k: string) => sel[k] as number | undefined;
   const t = (k: string) => (sel[k] as string | undefined) ?? "";
+  const hardness = travelWheelHardnessText(sel.wheelHardness);
   return [
     {
       label: "Teker",
       sectionRawId: "5.1",
-      value: `Ø${fmt(n("wheelDiaMm"))} mm · ${t("wheelMaterial")} · ray ${t("railCode")}`,
+      value: `Ø${fmt(n("wheelDiaMm"))} mm · ${t("wheelMaterial")}${hardness ? ` · ${hardness}` : ""} · ray ${t("railCode")}`,
     },
     {
       label: "Motor",
@@ -1604,6 +1622,13 @@ function travelSelectionItems(st: { selections: object } | undefined): SummaryGr
       value: `${t("gearboxModel")} · i=${fmt(n("gearboxRatio"))} · ${fmt(
         n("gearboxOutputTorqueKnm")
       )} kNm`,
+    },
+    {
+      label: "Fren",
+      sectionRawId: "5.5b",
+      value: (n("brakeTorqueNm") ?? 0) > 0
+        ? `${t("brakeBrand")} · ${fmt(n("brakeTorqueNm"))} Nm`
+        : "Seçim yapılmadı",
     },
     {
       label: "Motor kaplini",
@@ -2341,7 +2366,12 @@ function ModulePage({
         .filter(sectionPrinted)
         .map((section, si) => {
         const inputs = state.inputs;
-        const scoped = section.inputScope ? section.inputScope.get(inputs) : inputs;
+        const displayedInputs = adapter.key === "cabin"
+          ? cabinInputsForDisplay(inputs as CabinInputs, mr.cells)
+          : inputs;
+        const scoped = section.inputScope
+          ? section.inputScope.get(displayedInputs)
+          : displayedInputs;
         const { byRow, rest } = distributeChecks(adapter, section, mr);
         const secChecks = sectionChecks(adapter, section, mr);
         // Şeması gizlenen bölümde çizim HİÇ ÜRETİLMEZ: boş bir yer tutucu
@@ -2401,8 +2431,9 @@ function ModulePage({
         // kanca seçilmiş bir raporda DIN 15400 mukavemet sınıfı satırı basılsa,
         // rapor sorulmamış bir soruya cevap veriyor gibi görünürdü. (Girdi
         // ızgarasının süzgeci ayrıdır ve bugünkü davranışını korur.)
-        const visibleSelectionDefs = section.selectionDefs.filter(
-          (f) => !f.visibleWhen || f.visibleWhen(state.selections as Record<string, unknown>)
+        const visibleSelectionDefs = selectionDefsForReport(
+          section.selectionDefs,
+          state.selections as Record<string, unknown>
         );
         if (visibleSelectionDefs.length > 0) {
           const selectionTable = (
@@ -2434,10 +2465,6 @@ function ModulePage({
           addHeaded("SEÇENEKLER", altNodes[0], altNodes.slice(1));
         }
 
-        if (section.table) {
-          for (const n of sectionTableParts(section.table, ctx)) add(n);
-        }
-
         const visibleRows = section.rows.filter(
           (r) => reportCalculationRowVisible(r.key) && (!r.visible || r.visible(ctx))
         );
@@ -2453,6 +2480,14 @@ function ModulePage({
             />
           ));
           addHeaded("HESAP VE KONTROLLER", rowNodes[0], rowNodes.slice(1));
+        }
+
+        // Web editörüyle aynı okuma sırası: önce hesap/kontroller, sonra o
+        // hesabı açan değişken satırlı döküm. Elektrik odasında cihazların
+        // ACS880 sınıfı ve atık ısısı böylece doğrudan hesap bölümünün altında
+        // görünür; tablo katalog seçimiyle hesap başlığı arasına girmez.
+        if (section.table) {
+          for (const n of sectionTableParts(section.table, ctx)) add(n);
         }
 
         if (rest.length > 0) {
