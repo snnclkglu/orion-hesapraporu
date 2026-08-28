@@ -3,7 +3,7 @@
 // PDF rapor indirme menüsü — üç ana seviye + özel Teker Yükleri çıktısı.
 // Seçilen kapsam report route'una ?level= query paramıyla iletilir.
 
-import { ChevronDown, FileText, Gauge } from "lucide-react";
+import { ChevronDown, FileJson2, FileText, Gauge } from "lucide-react";
 import { PdfDownloadLink } from "@/components/pdf-download-link";
 import {
   DropdownMenu,
@@ -51,12 +51,13 @@ export function ReportMenu({
   basePath?: string;
 }) {
   const base = `${basePath}/${projectId}/revisions/${revisionId}/report`;
+  const offerTransfer = basePath === "/offers/hesap-raporlari";
   return (
     <DropdownMenu>
       {/* Dokunmatikte 32px'lik tetikleyici parmakla tutulmuyordu (sözleşme §2) */}
       <DropdownMenuTrigger className="oc-tap inline-flex h-8 w-full min-w-0 items-center justify-center gap-1 rounded-md border bg-card px-1.5 text-xs hover:bg-muted lg:w-auto lg:gap-1.5 lg:px-3 lg:text-sm">
         <FileText className="size-3.5 text-muted-foreground" />
-        <span className="truncate">PDF Rapor</span>
+        <span className="truncate">{offerTransfer ? "Rapor / Veri" : "PDF Rapor"}</span>
         <ChevronDown className="hidden size-3.5 text-muted-foreground sm:block" />
       </DropdownMenuTrigger>
       {/* w-56 dardı: açıklamalar üç satıra sarıyor ve seviyeler birbirine
@@ -91,6 +92,26 @@ export function ReportMenu({
             </span>
           </PdfDownloadLink>
         </DropdownMenuItem>
+        {offerTransfer && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <a
+                href={`${basePath}/${projectId}/revisions/${revisionId}/ai-input`}
+                download
+                className="flex flex-col items-start gap-0.5"
+              >
+                <span className="flex items-center gap-1.5 font-medium">
+                  <FileJson2 className="size-3.5 text-muted-foreground" />
+                  AI Girdi Dosyası
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Bu revizyonun girdileri, seçimleri ve alan rehberi (JSON)
+                </span>
+              </a>
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -12,6 +12,14 @@ import {
 } from "@/lib/crane-types";
 import { adBuyuk } from "@/lib/tr-text";
 import { ENGINE_VERSION } from "@/lib/calc/engine";
+import { canEditOffers } from "@/lib/roles";
+import {
+  OFFER_REPORT_TRANSFER_FORMAT,
+  OFFER_REPORT_TRANSFER_MAX_BYTES,
+  OFFER_REPORT_TRANSFER_VERSION,
+  OfferReportTransferError,
+  parseOfferReportTransferText,
+} from "@/lib/offer-report-transfer";
 import {
   EQUIPMENT_ATTACHMENT_BUCKET,
   loadEquipmentAttachments,
@@ -223,6 +231,106 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
   revalidatePath("/offers/hesap-raporlari");
   if (parsed.data.job_id) revalidatePath(`/jobs/${parsed.data.job_id}`);
   redirect(`${reportBasePath(parsed.data.report_context)}/${project.id}`);
+}
+
+// ------------------------------------------ AI dosyasından teklif hesap raporu
+
+/**
+ * AI aktarım dosyası proje künyesiyle birlikte V0 girdilerini de taşır.
+ * Sonuç snapshot'ı DOSYADAN ALINMAZ: `parseOfferReportTransferText` güncel
+ * motoru koşturur. Proje + revizyon + audit kaydı DB fonksiyonunda tek
+ * işlemdir; revizyon INSERT'i düşerse listede yetim proje kalmaz.
+ */
+export async function createOfferProjectFromFile(
+  formData: FormData
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!canEditOffers(profile?.role)) {
+    return { error: "Teklif hesap raporu oluşturma yetkiniz yok" };
+  }
+
+  const candidate = formData.get("file");
+  if (!(candidate instanceof File) || candidate.size === 0) {
+    return { error: "AI girdi JSON dosyasını seçin" };
+  }
+  if (candidate.size > OFFER_REPORT_TRANSFER_MAX_BYTES) {
+    return { error: "Dosya 900 KB sınırını aşıyor" };
+  }
+  if (!candidate.name.toLocaleLowerCase("tr-TR").endsWith(".json")) {
+    return { error: "Yalnız .json uzantılı AI girdi dosyası yüklenebilir" };
+  }
+
+  let imported: ReturnType<typeof parseOfferReportTransferText>;
+  try {
+    imported = parseOfferReportTransferText(await candidate.text());
+  } catch (error) {
+    return {
+      error:
+        error instanceof OfferReportTransferError
+          ? error.message
+          : "AI girdi dosyası okunamadı",
+    };
+  }
+
+  const importedAt = new Date().toISOString();
+  const source = imported.source ?? {
+    documentNo: imported.project.documentNo,
+    revisionNo: 0,
+    engineVersion: "bilinmiyor",
+    exportedAt: importedAt,
+  };
+  const inputs = {
+    ...(imported.inputs as Record<string, unknown>),
+    fileImport: {
+      format: OFFER_REPORT_TRANSFER_FORMAT,
+      formatVersion: OFFER_REPORT_TRANSFER_VERSION,
+      importedAt,
+      source,
+      reviewNotes: imported.reviewNotes,
+    },
+  };
+
+  const { data, error } = await supabase.rpc("create_offer_report_from_file", {
+    p_doc_no: imported.project.documentNo.trim(),
+    p_name: adBuyuk(imported.project.name),
+    p_customer: adBuyuk(imported.project.customer),
+    p_crane_type: imported.project.craneType.trim(),
+    p_crane_location: adBuyuk(imported.project.craneLocation),
+    p_inputs: inputs,
+    p_selections: imported.selections,
+    p_results: imported.results,
+    p_engine_version: imported.results.engineVersion,
+    p_source: source,
+    p_review_notes: imported.reviewNotes,
+  });
+  if (error) {
+    return {
+      error:
+        error.code === "23505"
+          ? "Bu doküman no zaten kayıtlı"
+          : error.message,
+    };
+  }
+
+  const created = (data as { project_id?: string; revision_id?: string }[] | null)?.[0];
+  if (!created?.project_id || !created.revision_id) {
+    return { error: "Hesap raporu oluşturuldu ancak yeni revizyon bulunamadı" };
+  }
+
+  revalidatePath("/offers/hesap-raporlari");
+  redirect(
+    `/offers/hesap-raporlari/${created.project_id}/revisions/${created.revision_id}`
+  );
 }
 
 // ----------------------------------------------------- Proje bilgisi düzenleme

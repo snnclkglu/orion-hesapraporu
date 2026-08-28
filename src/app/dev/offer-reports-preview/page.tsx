@@ -9,6 +9,7 @@ import {
   ProjectsTable,
   type ProjectRow,
 } from "@/app/(app)/projects/projects-table";
+import { NewProjectDialog } from "@/app/(app)/projects/new-project-dialog";
 import { OFFER_REPORT_CONTEXT, reportBasePath } from "@/lib/report-context";
 
 const ROWS: ProjectRow[] = [
@@ -65,7 +66,11 @@ export default function OfferReportsPreviewPage() {
         kicker="Teklif"
         title="Teklif Hesap Raporları"
         hint="Teklif aşamasındaki hızlı mühendislik hesapları; Mühendislik arşivinden ayrı, aynı hesap motoruyla."
-      />
+      >
+        {/* Gerçek pencere de bu önizlemede açılır: dosya alanının 320/375
+            px'te taşıp taşmadığı kopya bir işaretlemeyle ölçülemez. */}
+        <NewProjectDialog reportContext={OFFER_REPORT_CONTEXT} />
+      </PageHeader>
       <ProjectsTable
         projects={ROWS}
         jobs={[]}

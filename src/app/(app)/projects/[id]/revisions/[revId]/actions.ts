@@ -226,6 +226,28 @@ export async function saveRevision(
   const result = runCalc(calcInput);
   const store = fullInput ?? calcInput;
 
+  // Dosyadan oluşturma KÜNYESİ hesap girdisi değildir ama revizyonun
+  // kaynağıdır. Editörün olağan kaydı inputs nesnesini baştan kurduğu için
+  // bu bloğu açıkça devralmazsak ilk Kaydet'te kaynak revizyon ve AI teyit
+  // notları sessizce kaybolur. Değer istemciden alınmaz; DB'deki mevcut
+  // snapshot'tan okunur.
+  const { data: currentRevision } = await supabase
+    .from("revisions")
+    .select("inputs")
+    .eq("id", revisionId)
+    .eq("project_id", projectId)
+    .maybeSingle();
+  const currentInputs = currentRevision?.inputs;
+  const fileImport =
+    currentInputs &&
+    typeof currentInputs === "object" &&
+    !Array.isArray(currentInputs) &&
+    (currentInputs as Record<string, unknown>).fileImport &&
+    typeof (currentInputs as Record<string, unknown>).fileImport === "object" &&
+    !Array.isArray((currentInputs as Record<string, unknown>).fileImport)
+      ? (currentInputs as Record<string, unknown>).fileImport
+      : undefined;
+
   const { data: updated, error } = await supabase
     .from("revisions")
     .update({
@@ -235,6 +257,7 @@ export async function saveRevision(
         disabledModules: disabledModules ?? [],
         hiddenSections: hiddenSections ?? [],
         hiddenDiagrams: hiddenDiagrams ?? [],
+        ...(fileImport ? { fileImport } : {}),
       },
       selections: {
         ...moduleJson(store, "selections"),

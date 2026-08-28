@@ -99,7 +99,7 @@ function safe(part: string): string {
  */
 export function downloadFileName(
   parts: readonly (string | null | undefined)[],
-  ext: "pdf" | "xlsx" = "pdf"
+  ext: "pdf" | "xlsx" | "json" = "pdf"
 ): string {
   const name = parts
     .map((p) => safe((p ?? "").toString()))

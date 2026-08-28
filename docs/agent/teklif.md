@@ -1639,3 +1639,43 @@ tamamen büyük basılır (`15 TON / 5 TON`) ve diğer teknik değerlerden daha 
 dizilir. Bu yalnız kapasite satırının sunum kuralıdır; payload değiştirilmez.
 Diğer teknik değerlerde `kW`, `mm`, `Hz` gibi anlamı harf büyüklüğüne bağlı
 mühendislik birimlerini koruyan mevcut kural devam eder.
+
+## TEKLIF-72 — Teklif hesap raporu AI aracı dosyası GİRDİ taşır; sonucu motor yeniden üretir.
+
+Kullanıcı kararı (28.08.2026): mevcut bir teklif hesap raporu revizyonunun
+girdileri JSON olarak indirilir; yerel AI agent bu örneği ve yeni teknik
+şartnameyi inceleyip aynı biçimde yeni bir dosya üretir. Teklif Hesap
+Raporları > Yeni Hesap Raporu penceresinin en altındaki **Dosya ile Oluştur**
+alanı bu dosyadan proje künyesiyle birlikte V0 taslağını açar.
+
+Biçimin kararlı kimliği `orion-offer-calculation-report`, sürümü `1`dir
+(`lib/offer-report-transfer.ts`). Dosya üç katman taşır:
+
+- `project`: doküman no, rapor/vinç adı, müşteri, vinç tipi ve yeri;
+- `revision.inputs` + `revision.selections`: güncel editörün eksiksiz
+  snapshot'ı; kapalı/gizli bölüm kararları da korunur;
+- `fieldGuide`: her kullanıcı alanının Türkçe etiketi, tipi, birimi ve
+  varsa izin verilen makine değerleri. Bu rehber AI içindir; içe aktarım
+  ona güvenmez, güncel kodun alan tiplerini kullanır.
+
+**`revision.results` YOKTUR ve kabul edilmez.** Dosya sonuç snapshot'ı değil
+girdi aracıdır. İçe aktarım yabancı anahtarları atar, bilinen alanlarda
+sayı/metin/doğru-yanlış tipini yoluyla birlikte doğrular ve `runCalc`i
+sunucuda yeniden koşturur. Böylece AI'ın uydurduğu bir uygunluk sonucu ya da
+eski motorun hesabı DB'ye giremez. Dosya en fazla 900 KB'dir; tehlikeli nesne
+anahtarları, aşırı derinlik ve sonlu olmayan sayılar daha şemaya gelmeden
+reddedilir.
+
+AI'a yazılan talimat da dosyanın içindedir: şartnamede açıkça bulunan
+değer değiştirilir; bulunmayan değer uydurulmaz veya silinmez, örnek değer
+korunur ve teyit yolu `reviewNotes` listesine yazılır. Bu liste ve kaynak
+revizyon, yeni snapshot'ın `fileImport` künyesinde ve audit ayrıntısında
+saklanır.
+
+Proje + V0 revizyonu iki ayrı ağ işlemi değildir.
+`create_offer_report_from_file` ikisini ve `project.createFromFile` audit
+kaydını tek Postgres işleminde oluşturur; revizyon düşerse yetim proje
+kalmaz. Fonksiyon teklif yazma yetkisini kendi içinde de sorar ve bağlamı
+daima `offer`, iş bağını daima `null` yazar. Müşteri/logo UUID'leri taşınmaz:
+dosya kurumlar arasında taşınabilir kalır, rapor markası ve logo yeni
+projede bilinçli olarak seçilir.

@@ -14,9 +14,10 @@
 // benzersizlik kısıtına takılıyor, kod da hangi kaleme ait olduğunu
 // söylemiyordu. Kalem seçiliyken alan artık SALT-OKUNURDUR.
 
-import { useMemo, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
+import { FileJson2 } from "lucide-react";
 import { toast } from "sonner";
-import { createProject } from "./actions";
+import { createOfferProjectFromFile, createProject } from "./actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
@@ -86,6 +87,8 @@ export function NewProjectDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [filePending, startFileTransition] = useTransition();
+  const fileInputId = useId();
   const craneTypes = craneTypeOptions(defaultCraneType);
   const [craneType, setCraneType] = useState(defaultCraneType);
 
@@ -150,6 +153,16 @@ export function NewProjectDialog({
       const result = await createProject(formData);
       if (result?.error) toast.error(result.error);
       // Başarıda action redirect eder.
+    });
+  }
+
+  function handleFileSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    startFileTransition(async () => {
+      const result = await createOfferProjectFromFile(formData);
+      if (result?.error) toast.error(result.error);
+      // Başarıda action yeni V0 editörüne redirect eder.
     });
   }
 
@@ -346,11 +359,51 @@ export function NewProjectDialog({
             <input type="hidden" name="crane_type" value={craneType} />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending || filePending}>
               {pending ? "Oluşturuluyor..." : "Oluştur"}
             </Button>
           </DialogFooter>
         </form>
+        {offerContext && (
+          <section className="grid gap-3 border-t pt-4" aria-labelledby={`${fileInputId}-title`}>
+            <div className="grid gap-1">
+              <h3 id={`${fileInputId}-title`} className="flex items-center gap-2 text-sm font-semibold">
+                <FileJson2 className="size-4 text-muted-foreground" />
+                Dosya ile Oluştur
+              </h3>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Bir teklif hesap raporundan indirilen ve yeni şartnameye göre AI
+                agent tarafından doldurulan JSON dosyasını yükleyin. Proje ve V0
+                taslağı birlikte oluşturulur; hesap sonuçları yeniden hesaplanır.
+              </p>
+            </div>
+            <form onSubmit={handleFileSubmit} className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+              <div className="grid min-w-0 gap-2">
+                <Label htmlFor={fileInputId}>AI Girdi Dosyası</Label>
+                <Input
+                  id={fileInputId}
+                  name="file"
+                  type="file"
+                  accept=".json,application/json"
+                  required
+                  disabled={pending || filePending}
+                  className="min-w-0 file:mr-2 file:border-0 file:bg-transparent file:font-medium"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Yalnız ORION JSON biçimi · en fazla 900 KB
+                </p>
+              </div>
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={pending || filePending}
+                className="w-full sm:w-auto"
+              >
+                {filePending ? "Dosya İşleniyor..." : "Dosyadan Oluştur"}
+              </Button>
+            </form>
+          </section>
+        )}
       </DialogContent>
     </Dialog>
   );
