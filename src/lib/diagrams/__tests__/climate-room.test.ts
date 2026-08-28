@@ -35,19 +35,23 @@ const room: ClimateRoomParams = {
 };
 
 describe("elektrik odası ön ve yan görünüşü", () => {
-  it("kapı, pano satırları, baza ve yürüme mesafesini ölçülendirir", () => {
+  it("kapıyı çizmez; yan görünüşü ön görünüşün sağında gösterir", () => {
     const diagram = climateRoomDiagram(room);
-    const texts = diagram.els
-      .filter((element) => element.kind === "text")
-      .map((element) => element.text);
+    const textEls = diagram.els.filter((element) => element.kind === "text");
+    const texts = textEls.map((element) => element.text);
+    const front = textEls.find((element) => element.text === "ÖN GÖRÜNÜŞ");
+    const side = textEls.find((element) => element.text === "YAN GÖRÜNÜŞ");
 
     expect(texts).toContain("ÖN GÖRÜNÜŞ");
     expect(texts).toContain("YAN GÖRÜNÜŞ");
     expect(texts).toContain("P1 · 400");
     expect(texts).toContain("P2 · 600");
     expect(texts).toContain("P3 · 800");
-    expect(texts.some((text) => text.includes("800 × 2.000 mm"))).toBe(true);
+    expect(texts.some((text) => text.includes("Kapı"))).toBe(false);
+    expect(texts.some((text) => text.includes("800 × 2.000 mm"))).toBe(false);
     expect(texts).toContain("Yürüme Mesafesi 2.000 mm");
-    expect(diagram.height).toBeGreaterThan(500);
+    expect(side!.x).toBeGreaterThan(front!.x);
+    expect(diagram.width).toBeGreaterThan(800);
+    expect(diagram.height).toBeLessThan(450);
   });
 });

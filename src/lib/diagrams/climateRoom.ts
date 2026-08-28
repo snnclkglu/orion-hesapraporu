@@ -1,14 +1,14 @@
 // Mahal iklimlendirme yükü şeması — kabin, elektrik odası ve pano bölümleri.
 //
 // İki şeyi birden anlatır:
-//   SOL  — mahallin KESİTİ: yalıtımlı zarf, kapı, cam, operatör, panolar ve
+//   SOL  — mahallin KESİTİ: yalıtımlı zarf, cam, operatör, panolar ve
 //          klima ünitesi. Isının HANGİ YOLDAN girdiği okla gösterilir.
 //   ALT  — yük dağılımı çubuğu: hangi kalemin baskın olduğu tek bakışta
 //          okunur. Sayı tablosunun anlatamadığı şey budur — mühendis
 //          "yalıtımı artırsam ne olur" sorusunun cevabını buradan görür.
 //
 // YERLEŞİM İLKESİ — ETİKET ZARFIN ÜSTÜNE YAZILMAZ.
-// Çizimin çevresi üç şeride ayrılır: SOL LULUK (dış koşul, iletim oku, kapı),
+// Çizimin çevresi üç şeride ayrılır: SOL LULUK (dış koşul, iletim oku),
 // KUTU (yalnız iç koşullar ve mahalin kendi içeriği) ve SAĞ ŞERİT (klima ve
 // hava debileri). Mahalin içindekilerin (pano, operatör) etiketleri kutunun
 // ALTINA, dışına yazılır. Genel çakışma çözücü (`resolveTextOverlaps`) yalnız
@@ -36,7 +36,7 @@ export interface ClimateRoomParams {
   doorCount: number;
   /** Kapı etiketi — pano yerleşiminde sızıntı yolu "Pano Kapağı"dır */
   doorLabel?: string;
-  /** Elektrik odası kapı net ölçüsü [mm] — ön görünüşte ölçülendirilir. */
+  /** Elektrik odası kapı net ölçüsü [mm] — ısı hesabında kullanılır, çizilmez. */
   doorWidthMm?: number;
   doorHeightMm?: number;
   ambientTempC: number;
@@ -74,6 +74,7 @@ export interface ClimateRoomParams {
 }
 
 const W = 700;
+const ROOM_W = 840;
 const H = 360;
 
 /**
@@ -175,6 +176,30 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
   const panelBodyHeightM = (p.panelHeightMm ?? PANEL_H_M * 1000) / 1000;
   const panelBaseHeightM = (p.panelBaseHeightMm ?? 0) / 1000;
   const panelOverallHeightM = panelBodyHeightM + panelBaseHeightM;
+  // Elektrik odasının yan görünüşü ön görünüşün SAĞINDA yer alır. Geometri
+  // burada bir kez kurulur; hem çizim hem klima yerleşimi aynı sınırları okur.
+  const sideLayout = (() => {
+    if (!hasRoomPanelLayout) return undefined;
+    const sideMaxW = 170;
+    const sideMaxH = 116;
+    const sideRatio = p.widthM > 0 ? p.heightM / p.widthM : 0.8;
+    let sideW = sideMaxW;
+    let sideH = sideW * sideRatio;
+    if (sideH > sideMaxH) {
+      sideH = sideMaxH;
+      sideW = sideH / Math.max(sideRatio, 0.001);
+    }
+    const sideX = boxRight + 36;
+    const sideY = by;
+    return {
+      sideX,
+      sideY,
+      sideW,
+      sideH,
+      sideRight: sideX + sideW,
+      sideBottom: sideY + sideH,
+    };
+  })();
 
   if (hasRoomPanelLayout) {
     els.push(txt(bx, by - 31, "ÖN GÖRÜNÜŞ", 8.5, { fill: DCOL.muted, bold: true }));
@@ -214,30 +239,23 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
   }
 
   // ---------------------------------------------------------------- kapı
-  // Etiket SOL LULUKTA değil kutunun ALTINDA: kapı yüksekliği gerçek boyuna
-  // (2 m) çıkınca ortasındaki etiket iletim okunun etiketiyle çakışıyordu.
+  // Elektrik odasının ön görünüşü yalnız pano dizisini anlatır; kapı ısı
+  // hesabında gerçek ölçüsüyle kalır fakat burada şematik olarak çizilmez.
+  // Operatör kabini gibi öteki mahaller eski kapı göstergesini korur.
   const belowY = boxBottom + 13;
   const inner1 = bx + t;
   const inner2 = boxRight - t;
-  if (p.doorCount > 0) {
-    const doorHeightM = hasRoomPanelLayout
-      ? (p.doorHeightMm ?? DOOR_H_M * 1000) / 1000
-      : DOOR_H_M;
+  if (p.doorCount > 0 && !hasRoomPanelLayout) {
+    const doorHeightM = DOOR_H_M;
     const dh = Math.min(bh - 2 * t - 6, Math.max(26, doorHeightM * pxPerM));
-    const dw = hasRoomPanelLayout
-      ? Math.min((inner2 - inner1) * 0.42, Math.max(18, ((p.doorWidthMm ?? 800) / 1000) * pxPerLengthM))
-      : 5;
+    const dw = 5;
     els.push({
-      kind: "rect", x: hasRoomPanelLayout ? inner1 + 2 : bx + t - 1,
+      kind: "rect", x: bx + t - 1,
       y: floorY - dh, w: dw, h: dh,
       fill: DCOL.line, stroke: DCOL.ink, strokeWidth: 1,
     });
     els.push(
-      txt(inner1, belowY,
-        hasRoomPanelLayout
-          ? `${fmtN(p.doorCount, 0)} ${p.doorLabel ?? "Kapı"} · ${fmtN(p.doorWidthMm ?? 800, 0)} × ${fmtN(p.doorHeightMm ?? 2000, 0)} mm`
-          : `${fmtN(p.doorCount, 0)} ${p.doorLabel ?? "Kapı"}`,
-        8, {
+      txt(inner1, belowY, `${fmtN(p.doorCount, 0)} ${p.doorLabel ?? "Kapı"}`, 8, {
         fill: DCOL.muted, push: "down",
       })
     );
@@ -323,9 +341,7 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
       panelX += wCab + gap;
     }
     els.push(
-      // Elektrik odasında kapı ölçüsü ilk alt satırdadır; pano özetini ikinci
-      // satıra indirerek uzun “800 × 2000 mm” etiketiyle üst üste bindirme.
-      txt((deviceLeft + deviceRight) / 2, hasRoomPanelLayout ? belowY + 12 : belowY,
+      txt((deviceLeft + deviceRight) / 2, belowY,
         hasRoomPanelLayout
           ? `${fmtN(cabCount, 0)} ${p.deviceLabel ?? "Pano"} · H ${fmtN(p.panelHeightMm ?? 1800, 0)} + ${fmtN(p.panelBaseHeightMm ?? 0, 0)} Baza mm`
           : `${fmtN(cabCount, 0)} ${p.deviceLabel ?? "Pano"}`,
@@ -431,12 +447,21 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
   // ---------------------------------------------------------------- klima ünitesi
   // SAĞ ŞERİT: kutu ile klima arasındaki boşluk debi etiketlerinin genişliğine
   // göre seçilir — "Üfleme 1.212 m³/h" ≈ 105 px.
-  const gapAc = 128;
+  const gapAc = hasRoomPanelLayout ? 92 : 128;
   const acW = 60;
   const acH = 46;
-  const acX = boxRight + gapAc;
-  const acY = boxBottom - acH - 6;
+  const acX = (sideLayout?.sideRight ?? boxRight) + gapAc;
+  const acY = sideLayout
+    // Yan görünüşün ölçü zinciri sideBottom + 18 seviyesindedir. Klima
+    // hava oklarını bunun da altına alarak iki anlatımın kesişmesini önle.
+    ? Math.max(boxBottom - acH - 6, sideLayout.sideBottom + 44)
+    : boxBottom - acH - 6;
   const midX = (boxRight + acX) / 2;
+  let contentBottom = Math.max(
+    boxBottom,
+    acY + acH,
+    hasRoomPanelLayout && p.radiationKw > 0 ? boxBottom + 50 : boxBottom
+  );
   els.push({
     kind: "rect", x: acX, y: acY, w: acW, h: acH,
     fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1.3,
@@ -482,22 +507,8 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
   // Yalnız gerçek pano ölçüleri bulunan elektrik odasında çizilir. Panolar
   // bir duvara yaslanır; karşı duvar ile pano yüzü arasındaki net mesafe
   // kullanıcının oda içindeki yürüme/servis koridorudur.
-  let contentBottom = boxBottom;
-  if (hasRoomPanelLayout) {
-    const sideTop = boxBottom + (p.radiationKw > 0 ? 106 : 72);
-    const sideMaxW = 250;
-    const sideMaxH = 116;
-    const sideRatio = p.widthM > 0 ? p.heightM / p.widthM : 0.8;
-    let sideW = sideMaxW;
-    let sideH = sideW * sideRatio;
-    if (sideH > sideMaxH) {
-      sideH = sideMaxH;
-      sideW = sideH / Math.max(sideRatio, 0.001);
-    }
-    const sideX = bx;
-    const sideY = sideTop;
-    const sideRight = sideX + sideW;
-    const sideBottom = sideY + sideH;
+  if (sideLayout) {
+    const { sideX, sideY, sideW, sideH, sideRight, sideBottom } = sideLayout;
     const sideT = 6;
     const sideInnerLeft = sideX + sideT;
     const sideInnerRight = sideRight - sideT;
@@ -561,7 +572,7 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
     els.push(txt(sideRight + 10, sideY + 14,
       `Oda B ${fmtN(p.widthM * 1000, 0)} mm`, 7.5, { fill: DCOL.muted }));
 
-    contentBottom = dimY + 10;
+    contentBottom = Math.max(contentBottom, dimY + 10);
   }
 
   // ---------------------------------------------------------------- yük çubuğu
@@ -625,5 +636,9 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
     })
   );
 
-  return fitDiagram(els, W, hasRoomPanelLayout ? Math.max(520, barY + 72) : H);
+  return fitDiagram(
+    els,
+    hasRoomPanelLayout ? ROOM_W : W,
+    hasRoomPanelLayout ? Math.max(370, barY + 72) : H
+  );
 }

@@ -3,6 +3,7 @@ import { NEW_WORK_TEMPLATE } from "../defaults";
 import { cabinDepsFrom, runCalc, type CalcInput } from "../engine";
 import {
   ROOM_PANEL_BASE_HEIGHT_MM,
+  addRoomPanel,
   cabinInputsForDisplay,
   roomPanelLayout,
   roomPanelWidths,
@@ -47,6 +48,17 @@ function roomInput(): CalcInput {
 describe("elektrik odası pano yerleşimi", () => {
   it("pano adedi kadar eni korur; yeni satırı 800 mm standartla tamamlar", () => {
     expect(roomPanelWidths("400; 600", 4)).toEqual([400, 600, 800, 800]);
+  });
+
+  it("Yeni Pano Ekle sayacı artırır ve yeni satırı 800 mm ile oluşturur", () => {
+    expect(addRoomPanel("400; 600", 2)).toEqual({
+      panelCount: 3,
+      roomPanelWidthsText: "400; 600; 800",
+    });
+    expect(addRoomPanel("", 0)).toEqual({
+      panelCount: 1,
+      roomPanelWidthsText: "800",
+    });
   });
 
   it("baza, toplam dizi ve pano önü yürüme mesafesini hesaplar", () => {

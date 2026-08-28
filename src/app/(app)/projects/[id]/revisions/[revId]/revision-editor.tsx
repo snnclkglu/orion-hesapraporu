@@ -69,6 +69,7 @@ import type { GirderSelections } from "@/lib/calc/modules/mainGirder";
 import type { HookBlockInputs, HookBlockValues } from "@/lib/calc/modules/hookBlock";
 import type { WheelLoadInputs } from "@/lib/calc/modules/wheelLoads";
 import {
+  addRoomPanel,
   cabinInputsForDisplay,
   type CabinInputs,
 } from "@/lib/calc/modules/cabin";
@@ -2288,9 +2289,12 @@ export function RevisionEditor({
     // profil ölçüleri yalnız anahtar "Var" iken görünür). Gizlenen alanın
     // DEĞERİ KORUNUR — sıfırlanmaz, anahtar geri açıldığında geri gelir
     // (bölüm aç/kapa mantığının aynısı).
-    const visibleInputDefs = section.inputDefs.filter(
-      (f) => f.visibleWhen?.(scopedInputs as Record<string, unknown>) ?? true
-    );
+    const visibleInputDefs = section.inputDefs.filter((f) => {
+      // Elektrik odası pano yüksekliği ilk pano kartında seçilir; aynı alanı
+      // genel girdi ızgarasında ikinci kez göstermek kullanıcıyı yanıltır.
+      if (section.editor === "roomPanels" && f.key === "roomPanelHeightMm") return false;
+      return f.visibleWhen?.(scopedInputs as Record<string, unknown>) ?? true;
+    });
     // Öbekli alanlar kendi başlıklı bloklarında, öbeksizler düz ızgarada.
     const fieldGroupBlocks = FIELD_GROUP_ORDER.flatMap((gk) => {
       const defs = visibleInputDefs.filter((f) => f.fieldGroup === gk);
@@ -2749,6 +2753,22 @@ export function RevisionEditor({
                   roomPanelWidthsText: next,
                 })
               }
+              onHeightChange={(next) =>
+                setModuleInputs(key, {
+                  ...(inputs as object),
+                  roomPanelHeightMm: next,
+                })
+              }
+              onAddPanel={() => {
+                const cabinInputs = inputs as CabinInputs;
+                setModuleInputs(key, {
+                  ...(inputs as object),
+                  ...addRoomPanel(
+                    cabinInputs.roomPanelWidthsText,
+                    cabinInputs.panelCount
+                  ),
+                });
+              }}
               disabled={readOnly}
             />
           )}

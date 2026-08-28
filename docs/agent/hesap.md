@@ -1267,14 +1267,17 @@ metnini sessizce düşürür.
 Kullanıcı kararı (28.08.2026): `11.2 Elektrik Odası` içinde **Pano Adedi**
 doğrudan seçilir ve her pano `1. Pano … n. Pano` olarak ayrı bir en satırı
 taşır. Standart enler 400 / 500 / 600 / 700 / 800 / 1000 / 1200 mm'dir;
-yeni satır 800 mm ile açılır. Yükseklik (1400 / 1600 / 1800 / 2000 mm) ve
-derinlik (400 / 600 / 700 mm) bütün panolarda ortaktır. Her panonun altında
-sabit **200 mm baza** vardır. Eski revizyonlarda bulunmayan alanlar 800 mm en,
-1800 mm gövde yüksekliği ve 600 mm derinlikle tamamlanır; kayıtlı `panelCount`
-korunur ve eksik en satırları 800 mm olur.
+yeni satır `Yeni Pano Ekle` düğmesiyle 800 mm olarak açılır ve `panelCount`
+aynı işlemde artırılır. Yükseklik (1400 / 1600 / 1800 / 2000 mm) **ilk pano
+satırından** seçilir ve bütün panolarda ortaktır; sonraki satırlar bu bağı açıkça
+gösterir. Derinlik (400 / 600 / 700 mm) de bütün panolarda ortaktır. Her panonun
+altında sabit **200 mm baza** vardır. Eski revizyonlarda bulunmayan alanlar
+800 mm en, 1800 mm gövde yüksekliği ve 600 mm derinlikle tamamlanır; kayıtlı
+`panelCount` korunur ve eksik en satırları 800 mm olur.
 
-Oda yerleşimi iki görünüşlüdür. Ön görünüş kapıyı (varsayılan 800 × 2000 mm),
-P1…Pn pano enlerini, ortak gövde yüksekliğini ve bazayı çizer. Yan görünüş pano
+Oda yerleşimi iki görünüşlüdür ve ikisi aynı yatay sıradadır: **yan görünüş ön
+görünüşün sağındadır**. Ön görünüş yalnız P1…Pn pano enlerini, ortak gövde
+yüksekliğini ve bazayı çizer; oda kapısı bu şemada gösterilmez. Yan görünüş pano
 derinliğini ve pano önünde kalan yürüme mesafesini ölçülendirir:
 
     L_pano = Σ pano enleri
@@ -1283,9 +1286,9 @@ derinliğini ve pano önünde kalan yürüme mesafesini ölçülendirir:
 
 Bu üç geometri oda uzunluğu, oda yüksekliği ve oda genişliğine karşı ayrı
 uygunluk kontrolleridir. Kapı eni/yüksekliği artık elektrik odası girdisidir ve
-iletim alanına da aynı gerçek ölçü girer; operatör kabininin 700 × 1900 mm kapı
-kabulü değişmez. Excel ekipman listesi ile teknik çizim özeti aynı pano dizisi,
-baza, kapı ve yürüme ölçülerini okur.
+şemada çizilmese de iletim alanına aynı gerçek ölçü girer; operatör kabininin
+700 × 1900 mm kapı kabulü ve kendi kapı çizimi değişmez. Excel ekipman listesi
+ile teknik çizim özeti aynı pano dizisi, baza, kapı ve yürüme ölçülerini okur.
 
 **`0 kW` GÖSTERİM HATASININ KÖK NEDENİ:** hesap motoru otomatik pano kaybını
 doğru türetiyor ve iklimlendirme hesabına veriyordu, fakat editör/PDF girdi

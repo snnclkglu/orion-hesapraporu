@@ -78,18 +78,18 @@ export const CABIN_INPUT_FIELDS: FieldDef<CabinInputs>[] = [
   },
   {
     key: "roomDoorWidthMm", label: "Kapı Genişliği", unit: "mm", type: "number",
-    hint: "Oda ön görünüşünde ölçülendirilir ve kapı ısı geçiş alanına girer.",
+    hint: "Kapı ısı geçiş alanına girer; elektrik odası şemasında çizilmez.",
   },
   {
     key: "roomDoorHeightMm", label: "Kapı Yüksekliği", unit: "mm", type: "number",
-    hint: "Oda ön görünüşünde ölçülendirilir ve kapı ısı geçiş alanına girer.",
+    hint: "Kapı ısı geçiş alanına girer; elektrik odası şemasında çizilmez.",
   },
   { key: "panelCount", label: "Pano Adedi", unit: "adet", type: "number" },
   {
     key: "roomPanelHeightMm", label: "Ortak Pano Yüksekliği", unit: "mm",
     type: "select", numeric: true,
     options: ROOM_PANEL_HEIGHT_OPTIONS_MM.map(String),
-    hint: "Bütün panolar için ortaktır; her panonun altında ayrıca 200 mm baza çizilir.",
+    hint: "İlk pano satırından seçilir; bütün panolarda ortaktır ve her panonun altında ayrıca 200 mm baza çizilir.",
   },
   {
     key: "roomPanelDepthMm", label: "Ortak Pano Derinliği", unit: "mm",

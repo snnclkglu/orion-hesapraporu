@@ -172,6 +172,20 @@ export function roomPanelWidths(
   );
 }
 
+/** “Yeni Pano Ekle” işlemi: sayacı artırır ve eksik yeni eni 800 mm tamamlar. */
+export function addRoomPanel(
+  text: string | undefined,
+  panelCountValue: number
+): Pick<CabinInputs, "panelCount" | "roomPanelWidthsText"> {
+  const panelCount = Number.isFinite(panelCountValue) && panelCountValue > 0
+    ? Math.floor(panelCountValue) + 1
+    : 1;
+  return {
+    panelCount,
+    roomPanelWidthsText: roomPanelWidths(text, panelCount).join("; "),
+  };
+}
+
 /** Oda ölçüleri ve ortak pano boyutlarından yerleşim ölçülerini türetir. */
 export function roomPanelLayout(inp: CabinInputs): RoomPanelLayout {
   const widthsMm = roomPanelWidths(inp.roomPanelWidthsText, inp.panelCount);
