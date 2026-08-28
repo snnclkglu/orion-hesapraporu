@@ -824,9 +824,11 @@ olarak korur.
 
 **VİNÇ TİPİ HESAP BÖLÜMÜ AÇMAZ.** `projects.crane_type` bir künye alanıdır ve
 hesap motoruna hiç girmez; topoloji kararları (yardımcı araba, monoray adedi,
-kiriş düzeni) TEKNİK ÖZELLİKLERDEDİR. Yeni alan `specs.girderArrangement`
-(`iki` | `dort`): **Dört Kirişli** seçilince "Ana Kiriş - 2" bölümü açılır,
-birincinin adı da "Ana Kiriş - 1" olur (`adapterTitle` / `moduleLabelFor`).
+kiriş düzeni) TEKNİK ÖZELLİKLERDEDİR. Alan `specs.girderArrangement`
+(`tek` | `iki` | `dort`): tek kirişlide yük bir kirişe gelir; **Dört Kirişli**
+seçilince "Ana Kiriş - 2" bölümü açılır, birincinin adı da "Ana Kiriş - 1"
+olur (`adapterTitle` / `moduleLabelFor`). Açık tek/çift kirişli proje tipi
+yalnız V0 doğarken bu teknik alana öneri yazar; mevcut revizyonu değiştirmez.
 
 **Ana Kiriş - 1 ANA kaldırmayı, Ana Kiriş - 2 YARDIMCI kaldırmayı taşır**
 (kullanıcı kararı). Bu ayrım motorun içinde değil BAĞLAYICIDA kurulur
@@ -837,8 +839,10 @@ yardımcı arabanın teker/hız verilerini kullanır. Yardımcı kaldırma kapal
 ana kaldırmanın verileriyle koşar; sessizce sıfır yük varsaymak, kirişi olmayan
 bir yükle boyutlandırmak olurdu.
 
-**Köprü öz ağırlığı KİRİŞ ADEDİNE bölünür** (`deps.girdersInBridge`: 2 ya da
-4). Dört kirişliyi 2 saymak her kirişi iki katı ölü yükle hesaplardı.
+**Köprü öz ağırlığı KİRİŞ ADEDİNE bölünür** (`deps.girdersInBridge`: 1/2/4).
+Hareketli yük ayrı bir pay taşır (`deps.liveLoadGirderCount`: 1/2/takım başına
+2); dört kirişli vincin ana yükünü dört kirişe bölmek de tek kirişlinin yükünü
+ikiye bölmek de yanlış olurdu.
 
 **Kontrol kimlikleri modül anahtarını taşır** (`girder.stress.case1` ↔
 `girder2.stress.case1`), sunum tarafı ise AYNI aileyi paylaşır — bölüm

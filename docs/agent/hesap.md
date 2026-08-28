@@ -433,14 +433,16 @@ vincin arabası değişiyor."*) Vinç tipi listesine `"Vinç Arabası"` eklendi
 buruşma ve başkiriş bölümleri YOKTUR; kapatılan bölüm hesaba, PDF raporuna ve
 ekipman listesine girmez, girdileri korunur.
 
-**TİP MOTORA GİRMEZ — TEK İSTİSNA BİR KERELİK TOHUMDUR.** HESAP-8b'nin kuralı
+**TİP MOTORA GİRMEZ — BAĞ YALNIZ BİR KERELİK V0 TOHUMUDUR.** HESAP-8b'nin kuralı
 yerinde: `runCalc`, `activeModules` ve `loadRevision` `crane_type`ı hiç
 görmez. `createRevision` tipi YALNIZ V0 doğarken okur ve `inputs
 .disabledModules` listesine `TROLLEY_ONLY_DISABLED_MODULES`u ÖNERİ olarak
 yazar (`applyCraneTypeRevisionPreset`); karar o andan sonra revizyonun kendi
 verisidir, mühendis ilk ekranda geri açabilir ve tip sonradan değişse bile
-mevcut revizyonlar etkilenmez. Şablondan kopyalanan snapshot EZİLMEZ, kapalı
-liste BİRLEŞTİRİLİR.
+mevcut revizyonlar etkilenmez. Aynı kapı Yer Vinci'nin sabit yürütme düzenini
+ve açık tek/çift kirişli tiplerin kiriş düzenini de V0'a önerir; motorun gördüğü
+yine yalnız teknik snapshot'tır. Tipin söylemediği şablon alanları EZİLMEZ,
+kapalı liste BİRLEŞTİRİLİR.
 
 **TOHUMLANMIŞ REVİZYON "BOŞ" DEĞİLDİR.** `disabledSet` bir revizyonun henüz
 kaydedilip kaydedilmediğini artık `Object.keys(inputs).length` ile değil, bir
@@ -522,21 +524,35 @@ durum 3) ve Kσ bunu kendi dalıyla karşılar; νv ve etkileşim bağıntısı 
 **basınç yönüne göre** seçilir — mutlak değerle sıralamak çekme baskın
 panellerde kontrolü sessizce düşürür.
 
-## HESAP-8b — Köprü İKİ ya da DÖRT kirişli olabilir.
+## HESAP-8b — Köprü TEK, İKİ ya da DÖRT kirişli olabilir.
 
 `specs.girderArrangement`
-(`iki` | `dort`) ikinci bir ana kiriş bölümü açar: **Ana Kiriş - 1 ANA
-kaldırmayı, Ana Kiriş - 2 YARDIMCI kaldırmayı taşır** (kullanıcı kararı,
-15.08.2026 — şarj / döküm vinci). VİNÇ TİPİ (`projects.crane_type`) bu
-kararı VERMEZ: tip bir künye alanıdır ve motora hiç girmez; bütün topoloji
-kararları teknik özelliklerdedir. (Tek istisna "Vinç Arabası" tipinin İLK
-revizyona yazdığı bir kerelik tohumdur — kural değil öneri, bkz. HESAP-8f.)
+(`tek` | `iki` | `dort`) gerçek teknik karardır:
+
+- `tek`: bir ana kiriş vardır. Köprü öz ağırlığının, araba ağırlığının ve
+  kaldırma yükünün tamamı bu kirişe gelir; hareketli yük iki kirişe bölünmez.
+- `iki`: klasik çift kirişli düzendir. Tek ana kiriş hesap bölümü iki özdeş
+  kirişten birini boyutlandırır; araba ve kaldırma yükü iki kirişe paylaştırılır.
+- `dort`: iki ayrı ikişer kirişli takım vardır. **Ana Kiriş - 1 ANA kaldırmayı,
+  Ana Kiriş - 2 YARDIMCI kaldırmayı taşır** (kullanıcı kararı, 15.08.2026 —
+  şarj / döküm vinci). Hareketli yük dört kirişin tamamına değil, kendi
+  takımındaki iki kirişe dağılır.
+
+Alanı taşımayan eski revizyon `iki` okunur; yayınlanmış çift kirişli sonuçlar
+değişmez. VİNÇ TİPİ (`projects.crane_type`) motora girmez ve mevcut revizyonu
+geriye dönük şekillendirmez. Yalnız açıkça `Tek Kirişli Gezer Köprülü Vinç`
+veya `Çift Kirişli Gezer Köprülü Vinç` seçilmiş yeni bir projenin V0'ı
+doğarken `applyCraneTypeRevisionPreset` bu teknik alana sırasıyla `tek` / `iki`
+önerir. Karar o andan sonra revizyon snapshot'ının kendisidir.
 
 Hangi kirişin neyi taşıdığı MODÜLÜN İÇİNDE DEĞİL bağlayıcıda kurulur
 (`engine.girderDepsFor`): `computeMainGirder` artık `specs.mainCapacityT` /
 `mainLiftSpeedMpm` okumaz, taşıdığı yükü `deps.hoistLoadKg` ve
-`deps.liftSpeedMpm` ile alır. Köprü öz ağırlığı `deps.girdersInBridge`e (2
-ya da 4) bölünür. Kontrol kimlikleri modül anahtarını taşır
+`deps.liftSpeedMpm` ile alır. Köprü öz ağırlığı `deps.girdersInBridge`e
+(1 / 2 / 4), araba ve kaldırma yükü ise `deps.liveLoadGirderCount`a
+(1 / 2 / takım başına 2) bölünür. 7.2 rapor satırları toplam yükü ve bir
+kirişe düşen payı AYRI gösterir; formül metni sabit `/2` yazmaz. Kontrol
+kimlikleri modül anahtarını taşır
 (`${which}.stress.case1`), sunum tarafı ise AYNI aileyi paylaşır — bölüm
 tanımları, kontrol bağlantı haritası ve 7.x şemalarının tamamı ikinci
 takımda kendiliğinden çalışır. **Buruşma BİRİNCİ takımdan beslenir** ve
@@ -545,6 +561,9 @@ tektir; ikinci takımın buruşması bilinçli olarak kapsam dışıdır.
 Başlıklar teknik özelliklere göre çözülür (`adapterTitle` /
 `moduleLabelFor`): tek takımda sade "Ana Kiriş", dört kirişlide
 "Ana Kiriş - 1" / "Ana Kiriş - 2".
+
+Teker yükleri 10.3 üstten görünüşü de `girdersInBridge(specs)` değerini okur;
+tek kirişli raporda iki ana kiriş çizip hesapla resmi çeliştirmez.
 
 ## HESAP-8c — Ana kirişte ray altına T PROFİL konur
 

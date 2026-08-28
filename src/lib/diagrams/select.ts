@@ -48,7 +48,11 @@ import type { BucklingValues } from "@/lib/calc/modules/buckling";
 import { BUCKLING_CASE_LABEL, LOAD_CASE_LABEL } from "@/lib/calc/plate-buckling";
 import { cmToMm, hoistReeving, mmToCm } from "@/lib/calc/modules/hoistGroup";
 import type { HoistValues } from "@/lib/calc/modules/hoistGroup";
-import { doubleDrumHookSystem, hoistEquipmentArrangement } from "@/lib/calc/types";
+import {
+  doubleDrumHookSystem,
+  girdersInBridge,
+  hoistEquipmentArrangement,
+} from "@/lib/calc/types";
 import type { TravelValues } from "@/lib/calc/modules/travelGroup";
 import type { CabinValues } from "@/lib/calc/modules/cabin";
 import { ROOM_DESIGN_RH_PCT, type ClimateLoadResult } from "@/lib/calc/climate-load";
@@ -339,6 +343,7 @@ export function diagramForSection(
       if (rawSectionId === "10.3") {
         return skewPlanDiagram({
           spanM: input.specs.spanM,
+          girderCount: girdersInBridge(input.specs),
           wheels: v.wheels,
           alphaRad: v.alphaRad,
           poleDistanceM: v.poleDistanceM,

@@ -9,6 +9,7 @@ import {
 import {
   GROUND_CRANE_DISABLED_MODULES,
   GROUND_CRANE_TYPE,
+  SINGLE_GIRDER_CRANE_TYPE,
 } from "@/lib/crane-types";
 
 function exampleFile() {
@@ -96,6 +97,21 @@ describe("teklif hesap raporu AI aktarım dosyası", () => {
     for (const key of GROUND_CRANE_DISABLED_MODULES) {
       expect(parsed.inputs.disabledModules, key).toContain(key);
     }
+  });
+
+  it("tek kirişli dosyada V0 yük paylaşımı sonucunu yeniden hesaplar", () => {
+    const raw = exampleFile() as unknown as Record<string, unknown>;
+    const project = raw.project as Record<string, unknown>;
+    project.craneType = SINGLE_GIRDER_CRANE_TYPE;
+
+    // Örnek snapshot çift kirişlidir; tip V0 doğarken teknik kararı tek
+    // kirişliye çevirir ve DB'ye girecek sonuç güncel motorla yeniden kurulur.
+    const parsed = parseOfferReportTransferText(JSON.stringify(raw));
+    expect(parsed.inputs.specs?.girderArrangement).toBe("tek");
+    expect(parsed.results.girder?.cells["load.liveLoadGirderCount"]).toBe(1);
+    expect(parsed.results.girder?.cells["load.hoistLoadOnGirder"]).toBe(
+      parsed.results.girder?.cells["load.hoistLoad"]
+    );
   });
 
   it("sayı alanına birimli metin yazılırsa yolu gösteren hata verir", () => {

@@ -12,9 +12,12 @@
 // listenin ilk elemanına çevirirdi (Satış Takibi'ndeki "kapsam" dersinin
 // aynısı).
 
+export const DOUBLE_GIRDER_CRANE_TYPE = "Çift Kirişli Gezer Köprülü Vinç" as const;
+export const SINGLE_GIRDER_CRANE_TYPE = "Tek Kirişli Gezer Köprülü Vinç" as const;
+
 export const CRANE_TYPES = [
-  "Çift Kirişli Gezer Köprülü Vinç",
-  "Tek Kirişli Gezer Köprülü Vinç",
+  DOUBLE_GIRDER_CRANE_TYPE,
+  SINGLE_GIRDER_CRANE_TYPE,
   // Şarj / döküm vinci: pota taşıyan ağır hizmet vinci. Ana kaldırma ve
   // yardımcı kaldırma AYRI kirişler üzerinde yürüyebilir; hesapta ikinci bir
   // ana kiriş bölümü açılabilir (bkz. TechnicalSpecs.girderArrangement).
@@ -85,12 +88,23 @@ export function isGroundCraneType(craneType: string | null | undefined): boolean
   return (craneType ?? "").trim() === GROUND_CRANE_TYPE;
 }
 
+/** Proje künyesindeki açık tek/çift kiriş tanımının V0 teknik önerisi. */
+export function girderArrangementForCraneType(
+  craneType: string | null | undefined
+): "tek" | "iki" | undefined {
+  const value = (craneType ?? "").trim();
+  if (value === SINGLE_GIRDER_CRANE_TYPE) return "tek";
+  if (value === DOUBLE_GIRDER_CRANE_TYPE) return "iki";
+  return undefined;
+}
+
 /**
  * Vinç tipinin yalnız V0 doğarken yazdığı revizyon TOHUMU.
  *
  * Tip hesap motoruna girmez. Bu saf yardımcı tipten, revizyonun kendi teknik
  * topoloji ve kapalı bölüm verisini üretir; motor daha sonra yalnız bu snapshot'ı
- * okur. Şablonun değerleri ezilmez, kapalı listeler birleştirilir.
+ * okur. Yalnız tipin açıkça söylediği topoloji alanı yazılır, diğer şablon
+ * değerleri korunur ve varsa kapalı listeler birleştirilir.
  */
 export function applyCraneTypeRevisionPreset(
   revNo: number,
@@ -101,14 +115,17 @@ export function applyCraneTypeRevisionPreset(
 
   const trolleyOnly = isTrolleyOnlyCraneType(craneType);
   const groundCrane = isGroundCraneType(craneType);
-  if (!trolleyOnly && !groundCrane) return inherited;
+  const girderPreset = girderArrangementForCraneType(craneType);
+  if (!trolleyOnly && !groundCrane && !girderPreset) return inherited;
 
   const previous = Array.isArray(inherited.disabledModules)
     ? inherited.disabledModules.filter((key): key is string => typeof key === "string")
     : [];
   const prescribed = trolleyOnly
     ? TROLLEY_ONLY_DISABLED_MODULES
-    : GROUND_CRANE_DISABLED_MODULES;
+    : groundCrane
+      ? GROUND_CRANE_DISABLED_MODULES
+      : [];
 
   const storedSpecs =
     inherited.specs &&
@@ -119,16 +136,24 @@ export function applyCraneTypeRevisionPreset(
 
   return {
     ...inherited,
-    ...(groundCrane
-      ? { specs: { ...storedSpecs, travelArrangement: "fixed" } }
+    ...(groundCrane || girderPreset
+      ? {
+          specs: {
+            ...storedSpecs,
+            ...(groundCrane ? { travelArrangement: "fixed" } : {}),
+            ...(girderPreset ? { girderArrangement: girderPreset } : {}),
+          },
+        }
       : {}),
-    disabledModules: [...new Set([...previous, ...prescribed])],
+    ...(prescribed.length > 0
+      ? { disabledModules: [...new Set([...previous, ...prescribed])] }
+      : {}),
   };
 }
 
 export type CraneType = (typeof OFFER_CRANE_TYPES)[number];
 
-export const DEFAULT_CRANE_TYPE: string = CRANE_TYPES[0];
+export const DEFAULT_CRANE_TYPE: string = DOUBLE_GIRDER_CRANE_TYPE;
 
 /**
  * Seçim kutusunun seçenekleri. Kayıtlı değer listede yoksa listenin BAŞINA

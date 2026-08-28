@@ -227,7 +227,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       "Ölü/hareketli yükler, FEM dinamik katsayı ψ, yatay ivme dinamik katsayıları ψh ve " +
       "yatay hareket yükleri. Teker sayıları, tahrikli teker sayıları ve hızlar yürütme " +
       "modüllerinden otomatik gelir; ψhA / ψhK kütle oranından türetilir.",
-    depKeys: ["bridgeWeightT", "trolleyWeightT", "mainHookBlockWeightKg", "mainRopeWeightKg", "trolleyWheelCount", "trolleyDrivenWheels", "trolleyActualSpeedMpm", "trolleyAccelTimeS", "bridgeWheelCount", "bridgeDrivenWheels", "bridgeActualSpeedMpm", "bridgeAccelTimeS"],
+    depKeys: ["girdersInBridge", "liveLoadGirderCount", "bridgeWeightT", "trolleyWeightT", "mainHookBlockWeightKg", "mainRopeWeightKg", "trolleyWheelCount", "trolleyDrivenWheels", "trolleyActualSpeedMpm", "trolleyAccelTimeS", "bridgeWheelCount", "bridgeDrivenWheels", "bridgeActualSpeedMpm", "bridgeAccelTimeS"],
     inputKeys: ["hookTopPositionM", "psiHAOverride", "psiHKOverride", "bridgeAxleSpacingM", "trolleyWheelSpacingM", "trolleyAxleSpacingM"],
     selectionKeys: [],
     rows: [
@@ -236,22 +236,50 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         label: "Kullanıcı Ölçü Onayı",
       },
       {
+        key: "load.girderCount", label: "Köprüdeki Ana Kiriş Adedi ng",
+        formula: "ng = vinç konfigürasyonu (1 / 2 / 4)",
+        unit: "adet", digits: 0,
+      },
+      {
+        key: "load.liveLoadGirderCount", label: "Hareketli Yükü Paylaşan Kiriş Adedi ny",
+        formula: "ny = tek kirişlide 1; çift ve dört kirişlide takım başına 2",
+        unit: "adet", digits: 0,
+      },
+      {
         key: "load.bridgeDeadWeight", label: "Bir Kirişe Düşen Köprü Ağırlığı Wv",
-        formula: "Wv = G_köprü / 2 · 1000",
-        subst: (x) => `${n(x.deps.bridgeWeightT)} / 2 · 1000`,
+        formula: "Wv = G_köprü / ng · 1000",
+        subst: (x) => `${n(x.deps.bridgeWeightT)} / ${n(num(x.c["load.girderCount"]))} · 1000`,
         unit: "kg",
       },
       {
-        key: "load.trolleyWeight", label: "Araba Ağırlığı Wa", formula: "Wa = G_araba · 1000",
+        key: "load.trolleyWeight", label: "Toplam Araba Ağırlığı Wa", formula: "Wa = G_araba · 1000",
         subst: (x) => `${n(x.deps.trolleyWeightT)} · 1000`, unit: "kg",
       },
       {
-        key: "load.hoistLoad", label: "Kaldırma Yükü W1", formula: "W1 = Q · 1000",
-        subst: (x) => `${n(x.specs.mainCapacityT)} · 1000`, unit: "kg",
+        key: "load.trolleyWeightOnGirder", label: "Bir Kirişe Düşen Araba Ağırlığı Wa,g",
+        formula: "Wa,g = Wa / ny",
+        subst: (x) => `${n(num(x.c["load.trolleyWeight"]))} / ${n(num(x.c["load.liveLoadGirderCount"]))}`,
+        unit: "kg",
+      },
+      {
+        key: "load.hoistLoad", label: "Nominal Kaldırma Yükü W1", formula: "W1 = Q · 1000",
+        subst: (x) => `${n(num(x.c["load.hoistLoad"]))}`, unit: "kg",
+      },
+      {
+        key: "load.hoistLoadOnGirder", label: "Bir Kirişe Düşen Kaldırma Yükü W1,g",
+        formula: "W1,g = W1 / ny",
+        subst: (x) => `${n(num(x.c["load.hoistLoad"]))} / ${n(num(x.c["load.liveLoadGirderCount"]))}`,
+        unit: "kg",
       },
       {
         key: "load.totalLiveLoad", label: "Toplam Hareketli Yük W", formula: "W = W1 + G_kanca + G_halat",
         subst: (x) => `${n(num(x.c["load.hoistLoad"]))} + ${n(num(x.c["load.belowHookWeight"]))}`, unit: "kg",
+      },
+      {
+        key: "load.totalLiveLoadOnGirder", label: "Bir Kirişe Düşen Toplam Hareketli Yük Wg",
+        formula: "Wg = W / ny",
+        subst: (x) => `${n(num(x.c["load.totalLiveLoad"]))} / ${n(num(x.c["load.liveLoadGirderCount"]))}`,
+        unit: "kg",
       },
       {
         key: "load.dynamicFactor", label: "Dinamik Katsayı ψ",
@@ -336,8 +364,8 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       },
       {
         key: "load.trolleyHorizontal", label: "Araba Yatay Yükü Fha1",
-        formula: "Fha1 = min(F'ha1, F''ha1) / 2",
-        subst: (x) => `min(${n(num(x.c["load.trolleyInertia"]))}, ${n(num(x.c["load.trolleyTractionLimit"]))}) / 2`,
+        formula: "Fha1 = min(F'ha1, F''ha1) / ny",
+        subst: (x) => `min(${n(num(x.c["load.trolleyInertia"]))}, ${n(num(x.c["load.trolleyTractionLimit"]))}) / ${n(num(x.c["load.liveLoadGirderCount"]))}`,
         unit: "kg", standard: "FEM 1.001 2.2.3.1.1",
       },
       {
@@ -358,8 +386,8 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       },
       {
         key: "load.bridgeInertia", label: "Köprü Atalet Yükü F'hk1",
-        formula: "F'hk1 = aK · (W1 · ψhK + 2 · Wv) / g",
-        subst: (x) => `${n(num(x.c["load.bridgeAccel"]), 3)} · (${n(num(x.c["load.hoistLoad"]))} · ${n(num(x.c["load.psiHK"]), 3)} + 2 · ${n(num(x.c["load.bridgeDeadWeight"]))}) / 9,81`,
+        formula: "F'hk1 = aK · (W1 · ψhK + ny · Wv) / g",
+        subst: (x) => `${n(num(x.c["load.bridgeAccel"]), 3)} · (${n(num(x.c["load.hoistLoad"]))} · ${n(num(x.c["load.psiHK"]), 3)} + ${n(num(x.c["load.liveLoadGirderCount"]))} · ${n(num(x.c["load.bridgeDeadWeight"]))}) / 9,81`,
         unit: "kg", standard: "FEM 1.001 2.2.3.1.1",
       },
       {
@@ -370,8 +398,8 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       },
       {
         key: "load.bridgeHorizontal", label: "Köprü Yatay Yükü Fhk1",
-        formula: "Fhk1 = min(F'hk1, F''hk1) / 2",
-        subst: (x) => `min(${n(num(x.c["load.bridgeInertia"]))}, ${n(num(x.c["load.bridgeTractionLimit"]))}) / 2`,
+        formula: "Fhk1 = min(F'hk1, F''hk1) / ny",
+        subst: (x) => `min(${n(num(x.c["load.bridgeInertia"]))}, ${n(num(x.c["load.bridgeTractionLimit"]))}) / ${n(num(x.c["load.liveLoadGirderCount"]))}`,
         unit: "kg", standard: "FEM 1.001 2.2.3.1.1",
       },
       {

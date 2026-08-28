@@ -313,6 +313,8 @@ export const MAX_MONORAIL_COUNT = 2;
 /**
  * Köprünün TAŞIYICI KİRİŞ DÜZENİ.
  *
+ * - `tek`  : tek kirişli köprü — TEK ana kiriş takımı; araba ve kaldırma
+ *            yükünün tamamı bu kirişe gelir.
  * - `iki`  : klasik çift kirişli köprü — TEK ana kiriş takımı, tek hesap
  *            bölümü ("Ana Kiriş").
  * - `dort` : DÖRT KİRİŞLİ köprü — İKİ ana kiriş takımı ve iki hesap bölümü
@@ -322,16 +324,18 @@ export const MAX_MONORAIL_COUNT = 2;
  *            ve iki takımın kesiti, açıklığı, malzemesi birbirinden bağımsız
  *            tasarlanır.
  *
- * Vinç TİPİ (projects.crane_type) bu kararı vermez: tip bir künye alanıdır ve
- * hesap motoruna hiç girmez. Topoloji kararları — yardımcı araba, monoray
- * adedi, kiriş düzeni — hepsi teknik özelliklerdedir ve hesap bölümlerini
+ * Vinç TİPİ (projects.crane_type) hesap motoruna girmez. Açıkça tek/çift
+ * kirişli seçilen bir proje doğarken tip yalnız V0 teknik snapshot'ına öneri
+ * yazar; kalıcı karar yine bu alandadır. Topoloji kararları — yardımcı araba,
+ * monoray adedi, kiriş düzeni — teknik özelliklerdedir ve hesap bölümlerini
  * doğrudan açar.
  */
-export type GirderArrangement = "iki" | "dort";
+export type GirderArrangement = "tek" | "iki" | "dort";
 
-export const GIRDER_ARRANGEMENTS = ["iki", "dort"] as const;
+export const GIRDER_ARRANGEMENTS = ["tek", "iki", "dort"] as const;
 
 export const GIRDER_ARRANGEMENT_LABELS: Record<GirderArrangement, string> = {
+  tek: "Tek Kirişli",
   iki: "Çift Kirişli",
   dort: "Dört Kirişli",
 };
@@ -614,6 +618,7 @@ export function hasSeparateAuxTrolley(specs: TechnicalSpecs): boolean {
 
 /** Köprünün kiriş düzeni — eski revizyonlarda alan yoktur, `iki` okunur. */
 export function girderArrangement(specs: TechnicalSpecs): GirderArrangement {
+  if (specs.girderArrangement === "tek") return "tek";
   return specs.girderArrangement === "dort" ? "dort" : "iki";
 }
 
@@ -625,13 +630,24 @@ export function hasSecondGirder(specs: TechnicalSpecs): boolean {
 /**
  * Köprünün öz ağırlığını PAYLAŞAN ana kiriş adedi.
  *
- * Çift kirişli köprüde 2, dört kirişli köprüde 4'tür ve `bridgeWeightT` bu
- * sayıya bölünerek bir kirişe düşen ölü yük bulunur. Dört kirişliyi 2 saymak
- * her kirişi iki katı ölü yükle hesaplardı; 2'yi 4 saymak ise çift kirişli
- * vinçlerin bugünkü sonuçlarını değiştirirdi.
+ * Tek kirişli köprüde 1, çift kirişlide 2, dört kirişlide 4'tür ve
+ * `bridgeWeightT` bu sayıya bölünerek bir kirişe düşen ölü yük bulunur.
  */
 export function girdersInBridge(specs: TechnicalSpecs): number {
-  return hasSecondGirder(specs) ? 4 : 2;
+  const arrangement = girderArrangement(specs);
+  if (arrangement === "tek") return 1;
+  return arrangement === "dort" ? 4 : 2;
+}
+
+/**
+ * Aynı araba/kaldırma yükünü paylaşan ana kiriş adedi.
+ *
+ * Tek ve çift kirişli köprüde bir ana kiriş takımı vardır. Dört kirişli
+ * köprüdeyse iki ayrı İKİŞER kirişli takım bulunur; ana ve yardımcı kaldırma
+ * yükleri dört kirişin tamamına birden dağılmaz.
+ */
+export function liveLoadGirderCount(specs: TechnicalSpecs): 1 | 2 {
+  return girderArrangement(specs) === "tek" ? 1 : 2;
 }
 
 const HOIST_CLASS_SET: readonly string[] = ["H1", "H2", "H3", "H4"];

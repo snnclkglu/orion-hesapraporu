@@ -139,10 +139,12 @@ import type { FieldGroupKey } from "@/lib/calc/field-groups";
 import type { AnyCheck, TechnicalSpecs } from "@/lib/calc/types";
 import {
   doubleDrumHookSystem,
+  girdersInBridge,
   hasSecondGirder,
   hasSeparateAuxTrolley,
   hoistEquipmentArrangement,
   hookBlockLoadShare,
+  liveLoadGirderCount,
 } from "@/lib/calc/types";
 import {
   DISABLEABLE_MODULE_KEYS,
@@ -1639,7 +1641,8 @@ function girderDepsYedek(
     hoistLoadKg: specs.mainCapacityT * 1000,
     liftSpeedMpm: specs.mainLiftSpeedMpm,
     hoistDrumRpm: result.mainHoist?.values.drumRpm ?? 0,
-    girdersInBridge: hasSecondGirder(specs) ? 4 : 2,
+    girdersInBridge: girdersInBridge(specs),
+    liveLoadGirderCount: liveLoadGirderCount(specs),
     mainHookBlockWeightKg: input.mainHoist?.inputs.hookBlockWeightKg ?? 0,
     mainRopeWeightKg: input.mainHoist?.inputs.ropeWeightKg ?? 0,
     trolleyWeightT: specs.mainTrolleyWeightT,

@@ -87,6 +87,7 @@ import {
   hasSecondGirder,
   hasSeparateAuxTrolley,
   hookBlockLoadShare,
+  liveLoadGirderCount,
   monorailCount,
   travelArrangement,
 } from "./types";
@@ -101,8 +102,10 @@ import {
  * 0.4.0: Teker yükleri bölümü — yol kirişine aktarılan düşey/enine/boyuna
  *        kuvvetler, FEM Kitapçık 9 md. 9.3 dinamik katsayısı ve md. 9.4.1
  *        savrulma modeli.
+ * 0.5.0: Tek kirişli köprü — ölü ve hareketli yüklerin tek ana kirişe
+ *        aktarılması; çift/dört kirişli sonuçların geriye uyumlu korunması.
  */
-export const ENGINE_VERSION = "0.4.0";
+export const ENGINE_VERSION = "0.5.0";
 
 export interface HoistModuleInput {
   inputs: HoistInputs;
@@ -301,6 +304,7 @@ export function girderDepsFor(
     hoistDrumRpm: (ikinci ? result.auxHoist ?? result.mainHoist : result.mainHoist)
       ?.values.drumRpm ?? 0,
     girdersInBridge: girdersInBridge(specs),
+    liveLoadGirderCount: liveLoadGirderCount(specs),
     mainHookBlockWeightKg: hoistInput.inputs.hookBlockWeightKg,
     mainRopeWeightKg: hoistInput.inputs.ropeWeightKg,
     trolleyWeightT,

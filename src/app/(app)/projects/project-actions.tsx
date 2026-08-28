@@ -426,10 +426,10 @@ export function EditProjectDetailsDialog({
               maxLength={240}
             />
           </div>
-          {/* Vinç tipi: hesap bölümlerini doğrudan açmaz (topoloji kararı
-              Teknik Özellikler'dedir) ama rapor kapağına ve listeye basılır.
-              "Vinç Arabası" ve tekliflerdeki "Yer Vinci" yalnız YENİ bir
-              raporun İLK revizyonu doğarken revizyon topolojisini ÖNERİR
+          {/* Vinç tipi mevcut revizyonları doğrudan değiştirmez; teknik karar
+              revizyonun Teknik Özellikler snapshot'ındadır. Tek/çift kirişli
+              tipler, "Vinç Arabası" ve tekliflerdeki "Yer Vinci" yalnız YENİ
+              bir raporun İLK revizyonu doğarken uygun topolojiyi ÖNERİR
               (`applyCraneTypeRevisionPreset`). Buradan tipi
               değiştirmek mevcut revizyonların kapalı bölüm listesine
               dokunmaz — o karar artık revizyonun kendi verisidir. */}

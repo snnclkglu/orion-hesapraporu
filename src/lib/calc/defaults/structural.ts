@@ -21,6 +21,7 @@ export const V5_GIRDER_DEPS: GirderDeps = {
   liftSpeedMpm: 35,
   hoistDrumRpm: 14.554,
   girdersInBridge: 2,
+  liveLoadGirderCount: 2,
   mainHookBlockWeightKg: 3250,
   mainRopeWeightKg: 250,
   trolleyWeightT: 2.5,

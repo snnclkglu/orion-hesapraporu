@@ -153,10 +153,15 @@ export interface GirderDeps {
   /** Taşınan kaldırma grubunun tambur devri [d/dak] — basit dinamik tarama. */
   hoistDrumRpm: number;
   /**
-   * Köprünün öz ağırlığını paylaşan ana kiriş adedi (çift kirişli 2, dört
-   * kirişli 4). Bir kirişe düşen ölü yük `bridgeWeightT / bu sayı`dır.
+   * Köprünün öz ağırlığını paylaşan ana kiriş adedi (tek/çift/dört kirişli
+   * köprüde 1/2/4). Bir kirişe düşen ölü yük `bridgeWeightT / bu sayı`dır.
    */
   girdersInBridge: number;
+  /**
+   * Aynı araba ve kaldırma yükünü paylaşan kiriş adedi (tek kirişlide 1,
+   * çift ve dört kirişlide takım başına 2).
+   */
+  liveLoadGirderCount: number;
   mainHookBlockWeightKg: number;
   mainRopeWeightKg: number;
   trolleyWeightT: number;
@@ -768,14 +773,19 @@ export function computeMainGirder(
   });
 
   // --- 7.2 Yükler -----------------------------------------------------------
-  // Bir ana kirişe düşen köprü öz ağırlığı (iki kiriş) [kg]
   // Bir ana kirişe düşen köprü öz ağırlığı: köprünün toplam ağırlığı, taşıyıcı
-  // kiriş adedine bölünür (çift kirişli 2, dört kirişli 4).
+  // kiriş adedine bölünür (tek/çift/dört kirişli düzende 1/2/4).
   const girderShare = deps.girdersInBridge > 0 ? deps.girdersInBridge : 2;
+  // Dört kirişli köprüde ana ve yardımcı araba ayrı ikişer kirişli takımlar
+  // üzerinde yürür; bu nedenle hareketli yük payı toplam kiriş adedi değildir.
+  const liveLoadShare = deps.liveLoadGirderCount === 1 ? 1 : 2;
   const bridgeDeadWeightKg = (deps.bridgeWeightT / girderShare) * 1000;
   const trolleyWeightKg = deps.trolleyWeightT * 1000;
   const hoistLoadKg = deps.hoistLoadKg;
   const belowHookWeightKg = deps.mainHookBlockWeightKg + deps.mainRopeWeightKg;
+  const trolleyWeightOnGirderKg = trolleyWeightKg / liveLoadShare;
+  const hoistLoadOnGirderKg = hoistLoadKg / liveLoadShare;
+  const belowHookWeightOnGirderKg = belowHookWeightKg / liveLoadShare;
   cells["loads.measurementsConfirmed"] = inp.loadMeasurementsConfirmed === true
     ? "Onaylandı"
     : "Onay Bekliyor";
@@ -793,6 +803,7 @@ export function computeMainGirder(
     severity: "engelleyici",
   });
   const totalLiveLoadKg = hoistLoadKg + belowHookWeightKg;
+  const totalLiveLoadOnGirderKg = totalLiveLoadKg / liveLoadShare;
 
   const liftSpeedMs = deps.liftSpeedMpm / 60;
   // FEM 1.001 2.2.2.1.1 dinamik katsayı ψ
@@ -832,30 +843,38 @@ export function computeMainGirder(
     (deps.trolleyDrivenWheels * trolleyWheelPressureKg) / TRACTION_LIMIT_DIVISOR;
   const trolleyHorizontalKg =
     trolleyTractionLimitKg < trolleyInertiaLoadKg
-      ? trolleyTractionLimitKg / 2
-      : trolleyInertiaLoadKg / 2;
+      ? trolleyTractionLimitKg / liveLoadShare
+      : trolleyInertiaLoadKg / liveLoadShare;
   const trolleySkewKg = (trolleyWeightKg + hoistLoadKg) * skewFactorTrolley;
 
   // Köprü yatay yükleri — araba ile SİMETRİK: asılı yük ψhK ile dahil edilir
   // (FEM 1.001 2.2.3.1.1 + A.2.2.3: yükten gelen atalet kuvveti ψh·Fcm).
   const bridgeInertiaLoadKg =
-    (bridgeAccelMs2 * (hoistLoadKg * psiHK + 2 * bridgeDeadWeightKg)) / GRAVITY;
+    (bridgeAccelMs2 *
+      (hoistLoadKg * psiHK + liveLoadShare * bridgeDeadWeightKg)) /
+    GRAVITY;
   const bridgeWheelPressureKg = bridgeDeadWeightKg / deps.bridgeWheelCount;
   const bridgeTractionLimitKg =
     (deps.bridgeDrivenWheels * bridgeWheelPressureKg) / TRACTION_LIMIT_DIVISOR;
   const bridgeHorizontalKg =
     bridgeTractionLimitKg < bridgeInertiaLoadKg
-      ? bridgeTractionLimitKg / 2
-      : bridgeInertiaLoadKg / 2;
+      ? bridgeTractionLimitKg / liveLoadShare
+      : bridgeInertiaLoadKg / liveLoadShare;
   const bridgeSkewKg = (bridgeDeadWeightKg + hoistLoadKg) * skewFactorBridge;
 
   Object.assign(cells, {
     "load.bridgeDeadWeight": bridgeDeadWeightKg,
     "load.bridgeTotalWeight": deps.bridgeWeightT * 1000,
+    "load.girderCount": girderShare,
+    "load.liveLoadGirderCount": liveLoadShare,
     "load.trolleyWeight": trolleyWeightKg,
+    "load.trolleyWeightOnGirder": trolleyWeightOnGirderKg,
     "load.hoistLoad": hoistLoadKg,
+    "load.hoistLoadOnGirder": hoistLoadOnGirderKg,
     "load.belowHookWeight": belowHookWeightKg,
+    "load.belowHookWeightOnGirder": belowHookWeightOnGirderKg,
     "load.totalLiveLoad": totalLiveLoadKg,
+    "load.totalLiveLoadOnGirder": totalLiveLoadOnGirderKg,
     "load.liftSpeed": liftSpeedMs,
     "load.dynamicFactor": dynamicFactor,
     "load.trolleySpeed": trolleySpeedMs,
@@ -896,11 +915,14 @@ export function computeMainGirder(
   const momentSelfWeight = (spanMm * bridgeDeadWeightKg) / 80;
   const sigmaXSelfWeightBottom = momentSelfWeight / modulusYBottomCm3;   // σ1 alt
   const sigmaXSelfWeightTop = -momentSelfWeight / modulusYTopCm3;        // σ1 üst
-  const trolleyWheelLoadKg = trolleyWeightKg / 4;
+  // Bir kiriş üzerinde iki boyuna teker/yük istasyonu vardır. Çift kirişlide
+  // toplam dört teker yükü iki kirişe dağılır (Wa/4); tek kirişlide iki
+  // istasyonda birleşir (Wa/2).
+  const trolleyWheelLoadKg = trolleyWeightOnGirderKg / 2;
   const momentTrolley = (wheelToSupportMm * trolleyWheelLoadKg) / 10;
   const sigmaXTrolleyBottom = momentTrolley / modulusYBottomCm3;         // σ2 alt
   const sigmaXTrolleyTop = -momentTrolley / modulusYTopCm3;              // σ2 üst
-  const hoistWheelLoadKg = hoistLoadKg / 4;
+  const hoistWheelLoadKg = hoistLoadOnGirderKg / 2;
   const momentHoistLoad = (wheelToSupportMm * hoistWheelLoadKg) / 10;
   const momentVerticalTotal = momentSelfWeight + momentTrolley + momentHoistLoad;
   const sigmaXHoistBottom = momentHoistLoad / modulusYBottomCm3;         // σ3 alt

@@ -4,7 +4,7 @@
 //      arabanın yanaşma konumu, iki rayın düşey teker yükleri.
 //   2) wheelLoadSideDiagram — RAYA PARALEL görünüş: 6.1'de tanımlanan gerçek
 //      teker dizisi ve her tekerin düşey yükü; yakın ve uzak ray ayrı çizilir.
-//   3) skewPlanDiagram — ÜSTTEN görünüş: iki başkiriş, ana kirişler, teker
+//   3) skewPlanDiagram — ÜSTTEN görünüş: iki başkiriş, 1/2/4 ana kiriş, teker
 //      düzeni, savrulma açısı, anlık kayma kutbu ve teğetsel kuvvetler.
 //   4) longitudinalForceDiagram — RAYA PARALEL görünüş: hızlanma/frenleme
 //      kuvvetinin ray ve tahrikli teker tabanına dağılımı ile FEM bandı.
@@ -797,6 +797,8 @@ export interface SkewPlanWheel {
 
 export interface SkewPlanParams {
   spanM: number;
+  /** Vinç konfigürasyonundaki toplam ana kiriş adedi (1 / 2 / 4). */
+  girderCount?: number;
   wheels: SkewPlanWheel[];
   alphaRad: number;
   poleDistanceM: number;
@@ -811,7 +813,8 @@ export interface SkewPlanParams {
  * Vincin ÜSTTEN görünüşü — savrulma (FEM 1.001 Kitapçık 9 F.9.4.b / F.9.4.d).
  *
  * Vinç plan görünüşünde gerçek silüetiyle çizilir: iki rayın üzerinde birer
- * başkiriş, aralarında iki ana kiriş. Savrulma, FEM'in F.9.4.d şeklindeki gibi
+ * başkiriş, aralarında konfigürasyondaki 1/2/4 ana kiriş. Savrulma, FEM'in
+ * F.9.4.d şeklindeki gibi
  * RAY DOĞRULTUSU ile HAREKET DOĞRULTUSU arasındaki α açısıyla gösterilir —
  * gövdeyi eğmek yerine, çünkü α (birkaç mrad) çizimde görünmeyecek kadar
  * küçüktür.
@@ -879,7 +882,7 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
   els.push(ln(16, yRail1, PW - 16, yRail1, DCOL.ink, 2.4));
   els.push(ln(16, yRail2, PW - 16, yRail2, DCOL.ink, 2.4));
 
-  // --- Vinç silueti: iki başkiriş + iki ana kiriş --------------------------
+  // --- Vinç silueti: iki başkiriş + konfigürasyondaki ana kirişler ---------
   const carriageHalf = 20;
   const carriagePad = 22;
   for (const y of [yRail1, yRail2]) {
@@ -908,10 +911,22 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
   };
   const xG1 = centreOf(0, perCorner);
   const xG2 = centreOf(perCorner, nWheels);
+  const girderCount = p.girderCount === 1 || p.girderCount === 4
+    ? p.girderCount
+    : 2;
+  // İki kirişli görünüşte bugünkü teker-köşe merkezleri aynen korunur. Tek
+  // kiriş bu iki eksenin ortasına, dört kiriş ise aralarına eşit yerleşir;
+  // plan zaten açıklık doğrultusunda ölçekli olmayan şematik bir görünüştür.
+  const girderXs = girderCount === 1
+    ? [(xG1 + xG2) / 2]
+    : Array.from(
+        { length: girderCount },
+        (_, index) => xG1 + ((xG2 - xG1) * index) / (girderCount - 1)
+      );
   const gyTop = yRail1 + carriageHalf;
   const gyBot = yRail2 - carriageHalf;
   const gyMid = (gyTop + gyBot) / 2;
-  for (const xg of [xG1, xG2]) {
+  for (const xg of girderXs) {
     els.push({
       kind: "rect",
       x: xg - girderW / 2,
@@ -938,16 +953,23 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
       );
     }
   }
-  // Yalnız SOLDAKİ kiriş etiketlenir: sağdakinin etiketi anlık kayma kutbu
-  // etiketiyle aynı banda düşüyordu, iki kiriş de aynı elemandır.
+  // Yalnız SOLDAKİ kiriş etiketlenir: diğer etiketler anlık kayma kutbu
+  // etiketiyle aynı banda düşer; adet ayrıca metinde açıkça yazılır.
+  const firstGirderX = girderXs[0];
   els.push(
-    txt(xG1 - girderW / 2 - 8, gyTop + 26, "ANA KİRİŞLER (2 Adet)", 7.5, {
-      anchor: "end",
-      fill: DCOL.muted,
-    })
+    txt(
+      firstGirderX - girderW / 2 - 8,
+      gyTop + 26,
+      girderCount === 1 ? "ANA KİRİŞ (1 Adet)" : `ANA KİRİŞLER (${girderCount} Adet)`,
+      7.5,
+      {
+        anchor: "end",
+        fill: DCOL.muted,
+      }
+    )
   );
   // Açıklık ölçüsü — kırık işaretiyle kısaltıldığı için değeri yazılır
-  const xSpanDim = Math.min(xG1 - girderW / 2 - 58, xL - 34);
+  const xSpanDim = Math.min(firstGirderX - girderW / 2 - 58, xL - 34);
   els.push(ln(xSpanDim, gyTop, xSpanDim, gyBot, DCOL.muted, 0.8));
   els.push(ln(xSpanDim - 4, gyTop, xSpanDim + 4, gyTop, DCOL.muted, 0.8));
   els.push(ln(xSpanDim - 4, gyBot, xSpanDim + 4, gyBot, DCOL.muted, 0.8));

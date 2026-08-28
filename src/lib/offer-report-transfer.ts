@@ -671,8 +671,9 @@ export function parseOfferReportTransferText(text: string): ParsedOfferReportTra
   );
   // Dosyayla oluşturma `createRevision` yolunu kullanmaz. Bu yüzden vinç
   // tipinin V0 topoloji tohumu burada, hesap yeniden koşturulmadan ÖNCE
-  // uygulanır. AI "Yer Vinci" yazıp örnek raporun yürütme girdilerini bıraksa
-  // bile sonuçta araba/köprü yürütmesi DB'ye giremez.
+  // uygulanır. Böylece AI "Yer Vinci" yazıp yürütme girdilerini bırakamaz;
+  // tek/çift kirişli tipi seçtiğinde de kiriş yük paylaşımı aynı snapshot'a
+  // açıkça yazılır.
   const effectiveInputs = applyCraneTypeRevisionPreset(
     0,
     parsed.data.project.craneType,

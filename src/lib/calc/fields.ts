@@ -911,9 +911,12 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
     options: GIRDER_ARRANGEMENTS, optionLabels: GIRDER_ARRANGEMENT_LABELS,
     group: "config", requiresModule: "bridge",
     hint:
-      "Dört kirişli seçilirse ikinci bir ana kiriş bölümü açılır: " +
+      "Tek kirişlide araba ve kaldırma yükünün tamamı bir ana kirişe gelir. " +
+      "Çift kirişlide bu yük iki kirişe paylaştırılır. Dört kirişli seçilirse " +
+      "ikinci bir ana kiriş bölümü açılır: " +
       "Ana Kiriş - 1 ANA kaldırma yükünü, Ana Kiriş - 2 YARDIMCI kaldırma " +
-      "yükünü taşır. Köprü öz ağırlığı dört kirişe paylaştırılır. " +
+      "yükünü taşır; her takım iki kirişlidir. Köprü öz ağırlığı toplam dört " +
+      "kirişe paylaştırılır. " +
       "Şarj / döküm vinçlerinde yaygın düzendir.",
   },
 
