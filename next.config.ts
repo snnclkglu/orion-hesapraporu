@@ -101,10 +101,21 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
-      // Vercel Hobby function bütçesi: vinç portalının HTML yüzü mevcut
-      // korumalı müşteri paylaşım fonksiyonunda çalışır. Tarayıcı ve QR temiz
-      // `/paylas/vinc/:code` adresini görmeye devam eder; işlem uçları aşağıdaki
-      // tam eşleşmeden etkilenmez.
+      // Vercel Hobby function bütçesi: vinç portalının HTML ve işlem yüzleri
+      // mevcut korumalı müşteri paylaşım fonksiyonlarında çalışır. Tarayıcı ve
+      // QR temiz `/paylas/vinc/...` adreslerini görmeye devam eder.
+      {
+        source: "/paylas/vinc/:code/belge/:documentId/content",
+        destination: "/paylas/resim/:code/content?portal=vinc&action=content&documentId=:documentId",
+      },
+      {
+        source: "/paylas/vinc/:code/belge/:documentId/indir",
+        destination: "/paylas/resim/:code/content?portal=vinc&action=indir&documentId=:documentId",
+      },
+      {
+        source: "/paylas/vinc/:code/giris",
+        destination: "/paylas/resim/:code/content?portal=vinc&action=giris",
+      },
       {
         source: "/paylas/vinc/:code",
         destination: "/paylas/resim/:code?portal=vinc",

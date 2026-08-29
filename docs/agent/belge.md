@@ -314,19 +314,20 @@ depo nesneleri normal authenticated kullanıcıya açılmaz; public route yalnı
 server-side service-role veri katmanından, oturum + dosya allowlist'i
 doğrulandıktan sonra okur.
 
-**PORTAL YALNIZ BİR YENİ SUNUCU FONKSİYONU EKLER.** Vercel Hobby dağıtımı en
-fazla 12 function kabul eder ve uygulamanın mevcut fonksiyon + proxy bütçesi
-dolmaya yakındır. Vinç portalının HTML yüzü `next.config.ts` rewrite'ıyla zaten
-var olan `/paylas/resim/[token]` müşteri paylaşım fonksiyonunda çalışır; QR ve
-tarayıcı yine temiz `/paylas/vinc/[code]` adresini görür. Portalın eklediği tek
-yeni fonksiyon giriş+content+indir işlemlerini birleştiren
-`[...action]/route.ts`dir. Bu işlemler ayrı `route.ts` dosyalarına, portal
-listesi veya belge görüntüleyici ayrı `page.tsx`lere bölünmez. İsim plakası
-SVG'si de ayrı sunucu ucu açmaz: yönetim sayfasına gömülen aynı saf geometri,
-logo ve font verileri tarayıcıda Blob olarak indirilir. Böylece baskı dosyası
-self-contained kalırken dağıtım bütçesi aşılmaz. İşlem ayrımı catch-all içinde
-HTTP yöntemi + kesin segment şekliyle, belge seçimi sayfada `?belge=<uuid>` ile
-yapılır; her ikisi de aynı oturum/allowlist denetimini çağırır.
+**PORTAL YENİ SUNUCU FONKSİYONU EKLEMEZ.** Vercel Hobby dağıtımı en fazla 12
+function kabul eder ve uygulamanın mevcut fonksiyon + proxy bütçesi doludur.
+Vinç portalının HTML yüzü `next.config.ts` rewrite'ıyla zaten var olan
+`/paylas/resim/[token]` müşteri paylaşım fonksiyonunda; giriş, content ve indir
+işlemleri de var olan `/paylas/resim/[token]/content` fonksiyonunda çalışır. QR
+ve tarayıcı yine temiz `/paylas/vinc/[code]` adresini görür. Portal işlemleri
+ayrı `route.ts` dosyalarına, portal listesi veya belge görüntüleyici ayrı
+`page.tsx`lere bölünmez. İsim plakası SVG'si de ayrı sunucu ucu açmaz: yönetim
+sayfasına gömülen aynı saf geometri, logo ve font verileri tarayıcıda Blob
+olarak indirilir. Böylece baskı dosyası self-contained kalırken dağıtım bütçesi
+aşılmaz. İşlem ayrımı mevcut content ucu içinde HTTP yöntemi ve rewrite'ın
+eklediği kesin `portal`/`action` sorgularıyla, belge seçimi sayfada
+`?belge=<uuid>` ile yapılır; her ikisi de aynı oturum/allowlist denetimini
+çağırır.
 
 **“GÖRÜNTÜLE” DRM DEĞİLDİR.** `view_watermarked` PDF'i ham dosya bağlantısı
 vermeden canvas üzerinde, seri/oturum/tarih filigranıyla gösterir; indirme ve
