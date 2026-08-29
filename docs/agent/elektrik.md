@@ -276,3 +276,24 @@ Kablo üst sınıfı `Kablolar`dır. HELUKABEL/IGUS malzeme kodları ile açık 
 enerji zinciri, servo, enkoder ve bağlantı kablosu işaretleri bu sınıfa girer;
 fiş, priz ve klemensler ayrı bağlantı ailesinde kalır. Bu ayrım yeni EPLAN
 projelerinde de aynı saf sınıflandırıcıdan türetilir.
+
+## ELEKTRIK-16 — Ekipman listesi TEKTİR; mekanik ve elektrik iki bölümüdür.
+
+Hesap revizyonunun seçimlerinden gelen mekanik satırlar ile güncel elektrik
+projesinin `materialRows` çıktısı aynı ekipman tablosunda birleşir. Sıra
+**Mekanik Ekipmanlar → Elektrik Ekipmanları**dır; elektrik grupları
+`ELECTRICAL_CATEGORIES` taksonomisinden gelir. Kullanıcı ekranda ve indirmede
+Mekanik, Elektrik veya Tüm listeyi seçebilir; PDF ve Excel aynı bölüm
+süzgecinden geçer.
+
+**BOŞ BÖLÜM BASILMAZ.** Güncel elektrik projesi yoksa ya da okunmuş malzeme
+satırı üretmemişse elektrik başlığı, boş tablo, sayaç ve dosya adı oluşmaz;
+mevcut projeler yalnız Mekanik Ekipman Listesi olarak çalışmayı sürdürür. Tüm
+liste istendiğinde tek bölüm kalmışsa belge kendine “Tüm” demez.
+
+Elektrik satırındaki okunamayan adet ekranda/PDF'de `—`, Excel'de boş hücredir
+(`ELEKTRIK-4`). Satır notu ve ek belgesi `electrical_parts.id`ye bağlanmaz:
+yeniden okumada satırlar üretildiği için normalize ürün anahtarının kararlı,
+action sözleşmesine uygun hash'i kullanılır. Teknik föy ekipman adına, ayrı tam
+katalog varsa model hücresine bağlanır; detaylı PDF kipi bu dış elektrik
+bağlantılarını düşürmez.

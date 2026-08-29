@@ -1561,13 +1561,13 @@ gizli anahtar listesi tutulmaz. Eski payload'da `hiddenSections` boş kabul
 edilir, dolayısıyla geçmiş belge kendiliğinden bölüm kaybetmez.
 
 Yeni Teklif penceresindeki **Teklifi Hazırlayan Firma** varsayılan olarak
-ORION VİNÇ'tir; müşteri defterindeki bir partner seçilirse unvan, adres,
+ORION VİNÇ'tir; müşteri defterindeki başka bir hazırlayan firma seçilirse unvan, adres,
 telefon, faks ve vergi bilgileri ilk revizyonun `issuer` snapshot'ına yazılır.
-Partner seçimi PDF'in bütün marka yüzeylerine birlikte uygulanır: kapak ve
+Hazırlayan firma seçimi PDF'in bütün marka yüzeylerine birlikte uygulanır: kapak ve
 KİMDEN künyesi, sayfa lockup/filigranı, altbilgi, metadata, firma tanıtımı,
-dosya adı ve Genel Şartlardaki firma adı. Partner logosu canlı kimlik olarak
+dosya adı ve Genel Şartlardaki firma adı. Hazırlayan firma logosu canlı kimlik olarak
 müşteri defterinden okunabilir; logo yoksa ORION logosuna geri düşülmez.
-Partner teklifinde ORION kullanıcısının e-posta adresi de KİMDEN künyesine
+Başka bir firma adına hazırlanan teklifte ORION kullanıcısının e-posta adresi de KİMDEN künyesine
 sızmaz. Unvan/adres/vergi metni ise snapshot'tır ve sonradan defter değişince
 teslim edilmiş teklif değişmez.
 
@@ -1584,8 +1584,8 @@ Kullanıcı kararı (26.08.2026): teklifin yalnız **teknik özellikler**
 yapraklarında sağ üstteki teklif numarası kaldırılır; onun yerinde Teklifi
 Hazırlayan Firma'nın logosu basılır. Kapak değişmez. Ticari şartlar, ayrı fiyat
 yaprağı ve genel şartlar kendi iki satırlı referans künyesini korur. ORION
-teklifinde yerleşik kömür logo, partner teklifinde indirilen partner logosu
-kullanılır; seçili partnerin logosu yoksa ORION'a geri düşülmez. Teknik logo
+teklifinde yerleşik kömür logo, başka firma adına hazırlanan teklifte o firmanın logosu
+kullanılır; seçili firmanın logosu yoksa ORION'a geri düşülmez. Teknik logo
 akış dışındadır: başlık yüksekliğini ve teknik sütun sayfalamasını değiştirmez.
 
 Markalı altbilgide doküman satırı ile folio aynı esnek metin kutusunu paylaşmaz.
@@ -1594,7 +1594,7 @@ veya teklif konusu kalan genişlikte ayraçlardan doğal olarak ikinci satıra
 geçer. Bu kural `BrandPage` üzerinden kapak dahil teklifin her fiziksel
 yaprağında uygulanır; hiçbir metin sayfa numarasının alanına giremez.
 
-Kullanıcı kararı (27.08.2026): teknik başlıktaki partner logosunun **görünür
+Kullanıcı kararı (27.08.2026): teknik başlıktaki hazırlayan firma logosunun **görünür
 gövdesi** önceki ölçüye göre %25 büyür ve görünür sağ kenarı alttaki kırmızı
 kuralın sağ ucuna hizalanır. Standart 900×240 merkezli tuval kapak ve diğer
 marka yüzeylerinde korunur; teknik başlık için ondan ayrı, sıkı bir türev

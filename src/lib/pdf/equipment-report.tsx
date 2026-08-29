@@ -14,6 +14,7 @@ import { Document, Image, Link, StyleSheet, Text, View, renderToBuffer } from "@
 import type {
   EqGroup, SummarySection,
 } from "@/lib/excel/equipment";
+import type { EquipmentSection } from "@/lib/equipment-sections";
 import {
   attachmentSummaryText, rowCatalogSheetKey, rowDatasheetUrl,
   rowSheetUrl, summaryRowValue,
@@ -52,6 +53,11 @@ const s = StyleSheet.create({
   groupCell: {
     fontFamily: FONTS.sans, fontSize: 8, fontWeight: 700, color: BRAND.ink,
     paddingVertical: 3, paddingHorizontal: 5,
+  },
+  sectionRow: { backgroundColor: BRAND.ink, marginTop: 3 },
+  sectionCell: {
+    fontFamily: FONTS.sans, fontSize: 9, fontWeight: 700, letterSpacing: 0.6,
+    color: BRAND.paper100, paddingVertical: 4, paddingHorizontal: 5,
   },
   tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline },
   td: { fontFamily: FONTS.sans, fontSize: 7.5, color: BRAND.ink, paddingVertical: 2.5, paddingHorizontal: 5 },
@@ -123,9 +129,6 @@ const s = StyleSheet.create({
   },
   noteLine: { fontFamily: FONTS.sans, fontSize: 8, color: BRAND.ink, lineHeight: 1.4 },
   // ek: katalog sayfaları
-  sheetHead: { marginBottom: 6 },
-  sheetTitle: { fontFamily: FONTS.sans, fontSize: 11, fontWeight: 700, color: BRAND.ink },
-  sheetMeta: { fontFamily: FONTS.mono, fontSize: 7, color: BRAND.gray600, marginTop: 2 },
   sheetImage: { width: "100%", objectFit: "contain" as const },
   hint: { fontFamily: FONTS.sans, fontSize: 7, color: BRAND.gray600, marginBottom: 6 },
   mainDrawingLink: {
@@ -204,6 +207,10 @@ export interface EquipmentAttachmentCover {
 export interface EquipmentPdfProps {
   meta: EquipmentMetaPdf;
   groups: EqGroup[];
+  /** Mekanik/elektrik bölüm hiyerarşisi; verilmezse `groups` mekaniktir. */
+  sections?: readonly EquipmentSection[];
+  /** Belgenin kapsam adı: Mekanik · Elektrik · Tüm Ekipman Listesi. */
+  listTitle?: string;
   /** Proje düzeyinde seçilen; ORION ile birlikte belgeyi hazırlayan partner. */
   partner?: PartnerBrandIdentity | null;
   summary?: SummarySection[];
@@ -415,9 +422,14 @@ function MetaGrid({ meta }: { meta: EquipmentMetaPdf }) {
 }
 
 export function EquipmentDocument({
-  meta, groups, partner, summary, specTable, settings, datasheetUrls, sheetUrls, mainDrawingUrl, sheetPages,
+  meta, groups, sections, listTitle = "Ekipman Listesi", partner, summary, specTable, settings,
+  datasheetUrls, sheetUrls, mainDrawingUrl, sheetPages,
   attachmentCovers,
 }: EquipmentPdfProps) {
+  const documentSections: readonly EquipmentSection[] = sections ?? [
+    { key: "mechanical", name: "Mekanik Ekipmanlar", groups },
+  ];
+  const sectionBands = documentSections.length > 1;
   const covers = attachmentCovers ?? [];
   const detailed = (!!sheetPages && sheetPages.length > 0) || covers.length > 0;
   /**
@@ -444,7 +456,10 @@ export function EquipmentDocument({
       if (row.rowKey && coverKeys.has(row.rowKey)) {
         return `#${attachmentAnchorId(row.rowKey)}`;
       }
-      return undefined;
+      // Elektrik teknik föyleri workspace manifestinde görüntü değildir; özel
+      // katalog ucundan PDF olarak açılır. Detaylı mekanik destesi etkin diye
+      // bu dış bağlantı düşmemelidir.
+      return rowSheetUrl(row, sheetUrls);
     }
     if (!row.kind) return undefined;
     return rowSheetUrl(row, sheetUrls);
@@ -460,14 +475,20 @@ export function EquipmentDocument({
   const partnerMark = brandLogoFromBuffer(partner?.logo);
   return (
     <Document
-      title={`${meta.docNo}-V${meta.revNo} Ekipman Listesi`}
+      title={`${meta.docNo}-V${meta.revNo} ${listTitle}`}
       author={(settings ?? DEFAULT_REPORT_SETTINGS).company}
       subject={`${meta.customer} — ${meta.projectName}`}
       language="tr"
     >
-      {/* Hesap raporuyla aynı ortak marka sırası: ORION, partner ve proje künyesi. */}
+      {/*
+        ORTAK MARKA KAPAĞI: hesap raporuyla aynı sıra — ORION bandı, Partner
+        Firma logo+adı, belge adı ve proje künyesi. Ayrı yaprak olması bilinçli:
+        teknik özellik tablosu büyük ve bölünemezdir; kimlik bloğu aynı yaprağa
+        sıkıştırılırsa tablonun tamamı örtük ikinci sayfaya kaçar ve ilk yaprak
+        yarı boş görünür.
+      */}
       <BrandPage
-        docLine={`ORION CRANES · EKİPMAN LİSTESİ · REV ${rev} · ${year}`}
+        docLine={`ORION CRANES · ${trUpper(listTitle)} · REV ${rev} · ${year}`}
         docCode={code}
         orientation="landscape"
         company={companyInfo(settings)}
@@ -481,7 +502,7 @@ export function EquipmentDocument({
           maxLogoHeight={34}
         />
         <View style={{ marginTop: partner ? 26 : 72 }}>
-          <Text style={T.kicker}>ORION CRANES · EKİPMAN LİSTESİ</Text>
+          <Text style={T.kicker}>ORION CRANES · {trUpper(listTitle)}</Text>
           <RuleRed width={24} />
           <Text style={{ ...T.display, fontSize: 27, marginTop: 10 }}>
             {trUpper(meta.projectName || "Ekipman Listesi")}
@@ -531,22 +552,24 @@ export function EquipmentDocument({
       )}
 
       <BrandPage
-        docLine={`ORION CRANES · EKİPMAN LİSTESİ · REV ${rev} · ${year}`}
+        docLine={`ORION CRANES · ${trUpper(listTitle)} · REV ${rev} · ${year}`}
         docCode={code}
         orientation="landscape"
         company={companyInfo(settings)}
         repeatedHeader={(
           <PageHeader
             fixed
-            kicker={detailed
-              ? "ORION Cranes · Ekipman Listesi · Katalog Sayfaları Ekli"
-              : "ORION Cranes · Ekipman Listesi"}
+          kicker={detailed
+            ? `ORION Cranes · ${listTitle} · Katalog Sayfaları Ekli`
+            : `ORION Cranes · ${listTitle}`}
             title={meta.projectName || "Ekipman Listesi"}
             logo={partnerMark}
           />
         )}
       >
-
+        {/* Başlık PageHeader içinde tr-TR ile büyütülür; kaynak Title Case yazılır.
+            Kicker'da firma adı, sağda doküman kodu TEKRARLANMAZ — ikisi de marka
+            bandında. */}
         {/* PROJE künyeden çıktı: artık sayfa BAŞLIĞI o. Aynı bilgiyi hem
             başlıkta hem künyede tekrarlamak künyeyi gereksiz uzatıyordu. */}
         <MetaGrid meta={meta} />
@@ -590,36 +613,43 @@ export function EquipmentDocument({
           başlık nereye giderse en az bir satır onunla birlikte gider ve
           hiçbir zaman sayfa dibinde yalnız kalmaz.
         */}
-        {groups.map((g) => {
-          const rows = g.rows.map((r, i) => (
-            <View key={i} style={[s.tr, r.alt ? s.altRow : {}]} wrap={false}>
-              <ComponentCell
-                row={r}
-                href={linkFor(r)}
-                style={[
-                  s.td, s.cComp,
-                  r.custom ? s.custom : {},
-                  r.alt ? s.altText : {}, r.alt ? s.altIndent : {},
-                ]}
-              />
-              <Text style={[s.td, s.cBrand, r.alt ? s.altText : {}]}>{reportRowUpper(r.brand)}</Text>
-              <ModelCell row={r} urls={datasheetUrls} />
-              <Text style={[s.td, s.cSpec, r.alt ? s.altText : {}]}>{reportRowUpper(r.spec)}</Text>
-              <Text style={[s.td, s.cNote, s.noteText]}>{reportRowUpper(r.note ?? "")}</Text>
-              <AttachmentCell row={r} href={attachmentLinkFor(r)} />
-              <Text style={[s.td, s.mono, s.cQty, r.alt ? s.altText : {}]}>{String(r.qty)}</Text>
-            </View>
-          ));
-          return (
-            <React.Fragment key={g.name}>
-              <View wrap={false}>
-                <View style={s.groupRow}><Text style={s.groupCell}>{trUpper(g.name)}</Text></View>
-                {rows[0]}
+        {documentSections.flatMap((section) =>
+          section.groups.map((g, groupIndex) => {
+            const rows = g.rows.map((r, i) => (
+              <View key={i} style={[s.tr, r.alt ? s.altRow : {}]} wrap={false}>
+                <ComponentCell
+                  row={r}
+                  href={linkFor(r)}
+                  style={[
+                    s.td, s.cComp,
+                    r.custom ? s.custom : {},
+                    r.alt ? s.altText : {}, r.alt ? s.altIndent : {},
+                  ]}
+                />
+                <Text style={[s.td, s.cBrand, r.alt ? s.altText : {}]}>{reportRowUpper(r.brand)}</Text>
+                <ModelCell row={r} urls={datasheetUrls} />
+                <Text style={[s.td, s.cSpec, r.alt ? s.altText : {}]}>{reportRowUpper(r.spec)}</Text>
+                <Text style={[s.td, s.cNote, s.noteText]}>{reportRowUpper(r.note ?? "")}</Text>
+                <AttachmentCell row={r} href={attachmentLinkFor(r)} />
+                <Text style={[s.td, s.mono, s.cQty, r.alt ? s.altText : {}]}>{String(r.qty)}</Text>
               </View>
-              {rows.slice(1)}
-            </React.Fragment>
-          );
-        })}
+            ));
+            return (
+              <React.Fragment key={`${section.key}-${g.name}-${groupIndex}`}>
+                <View wrap={false}>
+                  {sectionBands && groupIndex === 0 ? (
+                    <View style={s.sectionRow}>
+                      <Text style={s.sectionCell}>{trUpper(section.name)}</Text>
+                    </View>
+                  ) : null}
+                  <View style={s.groupRow}><Text style={s.groupCell}>{trUpper(g.name)}</Text></View>
+                  {rows[0]}
+                </View>
+                {rows.slice(1)}
+              </React.Fragment>
+            );
+          })
+        )}
 
       </BrandPage>
 
@@ -750,6 +780,7 @@ export function EquipmentDocument({
                 logo={partnerMark}
               />
             </View>
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- React-PDF Image tarayıcı img öğesi değildir. */}
             <Image
               src={image}
               style={[s.sheetImage, { maxHeight: SHEET_MAX_HEIGHT[image.orientation] }]}

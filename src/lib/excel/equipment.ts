@@ -19,7 +19,8 @@ import {
   colLetter,
   writeTitleBlock,
 } from "@/lib/excel/brand";
-import { baslikDuzeni, kimlikBuyuk } from "@/lib/tr-text";
+import { baslikDuzeni, kimlikBuyuk, trBuyuk } from "@/lib/tr-text";
+import type { EquipmentSection } from "@/lib/equipment-sections";
 import { MODULE_LABELS } from "@/lib/calc/labels";
 import { moduleResult, moduleState } from "@/lib/calc/presentation/module-access";
 import {
@@ -375,6 +376,21 @@ export interface EqRow {
   qty: number | string;
   /** Panelden eklenen serbest satır (silinebilir/düzenlenebilir) */
   custom?: boolean;
+}
+
+/**
+ * OKUNAMAYAN ADET — `0` DEĞİL (değişmez md. 4 · `ELEKTRIK-4`).
+ *
+ * Elektrik projesinin malzeme listesinde adet okunamamış olabilir; bu
+ * bilinmiyordur. Ekranda ve PDF'te `—` görünür, Excel'de HÜCRE BOŞ KALIR
+ * (`qtyCellValue`): sıfır bir ölçüm gibi okunur ve yanlış adet sipariş
+ * ettirir. Sabit burada durur çünkü tanımladığı şey `EqRow.qty`dir.
+ */
+export const UNKNOWN_QTY = "—";
+
+/** Excel adet hücresi — okunamayan adet BOŞ yazılır, "—" değil. */
+export function qtyCellValue(qty: EqRow["qty"]): number | string | null {
+  return qty === UNKNOWN_QTY ? null : qty;
 }
 
 /** row_key → not metni (equipment_notes tablosundan okunur) */
@@ -1360,19 +1376,21 @@ const HYPERLINK_FONT = { color: { argb: "FF1155CC" }, underline: true as const }
 
 function writeEquipmentSheet(
   ws: ExcelJS.Worksheet,
-  groups: EqGroup[],
+  sections: readonly EquipmentSection[],
   meta: EquipmentMeta,
   datasheetUrls?: Map<string, string>,
   /** Ekipman ADINA bağlanan katalog sayfası adresleri (mutlak) */
   sheetUrls?: Map<string, string>,
   /** Ekipman listesinin üstünde açılan müşteri ana pafta bağlantısı. */
-  mainDrawingUrl?: string
+  mainDrawingUrl?: string,
+  /** Bant başlığı — bölüm seçildiyse belgenin adı onu söyler. */
+  bandTitle = "EKİPMAN LİSTESİ"
 ): number {
   // Sütunlar: Ekipman · Marka · Model · Özellikler · Ek Özellikler · Ek Belge · Adet
   const COL_COUNT = 7;
   const QTY_COL = 7;
   const ATTACH_COL = 6;
-  let headerRowNo = writeBand(ws, "EKİPMAN LİSTESİ", meta, COL_COUNT);
+  let headerRowNo = writeBand(ws, bandTitle, meta, COL_COUNT);
 
   if (mainDrawingUrl) {
     ws.mergeCells(`A${headerRowNo}:${colLetter(COL_COUNT)}${headerRowNo}`);
@@ -1412,23 +1430,44 @@ function writeEquipmentSheet(
   let rowNo = headerRowNo + 1;
   let componentCount = 0;
 
-  groups.forEach((group) => {
-    // Grup başlığı: birleşik satır (marka kırmızısı üst çizgi, nötr dolgu)
-    ws.mergeCells(`A${rowNo}:${colLetter(COL_COUNT)}${rowNo}`);
-    const gc = ws.getCell(`A${rowNo}`);
-    gc.value = group.name;
-    gc.font = { bold: true };
-    gc.fill = COL_FILL;
-    for (let c = 1; c <= COL_COUNT; c++) {
-      ws.getRow(rowNo).getCell(c).border = {
-        ...THIN_BORDER,
-        top: { style: "medium", color: { argb: ORION_RED } },
-      };
-    }
-    rowNo += 1;
+  // BÖLÜM BANDI ANCAK AYIRACAK BİR ŞEY VARSA basılır (`showSectionBands`):
+  // tek bölümlü bir belgede başlık hiçbir şeyi ayırmaz, adı zaten bantta yazar.
+  const bands = sections.length > 1;
 
-    group.rows.forEach((r) => {
-      const row = ws.getRow(rowNo);
+  sections.forEach((section) => {
+    if (bands) {
+      // Bölüm başlığı grup başlığından BİR TON KOYUDUR: ikisi aynı görünseydi
+      // "Elektrik Ekipmanları" ile "Kontaktörler" aynı düzeyde okunurdu.
+      ws.mergeCells(`A${rowNo}:${colLetter(COL_COUNT)}${rowNo}`);
+      const sc = ws.getCell(`A${rowNo}`);
+      sc.value = trBuyuk(section.name);
+      sc.font = { name: TITLE_FONT, bold: true, size: 11, color: { argb: PAPER } };
+      sc.fill = HEADER_FILL;
+      sc.alignment = { vertical: "middle" };
+      for (let c = 1; c <= COL_COUNT; c++) {
+        ws.getRow(rowNo).getCell(c).border = THIN_BORDER;
+      }
+      ws.getRow(rowNo).height = 20;
+      rowNo += 1;
+    }
+
+    section.groups.forEach((group) => {
+      // Grup başlığı: birleşik satır (marka kırmızısı üst çizgi, nötr dolgu)
+      ws.mergeCells(`A${rowNo}:${colLetter(COL_COUNT)}${rowNo}`);
+      const gc = ws.getCell(`A${rowNo}`);
+      gc.value = group.name;
+      gc.font = { bold: true };
+      gc.fill = COL_FILL;
+      for (let c = 1; c <= COL_COUNT; c++) {
+        ws.getRow(rowNo).getCell(c).border = {
+          ...THIN_BORDER,
+          top: { style: "medium", color: { argb: ORION_RED } },
+        };
+      }
+      rowNo += 1;
+
+      group.rows.forEach((r) => {
+        const row = ws.getRow(rowNo);
       // Ekipman adı: katalog sayfası varsa müşteriye açık görüntüleyiciye köprü.
       // Excel dosyası uygulamanın dışında açıldığı için adres MUTLAKTIR.
       const sheetUrl = rowSheetUrl(r, sheetUrls);
@@ -1456,7 +1495,9 @@ function writeEquipmentSheet(
       // gömülü bir PDF, dosyayı hem şişirir hem de her açanda güven uyarısı
       // çıkarırdı.
       row.getCell(ATTACH_COL).value = attachmentSummaryText(r.attachments);
-      row.getCell(QTY_COL).value = r.qty;
+      // OKUNAMAYAN ADET HÜCREYİ BOŞ BIRAKIR (`qtyCellValue`): "—" bir metindir
+      // ve adet sütununu metne çevirip sıralamayı bozardı; `0` ise yalan olurdu.
+      row.getCell(QTY_COL).value = qtyCellValue(r.qty);
       // Adet: sayılar TR ayraçlı, sağa dayalı, mono
       if (typeof r.qty === "number") {
         row.getCell(QTY_COL).numFmt = Number.isInteger(r.qty) ? "#,##0" : "#,##0.00";
@@ -1480,12 +1521,13 @@ function writeEquipmentSheet(
           cell.font = { ...(cell.font ?? {}), italic: true, color: { argb: MUTED_GRAY } };
         }
       }
-      rowNo += 1;
-      componentCount += 1;
+        rowNo += 1;
+        componentCount += 1;
+      });
     });
   });
 
-  writeFooterRow(ws, rowNo + 1, COL_COUNT, "EKİPMAN LİSTESİ", meta);
+  writeFooterRow(ws, rowNo + 1, COL_COUNT, bandTitle, meta);
 
   autoWidth(ws, WIDTH_MIN, WIDTH_MAX);
   ws.getColumn(4).width = 46; // özellik metni uzun; sabit geniş + wrap
@@ -2395,6 +2437,15 @@ export interface EquipmentWorkbookOptions {
   drawingNote?: string;
   /** Gizlenen alt bölümler — satırları listeye girmez (buildEquipmentGroups). */
   hiddenSections?: readonly string[];
+  /**
+   * Hazır bölüm kümesi. Verilirse liste satırları yeniden hesaplanmaz; indirme
+   * ucu mekanik + elektrik birleşimini burada tek sözleşmeyle taşır.
+   */
+  sections?: readonly EquipmentSection[];
+  /** Ekipman sayfasının sekme/bant adı (Mekanik · Elektrik · Tüm). */
+  sheetTitle?: string;
+  /** Ekipman ADINA bağlanan hazır katalog/föy adresleri. */
+  sheetUrls?: Map<string, string>;
 }
 
 export function buildEquipmentWorkbook(
@@ -2407,27 +2458,36 @@ export function buildEquipmentWorkbook(
   wb.creator = "ORION Hesap Raporu";
   wb.created = new Date();
 
-  const groups = mergeExtras(
-    buildEquipmentGroups(
-      calcInput, options.notes, options.alts, options.attachments, options.hiddenSections
-    ),
-    options.extras,
-    absentModuleGroupNames(calcInput)
-  );
+  const sections: readonly EquipmentSection[] = options.sections ?? [
+    {
+      key: "mechanical",
+      name: "Mekanik Ekipmanlar",
+      groups: mergeExtras(
+        buildEquipmentGroups(
+          calcInput, options.notes, options.alts, options.attachments, options.hiddenSections
+        ),
+        options.extras,
+        absentModuleGroupNames(calcInput)
+      ),
+    },
+  ];
+  const groups = sections.flatMap((section) => section.groups);
+  const sheetTitle = options.sheetTitle?.trim() || "Ekipman Listesi";
 
-  const wsEquipment = wb.addWorksheet("Ekipman Listesi", {
+  const wsEquipment = wb.addWorksheet(sheetTitle, {
     pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
-  const sheetUrls = options.appOrigin
-    ? buildCatalogSheetUrls(groups, options.appOrigin)
-    : undefined;
+  const sheetUrls = options.sheetUrls ?? (
+    options.appOrigin ? buildCatalogSheetUrls(groups, options.appOrigin) : undefined
+  );
   writeEquipmentSheet(
     wsEquipment,
-    groups,
+    sections,
     meta,
     options.datasheetUrls,
     sheetUrls,
-    options.mainDrawingUrl
+    options.mainDrawingUrl,
+    trBuyuk(sheetTitle)
   );
 
   // Teknik ressam özeti dahili bir çıktıdır; müşteri dosyasına dahil edilmez.

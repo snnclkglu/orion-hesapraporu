@@ -13,6 +13,8 @@ import {
   catalogIdentityOf, dsKey,
 } from "@/lib/excel/equipment";
 import { EquipmentPanel } from "@/app/(app)/projects/[id]/revisions/[revId]/equipment/equipment-panel";
+import { buildElectricalEquipmentGroups, equipmentSections } from "@/lib/equipment-sections";
+import { materialRows } from "@/lib/electrical/rollup";
 
 /**
  * Ressam notu fikstürü — ÇOK SATIRLI olmalı: tek satırlık bir örnek "Notlar"
@@ -47,6 +49,26 @@ export default function EquipmentPreviewPage() {
     undefined,
     attachments
   );
+  // Gerçek 185/40T EPLAN dışa aktarımından alınmış satırlar. İkinci Siemens
+  // ürünü aynı malzemenin iki panoda toplanmasını, son satır okunamayan adedin
+  // sıfıra çevrilmeden "—" görünmesini sınar.
+  const electricalGroups = buildElectricalEquipmentGroups(materialRows([
+    {
+      deviceTag: "=185T+LVD01-F31", installation: "185T", location: "LVD01", device: "F31",
+      qty: 9, designation: "CIRCUIT BREAKER 400V 6KA, 2POLE, C, 10A",
+      typeNo: "5SL6210-7", supplier: "Siemens", partNo: "SIE.5SL6210-7", page: 146,
+    },
+    {
+      deviceTag: "=185T+LVD10-F31", installation: "185T", location: "LVD10", device: "F31",
+      qty: 1, designation: "CIRCUIT BREAKER 400V 6KA, 2POLE, C, 10A",
+      typeNo: "5SL6210-7", supplier: "Siemens", partNo: "SIE.5SL6210-7", page: 154,
+    },
+    {
+      deviceTag: "=185T+CB2-S15", installation: "185T", location: "CB2", device: "S15",
+      qty: null, designation: "Humidifiers-switch 1 pole ON/OFF-complete product",
+      typeNo: "NML0100121", supplier: "Schneider Electric", partNo: "SE.NML0100121", page: 157,
+    },
+  ]));
   const summary = buildSummarySections(previewInput, runCalc(previewInput), {
     itemNo: "0055-00",
     rows: [
@@ -85,7 +107,7 @@ export default function EquipmentPreviewPage() {
         <EquipmentPanel
           projectId="dev"
           revisionId="dev"
-          autoGroups={groups}
+          sections={equipmentSections({ mechanical: groups, electrical: electricalGroups })}
           summary={summary}
           initialExtras={[
             {

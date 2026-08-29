@@ -9,7 +9,7 @@ import { manualUsedAssetKeys } from "@/lib/manual/assets";
 import { ManualPdf } from "@/lib/pdf/manual";
 
 describe("ManualPdf smoke", () => {
-  it("proje partnerini, ek logo bandını, kapak görselini ve vektör işaretleriyle belgeyi basar", async () => {
+  it("proje rapor firmasını, ek logo bandını, kapak görselini ve vektör işaretleriyle belgeyi basar", async () => {
     const payload = manualFromTemplate({
       manufacturer: "ORION CRANES",
       product: "ŞARJ VİNCİ",
@@ -24,11 +24,11 @@ describe("ManualPdf smoke", () => {
 
     const images = [
       ...assets,
-      { id: "partner-center", bytes: logoBytes, width: 596, height: 67 },
-      { id: "partner-right", bytes: logoBytes, width: 596, height: 67 },
+      { id: "ortak-center", bytes: logoBytes, width: 596, height: 67 },
+      { id: "ortak-right", bytes: logoBytes, width: 596, height: 67 },
       { id: "cover-image", bytes: kapak!.bytes, width: kapak!.width, height: kapak!.height },
     ];
-    payload.partnerLogos = { centerImageId: "partner-center", rightImageId: "partner-right" };
+    payload.partnerLogos = { centerImageId: "ortak-center", rightImageId: "ortak-right" };
     payload.coverImageId = "cover-image";
 
     const bytes = await renderToBuffer(
@@ -52,7 +52,7 @@ describe("ManualPdf smoke", () => {
           })),
         },
         images,
-        partner: { name: "Karçel Partner Firma", logo: logoBytes },
+        partner: { name: "Karçel Ortak Firma", logo: logoBytes },
         docCode: "ORC-BK-0019-00-R01",
         docLine: "ORION CRANES · İŞLETME VE BAKIM EL KİTABI · V1 · 2026",
         company: { company: "ORION CRANES", address: "ANKARA · TÜRKİYE", web: "orioncranes.com" },
@@ -66,7 +66,8 @@ describe("ManualPdf smoke", () => {
     const { extractText, getDocumentProxy } = await import("unpdf");
     const textDocument = await getDocumentProxy(new Uint8Array(bytes));
     const { text } = await extractText(textDocument, { mergePages: true });
-    expect(String(text)).toContain("KARÇEL PARTNER FİRMA");
+    expect(String(text)).toContain("KARÇEL ORTAK FİRMA");
+    expect(String(text).toLocaleUpperCase("tr-TR")).not.toContain("PARTNER");
     const pdf = await PDFDocument.load(bytes, { updateMetadata: false });
     // Gövde çıktısı boş EK kapsayıcısı ve yedi ayraç kapağı taşımaz. 180
     // elektrik satırı da pano özetine iner; eski tam döküm 14 yaprak

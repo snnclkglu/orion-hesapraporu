@@ -29,6 +29,8 @@ import {
   reportContextOf,
   type ReportContext,
 } from "@/lib/report-context";
+import { loadElectricalEquipment } from "@/lib/equipment-electrical";
+import { equipmentSections } from "@/lib/equipment-sections";
 
 export async function EquipmentPageView({
   params,
@@ -80,7 +82,7 @@ export async function EquipmentPageView({
   // "Ek Belge" yüklemeleri — satırlara row_key ile bağlanır (notlarla aynı kimlik)
   const attachmentRows = await loadEquipmentAttachments(supabase, revId);
 
-  const autoGroups = buildEquipmentGroups(
+  const mechanicalGroups = buildEquipmentGroups(
     calcInput,
     notes,
     // Seçenekli (alternatif) seçimler panelde de ana satırın altında görünür.
@@ -92,9 +94,15 @@ export async function EquipmentPageView({
   // Teknik Resim Takibi defteri özetin SONUNA basılır. Ressamın mühendise
   // sorduğu son soru numaralandırmadır; cevabı çizim için hazırlanan bu
   // özetin dışında bırakmak, soruyu telefona geri taşırdı.
-  const [drawingPlan, itemNo] = await Promise.all([
+  const [drawingPlan, itemNo, electrical] = await Promise.all([
     loadDrawingPlan(supabase, id),
     resolveProjectItemNo(supabase, id, project.doc_no),
+    expectedContext === ENGINEERING_REPORT_CONTEXT
+      ? loadElectricalEquipment(supabase, id, {
+          notes,
+          attachments: attachmentsByRowKey(attachmentRows),
+        })
+      : Promise.resolve(null),
   ]);
   // Ressam notu ekranda da özetin altındadır ve İNDİRİLEN belgeyle AYNI
   // okuma katmanından gelir (`loadDrawingNote`).
@@ -133,7 +141,13 @@ export async function EquipmentPageView({
 
   // Katalog sayfası bağlantıları — ekipman ADINA bağlanır. Uygulama içinde
   // göreli adres yeter; Excel/PDF çıktısı mutlak adresi indirme ucunda üretir.
-  const sheetUrls = Object.fromEntries(buildCatalogSheetUrls(autoGroups));
+  const sections = equipmentSections({
+    mechanical: mechanicalGroups,
+    electrical: electrical?.groups,
+  });
+  const sheetUrls = Object.fromEntries(buildCatalogSheetUrls(mechanicalGroups));
+  for (const [key, url] of electrical?.sheetUrls ?? []) sheetUrls[key] = url;
+  for (const [key, url] of electrical?.datasheetUrls ?? []) datasheetUrls[key] = url;
 
   // Sayfa kendi iç boşluğunu VERMEZ: app-shell normal (çerçeve olmayan) kipte
   // `main`e zaten px/py uyguluyor. Sayfa ayrıca padding verirse boşluk ikiye
@@ -165,7 +179,7 @@ export async function EquipmentPageView({
       <EquipmentPanel
         projectId={id}
         revisionId={revId}
-        autoGroups={autoGroups}
+        sections={sections}
         summary={summary}
         initialExtras={extras}
         initialAttachments={attachmentRows.map((a) => ({

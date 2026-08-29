@@ -39,6 +39,15 @@ import { getReportSettings } from "@/lib/settings";
 import { loadDrawingNote } from "@/lib/equipment-drawing-note";
 import { loadCustomerDrawingPath } from "@/lib/equipment-customer-link";
 import { loadReportCoverIdentity } from "@/lib/report-cover-identity-server";
+import { loadElectricalEquipment } from "@/lib/equipment-electrical";
+import {
+  equipmentListTitle,
+  equipmentPartFromParam,
+  equipmentSections,
+  sectionGroups,
+  sectionsForPart,
+} from "@/lib/equipment-sections";
+import { ENGINEERING_REPORT_CONTEXT, reportContextOf } from "@/lib/report-context";
 
 export const runtime = "nodejs";
 
@@ -50,6 +59,7 @@ export async function GET(
   const sp = request.nextUrl.searchParams;
   const format = sp.get("format") === "pdf" ? "pdf" : "xlsx";
   const scope = sp.get("scope") === "customer" ? "customer" : "full";
+  const part = equipmentPartFromParam(sp.get("part"));
   const detailed = format === "pdf" && sp.get("detay") === "1";
   const appOrigin = request.nextUrl.origin;
   const supabase = await createClient();
@@ -69,7 +79,7 @@ export async function GET(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("doc_no, name, customer, report_brand_customer_id, prepared_by, checked_by, checked_by_name")
+    .select("doc_no, name, customer, report_context, report_brand_customer_id, prepared_by, checked_by, checked_by_name")
     .eq("id", id)
     .single();
   if (!project) return new Response("Proje bulunamadı", { status: 404 });
@@ -162,39 +172,67 @@ export async function GET(
   // Gizlenen alt bölümlerin satırları hiçbir çıktıya girmez (panelle aynı küme).
   const hiddenSections = hiddenSectionsFromRevision(revision.inputs as RevisionInputsJson | null);
 
+  const mechanicalGroups = mergeExtras(
+    buildEquipmentGroups(calcInput, notes, alts, attachments, hiddenSections),
+    extras,
+    // Kapalı bölümün adını taşıyan elle eklenmiş satır o bölümün başlığını
+    // diriltmesin — satır "Ek Ekipman" altında durur.
+    absentModuleGroupNames(calcInput)
+  );
+  // Teklif ön hesabında elektrik teslim katmanı yoktur (HESAP-31). Alınmış iş
+  // bağlamında ise yalnız GÜNCEL elektrik projesi okunur; eski yüklemeler
+  // arşivde kalır ama birleşik ekipman listesine girmez.
+  const electrical = reportContextOf(project.report_context) === ENGINEERING_REPORT_CONTEXT
+    ? await loadElectricalEquipment(supabase, id, { notes, attachments, origin: appOrigin })
+    : null;
+  for (const [key, url] of electrical?.datasheetUrls ?? []) datasheetUrls.set(key, url);
+
+  const allSections = equipmentSections({
+    mechanical: mechanicalGroups,
+    electrical: electrical?.groups,
+  });
+  const sections = sectionsForPart(allSections, part);
+  if (sections.length === 0) {
+    return new Response(
+      part === "elektrik" ? "Elektrik ekipman listesi bulunamadı" : "Ekipman listesi bulunamadı",
+      { status: 404 }
+    );
+  }
+  const groups = sectionGroups(sections);
+  const listTitle = equipmentListTitle(sections);
+  const includeTechnicalSummary =
+    scope !== "customer" && sections.some((section) => section.key === "mechanical");
+
   // Teknik Resim Takibi defteri YALNIZ teknik özet istendiğinde okunur: müşteri
   // kapsamında özet sayfası hiç basılmaz, sorguyu boşuna atmanın anlamı yok.
-  const drawingPlan =
-    scope === "customer"
-      ? undefined
-      : {
-          itemNo: await resolveProjectItemNo(supabase, id, project.doc_no),
-          rows: await loadDrawingPlan(supabase, id),
-        };
-  // Ressam notu da yalnız teknik özet istendiğinde okunur (özet basılmıyorsa
-  // notun gideceği bir yer yok).
-  const drawingNote = scope === "customer" ? undefined : await loadDrawingNote(supabase, revId);
-  const customerDrawingPath = await loadCustomerDrawingPath(supabase, revId);
+  const [drawingPlan, drawingNote, customerDrawingPath] = await Promise.all([
+    includeTechnicalSummary
+      ? Promise.all([
+          resolveProjectItemNo(supabase, id, project.doc_no),
+          loadDrawingPlan(supabase, id),
+        ]).then(([itemNo, rows]) => ({ itemNo, rows }))
+      : Promise.resolve(undefined),
+    // Ressam notu da yalnız teknik özet istendiğinde okunur (özet basılmıyorsa
+    // notun gideceği bir yer yok).
+    includeTechnicalSummary
+      ? loadDrawingNote(supabase, revId)
+      : Promise.resolve(undefined),
+    loadCustomerDrawingPath(supabase, revId),
+  ]);
   const mainDrawingUrl = customerDrawingPath
     ? `${appOrigin}${customerDrawingPath}`
     : undefined;
 
   if (format === "pdf") {
-    const groups = mergeExtras(
-      buildEquipmentGroups(calcInput, notes, alts, attachments, hiddenSections),
-      extras,
-      // Kapalı bölümün adını taşıyan elle eklenmiş satır o bölümün başlığını
-      // diriltmesin — satır "Ek Ekipman" altında durur.
-      absentModuleGroupNames(calcInput)
-    );
     const summary =
-      scope === "customer"
+      !includeTechnicalSummary
         ? undefined
         : buildSummarySections(calcInput, calcResult, drawingPlan, drawingNote);
-    // Detaylı listede ekipman adı belge İÇİNDEKİ katalog sayfasına bağlanır,
-    // standart listede uygulamadaki görüntüleyiciye — ikisi aynı anda gerekmez.
+    // Detaylı listede mekanik katalog sayfası belge içine bağlanır; elektrik
+    // föy/katalogları PDF belge oldukları için dış katalog ucuna bağlı kalır.
     const sheetPages = detailed ? await collectCatalogSheetPages(groups) : undefined;
-    const sheetUrls = detailed ? undefined : buildCatalogSheetUrls(groups, appOrigin);
+    const sheetUrls = buildCatalogSheetUrls(groups, appOrigin);
+    for (const [key, url] of electrical?.sheetUrls ?? []) sheetUrls.set(key, url);
 
     // Ek belgeler: kapaklar react-pdf ile basılır, GERÇEK SAYFALAR sonradan
     // pdf-lib ile kapağın ardına konur. Sıra listeyi izler
@@ -208,11 +246,22 @@ export async function GET(
     // `detay` bayrağı bunu ETKİLEMEZ — standart ve detaylı listenin farkı
     // yalnız katalog sayfası ekleridir (kullanıcı isteği, 19.08.2026).
     const specTable =
-      scope === "customer"
+      !includeTechnicalSummary
         ? undefined
         : { ...summarySpecsForReport(calcInput), specs: calcInput.specs };
     const basePdf = await renderEquipmentPdf({
-      meta, groups, partner: coverIdentity?.reportBrand ?? null, summary, specTable, settings, datasheetUrls, sheetUrls, mainDrawingUrl, sheetPages,
+      meta,
+      groups,
+      sections,
+      listTitle,
+      partner: coverIdentity?.reportBrand ?? null,
+      summary,
+      specTable,
+      settings,
+      datasheetUrls,
+      sheetUrls,
+      mainDrawingUrl,
+      sheetPages,
       attachmentCovers: orderedAttachments.map((a) => ({
         rowKey: a.rowKey,
         component: a.component,
@@ -251,9 +300,17 @@ export async function GET(
     contentType = "application/pdf";
     ext = "pdf";
   } else {
+    const sheetUrls = buildCatalogSheetUrls(groups, appOrigin);
+    for (const [key, url] of electrical?.sheetUrls ?? []) sheetUrls.set(key, url);
     const workbook = buildEquipmentWorkbook(calcInput, calcResult, meta, {
-      datasheetUrls, scope, extras, notes, alts, appOrigin, mainDrawingUrl, drawingPlan, drawingNote,
-      attachments, hiddenSections,
+      datasheetUrls,
+      scope: includeTechnicalSummary ? "full" : "customer",
+      sections,
+      sheetTitle: listTitle,
+      sheetUrls,
+      mainDrawingUrl,
+      drawingPlan,
+      drawingNote,
     });
     body = new Uint8Array((await workbook.xlsx.writeBuffer()) as ArrayBuffer);
     contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -268,8 +325,8 @@ export async function GET(
       project.name,
       docCode("EQ", project.doc_no ?? "", revision.rev_no),
       `V${revision.rev_no}`,
-      "Ekipman Listesi",
-      scope === "customer" ? null : "Teknik Özet",
+      listTitle,
+      includeTechnicalSummary ? "Teknik Özet" : null,
       detailed ? "Detaylı" : null,
     ],
     ext as "pdf" | "xlsx"

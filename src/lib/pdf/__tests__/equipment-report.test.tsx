@@ -14,6 +14,45 @@ import { runCalc } from "@/lib/calc/engine";
 import { summarySpecsForReport } from "@/lib/pdf/report";
 
 describe("ekipman listesi PDF düzeni", () => {
+  it("mekanik ve elektrik bölümlerini tek tabloda ayrı bantlarla basar", async () => {
+    const sections = [
+      {
+        key: "mechanical" as const,
+        name: "Mekanik Ekipmanlar",
+        groups: [{
+          name: "Ana Kaldırma",
+          rows: [{ component: "Kaldırma Motoru", brand: "GAMAK", model: "M1", spec: "15 kW", qty: 1 }],
+        }],
+      },
+      {
+        key: "electrical" as const,
+        name: "Elektrik Ekipmanları",
+        groups: [{
+          name: "Şalterler ve Devre Kesiciler",
+          rows: [{ component: "CIRCUIT BREAKER", brand: "SIEMENS", model: "5SL6210-7", spec: "SIE.5SL6210-7", qty: 9 }],
+        }],
+      },
+    ];
+    const groups = sections.flatMap((section) => section.groups);
+    const pdf = await renderEquipmentPdf({
+      meta: {
+        docNo: "EQ-00", projectName: "Birleşik Liste", customer: "ORION",
+        revLabel: "V0", revNo: 0, date: "29.08.2026",
+      },
+      groups,
+      sections,
+      listTitle: "Tüm Ekipman Listesi",
+    });
+    const { extractText, getDocumentProxy } = await import("unpdf");
+    const doc = await getDocumentProxy(new Uint8Array(pdf));
+    const { text } = await extractText(doc, { mergePages: true });
+    const content = String(text);
+
+    expect(content).toContain("TÜM EKİPMAN LİSTESİ");
+    expect(content).toContain("MEKANİK EKİPMANLAR");
+    expect(content).toContain("ELEKTRİK EKİPMANLARI");
+  }, 120_000);
+
   it("uzun katalog kodlarına satır kırma noktası ekler ve yatay PDF üretir", async () => {
     const model = "N(NV).250.HYD.050/090-200N";
     expect(breakEquipmentModelCode(model)).toContain("\u200B");
@@ -23,7 +62,7 @@ describe("ekipman listesi PDF düzeni", () => {
         docNo: "EQ-01", projectName: "Uzun Kod Testi", customer: "ORION", revLabel: "V0", revNo: 0,
         date: "07.08.2026",
       },
-      partner: { name: "Karçel Partner Firma", logo: BRAND_LOGO_INK },
+      partner: { name: "Karçel Ortak Firma", logo: BRAND_LOGO_INK },
       groups: [{
         name: "Ana Kaldırma",
         rows: [{
@@ -43,15 +82,16 @@ describe("ekipman listesi PDF düzeni", () => {
     const doc = await getDocumentProxy(new Uint8Array(pdf));
     const { text } = await extractText(doc, { mergePages: true });
     expect(String(text)).toContain("Proje Ana Paftasını Aç");
-    expect(String(text)).toContain("KARÇEL PARTNER FİRMA");
+    expect(String(text)).toContain("KARÇEL ORTAK FİRMA");
+    expect(String(text).toLocaleUpperCase("tr-TR")).not.toContain("PARTNER");
   }, 120_000);
 
-  it("partner kimliğini teknik özellikler, liste ve teknik özet yapraklarında korur", async () => {
+  it("rapor firması kimliğini teknik özellikler, liste ve teknik özet yapraklarında korur", async () => {
     const input = structuredClone(V5_TEMPLATE);
     const pdf = await renderEquipmentPdf({
       meta: {
         docNo: "EQ-04",
-        projectName: "Partnerli Çizim Paketi",
+        projectName: "Ortak Firmalı Çizim Paketi",
         customer: "Örnek Müşteri",
         revLabel: "Ön Tasarım",
         revNo: 1,
@@ -59,7 +99,7 @@ describe("ekipman listesi PDF düzeni", () => {
         preparedBy: "Sinan Çolakoğlu",
         checkedBy: "Alkım Kelleci",
       },
-      partner: { name: "Karçel Partner Firma", logo: BRAND_LOGO_INK },
+      partner: { name: "Karçel Ortak Firma", logo: BRAND_LOGO_INK },
       groups: buildEquipmentGroups(input),
       summary: buildSummarySections(input, runCalc(input)),
       specTable: { ...summarySpecsForReport(input), specs: input.specs },
@@ -70,9 +110,10 @@ describe("ekipman listesi PDF düzeni", () => {
     const { extractText, getDocumentProxy } = await import("unpdf");
     const textDocument = await getDocumentProxy(new Uint8Array(pdf));
     const { text } = await extractText(textDocument, { mergePages: true });
-    expect(String(text)).toContain("KARÇEL PARTNER FİRMA");
+    expect(String(text)).toContain("KARÇEL ORTAK FİRMA");
+    expect(String(text).toLocaleUpperCase("tr-TR")).not.toContain("PARTNER");
 
-    const smokeOut = process.env.EQUIPMENT_PARTNER_OUT;
+    const smokeOut = process.env.EQUIPMENT_REPORT_BRAND_OUT;
     if (smokeOut) writeFileSync(smokeOut, pdf);
   }, 120_000);
 });
@@ -166,6 +207,36 @@ describe("detaylı listenin ek sayfaları", () => {
 
     expect(await linkActionKinds(standard)).toContain("/URI");
     expect(await linkActionKinds(detailed)).toContain("/GoTo");
+  }, 120_000);
+
+  it("detaylı PDF'de elektrik teknik föyünün dış bağlantısını korur", async () => {
+    const electricalRow = {
+      rowKey: "electrical:0123456789abcdef",
+      kind: "electrical",
+      component: "CIRCUIT BREAKER",
+      brand: "SIEMENS",
+      model: "5SL6210-7",
+      spec: "SIE.5SL6210-7",
+      qty: 9,
+    };
+    const key = rowCatalogSheetKey(electricalRow)!;
+    const pdf = await renderEquipmentPdf({
+      meta: META,
+      groups: [
+        { name: "Şalterler", rows: [electricalRow] },
+        ...GROUPS,
+      ],
+      sheetUrls: new Map([
+        [key, "https://orion.example/api/electrical-catalog/foy-1"],
+      ]),
+      // Başka bir satırın eki belgeyi detaylı kipe geçirir. Elektrik satırının
+      // dış föy bağlantısı bu kipte de `/URI` olarak kalmalıdır.
+      attachmentCovers: [
+        { rowKey: "main:gearbox", component: "Redüktör", fileName: "olcu.pdf", pageCount: 2 },
+      ],
+    });
+
+    expect(await linkActionKinds(pdf)).toContain("/URI");
   }, 120_000);
 
   it("YATAY taranmış katalog sayfası YATAY basılır", async () => {

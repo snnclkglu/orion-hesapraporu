@@ -172,7 +172,7 @@ const projectSchema = z.object({
   customer: adAlani("Müşteri gerekli"),
   crane_type: z.string().trim().min(1),
   crane_location: z.string().trim().max(240, "Vinç yeri en fazla 240 karakter olabilir"),
-  report_brand_customer_id: z.uuid("Geçersiz partner firma").nullable(),
+  report_brand_customer_id: z.uuid("Geçersiz rapor firması").nullable(),
   end_customer_id: z.uuid("Geçersiz son kullanıcı").nullable(),
   // İş emri bağlantısı: Mühendislik bölümünde iş seçilirse dolu gelir;
   // bağımsız raporlarda null kalır (sonradan "İşe Bağla" ile bağlanabilir).
@@ -354,7 +354,7 @@ const projectDetailsSchema = z.object({
   customer: adAlani("Müşteri gerekli"),
   crane_type: z.string().trim().min(1, "Vinç tipi gerekli"),
   crane_location: z.string().trim().max(240, "Vinç yeri en fazla 240 karakter olabilir"),
-  report_brand_customer_id: z.uuid("Geçersiz partner firma").nullable(),
+  report_brand_customer_id: z.uuid("Geçersiz rapor firması").nullable(),
   end_customer_id: z.uuid("Geçersiz son kullanıcı").nullable(),
 });
 

@@ -20,13 +20,21 @@
 //      etiketler sütunlarından bir düğme boyu kayıyordu. Izgara tanımı tek yerde
 //      toplandı ve başlığa aynı genişlikte boşluk kondu.
 
-import { Fragment, useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   BookOpen, ExternalLink, FileDown, FilePlus2, FileSpreadsheet, Link2, Loader2, Plus, Save, Trash2,
 } from "lucide-react";
 import type { EqGroup, EquipmentExtraRow, SummarySection } from "@/lib/excel/equipment";
 import { rowDatasheetUrl, rowSheetUrl, summaryRowValue } from "@/lib/excel/equipment";
+import {
+  EQUIPMENT_PART_LABELS,
+  countSectionRows,
+  equipmentListTitle,
+  sectionsForPart,
+  type EquipmentPart,
+  type EquipmentSection,
+} from "@/lib/equipment-sections";
 import { EQUIPMENT_ATTACHMENT_BUCKET } from "@/lib/equipment-attachments";
 import { customerDrawingPathOf } from "@/lib/equipment-customer-link";
 import { createClient } from "@/lib/supabase/client";
@@ -165,13 +173,13 @@ export interface PanelAttachment {
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 export function EquipmentPanel({
-  projectId, revisionId, autoGroups, summary, initialExtras, initialAttachments,
+  projectId, revisionId, sections, summary, initialExtras, initialAttachments,
   initialDrawingNote, initialCustomerDrawingPath, datasheetUrls, sheetUrls, locked,
   basePath = "/projects",
 }: {
   projectId: string;
   revisionId: string;
-  autoGroups: EqGroup[];
+  sections: EquipmentSection[];
   summary: SummarySection[];
   /**
    * Ressam notu — özetin en altındaki serbest metin. İSTEĞE BAĞLIDIR: dev
@@ -194,6 +202,13 @@ export function EquipmentPanel({
   const [attachments, setAttachments] = useState<PanelAttachment[]>(initialAttachments);
   /** Yükleme/silme sürerken o satırın denetimleri kilitlenir. */
   const [busyRows, setBusyRows] = useState<Set<string>>(() => new Set());
+  const [part, setPart] = useState<EquipmentPart>(() =>
+    sections.length > 1
+      ? "tumu"
+      : sections[0]?.key === "electrical"
+        ? "elektrik"
+        : "mekanik"
+  );
   const [scope, setScope] = useState<Scope>("customer");
   const [pending, startTransition] = useTransition();
   /**
@@ -209,9 +224,20 @@ export function EquipmentPanel({
   const customerDrawingPreviewPath = customerDrawingPathOf(customerDrawingPath);
   const [noteState, setNoteState] = useState<"temiz" | "bekliyor" | "kaydedildi">("temiz");
 
+  const visibleSections = useMemo(() => sectionsForPart(sections, part), [sections, part]);
+  const hasMechanical = visibleSections.some((section) => section.key === "mechanical");
+  const listTitle = equipmentListTitle(visibleSections);
+
   const dlBase = `${basePath}/${projectId}/revisions/${revisionId}/equipment/download`;
   const dl = (format: "xlsx" | "pdf", detailed = false) =>
-    `${dlBase}?format=${format}&scope=${scope}${detailed ? "&detay=1" : ""}`;
+    `${dlBase}?format=${format}&scope=${hasMechanical ? scope : "customer"}&part=${part}${
+      detailed ? "&detay=1" : ""
+    }`;
+
+  function choosePart(next: EquipmentPart) {
+    setPart(next);
+    if (next === "elektrik") setScope("customer");
+  }
 
   function setRow(i: number, patch: Partial<EquipmentExtraRow>) {
     setExtras((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -491,24 +517,45 @@ export function EquipmentPanel({
     <div className="grid gap-4">
       {/* İndirme çubuğu */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-card p-3">
+        {sections.length > 1 && (
+          <div className="grid w-full grid-cols-3 gap-1 rounded-md border bg-muted/30 p-1 sm:w-auto">
+            {(["tumu", "mekanik", "elektrik"] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={part === value}
+                onClick={() => choosePart(value)}
+                className={`oc-tap min-w-0 rounded px-2 py-1.5 text-xs font-medium transition-colors ${
+                  part === value
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground hover:bg-background hover:text-foreground"
+                }`}
+              >
+                {value === "tumu" ? "Tümü" : value === "mekanik" ? "Mekanik" : "Elektrik"}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="text-sm font-medium">İndir:</div>
         {/* Kapsam düğmeleri ~28px'ti; parmakla tutulabilmesi gerekir (§2) */}
-        <div className="inline-flex overflow-hidden rounded-md border">
-          <button
-            type="button"
-            onClick={() => setScope("customer")}
-            className={`inline-flex min-h-9 items-center px-3 py-1.5 text-xs pointer-coarse:min-h-10 ${scope === "customer" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-          >
-            Müşteri
-          </button>
-          <button
-            type="button"
-            onClick={() => setScope("full")}
-            className={`inline-flex min-h-9 items-center px-3 py-1.5 text-xs pointer-coarse:min-h-10 ${scope === "full" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-          >
-            + Teknik Özet
-          </button>
-        </div>
+        {hasMechanical && (
+          <div className="inline-flex overflow-hidden rounded-md border">
+            <button
+              type="button"
+              onClick={() => setScope("customer")}
+              className={`inline-flex min-h-9 items-center px-3 py-1.5 text-xs pointer-coarse:min-h-10 ${scope === "customer" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            >
+              Müşteri
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope("full")}
+              className={`inline-flex min-h-9 items-center px-3 py-1.5 text-xs pointer-coarse:min-h-10 ${scope === "full" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            >
+              + Teknik Özet
+            </button>
+          </div>
+        )}
         <a href={dl("xlsx")} className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted pointer-coarse:h-10">
           <FileSpreadsheet className="size-3.5 text-emerald-600" />
           Excel indir
@@ -519,9 +566,11 @@ export function EquipmentPanel({
             düğmedir ve hangisinin ne getirdiği yazılıdır. */}
         <PdfDownloadLink
           href={dl("pdf")}
-          shareTitle="Standart Ekipman Listesi"
+          shareTitle={`Standart ${listTitle}`}
           title={
-            scope === "full"
+            !hasMechanical
+              ? "Elektrik ekipman listesi; ekipman adı teknik föye, model hücresi tam kataloğa bağlanır"
+              : scope === "full"
               ? "Teknik özellikler yaprağı + ekipman listesi + teknik ressam özeti (şemalar ve notlarla)"
               : "Ekipman listesi; ekipman adı katalog sayfasına bağlanır"
           }
@@ -532,9 +581,11 @@ export function EquipmentPanel({
         </PdfDownloadLink>
         <PdfDownloadLink
           href={dl("pdf", true)}
-          shareTitle="Detaylı Ekipman Listesi"
+          shareTitle={`Detaylı ${listTitle}`}
           title={
-            scope === "full"
+            !hasMechanical
+              ? "Elektrik ekipman listesi + satırlara yüklenen PDF ekleri; teknik föy ve katalog bağlantıları korunur"
+              : scope === "full"
               ? "Standart paketin tamamı + ürünlerin katalog sayfaları + satırlara yüklenen PDF ekleri"
               : "Ekipman listesi + ürünlerin katalog sayfaları + satırlara yüklenen PDF ekleri; ad tıklanınca ilgili sayfaya gider"
           }
@@ -547,7 +598,7 @@ export function EquipmentPanel({
             standart ve detaylı listenin ikisi de aynı ressam paketini taşır
             (teknik özellikler yaprağı + şemalı özet + notlar); `detay`
             yalnız katalog sayfası eklerini değiştirir. */}
-        {scope === "full" && (
+        {hasMechanical && scope === "full" && (
           <span className="w-full text-[11px] text-muted-foreground">
             Teknik özet açıkken PDF ressam paketidir: ilk yaprakta teknik
             özellikler, sonunda şemalı ölçü özeti ve notlar.
@@ -556,7 +607,9 @@ export function EquipmentPanel({
         {/* `ml-auto` dar ekranda sayaç sardığında tek başına bir satır
             kaplıyordu; sağa itme yalnız sm üstünde. */}
         <span className="w-full text-xs text-muted-foreground sm:ml-auto sm:w-auto sm:text-right">
-          {autoGroups.reduce((n, g) => n + g.rows.length, 0)} otomatik · {extras.length} ek satır
+          {countSectionRows(visibleSections)} otomatik
+          {hasMechanical && ` · ${extras.length} ek satır`}
+          {sections.length > 1 && ` · ${EQUIPMENT_PART_LABELS[part]}`}
           {Object.keys(sheetUrls).length > 0 && ` · ${Object.keys(sheetUrls).length} katalog sayfası`}
           {attachments.length > 0 &&
             ` · ${attachments.length} ek belge (${attachments.reduce((n, a) => n + a.pageCount, 0)} sayfa)`}
@@ -637,8 +690,25 @@ export function EquipmentPanel({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {autoGroups.map((g) => (
-                  <Fragment key={`g-${g.name}`}>
+                {visibleSections.map((section) => (
+                  <Fragment key={`section-${section.key}`}>
+                    {visibleSections.length > 1 && (
+                      <TableRow
+                        data-mobile-summary
+                        className="bg-primary hover:bg-primary"
+                      >
+                        <TableCell
+                          colSpan={7}
+                          data-mobile-span="full"
+                          data-mobile-hide-label
+                          className="py-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary-foreground"
+                        >
+                          {section.name}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {section.groups.map((g) => (
+                      <Fragment key={`${section.key}-${g.name}`}>
                     <TableRow
                       data-mobile-summary
                       className="bg-primary/5 hover:bg-primary/5"
@@ -711,14 +781,18 @@ export function EquipmentPanel({
                         </TableCell>
                       </TableRow>
                     ))}
+                      </Fragment>
+                    ))}
                   </Fragment>
                 ))}
               </TableBody>
             </Table>
           </div>
 
-          {/* Ek satır editörü */}
-          <div className="mt-5 rounded-lg border">
+          {/* Ek satırlar mekanik teslim katmanıdır; elektrik görünümünde
+              saklanır, birleşik/mekanik görünümde aynı yerde yaşamayı sürdürür. */}
+          {hasMechanical && (
+            <div className="mt-5 rounded-lg border">
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b bg-muted/40 px-3 py-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
                 Ek Ekipman / Özellikler
@@ -781,7 +855,8 @@ export function EquipmentPanel({
                 ))}
               </div>
             )}
-          </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* ---- Teknik Ressam Özeti ---- */}

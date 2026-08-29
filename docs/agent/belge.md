@@ -15,7 +15,7 @@ Marka altyapısı `pdf/brand.tsx`tedir ve TÜM belgeler onu paylaşır:
   belgenin ilk sayfası markayı taşır; kırmızı omurga ve folio tek başına
   logonun yerini tutmaz. Hesap raporu kapağı ile ekipman listesinin ilk sayfası
   aynı bileşeni kullanır, ikisi aynı yüksekliğe oturur.
-- **`PartnerIdentityBlock`** — proje üzerinde seçilen **Partner Firma**nın
+- **Ortak kimlik bloğu** — proje üzerinde seçilen **Rapor Firması**nın
   logo ve adını ORION bandının altında gösterir. Hesap raporu kapağı,
   ekipman listesinin ilk yaprağı ve işletme-bakım kitabı kapağı aynı bileşeni
   kullanır. İç sayfalarda aynı logo `PageHeader`ın sağ yuvasına veya el kitabı
@@ -171,8 +171,8 @@ fonksiyondan gelir — dosya adı ile belgenin içi ayrışamaz.
 Ekipman listesi PDF'i `scope = "full"` iken bir EKİPMAN DÖKÜMÜ değil bir
 ÇİZİM PAKETİdir (kullanıcı isteği, 19.08.2026). Dört yaprak grubu, bu sırayla:
 
-1. **Ortak Marka Kapağı** — ORION bandı, proje Partner Firma logo+adı, proje
-   adı ve künye. Teknik özellik tablosu bölünemez olduğundan partner bloğuyla
+1. **Ortak Marka Kapağı** — ORION bandı, proje Rapor Firması logo+adı, proje
+   adı ve künye. Teknik özellik tablosu bölünemez olduğundan ortak kimlik bloğuyla
    aynı yaprağa sıkıştırılmaz; aksi durumda tablo ikinci yaprağa bütünüyle
    kaçar ve kapak niyeti olmayan yarı boş bir ilk sayfa kalır.
 2. **Teknik Özellikler** — hesap raporunun özet sayfasındaki tablonun
@@ -187,14 +187,14 @@ Ekipman listesi PDF'i `scope = "full"` iken bir EKİPMAN DÖKÜMÜ değil bir
 `fixed`tir ve aynı sayfa bileşeninin BÜTÜN yapraklarında tekrar eder; özet
 `break` ile aynı bileşenin içindeyken "Ekipman · Marka · Model" şeridi ölçü
 çizelgelerinin de tepesinde çıkıyordu. `BrandBand` belgede BİR KEZ, ortak marka
-kapağında durur; devam yapraklarında ORION metni ve partner logosu
+kapağında durur; devam yapraklarında ORION metni ve rapor firması logosu
 `PageHeader` içinde aynı satırda tekrarlanır.
 
-**PARTNER KİMLİĞİ ÜÇ PDF'TE TEK KAYNAKTIR.** `projects.report_brand_customer_id`
-arayüzde **Partner Firma** olarak adlandırılır. `loadReportCoverIdentity`
+**RAPOR FİRMASI KİMLİĞİ ÜÇ PDF'TE TEK KAYNAKTIR.** `projects.report_brand_customer_id`
+arayüzde **Rapor Firması** olarak adlandırılır. `loadReportCoverIdentity`
 seçili firmanın adını ve normalize edilmiş logosunu yükler; hesap raporu,
 ekipman listesi ve işletme-bakım kitabı bu aynı kimliği kullanır. Seçim yoksa
-partner bloğu/logo yuvası açılmaz; ORION bandı tek başına kalır.
+ortak kimlik bloğu/logo yuvası açılmaz; ORION bandı tek başına kalır.
 
 **ÖZET YATAY VE İKİ SÜTUNLUDUR.** Sayfa zaten yataydı; tek sütunda etiket ile
 değer kâğıdın iki ucuna düşüyor ve aradaki boşluk satırı okunmaz yapıyordu.

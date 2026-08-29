@@ -102,7 +102,7 @@ export function NewOfferButton({ customers }: { customers: readonly CustomerOpti
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Partner seçilirse PDF logosu ve firma künyesi Yönetim → Müşteriler
+              Farklı hazırlayan firma seçilirse PDF logosu ve firma künyesi Yönetim → Müşteriler
               defterindeki bilgilerden hazırlanır.
             </p>
           </div>

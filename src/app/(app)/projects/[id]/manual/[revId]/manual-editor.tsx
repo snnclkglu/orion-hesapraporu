@@ -1634,7 +1634,7 @@ function KunyeFormu({
         <div>
           <p className="text-sm font-medium">Üst logo bandı</p>
           <p className="text-xs text-muted-foreground">
-            ORION logosu solda sabittir. Partner logoları kapakta ve üst bantta orta ve sağ yuvalara yerleşir; oranları bozulmaz.
+            ORION logosu solda sabittir. Ek firma logoları kapakta ve üst bantta orta ve sağ yuvalara yerleşir; oranları bozulmaz.
           </p>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
@@ -1646,7 +1646,7 @@ function KunyeFormu({
             <span className="text-[11px] text-muted-foreground">SOL · ORION (sabit)</span>
           </div>
           <BelgeGorselYuvasi
-            etiket="ORTA · PARTNER 1"
+            etiket="ORTA · EK FİRMA 1"
             imageId={partnerLogos.centerImageId}
             readOnly={readOnly}
             images={images}
@@ -1655,7 +1655,7 @@ function KunyeFormu({
             onChange={(id) => onPartnerLogo("centerImageId", id)}
           />
           <BelgeGorselYuvasi
-            etiket="SAĞ · PARTNER 2"
+            etiket="SAĞ · EK FİRMA 2"
             imageId={partnerLogos.rightImageId}
             readOnly={readOnly}
             images={images}

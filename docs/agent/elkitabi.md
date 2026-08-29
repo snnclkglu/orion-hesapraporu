@@ -380,27 +380,27 @@ geçerli belge yoksa var olmayan içeriği vaat eden boş kapak korunmaz. Ek
 yerleştirildikten sonra dizindeki adlandırılmış hedefler nihai sayfa
 referanslarına çevrilir; kopyalama işlemi bağlantıları sessizce öldüremez.
 
-## KITAP-18 — Proje partner kimliği ORTAKTIR; el kitabına özel görseller SNAPSHOT'tır.
+## KITAP-18 — Proje rapor firması kimliği ORTAKTIR; el kitabına özel görseller SNAPSHOT'tır.
 
 Kullanıcı kararı (29.08.2026): Hesap raporu ekranındaki
-`projects.report_brand_customer_id` alanının kullanıcı adı **Partner Firma**dır.
+`projects.report_brand_customer_id` alanının kullanıcı adı **Rapor Firması**dır.
 ORION işi bu firmayla birlikte yürütür; seçilen firma hesap raporu, ekipman
 listesi ve işletme-bakım kitabında aynı ortak kimlik olarak kullanılır. ORION
-logosu kapakta ve belgenin bütün üst bantlarında **solda sabittir**; partner
-ORION kimliğinin yerine geçmez. Kapakta ORION bandının altında partnerin logo
-ve adı, devam sayfalarında orta logo yuvası gösterilir. Partner seçilmemişse
+logosu kapakta ve belgenin bütün üst bantlarında **solda sabittir**; rapor firması
+ORION kimliğinin yerine geçmez. Kapakta ORION bandının altında rapor firmasının logo
+ve adı, devam sayfalarında orta logo yuvası gösterilir. Rapor firması seçilmemişse
 bu blok/yuva açılmaz.
 
-**PROJE PARTNERİ BİRİNCİL, ELLE YÜKLENMİŞ LOGOLAR GERİYE DÖNÜK YEDEKTİR.**
-Proje partnerinin adı ve normalize logosu PDF ucunda
+**PROJE RAPOR FİRMASI BİRİNCİL, ELLE YÜKLENMİŞ LOGOLAR GERİYE DÖNÜK YEDEKTİR.**
+Proje rapor firmasının adı ve normalize logosu PDF ucunda
 `loadReportCoverIdentity` ile çözülür. Eski el kitaplarındaki
-`manual_revisions.payload.partnerLogos.centerImageId` kaydı, proje partneri
-yoksa orta yuvada kullanılmaya devam eder; `rightImageId` ek sağ logo olarak
+payload orta-logo kaydı, proje rapor firması
+yoksa orta yuvada kullanılmaya devam eder; sağ-logo kaydı ek sağ logo olarak
 korunur. Bu elle yüklenmiş kimliklerin baytları diğer vince özel görseller gibi
 `manual_images` kaydı ve `manual-images` kovasında yaşar ve yeni revizyona
 snapshot olarak kopyalanır.
 
-`coverImageId` **kapak fotoğrafıdır**; partner logosu değildir. Kapak fotoğrafı
+`coverImageId` **kapak fotoğrafıdır**; rapor firması logosu değildir. Kapak fotoğrafı
 belgenin kimlik alanının altında yer alır ve yokluğu kapağı bozmaz. Editör
 görsel yükleme yanıtındaki sunucuda ölçülmüş `id`, genişlik ve yükseklik
 satırını beklemeden yerel görsel listesine ekler; kullanıcı yüklediği fotoğrafı
