@@ -19,13 +19,9 @@ import { PriceArchive } from "@/app/(app)/purchasing/fiyatlar/price-archive";
 import type { Siparis, TeklifSatiri, ArsivSonucu } from "@/app/(app)/purchasing/data";
 import type { TalepHavuzu, TalepSatiri, TalepPayi } from "@/lib/purchasing/demand";
 
-// `useSearchParams` kullanan istemci bileşenleri Suspense'e SARILMAZ, sayfa
-// DİNAMİK yapılır: Suspense'e alınan alt ağacın hidrasyonu TEMBELdir ve gizli
-// bir sekmede (Browser pane) süresiz ertelenir — önizlemede bütün tıklamalar
-// ölü görünüyordu (16.08.2026'da ölçüldü; bkz. browser-pane notu). Gerçek
-// (app) sayfaları zaten auth çerezleriyle dinamiktir; bu satır önizlemeyi
-// onlarla aynı yola sokar ve build'in prerender şartını da düşürür.
-export const dynamic = "force-dynamic";
+// Production ilk satırda `notFound()` ile kesilir ve statik 404 kalır; aksi
+// halde yalnız geliştirmede kullanılan bu ekran Vercel'de boşuna fonksiyon
+// bütçesi tüketir. Next dev sayfayı yine istek anında çalıştırır.
 
 // ————————————————————————————————————————————————— talep havuzu fikstürü
 

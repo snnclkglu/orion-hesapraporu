@@ -25,6 +25,12 @@ import { PageHeader } from "@/components/page-header";
 import { CostEditor } from "@/app/(app)/offers/[id]/costs/[costRevId]/cost-editor";
 import { SAHTE, maliyetFiksturu, teklifFiksturu } from "../../fikstur";
 
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return [{ id: "onizleme" }, { id: "demo" }];
+}
+
 export default function OfferCostShellPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
 

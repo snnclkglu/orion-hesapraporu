@@ -14,10 +14,9 @@ import { JobsSummary } from "@/app/(app)/jobs/jobs-summary";
 // aktarımını yayamaz (bkz. jobs/schema.ts'teki not).
 import { EMPTY_JOB, type CustomerOption } from "@/app/(app)/jobs/schema";
 
-// `useSearchParams` kullanan istemci bileşenleri Suspense'e SARILMAZ, sayfa
-// DİNAMİK yapılır (siparisler-preview kalıbı): tablo süzgeç durumunu adreste
-// taşıyor ve statik ön-üretim `useSearchParams`ta build'i düşürürdü.
-export const dynamic = "force-dynamic";
+// Production ilk satırda `notFound()` ile kesilir ve statik 404 kalır; aksi
+// halde yalnız geliştirmede kullanılan bu ekran Vercel'de boşuna fonksiyon
+// bütçesi tüketir. Next dev sayfayı yine istek anında çalıştırır.
 
 const YEAR = new Date().getFullYear();
 

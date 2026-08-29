@@ -5,8 +5,6 @@ import {
 } from "@/app/(app)/offers/tanimlar/maliyet/cost-templates-view";
 import { PageHeader } from "@/components/page-header";
 
-export const dynamic = "force-dynamic";
-
 const CRANE_TYPES = [
   "ÇİFT KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ",
   "TEK KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ",

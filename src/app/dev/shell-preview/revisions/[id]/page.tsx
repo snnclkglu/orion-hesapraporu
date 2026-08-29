@@ -12,6 +12,12 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
 
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return [{ id: "ornek" }];
+}
+
 export default function ShellRevisionPreviewPage() {
   if (process.env.NODE_ENV !== "development") notFound();
   return (
