@@ -314,16 +314,17 @@ depo nesneleri normal authenticated kullanıcıya açılmaz; public route yalnı
 server-side service-role veri katmanından, oturum + dosya allowlist'i
 doğrulandıktan sonra okur.
 
-**PUBLIC PORTAL ÜÇ FONKSİYONDUR, DAHA FAZLASI DEĞİL.** Vercel Hobby dağıtımı
-en fazla 12 serverless function kabul eder ve uygulamanın portal öncesi tabanı
-9'dur. Vinç portalı bu bütçeye tam üç uç ekler: müşteri liste/görüntüleyici
-sayfası, giriş+content+indir işlemlerini birleştiren `[...action]/route.ts` ve
-iç isim plakası SVG ucu. Giriş, content ve indir ayrı `route.ts` dosyalarına;
-belge görüntüleyici de ayrı bir `page.tsx`e bölünmez. Ayrı dosya daha okunaklı
-görünür ama dağıtımı 15 fonksiyona çıkarıp bütünüyle durdurur. İşlem ayrımı
-catch-all içinde HTTP yöntemi + kesin segment şekliyle, belge seçimi sayfada
-`?belge=<uuid>` ile yapılır; her ikisi de aynı oturum/allowlist denetimini
-çağırır.
+**PUBLIC PORTAL İKİ SUNUCU FONKSİYONUDUR, DAHA FAZLASI DEĞİL.** Vercel Hobby
+dağıtımı en fazla 12 function kabul eder. Uygulamanın portal öncesi tabanı dokuz
+Node fonksiyonu ve bir proxy'dir; vinç portalı bu bütçeye yalnız iki uç ekler:
+müşteri liste/görüntüleyici sayfası ile giriş+content+indir işlemlerini
+birleştiren `[...action]/route.ts`. Giriş, content ve indir ayrı `route.ts`
+dosyalarına; belge görüntüleyici de ayrı bir `page.tsx`e bölünmez. İsim plakası
+SVG'si de ayrı sunucu ucu açmaz: yönetim sayfasına gömülen aynı saf geometri,
+logo ve font verileri tarayıcıda Blob olarak indirilir. Böylece baskı dosyası
+self-contained kalırken dağıtım bütçesi aşılmaz. İşlem ayrımı catch-all içinde
+HTTP yöntemi + kesin segment şekliyle, belge seçimi sayfada `?belge=<uuid>` ile
+yapılır; her ikisi de aynı oturum/allowlist denetimini çağırır.
 
 **“GÖRÜNTÜLE” DRM DEĞİLDİR.** `view_watermarked` PDF'i ham dosya bağlantısı
 vermeden canvas üzerinde, seri/oturum/tarih filigranıyla gösterir; indirme ve

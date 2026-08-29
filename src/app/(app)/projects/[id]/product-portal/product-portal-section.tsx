@@ -1,3 +1,6 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getReportSettings } from "@/lib/settings";
 import { customerPortalDtoForPreview } from "@/lib/product-portal/access-server";
@@ -5,6 +8,22 @@ import { loadProductPortalWorkspace } from "@/lib/product-portal/data-server";
 import { withProductPortalDefaults } from "@/lib/product-portal/identity";
 import type { ProductPortalFileDto } from "@/lib/product-portal/types";
 import { ProductPortalCard } from "./product-portal-card";
+
+const loadNameplateAssets = cache(async () => {
+  const root = process.cwd();
+  const [logo, archivo, plex] = await Promise.all([
+    fs.readFile(path.join(root, "public", "brand", "orion-logo-white.svg")),
+    fs.readFile(path.join(root, "src", "assets", "fonts", "Archivo-Bold.ttf")),
+    fs.readFile(path.join(root, "src", "assets", "fonts", "IBMPlexMono-SemiBold.ttf")),
+  ]);
+  return {
+    logoDataUrl: `data:image/svg+xml;base64,${logo.toString("base64")}`,
+    embeddedFontsCss: `
+      @font-face{font-family:Archivo;src:url(data:font/ttf;base64,${archivo.toString("base64")}) format('truetype');font-weight:700 900}
+      @font-face{font-family:PlexMono;src:url(data:font/ttf;base64,${plex.toString("base64")}) format('truetype');font-weight:500 700}
+    `,
+  };
+});
 
 function portalOrigin(web: string | undefined): string {
   const value = String(
@@ -21,9 +40,10 @@ export async function ProductPortalSection({
   canEdit: boolean;
 }) {
   const supabase = await createClient();
-  const [workspace, settings] = await Promise.all([
+  const [workspace, settings, nameplateAssets] = await Promise.all([
     loadProductPortalWorkspace(supabase, projectId),
     getReportSettings(supabase),
+    loadNameplateAssets(),
   ]);
   if (!workspace) {
     return (
@@ -32,7 +52,8 @@ export async function ProductPortalSection({
         canEdit={canEdit}
         workspace={null}
         portalOrigin={portalOrigin(settings.web)}
-        logoDataUrl="/brand/orion-logo-white.svg"
+        logoDataUrl={nameplateAssets.logoDataUrl}
+        embeddedFontsCss={nameplateAssets.embeddedFontsCss}
         draftPreview={null}
         publishedPreview={null}
       />
@@ -92,7 +113,8 @@ export async function ProductPortalSection({
       canEdit={canEdit}
       workspace={workspace}
       portalOrigin={portalOrigin(settings.web)}
-      logoDataUrl="/brand/orion-logo-white.svg"
+      logoDataUrl={nameplateAssets.logoDataUrl}
+      embeddedFontsCss={nameplateAssets.embeddedFontsCss}
       draftPreview={draftPreview}
       publishedPreview={publishedPreview}
     />

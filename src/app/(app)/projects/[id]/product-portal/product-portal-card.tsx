@@ -87,6 +87,7 @@ export function ProductPortalCard({
   workspace,
   portalOrigin,
   logoDataUrl,
+  embeddedFontsCss,
   draftPreview,
   publishedPreview,
 }: {
@@ -95,6 +96,7 @@ export function ProductPortalCard({
   workspace: ProductPortalWorkspace | null;
   portalOrigin: string;
   logoDataUrl: string;
+  embeddedFontsCss: string;
   draftPreview: CustomerPortalDto | null;
   publishedPreview: CustomerPortalDto | null;
 }) {
@@ -129,10 +131,11 @@ export function ProductPortalCard({
       identity: effectiveIdentity,
       hiddenFields: payload.hiddenFields,
       logoDataUrl,
+      embeddedFontsCss,
       holeDiameterMm: payload.plate.holeDiameterMm,
       holeInsetMm: payload.plate.holeInsetMm,
     });
-  }, [effectiveIdentity, logoDataUrl, payload, portalOrigin, selectedUnit]);
+  }, [effectiveIdentity, embeddedFontsCss, logoDataUrl, payload, portalOrigin, selectedUnit]);
   const liveDraftPreview = useMemo<CustomerPortalDto | null>(() => {
     if (!draftPreview || !payload || !effectiveIdentity) return draftPreview;
     return {
@@ -244,6 +247,23 @@ export function ProductPortalCard({
     }), "Taslak kaydedildi.");
   }
 
+  function downloadNameplate() {
+    if (!nameplateSvg || !selectedUnit) return;
+    const safeSerial = selectedUnit.serialNo
+      .replace(/[^A-Za-z0-9._-]/g, "-")
+      .replace(/-+/g, "-")
+      .slice(0, 90) || "vinc";
+    const fileName = `${safeSerial}-ORION-VINC-KIMLIK-PLAKASI-${displayRevision?.revNo ?? 1}.svg`;
+    const url = URL.createObjectURL(new Blob([nameplateSvg], { type: "image/svg+xml;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   const preview = previewMode === "published" ? publishedPreview : liveDraftPreview;
 
   return (
@@ -338,7 +358,7 @@ export function ProductPortalCard({
 
           <aside className="min-w-0 space-y-4 xl:sticky xl:top-4 xl:self-start">
             <section className="border bg-muted/30 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2"><div><div className="oc-kicker text-muted-foreground">Baskı Önizlemesi</div><div className="mt-1 font-mono text-xs">{payload.plate.widthMm} × {payload.plate.heightMm} mm · SVG</div></div>{selectedUnit && <a className="oc-tap inline-flex min-h-11 items-center gap-2 border border-primary px-3 text-sm text-primary" href={`/projects/${projectId}/product-portal/unit/${selectedUnit.id}/nameplate.svg`}><Download className="size-4" /> Baskı SVG</a>}</div>
+              <div className="flex flex-wrap items-center justify-between gap-2"><div><div className="oc-kicker text-muted-foreground">Baskı Önizlemesi</div><div className="mt-1 font-mono text-xs">{payload.plate.widthMm} × {payload.plate.heightMm} mm · SVG</div></div>{selectedUnit && <Button type="button" variant="outline" className="min-h-11 border-primary text-primary hover:text-primary" onClick={downloadNameplate}><Download className="size-4" /> Baskı SVG</Button>}</div>
               <div className="mt-3 overflow-hidden border bg-white p-2 [&>svg]:block [&>svg]:h-auto [&>svg]:max-w-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: nameplateSvg }} />
               <div className="mt-3 grid grid-cols-2 gap-2"><div><Label>Genişlik (mm)</Label><Input type="number" min={120} value={payload.plate.widthMm} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setPayload({ ...payload, plate: { ...payload.plate, widthMm: Number(event.target.value) } })} /></div><div><Label>Yükseklik (mm)</Label><Input type="number" min={80} value={payload.plate.heightMm} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setPayload({ ...payload, plate: { ...payload.plate, heightMm: Number(event.target.value) } })} /></div></div>
               {selectedUnit && <p className="mt-3 break-all font-mono text-[10px] leading-5 text-muted-foreground">{productPortalUrl(portalOrigin, selectedUnit.publicCode)}</p>}
