@@ -26,7 +26,7 @@ import {
   BookOpen, ExternalLink, FileDown, FilePlus2, FileSpreadsheet, Link2, Loader2, Plus, Save, Trash2,
 } from "lucide-react";
 import type { EqGroup, EquipmentExtraRow, SummarySection } from "@/lib/excel/equipment";
-import { dsKey, rowSheetUrl, summaryRowValue } from "@/lib/excel/equipment";
+import { rowDatasheetUrl, rowSheetUrl, summaryRowValue } from "@/lib/excel/equipment";
 import { EQUIPMENT_ATTACHMENT_BUCKET } from "@/lib/equipment-attachments";
 import { customerDrawingPathOf } from "@/lib/equipment-customer-link";
 import { createClient } from "@/lib/supabase/client";
@@ -440,7 +440,10 @@ export function EquipmentPanel({
   }
 
   function ModelCell({ row }: { row: EqGroup["rows"][number] }) {
-    const url = row.kind ? datasheetUrls[dsKey(row.kind, row.brand, row.model)] : undefined;
+    // Anahtar KATALOG kimliğidir, görünen model değil: halat satırında
+    // görünen "6X36 WS SAĞ HELİS" satın alma tanımıdır, katalog ürünü ise
+    // "Ø20 6x36 WS IWRC 1960 MPa"dır (bkz. `rowDatasheetUrl`).
+    const url = rowDatasheetUrl(row, datasheetUrls);
     if (url && row.model && row.model !== "-") {
       return (
         <a

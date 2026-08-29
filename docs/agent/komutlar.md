@@ -62,7 +62,14 @@
   (SVG + PNG). İkinci fikstür olmadan "Kesit 1'in kesmesi sıfır değildir" hâli
   hiç görülmez
 - `python scripts/catalog-sheets.py [--verify] [--only <tür>]` — katalog
-  sayfalarını kaynak PDF'lerden kes; `--verify` yalnız haritayı sınar
+  sayfalarını kaynak PDF'lerden kes; `--verify` yalnız haritayı sınar.
+  `--only` MANİFESTİN TAMAMINI o türle yeniden yazar (diğer türler defterden
+  düşer); güncellemek için SÜZGEÇSİZ koşturulur
+- `cd scripts/catalog-extract && python ropes_guven.py` — DIEPA · OLIVEIRA ·
+  UNION · DRAKO ürün föylerini `catalog_data/ropes/`e çıkar (43 ürün). Ardından
+  `python ropes_validate.py` fiziğe karşı sınar, sonra
+  `npx tsx scripts/seed-catalog.ts --kinds rope --out <damga>_rope_reseed` ile
+  yenileme migration'ı üretilir
 - `npx tsx scripts/make-icons.ts` — sekme ve uygulama ikonlarını MARKA
   SEMBOLÜNDEN üret (`app/icon.svg` · `favicon.ico` · `apple-icon.png` ·
   `public/brand/icon-{192,512,maskable-512}.png`). Üretilen dosyalar elle

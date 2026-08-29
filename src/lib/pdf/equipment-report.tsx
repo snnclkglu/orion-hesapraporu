@@ -15,7 +15,7 @@ import type {
   EqGroup, SummarySection,
 } from "@/lib/excel/equipment";
 import {
-  attachmentSummaryText, canLinkEquipmentModel, dsKey, rowCatalogSheetKey,
+  attachmentSummaryText, rowCatalogSheetKey, rowDatasheetUrl,
   rowSheetUrl, summaryRowValue,
 } from "@/lib/excel/equipment";
 import {
@@ -163,7 +163,7 @@ export interface CatalogSheetImage {
  */
 export interface CatalogSheetPage {
   /**
-   * Bu eke bağlanan ürünlerin anahtarları — `dsKey(kind, brand, model)`.
+   * Bu eke bağlanan ürünlerin anahtarları — `rowCatalogSheetKey(row)`.
    * ÇOĞULDUR: aynı katalog sayfası birden çok ürüne hizmet edebilir (aynı
    * serinin iki boyu tek tabloda basılır) ve sayfa eke bir kez girer.
    */
@@ -191,7 +191,7 @@ export interface CatalogSheetPage {
  * çapa da kalmazdı.
  */
 export interface EquipmentAttachmentCover {
-  /** `dsKey(kind, brand, model)` DEĞİL, satırın `rowKey`i — ek satıra bağlıdır. */
+  /** `rowCatalogSheetKey(row)` DEĞİL, satırın `rowKey`i — ek satıra bağlıdır. */
   rowKey: string;
   /** Ekipman adı (listede görünen hâli) */
   component: string;
@@ -328,11 +328,12 @@ function companyInfo(settings?: ReportSettings): CompanyInfo {
 }
 
 function ModelCell({ row, urls }: { row: EqGroup["rows"][number]; urls?: Map<string, string> }) {
-  const url = row.kind ? urls?.get(dsKey(row.kind, row.brand, row.model)) : undefined;
-  const model = breakEquipmentModelCode(reportRowUpper(row.model));
+  // Anahtar KATALOG kimliğidir, görünen model değil (bkz. `rowDatasheetUrl`).
   // Klima tipleri için üretici websitesi bağlantısı müşteri çıktılarında
-  // istenmiyor; diğer katalog ekipmanlarının datasheet bağlantıları korunur.
-  if (canLinkEquipmentModel(row.kind) && url && row.model && row.model !== "-") {
+  // istenmiyor; diğer katalog ekipmanlarının föy bağlantıları korunur.
+  const url = rowDatasheetUrl(row, urls);
+  const model = breakEquipmentModelCode(reportRowUpper(row.model));
+  if (url && row.model && row.model !== "-") {
     return (
       <View style={[s.td, s.cModel]}>
         <Link src={url} style={[s.mono, { color: BRAND.steel, textDecoration: "underline" }]}>{model}</Link>

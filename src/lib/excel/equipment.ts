@@ -1439,10 +1439,11 @@ function writeEquipmentSheet(
         row.getCell(1).value = r.component;
       }
       row.getCell(2).value = r.brand;
-      // Model hücresi: katalog datasheet linki varsa köprüle. Klima
+      // Model hücresi: üreticinin teknik föyü varsa köprüle. Anahtar KATALOG
+      // kimliğidir, görünen model değil (bkz. `rowDatasheetUrl`). Klima
       // satırlarında website bağlantısı müşteri çıktılarında gösterilmez.
-      const url = r.kind ? datasheetUrls?.get(dsKey(r.kind, r.brand, r.model)) : undefined;
-      if (canLinkEquipmentModel(r.kind) && url && r.model && r.model !== "-") {
+      const url = rowDatasheetUrl(r, datasheetUrls);
+      if (url && r.model && r.model !== "-") {
         row.getCell(3).value = { text: r.model, hyperlink: url };
         row.getCell(3).font = HYPERLINK_FONT;
       } else {
@@ -1596,6 +1597,36 @@ export function catalogIdentityOf(
 
 /** Satırın katalog sayfası adresi (yoksa undefined). */
 export function rowSheetUrl(
+  row: Pick<EqRow, "kind" | "brand" | "model" | "catalogModel" | "catalogInputRpm">,
+  urls?: Map<string, string> | Record<string, string>
+): string | undefined {
+  return lookupByCatalogKey(row, urls);
+}
+
+/**
+ * Satırın ÜRETİCİ FÖYÜ adresi — `cat_equipment.datasheet_url` (yoksa undefined).
+ *
+ * Katalog SAYFASINDAN farklı bir belgedir (o uygulamanın kendi görüntüleyicisi,
+ * bu üreticinin kendi PDF'i) ama ANAHTARI aynıdır ve aynı olmak ZORUNDADIR:
+ * sözlük `cat_equipment` satırlarından kurulur, dolayısıyla anahtardaki model
+ * KATALOG modelidir ("Ø20 6x36 WS IWRC 1960 MPa"). Satırda GÖRÜNEN model ise
+ * satın almanın istediği tanımdır ("6X36 WS SAĞ HELİS").
+ *
+ * Bağlantı bir süre görünen modelle arandı; o anahtar hiçbir zaman tutmuyordu
+ * ve kimliği `catalogModel`de duran satırların — HALAT, redüktör (2.3/5.5) ve
+ * yürütme freni — HİÇBİRİ föy bulamıyordu. Sessiz bir kayıptı: model hücresi
+ * düz metin kalıyor, eksik olduğu ancak üreticinin föyü aranınca anlaşılıyordu.
+ */
+export function rowDatasheetUrl(
+  row: Pick<EqRow, "kind" | "brand" | "model" | "catalogModel" | "catalogInputRpm">,
+  urls?: Map<string, string> | Record<string, string>
+): string | undefined {
+  if (!canLinkEquipmentModel(row.kind)) return undefined;
+  return lookupByCatalogKey(row, urls);
+}
+
+/** İki sözlük de `rowCatalogSheetKey` ile anahtarlanır; arama tek yerdedir. */
+function lookupByCatalogKey(
   row: Pick<EqRow, "kind" | "brand" | "model" | "catalogModel" | "catalogInputRpm">,
   urls?: Map<string, string> | Record<string, string>
 ): string | undefined {

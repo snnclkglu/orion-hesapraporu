@@ -994,6 +994,88 @@ Betik ayrıca ESKİ `hascelik_6x36.json` dosyasındaki Ø58 satırlarını bozuk
 bildirir (kopma kuvveti 13 ve 60 kN, ağırlık 2120 kg/m — sütun kayması).
 Kaynak PDF workspace'te olmadığı için bu bölümde DÜZELTİLMEMİŞTİR.
 
+## Güven Çelik Halat ürün föyleri (`ropes_guven.py`, 43 dosya · 3320 satır)
+
+DIEPA · OLIVEIRA · UNION · DRAKO markalarının 37 ürün föyü
+(guvencelikhalat.com.tr, 04/2019 baskısı; `Diğer kataloglar/` altına
+indirilmiştir). Bir föy birden çok ürün taşıyabilir — X 53/X 50 ve PZ 299/Z 299
+yalnız özün plastik ceketiyle ayrışır, MB/MX/ML serilerinde tek tablo ailenin
+dört/üç/iki ürününü birden basar.
+
+```bash
+python ropes_guven.py
+python ropes_validate.py
+```
+
+| Marka | Ürün | Satır | Tipik kullanım |
+|---|---|---|---|
+| DIEPA | 17 (X 53/X 50 · PZ 299/Z 299 · MX4-6 · MB4-7 · ML4-5 · B 55 · C 45 · K 43 · S 67 WP) | 2865 | vinç · madencilik · sondaj · taş kesme |
+| OLIVEIRA | 7 (NR Maxipact · NR15 Maxilift · Towerlift 15 · LP 5 · Super Yellow Fin · Zincal Compact ×2) | 296 | vinç · platform · balıkçılık |
+| UNION | 5 (Powermax PFV · 6-Strand PFV · Tuf-Max · Flex X-9 · 3xK7) | 60 | madencilik · sondaj |
+| DRAKO | 14 (300 T · 250 T · 210 TF/TFS · 8x19 S/W-FC · 8x25 F-FC · regülatör ×4 · 180 B ×2 · 200 B) | 99 | **asansör** |
+
+**Bu defter yalnız vinç halatı taşımaz.** DRAKO'nun tamamı asansör (askı ·
+regülatör · denge), UNION madencilik ve sondaj, OLIVEIRA'nın iki ürünü
+balıkçılık halatıdır. Bu yüzden her dosyanın `meta.typical_application` alanı
+vardır; seed onu her satıra dağıtır ve **seçicinin İLK süzgeç adımı** odur
+(`catalog-mapping.ts` → `rope.facets`). Alan ESKİ halat dosyalarına da
+eklenmiştir, yoksa adım boş değerli bir seçenek üretirdi.
+
+### Üç tablo düzeni, tek okuyucu
+
+Sütunlar sabit indisle değil BAŞLIK KELİMELERİNİN x konumuyla bulunur; her
+tablo tanımı bir `plan` (soldan sağa `(başlık kelimesi, rol)`) verir ve okuyucu
+bu diziyi birebir doğrular, tutmazsa DURUR.
+
+1. **Sınıf sütunları** — bir ağırlık sütunu, mukavemet sınıfı başına bir kN
+   sütunu (DIEPA X 53/B 55/C 45, OLIVEIRA NR Maxipact …).
+2. **Ürün sütunları** — sınıf tek, ürün başına kN + ağırlık çifti; aynı tablo
+   ailenin her PDF'inde tekrar eder (MB4-MB7, MX4-MX6, ML4-ML5).
+3. **Bölümlü tablo** — tek sütun kümesi, satır aralarına konstrüksiyon başlığı
+   serpiştirilmiştir (DRAKO 180 B ve regülatör föyü).
+
+### Bu ailede öğrenilen üç tuzak
+
+- **NOKTA BİNLİK AYIRACIDIR.** Çap dışındaki bütün sütunlarda ondalık ayıracı
+  virgüldür: "1.727" 1727 kN, "2.438" 2438 kN demektir. `pdftable.num` bunu
+  bilemez ve 2,438 okur — bu yüzden çap dışı roller `num_kat` ile okunur. Çap
+  sütununda nokta ONDALIKTIR (12.7 · 15.88 · 22.23); ayrım rol bazlıdır.
+- **"Talebe göre imalatı yapılmaktadır."** bandı satırın sağ yarısına yayılır ve
+  kelimeleri en yakın çapaya düşer. Rolün İLK kelimesini almak (`cell_text`) o
+  satırların ağırlığını sessizce düşürürdü; `pick` ilk SAYISAL kelimeyi alır.
+- **Sınır satırı iki kez basılır.** Çok sayfalı tabloda son satır sonraki
+  yaprağın başında tekrar eder (DIEPA B 55 Ø60 · Ø89 · Ø90); OLIVEIRA Super
+  Yellow Fin'de Ø30 arka arkaya iki kez basılıdır. `dedupe` aynı değerli
+  tekrarı atar, DEĞERİ ÇELİŞEN tekrarda betik durur.
+
+### Basılı olmayan alan yazılmaz
+
+- UNION Powermax PFV · 6-Strand PFV · Tuf-Max föylerinde MUKAVEMET SINIFI hiç
+  basılmaz; o satırlarda `grade_mpa` YOKTUR (CASAR Starlift Xtra'daki desen).
+- DRAKO'nun bir bölüm föyünde tek kopma kuvveti sütunu BİLEŞİK bir tanım taşır
+  ("1570 N/mm² ve 1370/1770 N/mm²"). Sayısal sınıf yazılmaz; basılı etiket
+  `grade_label` alanında olduğu gibi durur.
+- OLIVEIRA'nın balıkçılık föylerinde kopma kuvveti yalnız TON basılıdır. Bu
+  metrik tondur — aynı yayıncının kN ve ton'u birlikte bastığı tablolarında oran
+  birebir 9,80665'tir (148,00 kN ↔ 15,09 t) ve föy kısa tonu ayrı bir sütunda
+  gösterir. Dönüşüm yapılmış, kaynağı `breaking_load_source` alanına yazılmıştır.
+- OLIVEIRA Zincal Compact ÇELİK ÖZLÜ tablosunun "Ağırlık (kg/m)" sütununa kopma
+  kuvvetinin kg karşılığı basılmıştır (28,75 t karşısında "28.720"). O üründe
+  metre ağırlığı YOKTUR; tahmin edilmemiştir.
+
+### Korunan katalog dizgi hataları
+
+- DIEPA X 53/X 50 — 2 1/2" (63,5 mm) satırında 1770 N/mm² kopma kuvveti
+  3.126 kN basılıdır ve bir alt çaptan (63 mm → 3.165 kN) küçüktür; aynı satırın
+  kp değeri (327.060 kp ≈ 3.207 kN) doğru sıralanır.
+- DIEPA ML5 — 4" ve 102 mm satırlarında kopma kuvveti "9.264.0" / "9.337.0"
+  basılmıştır (binlik ayracının ardına nokta+basamak); 9264 ve 9337 kN okunur.
+- DIEPA PZ 299 — yapım faktörü listesinde 2160 N/mm² satırı "1960" basılıdır.
+- DRAKO 300 T — Ø16 satırında konstrüksiyon "IWCR" basılıdır; "IWRC" okunur.
+- `ropes_validate.py` bu ailede tek bir bant uyarısı bırakır: DRAKO regülatör
+  8x19 S-FC Ø6,5 için yapım faktörü 0,286. Elyaf özlü 8 demetli asansör halatı
+  için beklenen banttadır, sütun kayması değildir.
+
 ## Redüktörler (`catalog_data/reducers/`, 6 yeni dosya)
 
 | Kaynak PDF | Dosya | Satır | Kullanım grubu |

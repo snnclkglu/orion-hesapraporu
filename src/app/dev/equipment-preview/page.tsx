@@ -10,6 +10,7 @@ import { V5_TEMPLATE } from "@/lib/calc/defaults";
 import { runCalc } from "@/lib/calc/engine";
 import {
   buildCatalogSheetUrls, buildEquipmentGroups, buildSummarySections,
+  catalogIdentityOf, dsKey,
 } from "@/lib/excel/equipment";
 import { EquipmentPanel } from "@/app/(app)/projects/[id]/revisions/[revId]/equipment/equipment-panel";
 
@@ -60,6 +61,19 @@ export default function EquipmentPreviewPage() {
   // "Notlar" bölümünün satır sonlarını koruduğunu göstermez.
   DRAWING_NOTE_FIXTURE);
   const sheetUrls = Object.fromEntries(buildCatalogSheetUrls(groups));
+  // TEKNİK FÖY fikstürü — sözlük canlıda `cat_equipment` satırlarından kurulur,
+  // dolayısıyla anahtardaki model KATALOG modelidir ("Ø18 6x36 WS IWRC 1960
+  // MPa"), satırda GÖRÜNEN "6X36 SAĞ HELİS" değil. Fikstürü görünen modelle
+  // kurmak, bağlantının kopuk olduğu hâli "çalışıyor" gibi gösterirdi; kimlik
+  // `catalogIdentityOf` ile alınır (bkz. `rowDatasheetUrl`).
+  const datasheetUrls = Object.fromEntries(
+    groups.flatMap((group) => group.rows).flatMap((row) => {
+      const id = catalogIdentityOf(row);
+      if (!id || row.kind !== "rope") return [];
+      return [[dsKey(id.kind, id.brand, id.model, id.inputRpm),
+        "https://www.hascelikhalat.com.tr/depo/urunler2023/02/01.pdf"] as const];
+    })
+  );
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -93,7 +107,7 @@ export default function EquipmentPreviewPage() {
               pageCount: 1,
             },
           ]}
-          datasheetUrls={{}}
+          datasheetUrls={datasheetUrls}
           sheetUrls={sheetUrls}
           locked={false}
         />

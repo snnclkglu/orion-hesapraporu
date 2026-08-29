@@ -672,12 +672,17 @@ G = 9.80665
 
 
 def rows_for(spec):
-    """PDF'in tablo satırlarını ürün başına ayırır → {ürün indisi: [satır]}."""
+    """PDF'in gövde satırlarını KOVALARA ayırır → {kova anahtarı: [satır]}.
+
+    Kova anahtarı iki biçimdedir:
+      * `"#<tablo indisi>"` — olağan tablo; ürün `table` alanıyla seçer (bir
+        sayfada birden çok tablo olabilir, OLIVEIRA ZINCAL COMPACT).
+      * BÖLÜM BAŞLIĞININ METNİ — `section_re` verilen föylerde (DRAKO 180 B ve
+        regülatör), satır aralarına serpiştirilmiş konstrüksiyon başlıkları.
+    """
     doc = rc.open_src(spec["pdf"])
     section_re = re.compile(spec["section_re"]) if spec.get("section_re") else None
-    # Bölüm başlıklı tabloda satırlar başlığa göre; değilse hepsi ortak.
     buckets: dict[str, list] = {}
-    shared: list = []
     for pno in spec["pages"]:
         page = doc[pno]
         tables = tables_of(page, spec["plan"])
@@ -689,11 +694,18 @@ def rows_for(spec):
                 if section_re and section_re.match(text.strip()):
                     current = " ".join(text.split())
                     continue
-                key = current if section_re else f"#{ti}"
-                (buckets.setdefault(key, []) if section_re
-                 else buckets.setdefault(key, [])).append(cells)
+                if section_re and current is None:
+                    # İlk bölüm başlığından ÖNCE ölçülü bir satır varsa o satır
+                    # hiçbir ürüne düşmez ve sessizce kaybolurdu. Başlık bandı
+                    # kayarsa (`HEAD_DOWN`) tablonun tamamı böyle boşalır;
+                    # sessiz kayıp yerine durulur.
+                    if pick(cells, "mm", rc.num) is not None:
+                        sys.exit(f"{spec['pdf']} s.{pno + 1}: bölüm başlığından "
+                                 f"önce ölçülü satır var — {text.strip()[:60]}")
+                    continue
+                buckets.setdefault(current if section_re else f"#{ti}", []).append(cells)
     doc.close()
-    return buckets, shared
+    return buckets
 
 
 def build_items(spec, p, cells_list):
@@ -788,7 +800,7 @@ def dedupe(items, series):
 def build():
     total = 0
     for spec in TABLES:
-        buckets, _ = rows_for(spec)
+        buckets = rows_for(spec)
         for p in spec["products"]:
             if p.get("section"):
                 cells_list = buckets.get(p["section"])

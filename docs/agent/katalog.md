@@ -96,6 +96,18 @@ yalnız modelle arama yeterli değildir: çıkarıcı PDF'i okurken kesin
 `n1=…` parametresiyle doğru bloğa döner. Katalog `n1` değeri gerçek motor
 devrine yuvarlanmaz.
 
+**HALAT DEFTERİ YALNIZ VİNÇ HALATI TAŞIMAZ.** Aynı üreticilerin asansör
+(askı · regülatör · denge), madencilik, sondaj, balıkçılık ve taş kesme
+halatları da defterdedir — 66 üründen 31'i vinç halatıdır. Bu yüzden her halat
+satırı `attrs.typical_application` taşır (`Vinç` · `Asansör` · `Madencilik` ·
+`Sondaj` · `Balıkçılık` · `Platform` · `Taş kesme`) ve o alan seçicinin **İLK
+süzgeç adımıdır**. Kaynağı `catalog_data/ropes/*.json` dosyalarının
+`meta.typical_application` alanıdır; seed onu satırlara dağıtır. Adım
+redüktördeki gibi KİLİTLİ DEĞİLDİR — mühendis bilerek başka bir alanın halatını
+da seçebilir — ama kilitsizlik, bir asansör askı halatının vinç kaldırma
+halatıyla aynı listede ayırt edilmeden durmasını gerektirmez: alan aynı zamanda
+sonuç tablosunda bir sütundur.
+
 **Halatın görünen modeli katalog kimliği değildir.** Ekipman satırında satın
 alma için `6X36 WS SAĞ HELİS` / `SOL HELİS` görünür; üretici katalog ürünü ise
 `Ø20 6x36 WS IWRC 1960 MPa` biçimindedir. Katalogdan seçim birebir modeli

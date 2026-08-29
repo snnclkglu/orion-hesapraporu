@@ -4,6 +4,8 @@ import {
   buildCatalogSheetUrls,
   buildEquipmentGroups,
   catalogIdentityOf,
+  dsKey,
+  rowDatasheetUrl,
   rowSheetUrl,
 } from "@/lib/excel/equipment";
 import { collectCatalogSheetPages } from "@/lib/pdf/catalog-sheet-images";
@@ -59,4 +61,38 @@ describe("ekipman listesi katalog bağlantıları", () => {
     ]);
     expect(pages[0].source).toContain("Hasçelik 6x36 WS");
   }, 120_000);
+
+  it("üretici föyünü GÖRÜNEN modelle değil katalog kimliğiyle bulur", () => {
+    // Föy sözlüğü `cat_equipment` satırlarından kurulur, dolayısıyla anahtardaki
+    // model KATALOG modelidir. Halat satırında GÖRÜNEN model ise satın almanın
+    // istediği tanımdır ("6X36 WS SAĞ HELİS") ve ikisi hiçbir zaman eşleşmez;
+    // arama görünen modelle yapıldığı sürece halat, redüktör ve yürütme freni
+    // satırlarının hiçbiri föy bulamıyordu.
+    const input = structuredClone(V5_TEMPLATE);
+    const groups = buildEquipmentGroups(input);
+    const rope = groups.flatMap((group) => group.rows)
+      .find((row) => row.rowKey === "main:rope")!;
+
+    const catalogModel = catalogIdentityOf(rope)!.model;
+    expect(rope.model).not.toBe(catalogModel); // görünen ≠ katalog kimliği
+
+    const foy = "https://uretici.example/halat.pdf";
+    const urls = new Map([[dsKey(rope.kind!, rope.brand, catalogModel), foy]]);
+
+    expect(rowDatasheetUrl(rope, urls)).toBe(foy);
+    // Görünen modelle kurulan anahtar hiçbir zaman tutmaz — koruma budur.
+    expect(rowDatasheetUrl(rope, new Map([
+      [dsKey(rope.kind!, rope.brand, rope.model), foy],
+    ]))).toBeUndefined();
+  });
+
+  it("klima satırında üretici websitesi müşteri çıktısına bağlanmaz", () => {
+    // `canLinkEquipmentModel` kuralı föy yolunda da geçerlidir; kural iki
+    // yüzeyde ayrı ayrı yazılırsa biri gün gelip diğerinden ayrışır.
+    const row = {
+      kind: "air_conditioner" as const, brand: "TMS", model: "VKS-VS",
+    };
+    const urls = new Map([[dsKey("air_conditioner", "TMS", "VKS-VS"), "https://tms.example"]]);
+    expect(rowDatasheetUrl(row, urls)).toBeUndefined();
+  });
 });
