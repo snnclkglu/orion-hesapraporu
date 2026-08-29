@@ -86,7 +86,7 @@ export function CustomerPortalView({ dto }: { dto: CustomerPortalDto }) {
                   .map((file) => {
                     const href = file.accessMode === "download"
                       ? `${base}/belge/${file.id}/indir`
-                      : `${base}/belge/${file.id}`;
+                      : `${base}?belge=${encodeURIComponent(file.id)}`;
                     const icon = file.accessMode === "download"
                       ? <Download className="size-4" />
                       : <Eye className="size-4" />;
