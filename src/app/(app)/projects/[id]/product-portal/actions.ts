@@ -510,9 +510,16 @@ export async function issueProductPortalRevision(
   }
 
   const headerStore = await headers();
-  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host") ?? "localhost:3000";
-  const proto = headerStore.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const deploymentHost = process.env.VERCEL_URL?.trim();
+  const host = deploymentHost
+    ?? headerStore.get("x-forwarded-host")
+    ?? headerStore.get("host")
+    ?? "localhost:3000";
+  const proto = deploymentHost
+    ? "https"
+    : headerStore.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const requestOrigin = `${proto}://${host}`;
+  const requestCookie = headerStore.get("cookie") ?? "";
   const materialized = [];
   try {
     for (const document of selected) {
@@ -523,6 +530,7 @@ export async function issueProductPortalRevision(
         revisionNo: Number(context.revision.rev_no),
         selection: document,
         requestOrigin,
+        requestCookie,
       }));
     }
 

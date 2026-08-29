@@ -329,6 +329,16 @@ eklediği kesin `portal`/`action` sorgularıyla, belge seçimi sayfada
 `?belge=<uuid>` ile yapılır; her ikisi de aynı oturum/allowlist denetimini
 çağırır.
 
+**YAYIM ACTION'I PDF ROUTE MODÜLÜ IMPORT ETMEZ.** Ekipman listesi ve el kitabı
+snapshot'ı, kullanıcının oturum çereziyle aynı origin'deki mevcut auth'lu PDF
+uçlarına `fetch` edilerek alınır. Bu bir kod tekrarını önleme ayrıntısından daha
+fazlasıdır: route modülünü `materialize-server.ts` içine doğrudan import etmek
+canvas, katalog ve react-pdf bağımlılıklarını proje sayfasının Server Action
+trace'ine taşır; Vercel'in yaklaşık 225 MiB fonksiyon gruplama eşiğini aşarak
+Hobby dağıtımını gereksiz ek lambdalara böler. Canlıda hedef origin güvenilir
+`VERCEL_URL`den, yerelde istek hostundan kurulur; çerez başka origin'e
+gönderilmez.
+
 **“GÖRÜNTÜLE” DRM DEĞİLDİR.** `view_watermarked` PDF'i ham dosya bağlantısı
 vermeden canvas üzerinde, seri/oturum/tarih filigranıyla gösterir; indirme ve
 yazdırma düğmesini kaldırır ama ekran görüntüsünü teknik olarak engelleyemez.

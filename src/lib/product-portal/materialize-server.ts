@@ -1,16 +1,19 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { NextRequest } from "next/server";
 import { PDFDocument } from "pdf-lib";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { GET as renderEquipmentRoute } from "@/app/(app)/projects/[id]/revisions/[revId]/equipment/download/route";
-import { GET as renderManualRoute } from "@/app/(app)/projects/[id]/manual/[revId]/pdf/route";
 import { ELECTRICAL_BUCKET } from "@/lib/electrical/data";
 import { SPEC_BUCKET } from "@/lib/project-specs";
 import { sha256 } from "./secrets";
 import { CUSTOMER_PORTAL_BUCKET } from "./data-server";
 import type { PortalDocumentSelection } from "./types";
+
+// Equipment/manual route modüllerini buraya doğrudan import ETME. Bu modül
+// proje sayfasındaki Server Action zincirindedir; route importu canvas,
+// katalog ve react-pdf izini de sayfa lambdasına taşıyıp Vercel'in 225 MiB
+// gruplama eşiğini aşar. Aynı-origin fetch mevcut auth'lu PDF uçlarını tek
+// kaynak olarak kullanır ve ağır üreticileri kendi fonksiyonlarında bırakır.
 
 export interface MaterializedPortalFile {
   id: string;
@@ -68,7 +71,8 @@ async function sourceBytes(
   supabase: SupabaseClient,
   projectId: string,
   selection: PortalDocumentSelection,
-  requestOrigin: string
+  requestOrigin: string,
+  requestCookie: string
 ): Promise<Uint8Array> {
   switch (selection.sourceKind) {
     case "report": {
@@ -98,8 +102,9 @@ async function sourceBytes(
       );
       url.searchParams.set("format", "pdf");
       url.searchParams.set("scope", "customer");
-      const response = await renderEquipmentRoute(new NextRequest(url), {
-        params: Promise.resolve({ id: projectId, revId: selection.sourceId }),
+      const response = await fetch(url, {
+        cache: "no-store",
+        headers: { Accept: "application/pdf", Cookie: requestCookie },
       });
       return responsePdf(response, "Ekipman listesi");
     }
@@ -109,8 +114,9 @@ async function sourceBytes(
         `/projects/${projectId}/manual/${selection.sourceId}/pdf`,
         requestOrigin
       );
-      const response = await renderManualRoute(new NextRequest(url), {
-        params: Promise.resolve({ id: projectId, revId: selection.sourceId }),
+      const response = await fetch(url, {
+        cache: "no-store",
+        headers: { Accept: "application/pdf", Cookie: requestCookie },
       });
       return responsePdf(response, "İşletme ve Bakım El Kitabı");
     }
@@ -175,6 +181,7 @@ export async function materializePortalSelection({
   revisionNo,
   selection,
   requestOrigin,
+  requestCookie,
 }: {
   supabase: SupabaseClient;
   projectId: string;
@@ -182,8 +189,9 @@ export async function materializePortalSelection({
   revisionNo: number;
   selection: PortalDocumentSelection;
   requestOrigin: string;
+  requestCookie: string;
 }): Promise<MaterializedPortalFile> {
-  const bytes = await sourceBytes(supabase, projectId, selection, requestOrigin);
+  const bytes = await sourceBytes(supabase, projectId, selection, requestOrigin, requestCookie);
   if (bytes.byteLength === 0) throw new Error(`${selection.title} boş bir dosya üretti.`);
   let pageCount = 0;
   try {
