@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { writeFileSync } from "node:fs";
 import sharp from "sharp";
-import { PDFArray, PDFDocument, PDFName, type PDFDict } from "pdf-lib";
+import { PDFArray, PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import { renderEquipmentPdf, breakEquipmentModelCode } from "@/lib/pdf/equipment-report";
 import {
   buildEquipmentGroups,
@@ -68,6 +68,11 @@ describe("ekipman listesi PDF düzeni", () => {
     const parsed = await PDFDocument.load(pdf, { updateMetadata: false });
     const directoryLinks = parsed.getPage(1).node.lookupMaybe(PDFName.of("Annots"), PDFArray);
     expect(directoryLinks?.size()).toBeGreaterThanOrEqual(2);
+    const perPage = await extractText(doc, { mergePages: false });
+    const equipmentPage = String((perPage.text as string[])[2] ?? "");
+    expect(equipmentPage).not.toContain("MÜŞTERİ");
+    expect(equipmentPage).not.toContain("HAZIRLAYAN");
+    expect(equipmentPage).not.toContain("KONTROL");
     const previewOut = process.env.EQUIPMENT_COVER_OUT;
     if (previewOut) writeFileSync(previewOut, pdf);
   }, 120_000);
@@ -228,7 +233,7 @@ describe("detaylı listenin ek sayfaları", () => {
     expect(await linkActionKinds(detailed)).toContain("/GoTo");
   }, 120_000);
 
-  it("detaylı PDF'de elektrik teknik föyünün dış bağlantısını korur", async () => {
+  it("detaylı PDF'de elektrik teknik föyünü belge içindeki EK-F hedefine bağlar", async () => {
     const electricalRow = {
       rowKey: "electrical:0123456789abcdef",
       kind: "electrical",
@@ -245,24 +250,22 @@ describe("detaylı listenin ek sayfaları", () => {
         { name: "Şalterler", rows: [electricalRow] },
         ...GROUPS,
       ],
-      sheetUrls: new Map([
-        [key, "https://orion.example/api/electrical-catalog/foy-1"],
-      ]),
-      // Başka bir satırın eki belgeyi detaylı kipe geçirir. Elektrik satırının
-      // dış föy bağlantısı bu kipte de `/URI` olarak kalmalıdır.
-      attachmentCovers: [
-        { rowKey: "main:gearbox", component: "Redüktör", fileName: "olcu.pdf", pageCount: 2 },
-      ],
+      internalSheetAnchors: new Map([[key, "ekf-entry-1"]]),
     });
 
-    expect(await linkActionKinds(pdf)).toContain("/URI");
+    const kinds = await linkActionKinds(pdf);
+    expect(kinds).toContain("/GoTo");
+    expect(kinds).not.toContain("/URI");
   }, 120_000);
 
   it("YATAY taranmış katalog sayfası YATAY basılır", async () => {
     // Ek sayfalar bir süre HEPSİ dikey basılıyordu; yatay bir ölçü tablosu
     // dikey A4'e sığdırılınca yüksekliğin üçte birine iniyor ve okunmuyordu
     // (kullanıcı bildirimi). Yön artık görüntünün ÖLÇÜSÜNDEN gelir.
-    const pdf = await renderEquipmentPdf({
+    const [basePdf, pdf] = await Promise.all([renderEquipmentPdf({
+      meta: META,
+      groups: GROUPS,
+    }), renderEquipmentPdf({
       meta: META,
       groups: GROUPS,
       sheetPages: [
@@ -278,14 +281,21 @@ describe("detaylı listenin ek sayfaları", () => {
           ],
         },
       ],
-    });
+    })]);
 
+    const base = await PDFDocument.load(basePdf, { updateMetadata: false });
     const belge = await PDFDocument.load(pdf, { updateMetadata: false });
+    expect(belge.getPageCount() - base.getPageCount()).toBe(2);
     const yonler = belge
       .getPages()
       .map((p) => (p.getWidth() > p.getHeight() ? "yatay" : "dikey"));
     // Liste sayfası zaten yataydır; ek yaprakları: 1 yatay + 1 dikey.
     expect(yonler.slice(-2)).toEqual(["yatay", "dikey"]);
+    for (const page of belge.getPages().slice(-2)) {
+      const resources = page.node.lookupMaybe(PDFName.of("Resources"), PDFDict);
+      const images = resources?.lookupMaybe(PDFName.of("XObject"), PDFDict);
+      expect(images?.keys().length).toBeGreaterThan(0);
+    }
   }, 120_000);
 
   it("ek belge kapağı basılır ve sayfa adedini yazar", async () => {

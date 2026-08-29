@@ -172,21 +172,22 @@ async function main() {
   const eqWs = readBack.getWorksheet("Ekipman Listesi");
   if (eqWs) {
     // Başlık satırı numarası künye bloğunun boyuna göre değişir → "Ekipman"
-    // hücresini arayarak bulunur (sabit satır no bayatlıyordu).
+    // hücresini arayarak bulunur (sabit satır no bayatlıyordu). Sıra numarası
+    // eklendiği için ekipman adı artık B sütunundadır.
     let headerRowNo = -1;
     for (let r = 1; r <= 20; r++) {
-      if (String(eqWs.getRow(r).getCell(1).value ?? "") === "Ekipman") {
+      if (String(eqWs.getRow(r).getCell(2).value ?? "") === "Ekipman") {
         headerRowNo = r;
         break;
       }
     }
     const headerRow = eqWs.getRow(headerRowNo > 0 ? headerRowNo : 8);
-    const headers = [1, 2, 3, 4, 5, 6, 7].map((c) => String(headerRow.getCell(c).value ?? ""));
+    const headers = [1, 2, 3, 4, 5, 6, 7, 8].map((c) => String(headerRow.getCell(c).value ?? ""));
     console.log(`Başlıklar: ${headers.join(" | ")}`);
     // Madde 34: "Ek Özellikler" Özellikler ile Adet arasında; "Ek Belge"
     // (11.08.2026) onun sağında, adetten önce.
     const expectedHeaders = [
-      "Ekipman", "Marka", "Model", "Özellikler", "Ek Özellikler", "Ek Belge", "Adet",
+      "#", "Ekipman", "Marka", "Model", "Özellikler", "Ek Özellikler", "Ek Belge", "Adet",
     ];
     if (expectedHeaders.join("|") !== headers.join("|")) {
       console.error("HATA: ekipman başlıkları beklenenle eşleşmiyor.");
@@ -200,16 +201,16 @@ async function main() {
     let adetKaymasi = 0;
     eqWs.eachRow((row, r) => {
       if (r <= headerRowNo) return;
-      const ekipman = String(row.getCell(1).value ?? "");
+      const ekipman = String(row.getCell(2).value ?? "");
       if (ekipman === "") return;
       // Grup başlığı ve altbilgi satırları A:G BİRLEŞİKTİR; exceljs birleşik
       // aralıktaki her hücreye ana hücrenin değerini verir, bu yüzden "değer
       // var mı" ölçütü yetmez — birleşik satırlar veri değildir, elenir.
-      if (row.getCell(7).isMerged) return;
-      const adet = row.getCell(7).value;
+      if (row.getCell(8).isMerged) return;
+      const adet = row.getCell(8).value;
       if (adet === null || adet === undefined || adet === "") return;
       ekipmanSutunu.push(ekipman);
-      const not = String(row.getCell(5).value ?? "");
+      const not = String(row.getCell(6).value ?? "");
       if (not === "") bosNotSayisi += 1;
       else notluSatirlar.push({ ekipman, not });
       // Adet hücresi sayı, sayı metni ("1" — panelden gelen ek satırlar) ya da

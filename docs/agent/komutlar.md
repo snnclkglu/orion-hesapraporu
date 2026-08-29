@@ -80,6 +80,10 @@
   dökümü. Fikstür repoda DEĞİLDİR (12 MB'lık müşteri belgesi); yol argümandan
   gelir. Sütun kümeleme kuralına dokunmadan önce koştur — birim testleri küçük
   fikstürlerle koşar, bu betik 157 sayfada ne bulunduğunu GÖSTERİR
+- `npx tsx scripts/test-electrical-catalog-appendix.ts [dokuman-no] [cikti.pdf]
+  [sayfa-siniri]` — güncel elektrik projesindeki doğrulanmış teknik belgeleri
+  EK-F dizini ve iç bağlantılarıyla PDF'e dök. Varsayılan sınır 2'dir; detaylı
+  ekipman listesinin üretim davranışını sınamak için üçüncü argüman `6` verilir.
 - `npx tsx scripts/test-manual-pdf.ts [cikti.pdf] [ek.pdf]` — İŞLETME VE BAKIM
   EL KİTABI'nı şablondan bas ve METNİNİ ölç: yazılan/BASILAN bölüm sayısı, ek
   sırası, ilk on başlık. İkinci argüman verilirse EK YERLEŞTİRME SÖZLEŞMESİ de

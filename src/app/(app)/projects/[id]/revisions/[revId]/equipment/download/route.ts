@@ -38,12 +38,13 @@ import {
   reportCoverSpecs,
   summarySpecsForReport,
 } from "@/lib/pdf/report";
-import { pdfEkleriYerlestir } from "@/lib/pdf/merge";
+import { pdfEkleriniSonaEkle, pdfEkleriYerlestir } from "@/lib/pdf/merge";
 import { getReportSettings } from "@/lib/settings";
 import { loadDrawingNote } from "@/lib/equipment-drawing-note";
 import { loadCustomerDrawingPath } from "@/lib/equipment-customer-link";
 import { loadReportCoverIdentity } from "@/lib/report-cover-identity-server";
 import { loadElectricalEquipment } from "@/lib/equipment-electrical";
+import { buildElectricalCatalogAppendix } from "@/lib/electrical/catalog-appendix";
 import {
   equipmentListTitle,
   equipmentPartFromParam,
@@ -237,11 +238,20 @@ export async function GET(
       !includeTechnicalSummary
         ? undefined
         : buildSummarySections(calcInput, calcResult, drawingPlan, drawingNote);
-    // Detaylı listede mekanik katalog sayfası belge içine bağlanır; elektrik
-    // föy/katalogları PDF belge oldukları için dış katalog ucuna bağlı kalır.
+    // Detaylı listede mekanik katalog görüntüleri react-pdf'e doğrudan girer.
+    // Elektrik teknik föyleri ise gerçek PDF sayfalarıdır; EK-F üreticisiyle
+    // sıkıştırılmış, kaynak sayfadan türetilen tek bir ek hazırlanır ve biraz
+    // aşağıda temel belgenin katalog bloğuna yerleştirilir.
     const sheetPages = detailed ? await collectCatalogSheetPages(groups) : undefined;
     const sheetUrls = buildCatalogSheetUrls(groups, appOrigin);
     for (const [key, url] of electrical?.sheetUrls ?? []) sheetUrls.set(key, url);
+    const electricalAppendix =
+      detailed && sections.some((section) => section.key === "electrical")
+        ? await buildElectricalCatalogAppendix(supabase, id, { maxPagesPerDocument: 6 })
+        : null;
+    const internalSheetAnchors = new Map(
+      Object.entries(electricalAppendix?.destinationByCatalogKey ?? {})
+    );
 
     // Ek belgeler: kapaklar react-pdf ile basılır, GERÇEK SAYFALAR sonradan
     // pdf-lib ile kapağın ardına konur. Sıra listeyi izler
@@ -274,6 +284,7 @@ export async function GET(
       sheetUrls,
       mainDrawingUrl,
       sheetPages,
+      internalSheetAnchors,
       attachmentCovers: orderedAttachments.map((a) => ({
         rowKey: a.rowKey,
         component: a.component,
@@ -282,8 +293,32 @@ export async function GET(
       })),
     });
 
+    // Elektrik kataloğu kullanıcı eklerinin KAPAKLARINDAN ÖNCE eklenir;
+    // mekanik ve elektrik katalog yaprakları böylece kesintisiz tek bloktur.
+    // `destinations` hem EK-F dizinindeki hem ekipman tablosundaki `#ekf-*`
+    // bağlantılarını doğrudan nihai sayfa nesnesine çevirir.
+    let mergedPdf = new Uint8Array(basePdf);
+    if (electricalAppendix?.bytes.byteLength) {
+      const appendixResult = await pdfEkleriniSonaEkle(
+        mergedPdf,
+        [{
+          ad: "Elektrik Ekipman Katalog Sayfaları",
+          bytes: electricalAppendix.bytes,
+          destinations: electricalAppendix.destinations,
+        }],
+        { sondakiSayfalardanOnce: orderedAttachments.length }
+      );
+      mergedPdf = appendixResult.bytes;
+      atlananEk += electricalAppendix.skipped.length + appendixResult.atlananlar.length;
+      for (const atlanan of [...electricalAppendix.skipped, ...appendixResult.atlananlar]) {
+        console.warn(
+          `[ekipman-listesi] elektrik katalog eki eklenemedi: ${atlanan.ad} — ${atlanan.sebep}`
+        );
+      }
+    }
+
     if (orderedAttachments.length === 0) {
-      body = new Uint8Array(basePdf);
+      body = mergedPdf;
     } else {
       const ekler = await Promise.all(
         orderedAttachments.map(async (a) => {
@@ -296,9 +331,9 @@ export async function GET(
           };
         })
       );
-      const sonuc = await pdfEkleriYerlestir(new Uint8Array(basePdf), ekler);
+      const sonuc = await pdfEkleriYerlestir(mergedPdf, ekler);
       body = sonuc.bytes;
-      atlananEk = sonuc.atlananlar.length;
+      atlananEk += sonuc.atlananlar.length;
       // SESSİZ ATLAMA YOKTUR (merge.ts sözleşmesi). Yükleme anında dosya zaten
       // okunup sayfası sayıldığı için buraya düşmek depo anomalisidir; belge
       // yine de tutarlı basılır (atlanan ekin KAPAĞI da silinir) ve durum hem

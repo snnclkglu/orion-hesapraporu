@@ -39,12 +39,6 @@ import type { AnyFieldDef } from "@/app/(app)/projects/[id]/revisions/[revId]/mo
 import type { TechnicalSpecs } from "@/lib/calc/types";
 
 const s = StyleSheet.create({
-  // meta ızgarası (Proje / Müşteri / Revizyon / Tarih)
-  metaGrid: { flexDirection: "row", flexWrap: "wrap", marginBottom: 10, gap: 2 },
-  metaItem: { width: "50%", flexDirection: "row" },
-  metaLabel: { width: 70, fontFamily: FONTS.sans, fontSize: 7.5, fontWeight: 500, color: BRAND.gray600 },
-  metaVal: { fontFamily: FONTS.sans, fontSize: 8, color: BRAND.ink },
-  metaMono: { fontFamily: FONTS.mono, fontSize: 7.5, fontWeight: 500, letterSpacing: 0.3, color: BRAND.ink },
   // tablo: kömür başlık zemini + hairline satır çizgileri
   tHead: { flexDirection: "row", backgroundColor: BRAND.ink },
   // Büyük harf dönüşümü stilde YAPILMAZ: @react-pdf'in textTransform'u
@@ -287,6 +281,12 @@ export interface EquipmentPdfProps {
    */
   sheetPages?: CatalogSheetPage[];
   /**
+   * Detaylı listeye sonradan PDF olarak eklenecek katalogların iç hedefleri.
+   * Anahtar `rowCatalogSheetKey(row)`, değer ek PDF'teki adlandırılmış hedeftir.
+   * Bu hedefler `pdfEkleriniSonaEkle` tarafından nihai sayfa nesnesine çevrilir.
+   */
+  internalSheetAnchors?: Map<string, string>;
+  /**
    * Detaylı listede kullanıcının yüklediği PDF eklerinin KAPAKLARI — belgenin
    * en sonunda, katalog sayfalarından sonra. Ekin gerçek sayfaları burada
    * DEĞİLDİR; onları indirme ucu pdf-lib ile her kapağın ardına ekler
@@ -296,13 +296,16 @@ export interface EquipmentPdfProps {
 }
 
 /**
- * Ek yaprağındaki görüntünün EN ÇOK yüksekliği (pt), sayfa yönüne göre.
+ * Ek yaprağındaki görüntü kutusunun SABİT yüksekliği (pt), sayfa yönüne göre.
  *
  * NEDEN GEREKLİ: görüntüye yalnız `width: "100%"` verildiğinde yükseklik en/boy
  * oranından türer. Dikey bir taramada bu sığar; YATAY bir taramada (~1,41 oran)
  * türeyen yükseklik sayfanın kalanını aşar ve react-pdf yaprağı ikiye bölüp
- * "IMAGE can't wrap between pages" uyarısı verir. Kutu yukarıdan kelepçelenince
- * `objectFit: contain` görüntüyü içine oturtur.
+ * "IMAGE can't wrap between pages" uyarısı verir. Başlıkla görüntü aynı
+ * `wrap={false}` kutusunda tutulur; sabit kutu ve `objectFit: contain` görüntüyü
+ * kalan alana oturtur. `maxHeight` kullanılmaz: react-pdf görüntünün doğal
+ * yüksekliğiyle sayfa bölme kararını daha önce verip başlığı tek başına
+ * bırakabiliyor.
  *
  * Türetme (A4, `PAGE` marjları): sayfa boyu − üst marj mm(16) − alt marj
  * mm(13) − altbilgi payı 14pt − başlık bloğu (kicker + kural + ad + künye +
@@ -310,7 +313,7 @@ export interface EquipmentPdfProps {
  *   dikey : 842 − 45 − 37 − 14 − 55 ≈ 690
  *   yatay : 595 − 45 − 37 − 14 − 55 ≈ 444
  */
-const SHEET_MAX_HEIGHT = { portrait: 690, landscape: 444 } as const;
+const SHEET_IMAGE_HEIGHT = { portrait: 640, landscape: 390 } as const;
 
 /**
  * Özet şemalarının ölçü kelepçeleri (yatay A4 içerik kutusu ≈ 734 × 470 pt).
@@ -462,25 +465,11 @@ function AttachmentCell({
   );
 }
 
-/** Belge künyesi — ilk yaprakta ve teknik özellik yaprağında AYNI ızgara. */
-function MetaGrid({ meta }: { meta: EquipmentMetaPdf }) {
-  return (
-    <View style={s.metaGrid}>
-      <View style={s.metaItem}><Text style={s.metaLabel}>MÜŞTERİ</Text><Text style={s.metaVal}>{reportRowUpper(meta.customer)}</Text></View>
-      <View style={s.metaItem}><Text style={s.metaLabel}>DOKÜMAN</Text><Text style={s.metaMono}>{reportRowUpper(meta.docNo)}</Text></View>
-      <View style={s.metaItem}><Text style={s.metaLabel}>REVİZYON</Text><Text style={s.metaMono}>{reportRowUpper(`V${meta.revNo}${meta.revLabel ? ` — ${meta.revLabel}` : ""}`)}</Text></View>
-      <View style={s.metaItem}><Text style={s.metaLabel}>TARİH</Text><Text style={s.metaMono}>{reportRowUpper(meta.date)}</Text></View>
-      <View style={s.metaItem}><Text style={s.metaLabel}>HAZIRLAYAN</Text><Text style={s.metaVal}>{reportRowUpper(meta.preparedBy || "—")}</Text></View>
-      <View style={s.metaItem}><Text style={s.metaLabel}>KONTROL</Text><Text style={s.metaVal}>{reportRowUpper(meta.checkedBy || "—")}</Text></View>
-    </View>
-  );
-}
-
 export function EquipmentDocument({
   meta, groups, sections, listTitle = "Ekipman Listesi", partner,
   endCustomerLogo, coverSpecs = [], craneLocation,
   summary, specTable, settings,
-  datasheetUrls, sheetUrls, mainDrawingUrl, sheetPages,
+  datasheetUrls, sheetUrls, mainDrawingUrl, sheetPages, internalSheetAnchors,
   attachmentCovers,
 }: EquipmentPdfProps) {
   const documentSections: readonly EquipmentSection[] = sections ?? [
@@ -516,7 +505,10 @@ export function EquipmentDocument({
     : [directoryEntries];
   const sectionBands = documentSections.length > 1;
   const covers = attachmentCovers ?? [];
-  const detailed = (!!sheetPages && sheetPages.length > 0) || covers.length > 0;
+  const detailed =
+    (!!sheetPages && sheetPages.length > 0) ||
+    (!!internalSheetAnchors && internalSheetAnchors.size > 0) ||
+    covers.length > 0;
   /**
    * Ürün anahtarı → belge içi çapa. Çapa sayfanın İLK ürününün anahtarından
    * türer; aynı sayfayı paylaşan diğer ürünler de oraya gider (yoksa
@@ -526,6 +518,9 @@ export function EquipmentDocument({
   for (const page of sheetPages ?? []) {
     const anchor = anchorId(page.keys[0] ?? "");
     for (const key of page.keys) anchorByKey.set(key, anchor);
+  }
+  for (const [key, anchor] of internalSheetAnchors ?? []) {
+    anchorByKey.set(key, anchor);
   }
   /** Ekin kapağı basılan satırlar — listedeki "Ek Belge" hücresi oraya bağlanır. */
   const coverKeys = new Set(covers.map((c) => c.rowKey));
@@ -660,7 +655,6 @@ export function EquipmentDocument({
             />
           )}
         >
-          <MetaGrid meta={meta} />
           <FieldTable
             defs={specTable.defs}
             source={specTable.source}
@@ -689,9 +683,8 @@ export function EquipmentDocument({
         {/* Başlık PageHeader içinde tr-TR ile büyütülür; kaynak Title Case yazılır.
             Kicker'da firma adı, sağda doküman kodu TEKRARLANMAZ — ikisi de marka
             bandında. */}
-        {/* PROJE künyeden çıktı: artık sayfa BAŞLIĞI o. Aynı bilgiyi hem
-            başlıkta hem künyede tekrarlamak künyeyi gereksiz uzatıyordu. */}
-        <MetaGrid meta={meta} />
+        {/* Müşteri / doküman / revizyon / tarih / hazırlayan / kontrol bilgisi
+            ortak kapakta zaten vardır; iç yaprakta ikinci kez basılmaz. */}
 
         {mainDrawingUrl && (
           <Link src={mainDrawingUrl} style={s.mainDrawingLink}>
@@ -897,7 +890,10 @@ export function EquipmentDocument({
                 @react-pdf `'id' in props` diye bakar ve tanımsız değeri de bir
                 hedef sayar, belgeye "undefined" adlı bir adlandırılmış hedef
                 yazar (çok yapraklı her katalog sayfası bunu üretiyordu). */}
-            <View {...(i === 0 ? { id: anchorId(sheet.keys[0] ?? "") } : {})}>
+            <View
+              wrap={false}
+              {...(i === 0 ? { id: anchorId(sheet.keys[0] ?? "") } : {})}
+            >
               <PageHeader
                 kicker="ORION Cranes · Katalog Sayfası"
                 title={`${sheet.title} — ${sheet.model}`}
@@ -906,12 +902,12 @@ export function EquipmentDocument({
                 }`}
                 logo={partnerMark}
               />
+              {/* eslint-disable-next-line jsx-a11y/alt-text -- React-PDF Image tarayıcı img öğesi değildir. */}
+              <Image
+                src={image}
+                style={[s.sheetImage, { height: SHEET_IMAGE_HEIGHT[image.orientation] }]}
+              />
             </View>
-            {/* eslint-disable-next-line jsx-a11y/alt-text -- React-PDF Image tarayıcı img öğesi değildir. */}
-            <Image
-              src={image}
-              style={[s.sheetImage, { maxHeight: SHEET_MAX_HEIGHT[image.orientation] }]}
-            />
           </BrandPage>
         ))
       )}

@@ -1,7 +1,7 @@
 /**
- * Canlı 0019 verisiyle yeni EK-F üreticisini doğrular.
+ * Canlı proje verisiyle EK-F üreticisini doğrular.
  *
- *   npx tsx scripts/test-electrical-catalog-appendix.ts [çıktı.pdf]
+ *   npx tsx scripts/test-electrical-catalog-appendix.ts [doküman-no] [çıktı.pdf] [sayfa-sınırı]
  *
  * Gizli anahtar yazdırılmaz; `.env.local`/`.env.admin` yalnız bu süreçte okunur.
  */
@@ -48,16 +48,20 @@ async function main() {
   const supabase = createClient(url, await elevatedKey(), {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  const docNo = process.argv[2] ?? "0019-00";
+  const maxPagesPerDocument = Math.max(1, Number(process.argv[4] ?? 2));
   const { data: project, error } = await supabase
     .from("projects")
     .select("id")
-    .eq("doc_no", "0019-00")
+    .eq("doc_no", docNo)
     .maybeSingle();
-  if (error || !project) throw new Error("0019-00 projesi bulunamadı.");
+  if (error || !project) throw new Error(`${docNo} projesi bulunamadı.`);
 
-  const appendix = await buildElectricalCatalogAppendix(supabase, String(project.id));
+  const appendix = await buildElectricalCatalogAppendix(supabase, String(project.id), {
+    maxPagesPerDocument,
+  });
   const output = path.resolve(
-    process.argv[2] ?? "output/pdf/0019-EK-F-ELEKTRIK-EKIPMAN-KATALOG-SAYFALARI.pdf"
+    process.argv[3] ?? `output/pdf/${docNo}-EK-F-ELEKTRIK-EKIPMAN-KATALOG-SAYFALARI.pdf`
   );
   await mkdir(path.dirname(output), { recursive: true });
   await writeFile(output, appendix.bytes);

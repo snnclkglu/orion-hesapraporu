@@ -1,9 +1,10 @@
 // EK-F — Elektrik Ekipman Katalog Sayfaları adaptörü.
 //
 // Tam katalog EK-F'ye girmez. Malzeme sırasındaki doğrulanmış teknik belgeler
-// kaynak sayfa kimliğiyle tekilleştirilir ve ürün başına en çok İKİ sayfa
-// basılır. İlk yaprak(lar) tıklanabilir bir katalog dizinidir; gerçek üretici
-// sayfaları ORION çerçevesinin içine sığdırılır.
+// kaynak sayfa kimliğiyle tekilleştirilir. İşletme kitabı ürün başına en çok
+// İKİ sayfa kullanır; detaylı ekipman listesi doğrulanmış kısa föyün tamamını
+// almak için sınırı ALTIYA çıkarır. İlk yaprak(lar) tıklanabilir bir katalog
+// dizinidir; gerçek üretici sayfaları ORION çerçevesinin içine sığdırılır.
 
 import { renderToBuffer } from "@react-pdf/renderer";
 import { PDFDocument } from "pdf-lib";
@@ -24,6 +25,11 @@ import {
   catalogAppendixIndexPageCount,
   type ElectricalCatalogAppendixEntry,
 } from "./catalog-appendix-pdf";
+import {
+  buildElectricalEquipmentGroups,
+  electricalEquipmentRowKey,
+} from "@/lib/equipment-sections";
+import { rowCatalogSheetKey } from "@/lib/excel/equipment";
 
 export interface ElectricalCatalogAppendixResult {
   bytes: Uint8Array<ArrayBuffer>;
@@ -32,12 +38,24 @@ export interface ElectricalCatalogAppendixResult {
   skipped: AtlananPdf[];
   /** Adlandırılmış hedef → ek içindeki 0 tabanlı hedef sayfa. */
   destinations: Record<string, number>;
+  /** Ekipman listesi katalog anahtarı → ek içindeki adlandırılmış hedef. */
+  destinationByCatalogKey: Record<string, string>;
 }
 
 interface CatalogGroup {
   document: ElectricalCatalogDocument;
   label: string;
   extraProducts: number;
+  catalogKeys: string[];
+}
+
+export interface ElectricalCatalogAppendixOptions {
+  /**
+   * Bir teknik belgeden teslim ekine alınacak en çok sayfa.
+   * İşletme kitabı EK-F için varsayılan 2'dir; detaylı ekipman listesi kısa
+   * doğrulanmış föyün tamamını almak için daha yüksek bir sınır verebilir.
+   */
+  maxPagesPerDocument?: number;
 }
 
 const emptyResult = (): ElectricalCatalogAppendixResult => ({
@@ -46,20 +64,23 @@ const emptyResult = (): ElectricalCatalogAppendixResult => ({
   pageCount: 0,
   skipped: [],
   destinations: {},
+  destinationByCatalogKey: {},
 });
 
 /** Aynı kaynak sayfa aralığını kullanan ürünler EK-F'de bir kez basılır. */
-function documentGroupKey(document: ElectricalCatalogDocument): string {
+function documentGroupKey(document: ElectricalCatalogDocument, maxPages: number): string {
   if (document.sourceDocumentId && document.sourcePages.length > 0) {
-    return `source:${document.sourceDocumentId}:${document.sourcePages.slice(0, 2).join(",")}`;
+    return `source:${document.sourceDocumentId}:${document.sourcePages.slice(0, maxPages).join(",")}`;
   }
   return `document:${document.id}`;
 }
 
 export async function buildElectricalCatalogAppendix(
   supabase: SupabaseClient,
-  projectId: string
+  projectId: string,
+  options: ElectricalCatalogAppendixOptions = {}
 ): Promise<ElectricalCatalogAppendixResult> {
+  const maxPagesPerDocument = Math.max(1, Math.floor(options.maxPagesPerDocument ?? 2));
   // PDF.js'in yeni sürümü Node 24'te henüz bulunmayan bu yerleşiği çağırır.
   const math = Math as typeof Math & { sumPrecise?: (values: Iterable<number>) => number };
   math.sumPrecise ??= (values) => {
@@ -73,6 +94,12 @@ export async function buildElectricalCatalogAppendix(
 
   const parts = await loadElectricalParts(supabase, current.id);
   const materials = materialRows(parts);
+  const equipmentRows = new Map(
+    buildElectricalEquipmentGroups(materials)
+      .flatMap((group) => group.rows)
+      .filter((row): row is typeof row & { rowKey: string } => Boolean(row.rowKey))
+      .map((row) => [row.rowKey, row])
+  );
   const references = await loadElectricalCatalogReferences(supabase, materials);
   const byMaterial = new Map(references.map((reference) => [reference.materialKey, reference]));
   const orderedIds = materials
@@ -101,10 +128,23 @@ export async function buildElectricalCatalogAppendix(
       });
       continue;
     }
-    const key = documentGroupKey(document);
+    const row = equipmentRows.get(electricalEquipmentRowKey(material.key));
+    const catalogKey = row ? rowCatalogSheetKey(row) : undefined;
+    const key = documentGroupKey(document, maxPagesPerDocument);
     const existing = groups.get(key);
-    if (existing) existing.extraProducts += 1;
-    else groups.set(key, { document, label: label || document.title, extraProducts: 0 });
+    if (existing) {
+      existing.extraProducts += 1;
+      if (catalogKey && !existing.catalogKeys.includes(catalogKey)) {
+        existing.catalogKeys.push(catalogKey);
+      }
+    } else {
+      groups.set(key, {
+        document,
+        label: label || document.title,
+        extraProducts: 0,
+        catalogKeys: catalogKey ? [catalogKey] : [],
+      });
+    }
   }
 
   // Belge indirme ve açma önce tamamlanır; bozuk bir kaynak dizinde görünmez.
@@ -117,7 +157,7 @@ export async function buildElectricalCatalogAppendix(
     }
     try {
       const source = await PDFDocument.load(bytes, { updateMetadata: false });
-      const pageCount = Math.min(2, source.getPageCount());
+      const pageCount = Math.min(maxPagesPerDocument, source.getPageCount());
       if (pageCount < 1) throw new Error("belgede sayfa yok");
       prepared.push({ group, bytes, pageCount });
     } catch (error) {
@@ -141,11 +181,15 @@ export async function buildElectricalCatalogAppendix(
   const shellBytes = await renderToBuffer(ElectricalCatalogAppendixPdf({ entries }));
   const target = await PDFDocument.load(shellBytes, { updateMetadata: false });
   const destinations: Record<string, number> = {};
+  const destinationByCatalogKey: Record<string, string> = {};
   let targetPageIndex = indexPageCount;
 
   for (let i = 0; i < prepared.length; i++) {
     const item = prepared[i];
     const entry = entries[i];
+    for (const catalogKey of item.group.catalogKeys) {
+      destinationByCatalogKey[catalogKey] = entry.anchor;
+    }
     const source = await PDFDocument.load(item.bytes, { updateMetadata: false });
     destinations[entry.anchor] = targetPageIndex;
     for (let pageIndex = 0; pageIndex < item.pageCount; pageIndex++) {
@@ -195,5 +239,6 @@ export async function buildElectricalCatalogAppendix(
     pageCount: target.getPageCount(),
     skipped,
     destinations,
+    destinationByCatalogKey,
   };
 }

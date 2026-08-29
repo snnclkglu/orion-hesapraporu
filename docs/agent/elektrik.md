@@ -295,5 +295,8 @@ Elektrik satırındaki okunamayan adet ekranda/PDF'de `—`, Excel'de boş hücr
 (`ELEKTRIK-4`). Satır notu ve ek belgesi `electrical_parts.id`ye bağlanmaz:
 yeniden okumada satırlar üretildiği için normalize ürün anahtarının kararlı,
 action sözleşmesine uygun hash'i kullanılır. Teknik föy ekipman adına, ayrı tam
-katalog varsa model hücresine bağlanır; detaylı PDF kipi bu dış elektrik
-bağlantılarını düşürmez.
+katalog varsa model hücresine bağlanır. Standart PDF'de bunlar dış bağlantıdır;
+detaylı PDF'de doğrulanmış `technical` belge en çok 6 sayfalık EK-F olarak
+belgenin içine alınır ve ekipman adı doğrudan o ekin ilk sayfasına gider.
+Teknik eki olmayan satırın mevcut dış bağlantısı korunur; tam katalog uydurma
+bir teknik föye dönüştürülmez.

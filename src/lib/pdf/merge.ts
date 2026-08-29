@@ -248,6 +248,84 @@ export interface EkYerlestirmeSonucu {
   atlananlar: AtlananPdf[];
 }
 
+export interface PdfSonaEklemeSecenekleri {
+  /**
+   * Temel belgenin sonunda yerinde kalacak sayfa sayısı.
+   * Ekipman listesindeki kullanıcı ek kapakları sondadır; elektrik kataloğu
+   * bu kapaklardan önce girer ki bütün katalog yaprakları tek blok kalsın.
+   */
+  sondakiSayfalardanOnce?: number;
+}
+
+/**
+ * PDF eklerini temel belgeyi KOPYALAMADAN belirtilen konuma ekler.
+ *
+ * `pdfBirlestir` kullanılamaz: yeni belge kurarken react-pdf'in bölüm/katalog
+ * hedef ağacını düşürür. Bu yol temel belgeyi yerinde açar, ek sayfaları
+ * kopyalar ve hem temel listedeki hem ek dizinindeki adlandırılmış bağlantıları
+ * doğrudan nihai sayfa nesnelerine çevirir. Böylece elektrik ekipman adı artık
+ * oturumlu dış URL'ye değil aynı PDF'in sonundaki teknik föye gider.
+ */
+export async function pdfEkleriniSonaEkle(
+  temelPdf: Uint8Array,
+  ekler: readonly YerlestirilecekEk[],
+  secenekler: PdfSonaEklemeSecenekleri = {}
+): Promise<EkYerlestirmeSonucu> {
+  const hedef = await PDFDocument.load(temelPdf, { updateMetadata: false });
+  const atlananlar: AtlananPdf[] = [];
+  const hedefSayfalar = new Map<string, PDFPage>();
+  let eklenen = 0;
+  let eklenenSayfa = 0;
+  const sondaki = Math.max(0, Math.floor(secenekler.sondakiSayfalardanOnce ?? 0));
+  if (sondaki > hedef.getPageCount()) {
+    throw new Error("PDF sona ekleme sözleşmesi bozuldu: sondaki sayfa sayısı belgeyi aşıyor.");
+  }
+  let eklemeIndisi = hedef.getPageCount() - sondaki;
+
+  for (const ek of ekler) {
+    const ad = ek.ad.trim() || "(adsız belge)";
+    if (!ek.bytes || ek.bytes.byteLength === 0) {
+      atlananlar.push({ ad, sebep: "dosya boş geldi" });
+      continue;
+    }
+    try {
+      const kaynak = await PDFDocument.load(ek.bytes, { updateMetadata: false });
+      const indisler = kaynak.getPageIndices();
+      if (indisler.length === 0) {
+        atlananlar.push({ ad, sebep: "belgede hiç sayfa yok" });
+        continue;
+      }
+      const sayfalar = await hedef.copyPages(kaynak, indisler);
+      sayfalar.forEach((sayfa, index) => hedef.insertPage(eklemeIndisi + index, sayfa));
+      if (ek.destinations) {
+        for (const [name, yerelSayfa] of Object.entries(ek.destinations)) {
+          if (yerelSayfa < 0 || yerelSayfa >= sayfalar.length) continue;
+          hedefSayfalar.set(name, sayfalar[yerelSayfa]);
+        }
+      }
+      eklemeIndisi += sayfalar.length;
+      eklenen += 1;
+      eklenenSayfa += sayfalar.length;
+    } catch (e) {
+      atlananlar.push({ ad, sebep: sebepMetni(e) });
+    }
+  }
+
+  if (hedefSayfalar.size > 0) {
+    baglantilariHedefSayfalaraBagla(hedef, hedef.getPages(), hedefSayfalar);
+  }
+  const ham = await hedef.save({
+    useObjectStreams: false,
+    objectsPerTick: SAVE_NESNE_ADIMI,
+  });
+  return {
+    bytes: new Uint8Array(ham.buffer as ArrayBuffer, ham.byteOffset, ham.byteLength),
+    eklenen,
+    eklenenSayfa,
+    atlananlar,
+  };
+}
+
 /**
  * Ekleri, TEMEL BELGENİN SON SAYFALARINDAKİ kapaklarının hemen ardına
  * yerleştirir.
@@ -356,6 +434,20 @@ function ekBaglantilariniYenidenKur(
   pages: readonly PDFPage[],
   destinations: Readonly<Record<string, number>>
 ): void {
+  const hedefSayfalar = new Map<string, PDFPage>();
+  for (const [name, localPage] of Object.entries(destinations)) {
+    if (localPage < 0 || localPage >= pages.length) continue;
+    hedefSayfalar.set(name, pages[localPage]);
+  }
+  baglantilariHedefSayfalaraBagla(document, pages, hedefSayfalar);
+}
+
+/** Bağlantı adlarını doğrudan nihai sayfa referanslarına çevirir. */
+function baglantilariHedefSayfalaraBagla(
+  document: PDFDocument,
+  pages: readonly PDFPage[],
+  destinations: ReadonlyMap<string, PDFPage>
+): void {
   for (const page of pages) {
     const annots = page.node.lookupMaybe(PDFName.of("Annots"), PDFArray);
     if (!annots) continue;
@@ -373,11 +465,11 @@ function ekBaglantilariniYenidenKur(
         value = action.get(key);
       }
       const name = hedefAdi(value);
-      const localPage = name === null ? undefined : destinations[name];
-      if (localPage === undefined || localPage < 0 || localPage >= pages.length) continue;
+      const targetPage = name === null ? undefined : destinations.get(name);
+      if (!targetPage) continue;
       holder.set(
         key,
-        document.context.obj([pages[localPage].ref, PDFName.of("XYZ"), null, null, null])
+        document.context.obj([targetPage.ref, PDFName.of("XYZ"), null, null, null])
       );
     }
   }

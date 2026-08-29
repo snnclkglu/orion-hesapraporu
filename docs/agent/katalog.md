@@ -166,8 +166,11 @@ OLMAYAN satır arama modelini `EqRow.catalogModel` ile ayrıca taşır.
 
 **Ekipman listesi PDF'i iki seviyelidir.** *Standart* liste bugünkü
 tablodur ve adı dış adrese bağlar. *Detaylı* liste (`?detay=1`) aynı
-tablonun arkasına ürünlerin katalog sayfalarını EKLER; ad artık belge
-içindeki o yaprağa gider (`Link src="#…"` + `View id="…"`). Görüntüler
+tablonun arkasına hem mekanik katalog yapraklarını hem elektrik ekipmanlarının
+doğrulanmış teknik föylerini EKLER; ad artık belge içindeki o yaprağa gider.
+Mekanik hedefler react-pdf içinde (`Link src="#…"` + `View id="…"`), sonradan
+eklenen elektrik PDF hedefleri ise `pdfEkleriniSonaEkle` içinde gerçek nihai
+sayfa nesnesine çevrilir. Görüntüler
 `.webp`tir ve react-pdf webp çözmez: dönüştürme
 `pdf/catalog-sheet-images.ts`te sharp ile yapılır (JPEG, 1400 px) ve PDF
 katmanına hazır tampon olarak girer. Aynı katalog sayfasına düşen iki ürün
@@ -184,7 +187,18 @@ basıldı ("kaynak taramalar dikeydir"); varsayım yanlıştı — çok sütunlu
 tabloları yatay basılır ve dikey A4'e sığdırılınca ölçü tablosu okunmaz
 oluyordu. `orientation` sharp'ın DÖNÜŞTÜRME SONRASI ölçüsünden gelir
 (EXIF döndürmesi dahil), eşik 1,05'tir. Görüntüye ayrıca sayfa yönüne göre
-`maxHeight` verilir; yoksa yatay yaprak sayfayı taşırıp ikiye bölünür.
+yüksekliği sabit bir görüntü kutusu verilir; yoksa yatay yaprak sayfayı taşıyıp
+ikiye bölünür. Başlık ve görüntü AYNI `wrap={false}` kutusunda durur. Yalnız
+`maxHeight` kullanmak yeterli değildir: react-pdf doğal görüntü yüksekliğiyle
+bölme kararı verip önce başlığı boş bir yaprağa, görüntüyü sonraki yaprağa
+atabilir.
+
+**Elektrik eki doğrulanmış kısa belgeyi taşır.** Ayrı bir `technical` belge
+varsa detaylı ekipman listesi bunun en çok 6 fiziksel sayfasını EK-F olarak
+rasterleştirip belgeye gömer; 3–5 sayfalık gerçek teknik föy böylece yarıda
+kesilmez. Yalnız uzun `catalog` bulunan ürünlerde katalog dış bağlantısı
+korunur, uydurma ürün sayfası üretilmez. Aynı teknik belgeyi paylaşan satırlar
+tek ek kopyasına ve aynı ilk sayfa hedefine bağlanır.
 
 **`id={undefined}`, `id` VERMEMEKLE AYNI ŞEY DEĞİLDİR.** @react-pdf
 `'id' in props` diye bakar ve tanımsız değeri de bir hedef sayıp belgeye

@@ -13,7 +13,7 @@
 
 import { describe, expect, it } from "vitest";
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFString } from "pdf-lib";
-import { pdfBirlestir, pdfEkleriYerlestir } from "../merge";
+import { pdfBirlestir, pdfEkleriniSonaEkle, pdfEkleriYerlestir } from "../merge";
 
 /** `sayfa` adet boş A4 taşıyan geçerli bir PDF. */
 async function sahtePdf(sayfa: number): Promise<Uint8Array> {
@@ -147,5 +147,59 @@ describe("pdfEkleriYerlestir", () => {
     const link = final.context.lookup(annots.get(0), PDFDict);
     const dest = link.lookup(PDFName.of("Dest"), PDFArray);
     expect(dest.get(0).toString()).toBe(final.getPage(2).ref.toString());
+  });
+});
+
+describe("pdfEkleriniSonaEkle", () => {
+  it("temel listedeki ve ek dizinindeki bağlantıları ekin gerçek sayfasına bağlar", async () => {
+    const temel = await PDFDocument.create();
+    const liste = temel.addPage([595, 842]);
+    temel.addPage([595, 842]); // Sonda kalacak kullanıcı ek kapağı
+    const listeBaglantisi = temel.context.obj({
+      Type: "Annot",
+      Subtype: "Link",
+      Rect: [20, 20, 140, 40],
+      Border: [0, 0, 0],
+      Dest: PDFString.of("ekf-entry-1"),
+    });
+    liste.node.set(
+      PDFName.of("Annots"),
+      temel.context.obj([temel.context.register(listeBaglantisi)])
+    );
+
+    const ek = await PDFDocument.create();
+    const dizin = ek.addPage([595, 842]);
+    ek.addPage([595, 842]);
+    const dizinBaglantisi = ek.context.obj({
+      Type: "Annot",
+      Subtype: "Link",
+      Rect: [20, 20, 140, 40],
+      Border: [0, 0, 0],
+      Dest: PDFString.of("ekf-entry-1"),
+    });
+    dizin.node.set(
+      PDFName.of("Annots"),
+      ek.context.obj([ek.context.register(dizinBaglantisi)])
+    );
+
+    const sonuc = await pdfEkleriniSonaEkle(
+      await temel.save(),
+      [{
+        ad: "Elektrik katalog eki",
+        bytes: await ek.save(),
+        destinations: { "ekf-entry-1": 1 },
+      }],
+      { sondakiSayfalardanOnce: 1 }
+    );
+
+    const final = await PDFDocument.load(sonuc.bytes, { updateMetadata: false });
+    expect(final.getPageCount()).toBe(4);
+    // Yerleşim: liste · EK-F dizin · gerçek katalog sayfası · kullanıcı ek kapağı.
+    for (const pageIndex of [0, 1]) {
+      const annots = final.getPage(pageIndex).node.lookup(PDFName.of("Annots"), PDFArray);
+      const link = final.context.lookup(annots.get(0), PDFDict);
+      const dest = link.lookup(PDFName.of("Dest"), PDFArray);
+      expect(dest.get(0).toString()).toBe(final.getPage(2).ref.toString());
+    }
   });
 });
