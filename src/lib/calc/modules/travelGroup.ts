@@ -312,7 +312,7 @@ export interface TravelSelections {
   motorModel: string;
   /** Motor bağlantı biçimi (B3/B5/B14…) — sipariş için */
   motorMountType?: string;
-  /** Motor freni: "Frensiz" | "Kendinden Frenli" */
+  /** Motor freni ve fren bobini besleme gerilimi (`MOTOR_BRAKE_OPTIONS`). */
   motorBrakeType?: string;
   /** IEC verim sınıfı (IE1…IE4) */
   motorEfficiencyClass?: string;

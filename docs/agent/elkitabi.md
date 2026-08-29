@@ -34,6 +34,13 @@ Eski kayıtlar `withManualDefaults` ile bugüne taşınır: tanınmayan düğüm
 belge düşmez. Bir alanın bozulması yüzünden teslim edilmiş bir kılavuzun hiç
 açılmaması en kötü sonuçtur.
 
+`manuals` üst kaydı, son taslak revizyon kalıcı olarak silindiğinde yerinde
+kalabilir. Bu geçerli boş durumda **Yeni Revizyon** hata vermez: güncel
+şablondan, proje künyesi ve üst kaydın kapak başlığıyla yeniden `V1` açar. En
+az bir revizyon varsa değişmez kural sürer ve son snapshot kopyalanır. Eylem,
+`manualId` değerinin URL'deki projeye ait olduğunu yeni kayıt yazmadan önce
+doğrular.
+
 ## KITAP-3 — El kitabı PROJEYE bağlıdır, işe değil.
 
 Bir iş emrinde birden çok vinç olabilir (`job_items`) ve her vincin kendi

@@ -17,8 +17,11 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { canEditReports } from "@/lib/roles";
-import { manualFromTemplate, withManualDefaults } from "@/lib/manual/payload";
-import { MANUAL_DOC_TITLE, suggestCoverTitle } from "@/lib/manual/naming";
+import {
+  manualDraftForNextRevision,
+  manualFromProjectTemplate,
+  withManualDefaults,
+} from "@/lib/manual/payload";
 import { resolveAutoTable, type ManualSourceData } from "@/lib/manual/sources";
 import { MANUAL_IMAGE_BUCKET } from "@/lib/manual/data";
 import { manualPublishReadiness } from "@/lib/manual/guide";
@@ -71,7 +74,12 @@ export async function createManual(projectId: string): Promise<ManualResult> {
 
   const ad = String(proje.name ?? "");
   const tip = String(proje.crane_type ?? "");
-  const kapak = suggestCoverTitle(ad, tip);
+  const govde = manualFromProjectTemplate({
+    customer: String(proje.customer ?? ""),
+    product: ad,
+    craneType: tip,
+  });
+  const kapak = govde.coverTitle;
 
   const { data: manual, error: manualHatasi } = await supabase
     .from("manuals")
@@ -83,14 +91,6 @@ export async function createManual(projectId: string): Promise<ManualResult> {
     .select("id")
     .single();
   if (manualHatasi || !manual) return { error: manualHatasi?.message ?? "El kitabı açılamadı." };
-
-  const govde = manualFromTemplate({
-    customer: String(proje.customer ?? ""),
-    product: ad,
-    craneType: tip,
-  });
-  govde.docTitle = MANUAL_DOC_TITLE;
-  govde.coverTitle = kapak;
 
   const { data: rev, error: revHatasi } = await supabase
     .from("manual_revisions")
@@ -212,7 +212,9 @@ export async function issueManualRevision(
 }
 
 /**
- * Yeni revizyon — öncekinin KOPYASIYLA açılır.
+ * Yeni revizyon — öncekinin KOPYASIYLA açılır. Üst el kitabı kaydı dururken
+ * tüm revizyonlar silinmişse ilk taslak proje künyesiyle ŞABLONDAN yeniden
+ * kurulur. Böylece boş liste, kullanıcıyı çıkmazda bırakmaz.
  *
  * GÖRSELLER DE KOPYALANIR (`equipment_attachments`ın `copyEquipmentNotes`
  * dersi): mühendis her sürümde aynı saha fotoğrafını yeniden yüklemez.
@@ -232,36 +234,52 @@ export async function newManualRevision(
   if ("error" in izin) return izin;
   const supabase = await createClient();
 
-  const { data: son } = await supabase
+  const { data: manual, error: manualHatasi } = await supabase
+    .from("manuals")
+    .select("id, title")
+    .eq("id", manualId)
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (manualHatasi) return { error: manualHatasi.message };
+  if (!manual) return { error: "El kitabı bulunamadı." };
+
+  const { data: proje, error: projeHatasi } = await supabase
+    .from("projects")
+    .select("name, customer, crane_type")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (projeHatasi) return { error: projeHatasi.message };
+  if (!proje) return { error: "Proje bulunamadı." };
+
+  const { data: son, error: sonHatasi } = await supabase
     .from("manual_revisions")
     .select("id, rev_no, payload")
     .eq("manual_id", manualId)
     .order("rev_no", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (!son) return { error: "Kopyalanacak revizyon yok." };
+  if (sonHatasi) return { error: sonHatasi.message };
 
-  const govde = withManualDefaults(son.payload);
-  const cozulmus = (sections: ManualSection[]): ManualSection[] =>
-    sections.map((s) => ({
-      ...s,
-      blocks: s.blocks.map((b) => {
-        if (b.kind !== "auto") return b;
-        const { frozen, ...kalan } = b;
-        void frozen;
-        return kalan;
-      }),
-      children: cozulmus(s.children),
-    }));
-  govde.sections = cozulmus(govde.sections);
-
-  const yeniNo = Number(son.rev_no ?? 0) + 1;
+  const taslak = manualDraftForNextRevision(
+    son
+      ? {
+          revNo: Number(son.rev_no ?? 0),
+          payload: son.payload,
+        }
+      : null,
+    {
+      customer: String(proje.customer ?? ""),
+      product: String(proje.name ?? ""),
+      craneType: String(proje.crane_type ?? ""),
+      coverTitle: String(manual.title ?? ""),
+    }
+  );
   const { data: yeni, error } = await supabase
     .from("manual_revisions")
     .insert({
       manual_id: manualId,
-      rev_no: yeniNo,
-      payload: govde,
+      rev_no: taslak.revNo,
+      payload: taslak.payload,
       created_by: izin.userId,
     })
     .select("id")
@@ -272,10 +290,14 @@ export async function newManualRevision(
   // KOPYA YA HEP YA HİÇTİR. Payload eski `imageId`leri aynen taşıdığı için
   // tek görselin düşmesi bile yeni revizyonu içerik olarak bozar; hata olursa
   // bu çağrıda açılan taslak ve kopyalanan nesneler geri alınır.
-  const { data: gorseller } = await supabase
-    .from("manual_images")
-    .select("id, file_name, storage_path, width, height, size_bytes")
-    .eq("revision_id", son.id);
+  let gorseller: Record<string, unknown>[] = [];
+  if (son) {
+    const { data } = await supabase
+      .from("manual_images")
+      .select("id, file_name, storage_path, width, height, size_bytes")
+      .eq("revision_id", son.id);
+    gorseller = (data ?? []) as Record<string, unknown>[];
+  }
   const kopyalananYollar: string[] = [];
   const geriAl = async () => {
     if (kopyalananYollar.length > 0) {
@@ -283,7 +305,7 @@ export async function newManualRevision(
     }
     await supabase.rpc("rollback_manual_revision_copy", { p_revision_id: yeni.id });
   };
-  for (const g of (gorseller ?? []) as Record<string, unknown>[]) {
+  for (const g of gorseller) {
     const eski = String(g.storage_path);
     const uzanti = eski.slice(eski.lastIndexOf(".") + 1) || "png";
     const yeniYol = `${yeni.id}/${String(g.id)}.${uzanti}`;

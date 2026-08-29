@@ -229,6 +229,9 @@ def build():
             sys.exit(f"{product}: satır okunamadı (s. {idx})")
         slug = re.sub(r"[^a-z0-9]+", "_", product.lower()).strip("_")
         meta = {
+            # Kaynak katalog adıyla "CASAR CRANE ROPES"tur; on altı ürünün
+            # tamamı vinç halatıdır (seçicinin kullanım alanı süzgeci).
+            "typical_application": "Vinç",
             "brand": "CASAR",
             "equipment_type": "rope",
             "series": product,

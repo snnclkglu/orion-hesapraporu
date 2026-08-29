@@ -242,6 +242,16 @@ for (const file of ropeFiles) {
   const { meta, items } = readJson(`${ROPE_DIR}/${file}`);
   const brand = String(meta.brand);
   const construction = String(meta.series); // "6x36 WS", "Starlift Plus", …
+  // Üreticinin ürün föyü — ekipman listesinde MODEL hücresini oraya bağlar
+  // (rulman ve feston dosyalarındaki `meta.datasheet_url` deseninin aynısı).
+  // Föyü çevrimiçi yayımlanmayan kataloglarda alan YOKTUR ve bağlantı kurulmaz.
+  const metaDatasheet = String(meta.datasheet_url ?? "");
+  // Kullanım alanı ÜRÜNÜN tamamı içindir (föyün "Uygulamalar" kutusu) ve
+  // seçicinin ilk süzgeç adımıdır. Halat kataloğunda vinç kaldırma halatı
+  // OLMAYAN ürünler de vardır (asansör askı/regülatör/denge, madencilik,
+  // sondaj, balıkçılık, taş kesme); bu alan olmadan hepsi tek listede
+  // karışır ve yanlış halat seçilebilirdi.
+  const metaApplication = String(meta.typical_application ?? "");
   for (const it of items) {
     const a = rename(cleanAttrs(it), {
       diameter_mm: "dia_mm",
@@ -249,6 +259,7 @@ for (const file of ropeFiles) {
       breaking_load_kn: "breaking_load_kn",
     });
     a.construction = construction;
+    if (metaApplication) a.typical_application = metaApplication;
     const grade = num(a.grade_mpa);
     // Tel dayanımı [kg/mm²] — 1770→180, 1960→200, 2160→220 (standart seriler)
     if (grade) a.wire_strength_kgmm2 = Math.round(grade / 9.80665);
@@ -261,7 +272,7 @@ for (const file of ropeFiles) {
       a.core,
       grade ? `${a.grade_mpa} MPa` : "",
     ].filter(Boolean).join(" ");
-    push("rope", brand, model, a);
+    push("rope", brand, model, a, metaDatasheet);
   }
 }
 

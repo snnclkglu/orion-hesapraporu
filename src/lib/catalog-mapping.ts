@@ -203,11 +203,20 @@ export const ATTR_LABELS: Record<string, string> = {
   core: "Öz Tipi",
   construction: "Halat Yapısı",
   grade_mpa: "Tel Mukavemeti [MPa]",
+  // Bazı föyler tek bir kopma kuvveti sütununu BİLEŞİK bir tel dayanımı
+  // tanımıyla basar ("1570 N/mm² ve 1370/1770 N/mm²"). O satırlarda sayısal
+  // sınıf YOKTUR — basılı etiket olduğu gibi taşınır, bir sınıf uydurulmaz.
+  grade_label: "Tel Mukavemeti (basılı)",
   wire_strength_kgmm2: "Tel Mukavemeti [kg/mm²]",
   breaking_load_kn: "Kopma Yükü [kN]",
+  // Kopma kuvvetini yalnız ton olarak basan föylerde dönüşümün kaynağı.
+  breaking_load_source: "Kopma Yükü Kaynağı",
   weight_kg_per_m: "Metre Ağırlığı [kg/m]",
   diameter_inch: "Çap [inç]",
   steel_area_mm2: "Çelik Kesit Alanı [mm²]",
+  // Konstrüksiyonu ÇAPA GÖRE değişen ve bunu satır satır basan föylerde
+  // (DRAKO 300 T) o satırın gerçek damar konstrüksiyonu.
+  composition: "Damar Konstrüksiyonu",
   // Tek katlı ve kılavuzsuz yükte dönmeye dirençli halat şarttır; bu yüzden
   // nitelik seçim ekranında görünür.
   rotation_resistant: "Dönmeye Dirençli",
@@ -497,6 +506,14 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
   rope: {
     label: "Halat",
     facets: [
+      // KULLANIM ALANI İLK ADIMDIR. Halat kataloğu yalnız vinç halatı
+      // taşımaz: aynı üreticilerin asansör (askı/regülatör/denge), madencilik,
+      // sondaj, balıkçılık ve taş kesme halatları da defterdedir. Konstrüksiyon
+      // adımı bu süzgeç olmadan altmışı aşkın seçenek gösterirdi ve daha
+      // kötüsü, bir asansör askı halatı vinç kaldırma halatıyla aynı listede
+      // dururdu. Adım KİLİTLİ DEĞİLDİR (redüktördeki `lockedFacets`in aksine):
+      // kullanıcı bilerek başka bir alanın halatını da seçebilir.
+      { attr: "typical_application", label: "Kullanım Alanı" },
       { attr: "construction", label: "Halat Yapısı" },
       { attr: "grade_mpa", label: "Tel Mukavemeti", unit: "MPa" },
       { attr: "core", label: "Öz Tipi" },
@@ -512,6 +529,9 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
       // bu bir SEÇİM ölçütüdür, süzgeç adımı yapılmadı çünkü eski katalog
       // dosyalarında alan yok ve boş bir adım seçiciyi uzatırdı.
       { attr: "rotation_resistant", label: "Dönmeye Dirençli" },
+      // Kullanım alanı sütun OLARAK DA durur: süzgeç seçilmeden gezilirken
+      // satırın hangi alana ait olduğu rozetten değil tablodan okunur.
+      { attr: "typical_application", label: "Kullanım" },
     ],
     sortBy: "dia_mm",
   },

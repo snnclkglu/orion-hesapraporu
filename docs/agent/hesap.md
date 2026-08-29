@@ -29,6 +29,11 @@ zaten modül başınadır). Anahtar asla `L19` gibi tablo adresi biçiminde olma
 Araba ve köprü **aynı** anahtarları kullanır; varyanta özel satırlar sunum
 tarafında `variant` ile işaretlenir.
 
+Motor seçimindeki `motorBrakeType` ortak seçenek listesi `MOTOR_BRAKE_OPTIONS`
+üzerinden gelir: `Frensiz`, `Frenli 380 VAC`, `Frenli 220 VAC` ve
+`Frenli 24 VDC`. Frenli seçimlerde bobin gerilimi ekipman sipariş metnine kayıpsız
+taşınır; eski revizyonlardaki `Kendinden Frenli` değeri geriye dönük okunur.
+
 ## HESAP-4 — Kontrol tipolojisi.
 
 Her kontrol dayanağını ve ağırlığını taşır:

@@ -59,6 +59,12 @@ GUVEN_ROLES = {
     "(kg/m)": "kg_per_m", "(kg/100": "kg_per_100m",
 }
 
+# `datasheet_url` seed tarafından `cat_equipment.datasheet_url` alanına yazılır
+# ve ekipman listesinde MODEL hücresini üreticinin föyüne bağlar (KATALOG-13'te
+# tarif edilen "yönetim panelinden girilen datasheet" yolunun katalogdan gelen
+# hâli). Föyler bu adresten indirilmiştir.
+GUVEN_URL = "https://guvencelikhalat.com.tr/wp-content/uploads/2026/01/"
+
 GUVEN = [
     {
         "pdf": "OLIVEIRA-DP-8-K-PPI-urun.pdf",
@@ -89,6 +95,7 @@ GUVEN = [
     },
     {
         "pdf": "Diepa H43 Özellikler ve Teknik Bilgiler.pdf",
+        "url": "DIEPA-H-43-1.pdf",
         "brand": "DIEPA",
         "series": "8 demetli plastik dolgulu (H 43)",
         "core": "IWRC-PI",
@@ -185,6 +192,9 @@ def build_hascelik():
         rc.write(f"{name}.json", {
             "brand": "Haşçelik",
             "equipment_type": "rope",
+            # Her ikisi de vinç kaldırma halatıdır (seçicinin kullanım alanı
+            # süzgeci); föylerin "Uygulamalar" kutusu böyle der.
+            "typical_application": "Vinç",
             "series": cfg["series"],
             "source_pdf": cfg["pdf"],
             "extraction_date": "2026-08-09",
@@ -226,9 +236,11 @@ def build_guven():
         rc.write(f"{cfg['brand'].lower()}_{slug}.json", {
             "brand": cfg["brand"],
             "equipment_type": "rope",
+            "typical_application": "Vinç",
             "series": cfg["series"],
             "source_pdf": cfg["pdf"],
             "source_doc": "Güven Çelik Halat ürün föyü, 04/2019",
+            "datasheet_url": GUVEN_URL + cfg.get("url", cfg["pdf"]),
             "extraction_date": "2026-08-09",
             "page_range": ", ".join(str(p + 1) for p in cfg["pages"]),
             "notes": cfg["notes"],

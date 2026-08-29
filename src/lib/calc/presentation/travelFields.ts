@@ -351,7 +351,7 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   {
     key: "motorBrakeType", label: "Motor Freni", type: "select",
     options: MOTOR_BRAKE_OPTIONS as unknown as string[],
-    hint: "Motor kendinden frenli (fren motoru) mi.",
+    hint: "Motor freni ve fren bobini besleme gerilimi.",
   },
   {
     key: "motorEfficiencyClass", label: "Verim Sınıfı", type: "select",

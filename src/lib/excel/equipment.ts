@@ -205,8 +205,8 @@ const gearboxMountingNote = (pos: unknown, dir?: unknown): string => {
 
 /**
  * Motor sipariş nitelikleri spec sonuna eklenir: bağlantı biçimi (B5/B14),
- * kendinden frenli, verim sınıfı, enkoder. Yalnız GİRİLMİŞ olanlar yazılır —
- * boş alan uydurma değer üretmez (md. 4).
+ * fren bobini gerilimi, verim sınıfı, enkoder. Yalnız GİRİLMİŞ olanlar
+ * yazılır — boş alan uydurma değer üretmez (md. 4).
  */
 /**
  * Redüktörün sipariş opsiyonları (çoklu seçim) spec metnine eklenir. "Yok"
@@ -246,7 +246,11 @@ const motorAttributesNote = (sel: {
   const parts: string[] = [];
   const t = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   if (t(sel.motorMountType)) parts.push(t(sel.motorMountType));
-  if (t(sel.motorBrakeType) === "Kendinden Frenli") parts.push("kendinden frenli");
+  const motorBrake = t(sel.motorBrakeType);
+  // Eski revizyonlardaki değer okunmaya devam eder; yeni seçimler bobin
+  // gerilimini kaybetmeden sipariş metnine aynen taşınır.
+  if (motorBrake === "Kendinden Frenli") parts.push("kendinden frenli");
+  else if (motorBrake && motorBrake !== "Frensiz") parts.push(motorBrake);
   if (t(sel.motorEfficiencyClass)) parts.push(t(sel.motorEfficiencyClass));
   // Yalıtım ve çalışma sınıfı SİPARİŞ BİLGİSİDİR: satıcı motoru bu ikisi
   // olmadan teklif edemez. Sınıf harfi tek başına okunmaz ("F" neyin F'i

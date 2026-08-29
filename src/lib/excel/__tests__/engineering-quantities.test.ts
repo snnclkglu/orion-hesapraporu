@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { NEW_WORK_TEMPLATE } from "@/lib/calc/defaults";
 import type { CalcInput } from "@/lib/calc/engine";
+import { MOTOR_BRAKE_OPTIONS } from "@/lib/calc/fields";
 import { buildEquipmentGroups, type EqRow } from "../equipment";
 
 function row(input: CalcInput, rowKey: string): EqRow {
@@ -16,6 +17,48 @@ function row(input: CalcInput, rowKey: string): EqRow {
 }
 
 describe("mühendislik ekipman adetleri", () => {
+  it("motor freni alanında yalnız onaylı dört seçeneği gösterir", () => {
+    expect(MOTOR_BRAKE_OPTIONS).toEqual([
+      "Frensiz",
+      "Frenli 380 VAC",
+      "Frenli 220 VAC",
+      "Frenli 24 VDC",
+    ]);
+  });
+
+  it.each(["Frenli 380 VAC", "Frenli 220 VAC", "Frenli 24 VDC"])(
+    "motor freni seçimini bobin gerilimiyle ekipman listesine taşır: %s",
+    (motorBrakeType) => {
+      const input: CalcInput = {
+        ...NEW_WORK_TEMPLATE,
+        mainHoist: {
+          inputs: { ...NEW_WORK_TEMPLATE.mainHoist!.inputs },
+          selections: {
+            ...NEW_WORK_TEMPLATE.mainHoist!.selections,
+            motorBrakeType,
+          },
+        },
+      };
+
+      expect(row(input, "main:motor").spec).toContain(motorBrakeType);
+    }
+  );
+
+  it("frensiz motor seçimini ekipman teknik metninde gereksiz yere tekrarlamaz", () => {
+    const input: CalcInput = {
+      ...NEW_WORK_TEMPLATE,
+      mainHoist: {
+        inputs: { ...NEW_WORK_TEMPLATE.mainHoist!.inputs },
+        selections: {
+          ...NEW_WORK_TEMPLATE.mainHoist!.selections,
+          motorBrakeType: "Frensiz",
+        },
+      },
+    };
+
+    expect(row(input, "main:motor").spec).not.toContain("Frensiz");
+  });
+
   it("Nr 16 · P · 3m/M7 kancasını tabloda yazan 20.000 kg olarak basar", () => {
     const input: CalcInput = {
       ...NEW_WORK_TEMPLATE,

@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import {
   allBlocks,
   flattenManual,
+  manualDraftForNextRevision,
+  manualFromProjectTemplate,
   manualFromTemplate,
   numberManual,
   printedManual,
@@ -69,6 +71,66 @@ describe("manualFromTemplate", () => {
       "elektrikKatalog",
       "sartname",
     ]);
+  });
+});
+
+describe("manualDraftForNextRevision", () => {
+  it("revizyon kalmadığında proje künyesiyle şablondan V1 açar", () => {
+    const draft = manualDraftForNextRevision(null, {
+      customer: "LİTEC MAKİNA",
+      product: "20 T KAPASİTELİ KEPÇELİ VİNÇ",
+      craneType: "VİNÇ ARABASI",
+      coverTitle: "MEVCUT EL KİTABI BAŞLIĞI",
+    });
+
+    expect(draft.revNo).toBe(1);
+    expect(draft.copiedFromPrevious).toBe(false);
+    expect(draft.payload.docTitle).toBe(MANUAL_DOC_TITLE);
+    expect(draft.payload.coverTitle).toBe("MEVCUT EL KİTABI BAŞLIĞI");
+    expect(draft.payload.identity).toMatchObject({
+      customer: "LİTEC MAKİNA",
+      product: "20 T KAPASİTELİ KEPÇELİ VİNÇ",
+      craneType: "VİNÇ ARABASI",
+    });
+    expect(draft.payload.sections.length).toBeGreaterThan(5);
+  });
+
+  it("üst kayıt başlığı boşsa kapak başlığını proje bilgisinden önerir", () => {
+    const payload = manualFromProjectTemplate({
+      product: "64 T X 12,44 M KAPASİTELİ PORTAL VİNÇ",
+      craneType: "PORTAL VİNÇ",
+      coverTitle: "   ",
+    });
+
+    expect(payload.docTitle).toBe(MANUAL_DOC_TITLE);
+    expect(payload.coverTitle).toContain("64 T X 12,44 M KAPASİTELİ PORTAL VİNÇ");
+  });
+
+  it("önceki revizyon varsa içeriği kopyalar ve donmuş otomatik tabloları çözer", () => {
+    const previous = manualFromProjectTemplate({
+      customer: "MÜŞTERİ",
+      product: "ÜRÜN",
+      craneType: "TİP",
+      coverTitle: "ÖZEL KAPAK",
+    });
+    const auto = allBlocks(previous.sections).find((block) => block.kind === "auto");
+    if (!auto || auto.kind !== "auto") throw new Error("Şablonda otomatik blok bulunamadı.");
+    auto.frozen = { head: ["ALAN"], rows: [["DEĞER"]] };
+
+    const draft = manualDraftForNextRevision(
+      { revNo: 3, payload: previous },
+      { customer: "YENİ MÜŞTERİ", product: "YENİ ÜRÜN", craneType: "YENİ TİP" }
+    );
+
+    expect(draft.revNo).toBe(4);
+    expect(draft.copiedFromPrevious).toBe(true);
+    expect(draft.payload.coverTitle).toBe("ÖZEL KAPAK");
+    expect(draft.payload.identity.customer).toBe("MÜŞTERİ");
+    expect(
+      allBlocks(draft.payload.sections)
+        .filter((block) => block.kind === "auto")
+        .every((block) => block.kind === "auto" && block.frozen === undefined)
+    ).toBe(true);
   });
 });
 

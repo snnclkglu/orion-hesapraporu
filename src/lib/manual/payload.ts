@@ -21,6 +21,7 @@ import {
   type TemplateBlock,
   type TemplateSection,
 } from "./template";
+import { MANUAL_DOC_TITLE, suggestCoverTitle } from "./naming";
 import {
   MANUAL_APPENDIX_KINDS,
   MANUAL_AUTO_SOURCES,
@@ -149,6 +150,70 @@ export function manualFromTemplate(kimlik: Partial<ManualIdentity> = {}): Manual
     identity: { ...BOS_KIMLIK, ...kimlik },
     sections: MANUAL_TEMPLATE.map((t) => templateToSection(t, id)),
     templateVersion: MANUAL_TEMPLATE_VERSION,
+  };
+}
+
+/** Proje künyesinden yeni/yeniden açılan ilk el kitabı taslağını kurar. */
+export function manualFromProjectTemplate({
+  customer = "",
+  product = "",
+  craneType = "",
+  coverTitle = "",
+}: {
+  customer?: string;
+  product?: string;
+  craneType?: string;
+  coverTitle?: string;
+}): ManualPayload {
+  const payload = manualFromTemplate({ customer, product, craneType });
+  payload.docTitle = MANUAL_DOC_TITLE;
+  payload.coverTitle = coverTitle.trim() || suggestCoverTitle(product, craneType);
+  return payload;
+}
+
+/**
+ * “Yeni Revizyon” için saf karar çekirdeği.
+ *
+ * Son revizyon varsa onun snapshot'ı kopyalanır ve yayımdaki donmuş otomatik
+ * tablolar yeniden canlı hâle gelir. Bütün revizyonlar silinmişse el kitabı
+ * üst kaydı hâlâ vardır; bu geçerli durumda proje künyesiyle şablondan yeni
+ * bir V1 doğar. Kullanıcı, silinen ilk taslaktan sonra kilitli kalmaz.
+ */
+export function manualDraftForNextRevision(
+  previous: { revNo: number; payload: unknown } | null,
+  project: {
+    customer?: string;
+    product?: string;
+    craneType?: string;
+    coverTitle?: string;
+  }
+): { revNo: number; payload: ManualPayload; copiedFromPrevious: boolean } {
+  if (!previous) {
+    return {
+      revNo: 1,
+      payload: manualFromProjectTemplate(project),
+      copiedFromPrevious: false,
+    };
+  }
+
+  const payload = withManualDefaults(previous.payload);
+  const cozulmus = (sections: ManualSection[]): ManualSection[] =>
+    sections.map((section) => ({
+      ...section,
+      blocks: section.blocks.map((block) => {
+        if (block.kind !== "auto") return block;
+        const { frozen, ...liveBlock } = block;
+        void frozen;
+        return liveBlock;
+      }),
+      children: cozulmus(section.children),
+    }));
+  payload.sections = cozulmus(payload.sections);
+
+  return {
+    revNo: Math.max(0, Number(previous.revNo) || 0) + 1,
+    payload,
+    copiedFromPrevious: true,
   };
 }
 

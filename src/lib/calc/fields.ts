@@ -432,8 +432,13 @@ export const MOTOR_MOUNT_INFO_TEXT =
   "Vinç tahriklerinde en yaygın biçim B35'tir (ayak + büyük flanş): yük hem " +
   "flanştan hem ayaklardan taşınır.";
 
-/** Motor kendinden frenli mi (fren motoru). Sipariş/rapor için. */
-export const MOTOR_BRAKE_OPTIONS = ["Frensiz", "Kendinden Frenli"] as const;
+/** Motor freni ve fren bobini besleme gerilimi. Sipariş/rapor için. */
+export const MOTOR_BRAKE_OPTIONS = [
+  "Frensiz",
+  "Frenli 380 VAC",
+  "Frenli 220 VAC",
+  "Frenli 24 VDC",
+] as const;
 /**
  * IEC verim sınıfı. Tek sınıfların yanında İKİ SINIFLI seçenekler de vardır:
  * bazı üreticiler aynı gövdeyi iki sınıf arasında bir bantta beyan eder ve
@@ -1392,7 +1397,7 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   {
     key: "motorBrakeType", label: "Motor Freni", type: "select",
     options: MOTOR_BRAKE_OPTIONS as unknown as string[],
-    hint: "Motor kendinden frenli (fren motoru) mi. Raporda ve siparişte görünür.",
+    hint: "Motor freni ve fren bobini besleme gerilimi. Raporda ve siparişte görünür.",
   },
   {
     key: "motorEfficiencyClass", label: "Verim Sınıfı", type: "select",
