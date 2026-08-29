@@ -37,6 +37,7 @@ PDF = {
     "siemens": os.path.join(WORKSPACE, "SIEMENS MOTOR KATALOG.pdf"),
     "gamak": os.path.join(WORKSPACE, "GAMAK Teknik Katalog TR 2026.pdf"),
     "elk": os.path.join(WORKSPACE, "elk-motor-katalog-tr.pdf"),
+    "sew": os.path.join(WORKSPACE, "SEW_AC motor.pdf"),
 }
 
 

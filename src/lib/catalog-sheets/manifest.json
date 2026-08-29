@@ -24130,130 +24130,695 @@
    ]
   },
   {
-   "id": "motor/sew-eurodrive-sew-drn-p863",
+   "id": "motor/sew-eurodrive-sew-ac-p96-203",
    "kind": "motor",
    "brand": "SEW-EURODRIVE",
-   "series": "DRN (IE3) / DR2S (IE1)",
-   "title": "SEW DRN Motor — teknik bilgiler ve ölçüler",
-   "source": "Diğer kataloglar/SEW Dr serisi.pdf",
-   "printedPages": "PDF s.863",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.96, PDF s.203",
    "images": [
-    "motor/sew-eurodrive-sew-drn-p863-s1.webp"
+    "motor/sew-eurodrive-sew-ac-p96-203-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p96-203-s2.webp"
    ],
    "models": [
-    "DR2S56MR4"
+    "DRS71S2"
    ]
   },
   {
-   "id": "motor/sew-eurodrive-sew-drn-p864",
+   "id": "motor/sew-eurodrive-sew-ac-p96-207",
    "kind": "motor",
    "brand": "SEW-EURODRIVE",
-   "series": "DRN (IE3) / DR2S (IE1)",
-   "title": "SEW DRN Motor — teknik bilgiler ve ölçüler",
-   "source": "Diğer kataloglar/SEW Dr serisi.pdf",
-   "printedPages": "PDF s.864",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.96, PDF s.207",
    "images": [
-    "motor/sew-eurodrive-sew-drn-p864-s1.webp"
+    "motor/sew-eurodrive-sew-ac-p96-203-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p96-207-s2.webp"
    ],
    "models": [
-    "DRN63MS2",
-    "DRN63M2",
-    "DRN71MS2",
-    "DRN71M2",
-    "DRN80MS2",
-    "DRN80M2",
-    "DRN90S2",
-    "DRN90L2",
-    "DRN100LM2",
-    "DRN112M2",
-    "DRN132S2"
+    "DRS71M2"
    ]
   },
   {
-   "id": "motor/sew-eurodrive-sew-drn-p866",
+   "id": "motor/sew-eurodrive-sew-ac-p97-247",
    "kind": "motor",
    "brand": "SEW-EURODRIVE",
-   "series": "DRN (IE3) / DR2S (IE1)",
-   "title": "SEW DRN Motor — teknik bilgiler ve ölçüler",
-   "source": "Diğer kataloglar/SEW Dr serisi.pdf",
-   "printedPages": "PDF s.866",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.97, PDF s.247",
    "images": [
-    "motor/sew-eurodrive-sew-drn-p866-s1.webp"
+    "motor/sew-eurodrive-sew-ac-p97-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p97-247-s2.webp"
    ],
    "models": [
-    "DRN63MS4",
-    "DRN63M4",
-    "DRN71MS4",
-    "DRN71M4",
-    "DRN80MK4",
-    "DRN80M4",
-    "DRN90S4",
-    "DRN90L4",
-    "DRN100LS4",
-    "DRN100L4",
-    "DRN112M4",
-    "DRN132S4",
-    "DRN132M4",
-    "DRN132L4",
-    "DRN160M4",
-    "DRN160L4",
-    "DRN180M4",
-    "DRN180L4",
-    "DRN200L4",
-    "DRN225S4",
-    "DRN225M4",
-    "DRN250M4",
-    "DRN280S4",
-    "DRN280M4",
-    "DRN315S4",
-    "DRN315M4",
-    "DRN315L4",
-    "DRN315H4"
+    "DRE132M2"
    ]
   },
   {
-   "id": "motor/sew-eurodrive-sew-drn-p868",
+   "id": "motor/sew-eurodrive-sew-ac-p97-251",
    "kind": "motor",
    "brand": "SEW-EURODRIVE",
-   "series": "DRN (IE3) / DR2S (IE1)",
-   "title": "SEW DRN Motor — teknik bilgiler ve ölçüler",
-   "source": "Diğer kataloglar/SEW Dr serisi.pdf",
-   "printedPages": "PDF s.868",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.97, PDF s.251",
    "images": [
-    "motor/sew-eurodrive-sew-drn-p868-s1.webp"
+    "motor/sew-eurodrive-sew-ac-p97-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p97-251-s2.webp"
    ],
    "models": [
-    "DRN63MR6",
-    "DRN63M6",
-    "DRN71MS6",
-    "DRN71M6",
-    "DRN80MK6",
-    "DRN90SR6",
-    "DRN90S6",
-    "DRN90L6",
-    "DRN100L6",
-    "DRN112M6",
-    "DRN132S6",
-    "DRN132L6",
-    "DRN160M6"
+    "DRE132MC2"
    ]
   },
   {
-   "id": "motor/sew-eurodrive-sew-drn-p870",
+   "id": "motor/sew-eurodrive-sew-ac-p98-215",
    "kind": "motor",
    "brand": "SEW-EURODRIVE",
-   "series": "DRN (IE3) / DR2S (IE1)",
-   "title": "SEW DRN Motor — teknik bilgiler ve ölçüler",
-   "source": "Diğer kataloglar/SEW Dr serisi.pdf",
-   "printedPages": "PDF s.870",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.98, PDF s.215",
    "images": [
-    "motor/sew-eurodrive-sew-drn-p870-s1.webp"
+    "motor/sew-eurodrive-sew-ac-p98-215-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p98-215-s2.webp"
    ],
    "models": [
-    "DRN71MSR8",
-    "DRN71MS8",
-    "DRN80MK8",
-    "DRN80M8"
+    "DRP80M2"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p98-219",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.98, PDF s.219",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p98-215-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p98-219-s2.webp"
+   ],
+   "models": [
+    "DRP90M2"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p98-227",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.98, PDF s.227",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p98-215-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p98-227-s2.webp"
+   ],
+   "models": [
+    "DRP100M2"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p98-235",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.98, PDF s.235",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p98-215-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p98-235-s2.webp"
+   ],
+   "models": [
+    "DRP100LC2"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p98-243",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.98, PDF s.243",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p98-215-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p98-243-s2.webp"
+   ],
+   "models": [
+    "DRP132S2"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p98-247",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.98, PDF s.247",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p98-215-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p97-247-s2.webp"
+   ],
+   "models": [
+    "DRP132M2"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p99-203",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.99, PDF s.203",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p99-203-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p96-203-s2.webp"
+   ],
+   "models": [
+    "DRS71S4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p101-211",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.101, PDF s.211",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p101-211-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p101-211-s2.webp"
+   ],
+   "models": [
+    "DRE80S4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p101-215",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.101, PDF s.215",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p101-211-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p98-215-s2.webp"
+   ],
+   "models": [
+    "DRE80M4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p102-301",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.102, PDF s.301",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p102-301-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p102-301-s2.webp"
+   ],
+   "models": [
+    "DRE315L4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p103-219",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.103, PDF s.219",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p103-219-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p98-219-s2.webp"
+   ],
+   "models": [
+    "DRP90M4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p103-223",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.103, PDF s.223",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p103-219-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p103-223-s2.webp"
+   ],
+   "models": [
+    "DRP90L4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p103-227",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.103, PDF s.227",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p103-219-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p98-227-s2.webp"
+   ],
+   "models": [
+    "DRP100M4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p103-231",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.103, PDF s.231",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p103-219-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p103-231-s2.webp"
+   ],
+   "models": [
+    "DRP100L4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p103-239",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.103, PDF s.239",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p103-219-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p103-239-s2.webp"
+   ],
+   "models": [
+    "DRP112M4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-247",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.247",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p97-247-s2.webp"
+   ],
+   "models": [
+    "DRP132M4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-251",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.251",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p97-251-s2.webp"
+   ],
+   "models": [
+    "DRP132MC4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-259",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.259",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p104-259-s2.webp"
+   ],
+   "models": [
+    "DRP160M4",
+    "DRP160MC4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-267",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.267",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p104-267-s2.webp"
+   ],
+   "models": [
+    "DRP180M4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-271",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.271",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p104-271-s2.webp"
+   ],
+   "models": [
+    "DRP180L4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-275",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.275",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p104-275-s2.webp"
+   ],
+   "models": [
+    "DRP180LC4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-279",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.279",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p104-279-s2.webp"
+   ],
+   "models": [
+    "DRP200L4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-283",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.283",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p104-283-s2.webp"
+   ],
+   "models": [
+    "DRP225S4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-287",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.287",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p104-287-s2.webp"
+   ],
+   "models": [
+    "DRP225M4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-295",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.295",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p104-295-s2.webp"
+   ],
+   "models": [
+    "DRP250M4",
+    "DRP280S4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-296",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.296",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p104-296-s2.webp"
+   ],
+   "models": [
+    "DRP280M4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-299",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.299",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p104-299-s2.webp"
+   ],
+   "models": [
+    "DRP315K4",
+    "DRP315S4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p104-301",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.104, PDF s.301",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p104-247-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p102-301-s2.webp"
+   ],
+   "models": [
+    "DRP315M4",
+    "DRP315L4"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p106-259",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.106, PDF s.259",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p106-259-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p104-259-s2.webp"
+   ],
+   "models": [
+    "DRS160M6"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p107-207",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.107, PDF s.207",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p107-207-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p96-207-s2.webp"
+   ],
+   "models": [
+    "DRE71M6"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p107-211",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.107, PDF s.211",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p107-207-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p101-211-s2.webp"
+   ],
+   "models": [
+    "DRE80S6"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p107-215",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.107, PDF s.215",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p107-207-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p98-215-s2.webp"
+   ],
+   "models": [
+    "DRE80M6"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p107-251",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.107, PDF s.251",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p107-207-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p97-251-s2.webp"
+   ],
+   "models": [
+    "DRE132MC6"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p108-223",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.108, PDF s.223",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p108-223-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p103-223-s2.webp"
+   ],
+   "models": [
+    "DRP90L6"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p108-231",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.108, PDF s.231",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p108-223-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p103-231-s2.webp"
+   ],
+   "models": [
+    "DRP100L6"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p108-239",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.108, PDF s.239",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p108-223-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p103-239-s2.webp"
+   ],
+   "models": [
+    "DRP112M6"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p108-243",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.108, PDF s.243",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p108-223-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p98-243-s2.webp"
+   ],
+   "models": [
+    "DRP132S6"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p108-247",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.108, PDF s.247",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p108-223-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p97-247-s2.webp"
+   ],
+   "models": [
+    "DRP132M6"
+   ]
+  },
+  {
+   "id": "motor/sew-eurodrive-sew-ac-p108-251",
+   "kind": "motor",
+   "brand": "SEW-EURODRIVE",
+   "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+   "title": "SEW-EURODRIVE AC Motor — teknik bilgiler ve ölçüler",
+   "source": "SEW_AC motor.pdf",
+   "printedPages": "PDF s.108, PDF s.251",
+   "images": [
+    "motor/sew-eurodrive-sew-ac-p108-223-s1.webp",
+    "motor/sew-eurodrive-sew-ac-p97-251-s2.webp"
+   ],
+   "models": [
+    "DRP132MC6"
    ]
   },
   {

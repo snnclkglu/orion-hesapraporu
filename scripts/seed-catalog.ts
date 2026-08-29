@@ -110,7 +110,7 @@ function push(
 // ------------------------------------------------------------------ motors
 for (const file of [
   "motors/gamak.json", "motors/abb.json", "motors/innomotics.json",
-  "motors/sew_drn.json", "motors/elk.json",
+  "motors/sew_ac.json", "motors/elk.json",
 ]) {
   const { meta, items } = readJson(file);
   const brand = String(meta.brand);
@@ -686,11 +686,14 @@ parts.push(`-- Katalog seed — catalog_data JSON'larından scripts/seed-catalog
 `);
 
 if (REPLACE_BRANDS && ONLY_BRANDS) {
+  const kindScope = ONLY_KINDS
+    ? ` and kind in (${ONLY_KINDS.map((kind) => `'${esc(kind)}'`).join(", ")})`
+    : "";
   parts.push(
     `-- Bu markanın katalog satırları kaynak JSON'dan yeniden üretilir.\n` +
     `delete from public.cat_equipment where brand in (${
       ONLY_BRANDS.map((brand) => `'${esc(brand)}'`).join(", ")
-    });\n`
+    })${kindScope};\n`
   );
 } else if (ONLY_KINDS && !APPEND_ONLY) {
   parts.push(

@@ -67,12 +67,24 @@ yerinde geçmesi sayfayı kazandırmaz; ürünün SATIRININ bulunduğu tablo say
 kazanır. Eşiği geçemeyen ürüne sayfa YAZILMAZ. `--verify` haritayı dosya
 yazmadan sınar.
 
-**Bir ürün föyü birden çok kaynak yaprağı taşıyabilir.** GAMAK 2026 ve ELK AC
-motorlarında performans tablosu + B3 `MOTOR BOYUTLARI`; Yılmaz DT/DR, KT/KR
+**Bir ürün föyü birden çok kaynak yaprağı taşıyabilir.** GAMAK 2026, ELK ve
+SEW-EURODRIVE AC motorlarında performans tablosu + ürüne ait B3 motor ölçü
+föyü; Yılmaz DT/DR, KT/KR
 ve M'de performans tablosu + modele ait ölçü sayfası; Yılmaz H'de iki ardışık
 performans yaprağı + ölçü sayfası tek manifest kaydıdır. SIBRE USB'de ürün
 sayfasına BS fren diski yaprağı, SHI'da model yaprağına ortak teknik-veri
 yaprağı eklenir. Aynı kaynak yaprak dosyada yalnız bir kez saklanır.
+
+**SEW AC motor kimliği tip kodu + güç satırıdır.** 2014 tarihli
+`SEW_AC motor.pdf` içinden yalnız 400 V, 50 Hz, S1 standart DRS (IE1), DRE
+(IE2) ve DRP (IE3) motorları alınır; verim değeri basılmayan DT56/DR63,
+kutup değiştiren, tork/servo ve MOVI-SWITCH/MOVIMOT aileleri aynı seçiciye
+karıştırılmaz. Aynı tip kodu birden çok güçle yayımlanabildiğinden çıkarıcı
+ağırlık tablosunu `(model, güç)` ile eşler. Her ürün fiziksel s.96-108'deki
+performans sayfasını ve s.203-301 arasındaki kendi B3 ölçü föyünü taşır.
+Büyük DRP gövdelerinin katalogda IEC kasa genelinden farklı basılan mil
+çapları model bazında korunur (DRP250M4 60 mm, DRP280S4 65 mm,
+DRP315K/S4 70 mm); komşu DRS/DRE satırına kopyalanmaz.
 
 **Yılmaz giriş bağlantısı ürün kimliğinin parçasıdır.** DT/KT `Motorsuz mil
 girişli`, DR/KR `Motor akuple` satırlarıdır; mekanik performans satırı aynı

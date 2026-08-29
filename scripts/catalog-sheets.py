@@ -97,7 +97,7 @@ PDFS = {
     "sew_x": "Diğer kataloglar/SEW X-SERİSİ REDUKTOR.pdf",
     "sew_xe_hc": "Diğer kataloglar/SEW x-fcc.pdf",
     "sew_r": "Diğer kataloglar/SEW R serisi.pdf",
-    "sew_drn": "Diğer kataloglar/SEW Dr serisi.pdf",
+    "sew_ac": "SEW_AC motor.pdf",
     # SIBRE'nin ürün bazlı 2021 detay föyleri. Genel katalog yalnız yedek
     # kaynaktır; aşağıdaki serilerde doğrudan ürün föyü gösterilir.
     "sibre_alc_a_detail": "SIBRE DETAY KATALOGLAR/ALC-A 2021_EN.pdf",
@@ -450,9 +450,10 @@ DISCOVER = [
     ("gearbox", "reducers/sew_r.json", "sew_r", "model",
      ["ratio", "output_torque_Nm", "output_speed_rpm", "permitted_radial_load_output_N"],
      "SEW R / F / K / S / W Redüktör"),
-    ("motor", "motors/sew_drn.json", "sew_drn", "model",
+    ("motor", "motors/sew_ac.json", "sew_ac", "model",
      ["power_kw", "speed_rpm", "torque_nm", "efficiency_pct", "current_a", "weight_kg"],
-     "SEW DRN Motor"),
+     "SEW-EURODRIVE AC Motor",
+     {"technical_field": "technical_page", "dimension_field": "dimension_page"}),
 ]
 
 

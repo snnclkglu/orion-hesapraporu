@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""GAMAK 2026 ve ELK motor kataloglarının kaynak/sayfa regresyonları."""
+"""GAMAK, ELK ve SEW motor kataloglarının kaynak/sayfa regresyonları."""
 
 import json
 import unittest
@@ -28,7 +28,8 @@ class CurrentMotorCatalogTest(unittest.TestCase):
             self.assertIsInstance(row["dimension_page"], int)
             self.assertGreater(row["technical_page"], 0)
             self.assertGreater(row["dimension_page"], 0)
-            self.assertIn("katalog (s.", row["shaft_source"])
+            self.assertIn("katalog", row["shaft_source"])
+            self.assertIn("(s.", row["shaft_source"])
 
     def test_gamak_2026_pages_and_scope(self):
         data = load("gamak.json")
@@ -66,6 +67,35 @@ class CurrentMotorCatalogTest(unittest.TestCase):
         self.assertEqual(by_model["3EL090L4D"]["torque_nm"], 9.91)
         self.assertEqual(by_model["3EL100L4C"]["torque_nm"], 14.5)
         self.assertEqual(by_model["3EL100L6B"]["speed_rpm"], 955)
+
+    def test_sew_ac_pages_scope_and_large_frame_shafts(self):
+        data = load("sew_ac.json")
+        self.assertEqual(data["meta"]["source_pdf"], "SEW_AC motor.pdf")
+        self.check_common(data, 49, Counter({4: 27, 2: 11, 6: 11}))
+        items = data["items"]
+        self.assertEqual(
+            {row["technical_page"] for row in items},
+            {96, 97, 98, 99, 101, 102, 103, 104, 106, 107, 108},
+        )
+        self.assertTrue({row["dimension_page"] for row in items} <= set(range(203, 302)))
+        self.assertEqual({row["efficiency_class"] for row in items}, {"IE1", "IE2", "IE3"})
+
+        by_model_power = {(row["model"], row["power_kw"]): row for row in items}
+        self.assertEqual(
+            (by_model_power[("DRP250M4", 45.0)]["shaft_diameter_mm"],
+             by_model_power[("DRP250M4", 45.0)]["dimension_page"]),
+            (60.0, 295),
+        )
+        self.assertEqual(
+            (by_model_power[("DRP280M4", 75.0)]["shaft_diameter_mm"],
+             by_model_power[("DRP280M4", 75.0)]["dimension_page"]),
+            (75.0, 296),
+        )
+        self.assertEqual(
+            (by_model_power[("DRP315S4", 110.0)]["shaft_diameter_mm"],
+             by_model_power[("DRP315S4", 110.0)]["dimension_page"]),
+            (70.0, 299),
+        )
 
 
 if __name__ == "__main__":

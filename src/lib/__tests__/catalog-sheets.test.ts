@@ -222,13 +222,18 @@ describe("model → sayfa eşlemesi", () => {
     expect(hasCatalogSheets("coupling", "BİLİNMEYEN")).toBe(false);
   });
 
-  it("GAMAK 2026 ve ELK motorlarında teknik + B3 ölçü sayfasını birlikte verir", () => {
+  it("GAMAK, ELK ve SEW motorlarında teknik + B3 ölçü sayfasını birlikte verir", () => {
     const gamak = findCatalogSheet("motor", "GAMAK", "AGM3EL 71 M 2a");
     const elk = findCatalogSheet("motor", "ELK", "3EL063M2A");
+    const sew = findCatalogSheet("motor", "SEW-EURODRIVE", "DRP315S4");
     expect(gamak?.images).toHaveLength(2);
     expect(gamak?.source).toBe("GAMAK Teknik Katalog TR 2026.pdf");
     expect(elk?.images).toHaveLength(2);
     expect(elk?.source).toBe("elk-motor-katalog-tr.pdf");
+    expect(sew?.images).toHaveLength(2);
+    expect(sew?.source).toBe("SEW_AC motor.pdf");
+    expect(sew?.images[0]).toContain("p104-247-s1.webp");
+    expect(sew?.images[1]).toContain("p104-299-s2.webp");
   });
 
   it("Yılmaz DT/DR ile KT/KR aynı performansı, farklı bağlantı ölçüsünü gösterir", () => {

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Motor kataloglarını tek komutla üretir.
 
-    python motors_build.py        # catalog_data/motors/{abb,innomotics,gamak,elk}.json
+    python motors_build.py        # catalog_data/motors/{abb,innomotics,gamak,elk,sew_ac}.json
     python motors_validate.py     # tutarlılık raporu
 
 Her marka kendi modülünde çözümlenir (sayfa düzenleri birbirine benzemez);
@@ -13,6 +13,7 @@ import motors_abb
 import motors_common as mc
 import motors_elk
 import motors_gamak
+import motors_sew
 import motors_siemens
 
 for _stream in (sys.stdout, sys.stderr):
@@ -26,6 +27,7 @@ BUILDERS = [
     ("INNOMOTICS (Siemens)", motors_siemens),
     ("GAMAK", motors_gamak),
     ("ELK", motors_elk),
+    ("SEW-EURODRIVE", motors_sew),
 ]
 
 

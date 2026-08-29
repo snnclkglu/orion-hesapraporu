@@ -1,202 +1,313 @@
 # -*- coding: utf-8 -*-
-"""SEW-EURODRIVE DRN.. (IE3) ve DR2S.. (IE1) motorları — `SEW Dr serisi.pdf`
-(Catalog "DRN.. Gearmotors (IE3)", 24832936/EN 09/2018) böl. 13.
+"""SEW-EURODRIVE standart üç fazlı AC motor kataloğu çıkarımı.
 
-Katalogun gövdesi REDÜKTÖRLÜ MOTOR seçim tablolarıdır ve o biçim uygulamanın
-modeline uymaz (her satır bir redüktörü zorunlu kılar; uygulama redüktörle
-motoru ayrı bölümlerde seçer). Böl. 13 ise MOTORUN KENDİ teknik verisidir ve
-`catalog_data/motors/` şemasına birebir oturur.
+Kaynak: ``SEW_AC motor.pdf`` (692 fiziksel sayfa),
+``Catalog AC Motors DR.71 - 315, DT56, DR63``, 19290411/EN, 10/2014.
 
-Her kutup sayısı için katalog İKİ tablo basar ve ikisi de gerekir:
-  13.x.1 "Information on motors"  → PN · MN · nN · IN · cosφ · η100%
-  13.x.2 "Further information …"  → mMot (ağırlık) · BE.. (fren) · MB (fren
-                                     momenti)
-İkisi MOTOR TİPİ ile eşlenir.
+Standart 400 V, 50 Hz, S1 motorların teknik tabloları s.96-108'dir:
 
-MİL ÇAPI KATALOGDA BASILI DEĞİLDİR: DRN bu katalogda redüktöre flanşlı
-(redüktörlü motor) satılır, çıplak mil ucu ölçüsü ayrı verilmez. `shaft_mm`
-kaplin bölümünü beslediği için alan boş bırakılmaz; ABB/GAMAK/SIMOTICS
-çıkarımlarındaki KURULU YOL izlenir: değer IEC 60072-1 Tablo 4'ten gövde
-büyüklüğüne göre alınır ve `shaft_source` alanı "IEC 60072-1" yazar — yani
-sayının katalogtan gelmediği satırın kendisinde görünür.
+* DRS.. IE1: 2, 4 ve 6 kutup
+* DRE.. IE2: 2, 4 ve 6 kutup
+* DRP.. IE3: 2, 4 ve 6 kutup
+
+DT56 ve DR63 satırları aynı bölümde yayımlanır; ancak verim sınıfı ve verim
+değerleri katalogda ``-`` bırakılmıştır. Zorunlu bir seçim verisini uydurmak
+yerine bu satırlar alınmaz. Pole-changing, tork motoru, servo motor ve
+MOVI-SWITCH/MOVIMOT aileleri standart AC motor seçicisine karıştırılmaz.
+
+Her motor, kendi performans tablosu ile s.203-301 arasındaki gerçek gövde ölçü
+föyüne bağlanır. Büyük 4 kutuplu DRP gövdelerinde katalog IEC'nin genel kasa
+çapından farklı mil ucu yayımlar (DRP250M4=60, DRP280S4=65,
+DRP315K/S4=70 mm); bu değerler model bazında korunur.
 """
 from __future__ import annotations
 
-import io
-import json
-import os
 import re
-import sys
+
+import fitz
 
 import motors_common as mc
-import pdftable as pt
-
-PDF = "SEW Dr serisi.pdf"
-OUT = os.path.join(pt.CATALOG_DATA, "motors", "sew_drn.json")
-
-SECTION_RE = re.compile(
-    r"(IE\d)\s+(DRN|DR2S)\.\.\s+motors[,.]\s*400\s*V,\s*50\s*Hz,\s*(\d+)[‑-]pole")
-INFO_RE = re.compile(r"^13\.\d+\.1\b")
-FURTHER_RE = re.compile(r"^13\.\d+\.2\b")
-MODEL_RE = re.compile(r"^(DRN|DR2S)\w+$")
-
-INFO_ROLES = {"Motor": "model", "DRN..": "model", "DR2S..": "model", "PN": "power_kw", "MN": "torque_nm", "nN": "speed_rpm",
-              "IN": "current_a", "cosφ": "power_factor", "η100%": "efficiency_pct"}
-FURTHER_ROLES = {"Motor": "model", "DRN..": "model", "DR2S..": "model", "PN": "_pn", "MN": "_mn", "nN": "_nn", "mMot": "weight_kg",
-                 "BE..": "brake_type", "MB": "brake_torque_nm"}
 
 
-def _anchors(page, roles, y0=0.0):
-    """Sütun başlığı satırından (rol, x) çapaları.
+PERF_PAGES = tuple(range(96, 109))
 
-    Model sütununun başlığı sayfadan sayfaya değişir ("Motor type" ya da
-    "DRN.. motor type"); ikisi de `roles` sözlüğünde karşılanır."""
-    for y, row in pt.rows_by_gap(pt.words(page), 4.0):
-        if y < y0:
+MODEL_RE = re.compile(
+    r"^(?P<series>DRS|DRE|DRP)(?P<frame>\d{2,3})"
+    r"(?P<suffix>[A-Z]*)(?P<poles>[246])$"
+)
+CLASS_RANK = {"IE3": 0, "IE2": 1, "IE1": 2}
+
+# Teknik tablonun ilk yarısı: model, güç, moment, devir, 400 V akımı,
+# cos(phi), verim sınıfı ve yüzde 100 yükte verim.
+PERFORMANCE_BANDS = [
+    ("model", 50, 115),
+    ("power", 115, 150),
+    ("torque", 150, 180),
+    ("speed", 180, 215),
+    ("current", 215, 250),
+    ("power_factor", 290, 325),
+    ("efficiency_class", 325, 350),
+    ("efficiency", 408, 438),
+]
+
+# Aynı sayfaların ikinci yarısı motor ağırlığı ile varsayılan fren tipini ve
+# fren momentini taşır. Tablo bir sonraki sayfaya devam edebilir; eşleme bu
+# yüzden (model, güç) anahtarıyladır.
+WEIGHT_BANDS = [
+    ("model", 50, 115),
+    ("power", 115, 145),
+    ("weight", 220, 260),
+    ("brake", 315, 355),
+    ("brake_torque", 395, 435),
+]
+
+# 1 tabanlı fiziksel sayfalar. İlk yaprakta B3 ayaklı yapı ve mil ucu ölçüsü
+# vardır; onu izleyen yapraklar fiş/enkoder/fren seçenekleridir ve standart
+# çıplak motorun ölçü föyü olarak kullanılmaz.
+DIMENSION_PAGE_BY_FRAME = {
+    "71S": 203,
+    "71M": 207,
+    "80S": 211,
+    "80M": 215,
+    "90M": 219,
+    "90L": 223,
+    "100M": 227,
+    "100L": 231,
+    "100LC": 235,
+    "112M": 239,
+    "132S": 243,
+    "132M": 247,
+    "132MC": 251,
+    "160S": 255,
+    "160M": 259,
+    "160MC": 259,
+    "180S": 263,
+    "180M": 267,
+    "180L": 271,
+    "180LC": 275,
+    "200L": 279,
+    "225S": 283,
+    "225M": 287,
+    "225MC": 291,
+    "250M": 295,
+    "280S": 295,
+    "280M": 296,
+    "315K": 299,
+    "315S": 299,
+    "315M": 301,
+    "315L": 301,
+}
+
+# Ölçü föyünde standart IEC kasa çapından ayrılan büyük 4 kutuplu DRP
+# motorlar. Komşu DRS/DRE satırlarının çapları bu değerlere kopyalanmaz.
+CATALOG_SHAFT_OVERRIDES = {
+    "DRP250M4": 60.0,  # s.295
+    "DRP280S4": 65.0,  # s.295
+    "DRP315K4": 70.0,  # s.299
+    "DRP315S4": 70.0,  # s.299
+}
+
+
+def _clean(text) -> str:
+    return "".join(str(text or "").split())
+
+
+def _model(cells) -> tuple[str, re.Match[str]] | None:
+    value = _clean(cells.get("model"))
+    match = MODEL_RE.match(value)
+    return (value, match) if match else None
+
+
+def _performance_rows(page, pnum):
+    rows, missing = [], []
+    for yc, words in mc.rows_by_y(mc.words(page), tol=2.0):
+        cells = mc.banded_cells(words, PERFORMANCE_BANDS)
+        found = _model(cells)
+        if not found:
             continue
-        texts = [w[4] for w in row]
-        if "PN" in texts and "MN" in texts and "nN" in texts:
-            return [(roles.get(w[4]), w[0]) for w in row]
-    return None
+        model, match = found
+        efficiency_class = _clean(cells.get("efficiency_class"))
+        parsed = {
+            "power_kw": mc.num(cells.get("power")),
+            "torque_nm": mc.num(cells.get("torque")),
+            "speed_rpm": mc.num(cells.get("speed")),
+            "current_a": mc.num(cells.get("current")),
+            "power_factor": mc.num(cells.get("power_factor")),
+            "efficiency_pct": mc.num(cells.get("efficiency")),
+        }
 
-
-def _table(page, roles, y0=95, y1=None):
-    """Motor tipi → {alan: değer}."""
-    anchors = _anchors(page, roles, y0)
-    if not anchors:
-        return {}
-    out = {}
-    for _, cells in pt.read_rows(page, anchors, y0, y1 or page.rect.height - 30, gap=4.0):
-        # Dipnot işareti tipe yapışık basılır ("DRN63MS41)"): temizlenir.
-        raw = pt.cell_text(cells, "model") or ""
-        model = re.sub(r"\d?\)$", "", raw)
-        if not MODEL_RE.match(model):
+        # Aynı x bantlarında bulunan ağırlık tablosu satırları model desenine
+        # uyar; ancak orada IE ve verim hücreleri yoktur. Sessizce atlanır.
+        if not efficiency_class.startswith("IE"):
             continue
-        row = {}
-        for role in set(roles.values()):
-            if role is None or role == "model" or role.startswith("_"):
-                continue
-            txt = pt.cell_text(cells, role)
-            row[role] = txt if role == "brake_type" else pt.num(txt)
-        out[model] = row
-    return out
+        if any(value is None for value in parsed.values()):
+            missing.append(("missing_performance", pnum, round(yc, 1), model, cells))
+            continue
+
+        frame = int(match.group("frame"))
+        suffix = match.group("suffix")
+        poles = int(match.group("poles"))
+        frame_size = f"{frame}{suffix}"
+        dimension_page = DIMENSION_PAGE_BY_FRAME.get(frame_size)
+        shaft = CATALOG_SHAFT_OVERRIDES.get(
+            model, mc.iec_shaft_mm(frame, poles)
+        )
+        if dimension_page is None or shaft is None:
+            missing.append((
+                "missing_dimension",
+                pnum,
+                model,
+                frame_size,
+                dimension_page,
+                shaft,
+            ))
+            continue
+
+        rows.append({
+            "power_kw": parsed["power_kw"],
+            "poles": poles,
+            "speed_rpm": int(parsed["speed_rpm"]),
+            "torque_nm": parsed["torque_nm"],
+            "frame_size": frame_size,
+            "efficiency_pct": parsed["efficiency_pct"],
+            "shaft_diameter_mm": shaft,
+            "current_a": parsed["current_a"],
+            "power_factor": parsed["power_factor"],
+            "series": f"{match.group('series')} ({efficiency_class})",
+            "model": model,
+            "efficiency_class": efficiency_class,
+            "shaft_source": f"katalog ölçü föyü (s.{dimension_page})",
+            "technical_page": pnum,
+            "dimension_page": dimension_page,
+            "_frame": frame,
+        })
+    return rows, missing
 
 
-def _section_y(page, pattern):
-    """Bölüm başlığının y konumu — 13.x.1 ile 13.x.2 aynı sayfada olabilir."""
-    for y, row in pt.rows_by_gap(pt.words(page), 4.0):
-        if row and pattern.match(row[0][4]):
-            return y
-    return None
+def _weight_rows(page):
+    rows = {}
+    for _yc, words in mc.rows_by_y(mc.words(page), tol=2.0):
+        cells = mc.banded_cells(words, WEIGHT_BANDS)
+        found = _model(cells)
+        if not found:
+            continue
+        model, _match = found
+        power = mc.num(cells.get("power"))
+        weight = mc.num(cells.get("weight"))
+        brake = _clean(cells.get("brake"))
+        if power is None or weight is None or not re.match(r"^(?:BE|BR|BMG)\d", brake):
+            continue
+        row = {"weight_kg": weight, "brake_type": brake}
+        brake_torque = mc.num(cells.get("brake_torque"))
+        if brake_torque is not None:
+            row["brake_torque_nm"] = brake_torque
+        rows[(model, power)] = row
+    return rows
+
+
+def dedupe(items):
+    """Aynı güç/kutup için seçicide tek ve en verimli katalog tipini bırakır."""
+    def rank(item):
+        return (
+            CLASS_RANK[item["efficiency_class"]],
+            item["_frame"],
+            item.get("weight_kg") if item.get("weight_kg") is not None else 9e9,
+            item["technical_page"],
+            item["model"],
+        )
+
+    groups = {}
+    for order, item in enumerate(items):
+        groups.setdefault((item["power_kw"], item["poles"]), []).append(
+            (order, item)
+        )
+
+    keep, dropped = [], []
+    for key in sorted(groups):
+        candidates = sorted(groups[key], key=lambda pair: (rank(pair[1]), pair[0]))
+        keep.append(candidates[0])
+        dropped.extend(item for _, item in candidates[1:])
+
+    keep.sort(key=lambda pair: pair[0])
+    out = []
+    for _, item in keep:
+        item.pop("_frame", None)
+        out.append(item)
+    for item in dropped:
+        item.pop("_frame", None)
+    return out, dropped
+
+
+def extract():
+    doc = fitz.open(mc.PDF["sew"])
+    raw_items, missing, pages_used = [], [], []
+    weights = {}
+    for pnum in PERF_PAGES:
+        page_items, page_missing = _performance_rows(doc[pnum - 1], pnum)
+        raw_items.extend(page_items)
+        missing.extend(page_missing)
+        weights.update(_weight_rows(doc[pnum - 1]))
+        pages_used.append((pnum, len(page_items)))
+    doc.close()
+
+    for item in raw_items:
+        extra = weights.get((item["model"], item["power_kw"]))
+        if extra:
+            item.update(extra)
+        else:
+            missing.append((
+                "missing_weight",
+                item["technical_page"],
+                item["model"],
+                item["power_kw"],
+            ))
+
+    items, dropped = dedupe(raw_items)
+    return items, pages_used, missing, dropped
+
+
+META = {
+    "brand": "SEW-EURODRIVE",
+    "equipment_type": "motor",
+    "series": "DRS (IE1) / DRE (IE2) / DRP (IE3)",
+    "source_pdf": "SEW_AC motor.pdf",
+    "source_doc": (
+        "SEW-EURODRIVE Catalog AC Motors DR.71 - 315, DT56, DR63, "
+        "19290411/EN 10/2014"
+    ),
+    "extraction_date": "2026-08-29",
+    "page_range": (
+        "Standart 400 V / 50 Hz / S1 teknik tablolar s.96-108; "
+        "DR.. motor ölçü föyleri s.203-301"
+    ),
+    "notes": (
+        "Yalnız standart üç fazlı AC motorlar alınmıştır. DRS IE1, DRE IE2 "
+        "ve DRP IE3 aileleri; 400 V, 50 Hz, S1; 2/4/6 kutup. Verim değeri "
+        "yayımlanmayan DT56/DR63, pole-changing, tork/servo motorlar ile "
+        "MOVI-SWITCH/MOVIMOT aileleri alınmadı. Aynı (güç, kutup) çifti için "
+        "en yüksek IE sınıfı, eşitlikte küçük gövde ve hafif motor seçildi. "
+        "technical_page ürünün performans tablosunu; dimension_page o tipin "
+        "B3 ayaklı ölçü çizimini gösterir. Mil çapları ölçü föyünden gelir; "
+        "DRP250M4, DRP280S4 ve DRP315K/S4'ün katalogdaki özel çapları model "
+        "bazında korunmuştur."
+    ),
+}
 
 
 def build():
-    doc = pt.open_src(PDF)
-    sections: list = []       # (kutup, verim sınıfı, seri, info sayfası, further sayfası)
-    cur = None
-    for i in range(830, doc.page_count):
-        txt = doc[i].get_text()
-        m = SECTION_RE.search(txt.replace("\n", " "))
-        if not m:
-            continue
-        key = (int(m.group(3)), m.group(1), m.group(2))
-        if cur is None or cur[0] != key:
-            cur = (key, {"info": None, "further": None})
-            sections.append(cur)
-        for line in txt.split("\n"):
-            if INFO_RE.match(line.strip()) and cur[1]["info"] is None:
-                cur[1]["info"] = i
-            if FURTHER_RE.match(line.strip()) and cur[1]["further"] is None:
-                cur[1]["further"] = i
-
-    items = []
-    for (poles, eff_class, series), pages in sections:
-        if pages["info"] is None:
-            continue
-        # 13.x.1 ile 13.x.2 AYNI sayfada olabilir (8 kutupta öyledir): her
-        # tablo kendi bölüm başlığının altından okunur, yoksa sayfa başından.
-        page_info = doc[pages["info"]]
-        info = _table(page_info, INFO_ROLES,
-                      y0=_section_y(page_info, INFO_RE) or 95.0,
-                      y1=_section_y(page_info, FURTHER_RE))
-        further = {}
-        if pages["further"] is not None:
-            page_f = doc[pages["further"]]
-            further = _table(page_f, FURTHER_ROLES,
-                             y0=_section_y(page_f, FURTHER_RE) or 95.0)
-        for model, row in info.items():
-            frame = re.sub(r"^(DRN|DR2S)", "", model)
-            extra = further.get(model, {})
-            shaft = mc.iec_shaft_mm(mc.frame_number(frame), poles)
-            items.append({
-                "model": model,
-                "series": series,
-                "poles": poles,
-                "efficiency_class": eff_class,
-                "frame_size": frame,
-                **row,
-                **{k: v for k, v in extra.items() if v is not None},
-                "shaft_diameter_mm": shaft,
-                "shaft_source": "IEC 60072-1" if shaft else None,
-            })
-    doc.close()
-    if not items:
-        sys.exit("SEW DRN: satır okunamadı")
-    _verify(items)
-
-    fields: list = []
-    for it in items:
-        for k in it:
-            if k not in fields:
-                fields.append(k)
-    items = [{k: v for k, v in it.items() if v is not None} for it in items]
-    meta = {
-        "brand": "SEW-EURODRIVE",
-        "equipment_type": "motor",
-        "series": "DRN (IE3) / DR2S (IE1)",
-        "source_pdf": PDF,
-        "source_doc": "SEW-EURODRIVE DRN.. Gearmotors (IE3), 24832936/EN 09/2018",
-        "extraction_date": "2026-08-09",
-        "page_range": "böl. 13 Technical data of the motors (400 V / 50 Hz)",
-        "notes": (
-            "400 V / 50 Hz. Her kutup sayısı iki tablodan derlenir: 'Information "
-            "on motors' (güç, moment, devir, akım, cosφ, verim) ve 'Further "
-            "information' (ağırlık mMot, fren tipi BE.., fren momenti MB); "
-            "eşleme MOTOR TİPİ üzerindendir. efficiency_pct = η100%. "
-            "MİL ÇAPI KATALOGDA BASILI DEĞİLDİR: bu katalog motoru redüktöre "
-            "flanşlı satar. shaft_diameter_mm IEC 60072-1 Tablo 4'ten gövde "
-            "büyüklüğüne göre alınmıştır ve shaft_source alanı bunu satırın "
-            "kendisinde belirtir (ABB/GAMAK çıkarımlarındaki desenin aynısı)."),
-        "item_count": len(items),
-    }
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    io.open(OUT, "w", encoding="utf-8").write(
-        json.dumps({"meta": meta, "fields": fields, "items": items},
-                   ensure_ascii=False, indent=1))
-    poles = sorted({i["poles"] for i in items})
-    print(f"sew_drn.json {len(items)} satır · kutup {poles} · "
-          f"{min(i['power_kw'] for i in items)}-{max(i['power_kw'] for i in items)} kW")
-    return items
-
-
-def _verify(items):
-    """MN = 9550·PN/nN — sütun kayması burada çıkar."""
-    warn = []
-    for it in items:
-        p, n, t = it.get("power_kw"), it.get("speed_rpm"), it.get("torque_nm")
-        if not (p and n and t):
-            warn.append(f"{it['model']}: eksik alan (P={p} n={n} M={t})")
-            continue
-        exp = 9550 * p / n
-        if abs(t - exp) / exp > 0.05:
-            warn.append(f"{it['model']}: MN={t} ama 9550·P/n={exp:.2f}")
-    if len(warn) > len(items) * 0.02:
-        sys.exit(f"SEW DRN: {len(warn)}/{len(items)} satır tutarsız\n"
-                 + "\n".join(warn[:10]))
-    for w in warn:
-        print(f"  UYARI: {w}")
+    items, pages, missing, dropped = extract()
+    path = mc.os.path.join(mc.CATALOG_DATA, "motors", "sew_ac.json")
+    n = mc.write_catalog(path, META, items)
+    return n, pages, missing, dropped, path
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8")
-    build()
+    n, pages, missing, dropped, path = build()
+    print("SEW-EURODRIVE satır:", n, "->", path)
+    for page, count in pages:
+        print(f"  s.{page} · {count} ham performans satırı")
+    print("tekrar eden (güç,kutup) için elenen satır:", len(dropped))
+    if missing:
+        print("okunamayan/eksik satır:", len(missing))
+        for row in missing[:30]:
+            print("   ", row)
