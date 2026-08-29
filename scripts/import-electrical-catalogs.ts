@@ -666,6 +666,12 @@ async function extractPages(document: LocalDocument, pages: number[], title: str
   output.setTitle(title);
   output.setSubject(`${document.title}; kaynak sayfalar: ${pages.join(", ")}`);
   output.setProducer("ORION İş Yönetim Sistemi");
+  // Aynı kaynak + sayfa seçimi her çalıştırmada aynı SHA-256'yı üretmeli.
+  // pdf-lib'in varsayılan anlık tarihleri aksi halde eş kaynaklardan gereksiz
+  // teknik föy kopyaları oluşturuyordu.
+  const stableDate = new Date("2000-01-01T00:00:00.000Z");
+  output.setCreationDate(stableDate);
+  output.setModificationDate(stableDate);
   return output.save({ useObjectStreams: false, objectsPerTick: 2000 });
 }
 
@@ -892,11 +898,17 @@ async function main(): Promise<void> {
         qty: null,
         locations: [],
       }));
-  const materials = ONLY_TYPES.size
+  const selectedMaterials = ONLY_TYPES.size
     ? allMaterials.filter((material) =>
         ONLY_TYPES.has(catalogIdentityPart(materialCatalogIdentity(material).typeNo))
       )
     : allMaterials;
+  // EPLAN aynı ticari referansı farklı montaj konumlarında veya farklı kısa
+  // tedarikçi yazımlarıyla tekrarlayabilir. Katalog ürünü konuma değil kanonik
+  // üretici + tip kimliğine bağlıdır; aktarım ve EK-F destesi tekilleştirilir.
+  const materials = [...new Map(
+    selectedMaterials.map((material) => [materialCatalogIdentity(material).lookupKey, material])
+  ).values()];
   const unmatched: string[] = [];
   const withoutTechnical: string[] = [];
   const appendixInputs: { ad: string; bytes: Uint8Array }[] = [];
