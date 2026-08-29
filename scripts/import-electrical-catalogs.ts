@@ -51,6 +51,10 @@ const APPLY_MIGRATION = process.argv.includes("--apply-migration");
 const DRY_RUN = process.argv.includes("--dry-run");
 const LOCAL_ONLY = process.argv.includes("--local-only");
 const MAPPED_ONLY = process.argv.includes("--mapped-only");
+const MAX_TECHNICAL_PAGES = Math.min(
+  6,
+  Math.max(1, Number.parseInt(argumentValue("--max-technical-pages") ?? "6", 10) || 6)
+);
 const IS_DEFAULT_0019 = PROJECT_DOC_NO === "0019-00";
 const ONLY_TYPES = new Set(
   (argumentValue("--only-types") ?? "")
@@ -98,6 +102,12 @@ const CURATED_RANGE_ENTRIES: Array<[string, CuratedRange]> = [
   ["XB4BW33B5", { fileIncludes: "Harmony XB4 Metal", pages: [36, 37, 38] }],
   ["XB4BW34B5", { fileIncludes: "Harmony XB4 Metal", pages: [36, 37, 38] }],
   ["XB4BS8442", { fileIncludes: "Harmony XB4 Metal", pages: [44, 45, 46, 47, 48] }],
+  // 0026-01: ürün kodu PDF metninde ayraçlı/görsel olduğu için otomatik tam
+  // metin eşleşmesi yapılamayan, görsel olarak doğrulanmış üretici sayfaları.
+  ["LTF12KC2LDQ", { fileIncludes: "BANNER - LTF", pages: [4, 6, 9, 10, 11] }],
+  ["ESX_MID 602", { fileIncludes: "ELFATEK - Kumanda", pages: [9, 10, 11] }],
+  ["MATIS 4000", { fileIncludes: "ETA MATIS", pages: [6, 7] }],
+  ["AGM 132 M 6B", { fileIncludes: "GAMAK - Teknik Katalog 2025", pages: [70, 71] }],
   ["XB4BD21", { fileIncludes: "Harmony XB4 Metal", pages: [55, 56, 57] }],
   ["XB4BVB1", { fileIncludes: "Harmony XB4 Metal", pages: [62, 63, 64] }],
   ["XB4BVB4", { fileIncludes: "Harmony XB4 Metal", pages: [62, 63, 64] }],
@@ -349,7 +359,7 @@ function manualish(fileName: string): boolean {
 }
 
 function documentKind(fileName: string, pageCount: number): LocalDocument["kind"] {
-  if (pageCount <= 6) return "technical_sheet";
+  if (pageCount <= MAX_TECHNICAL_PAGES) return "technical_sheet";
   if (manualish(fileName) && !catalogish(fileName)) return "manual";
   return "catalog";
 }
@@ -626,22 +636,23 @@ async function relevantPages(document: LocalDocument, typeNo: string): Promise<n
 
   if (hits.length === 0) {
     return catalogIdentityPart(document.fileName).includes(target)
-      ? Array.from({ length: Math.min(6, document.pageCount) }, (_, i) => i + 1)
+      ? Array.from({ length: Math.min(MAX_TECHNICAL_PAGES, document.pageCount) }, (_, i) => i + 1)
       : [];
   }
 
   const anchor = hits[0].page;
   const selected = new Set<number>();
   // Ürün satırının bir önceki başlık/ölçü sayfasını ve iki devam sayfasını
-  // birlikte taşı; ardından başka güçlü tam eşleşmeleri ekle. Toplam en çok 6.
+  // birlikte taşı; ardından başka güçlü tam eşleşmeleri ekle. Toplam üst sınır
+  // komut satırındaki --max-technical-pages değeridir (şema gereği en çok 6).
   for (let p = Math.max(1, anchor - 1); p <= Math.min(document.pageCount, anchor + 2); p++) {
     selected.add(p);
   }
   for (const hit of hits) {
-    if (selected.size >= 6) break;
+    if (selected.size >= MAX_TECHNICAL_PAGES) break;
     selected.add(hit.page);
   }
-  return [...selected].sort((a, b) => a - b).slice(0, 6);
+  return [...selected].sort((a, b) => a - b).slice(0, MAX_TECHNICAL_PAGES);
 }
 
 async function extractPages(document: LocalDocument, pages: number[], title: string): Promise<Uint8Array> {
@@ -776,20 +787,21 @@ async function technicalChoice(
   const target = catalogIdentityPart(identity.typeNo);
   const curated = curatedRange(identity.typeNo);
   if (curated) {
+    const curatedPages = curated.pages.slice(0, MAX_TECHNICAL_PAGES);
     const source = sources.find(
       (candidate) =>
-        candidate.pageCount > 6 &&
+        candidate.pageCount > MAX_TECHNICAL_PAGES &&
         candidate.id &&
         catalogIdentityPart(candidate.fileName).includes(catalogIdentityPart(curated.fileIncludes)) &&
-        curated.pages.every((page) => page >= 1 && page <= candidate.pageCount)
+        curatedPages.every((page) => page >= 1 && page <= candidate.pageCount)
     );
     if (source?.id) {
-      return saveTechnicalExtract(supabase, material, source, curated.pages);
+      return saveTechnicalExtract(supabase, material, source, curatedPages);
     }
   }
 
   const short = sources
-    .filter((d) => d.pageCount <= 6 && !d.encrypted)
+    .filter((d) => d.pageCount <= MAX_TECHNICAL_PAGES && !d.encrypted)
     .sort((a, b) => sourceScore(b, target) - sourceScore(a, target))[0];
   if (short?.id) {
     return {
@@ -916,12 +928,12 @@ async function main(): Promise<void> {
     for (const source of sources) {
       if (!source.id) continue;
       if (!supabase) continue;
-      if (source.pageCount <= 6) await linkDocument(supabase, productId, source.id, "technical", false, catalogSort++);
+      if (source.pageCount <= MAX_TECHNICAL_PAGES) await linkDocument(supabase, productId, source.id, "technical", false, catalogSort++);
       else if (source.kind === "catalog") await linkDocument(supabase, productId, source.id, "catalog", false, catalogSort++);
     }
 
     const fullCatalog = sources
-      .filter((d) => d.kind === "catalog" && d.pageCount > 6 && d.id)
+      .filter((d) => d.kind === "catalog" && d.pageCount > MAX_TECHNICAL_PAGES && d.id)
       .sort((a, b) => fullCatalogScore(b) - fullCatalogScore(a))[0];
     const catalogDocument = fullCatalog ?? sources
       .filter((d) => d.id)

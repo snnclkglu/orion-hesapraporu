@@ -171,6 +171,13 @@ describe("readPartsList", () => {
       partNo: "SIE.5ST3010",
     });
     expect(cleanElectricalPart({ ...eski, deviceTag: "REVISION" })).toBeNull();
+    expect(
+      cleanElectricalPart({
+        ...eski,
+        supplier: "SE ASTOR",
+        partNo: "SE.5ST3010 KAĞIT FORMU TARİH İSİM İMZA A3",
+      })
+    ).toMatchObject({ supplier: "SE", partNo: "SE.5ST3010" });
   });
 
   it("başlık yoksa BOŞ döner — uydurma satır üretmez", () => {

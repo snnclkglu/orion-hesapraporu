@@ -331,7 +331,7 @@ export function cleanElectricalPart(part: ElectricalPart): ElectricalPart | null
   if (part.deviceTag.trim().toUpperCase() === "REVISION") return null;
   const typeNo = part.typeNo.replace(/\s+(?:SIGN|İMZA)\s+.*$/i, "").trim();
   let partNo = part.partNo
-    .replace(/\s+\d+\s+(?:SHEET\s+FORM|KAĞIT\s+FORMU)\b.*$/iu, "")
+    .replace(/\s+\d*\s*(?:SHEET\s+FORM|KAĞIT\s+FORMU)\b.*$/iu, "")
     .trim();
   const sayfali = /^(.*?)\s+\d{1,3}$/.exec(partNo);
   if (sayfali && typeNo) {
@@ -344,6 +344,9 @@ export function cleanElectricalPart(part: ElectricalPart): ElectricalPart | null
       .replace(/\s+(?:DATE\s+NAME\s+DRAW|TARİH\s+İSİM\s+ÇİZEN)\b.*$/iu, "")
       .trim(),
     typeNo,
+    // ASTOR çizim antetindeki firma adıdır; iki ölçülmüş sayfada üretici
+    // hücresinin devamına taşarak `SE ASTOR` / `RESSA ASTOR` üretmiştir.
+    supplier: part.supplier.replace(/\s+ASTOR\s*$/iu, "").trim(),
     partNo,
   };
 }

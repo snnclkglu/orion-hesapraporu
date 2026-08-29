@@ -39,6 +39,40 @@ export function electricalCatalogLookupKey(supplier: string, typeNo: string): st
   return `${catalogIdentityPart(supplier)}|${catalogIdentityPart(typeNo)}`;
 }
 
+/**
+ * EPLAN malzeme listesindeki kısa tedarikçi kodunu katalog defterindeki gerçek
+ * üretici adına çevirir.
+ *
+ * Çizim bürosu bu alanı kimi projede marka, kimi projede iki-dört harfli EPLAN
+ * kodu olarak dolduruyor (`SE`, `SIE`, `OMR`...). Aynı fiziksel ürünün iki ayrı
+ * katalog ürünü hâline gelmemesi için katlama yalnız bu açık, denetlenmiş
+ * sözlükte yapılır; bilinmeyen bir ad tahmin edilmez.
+ */
+export function canonicalElectricalCatalogSupplier(supplier: string): string {
+  const raw = supplier.trim();
+  const aliases: Readonly<Record<string, string>> = {
+    NIKI: "Niki Electronics",
+    SE: "Schneider Electric",
+    SCHNEIDER: "Schneider Electric",
+    SCHNEIDERELECTRIC: "Schneider Electric",
+    OMR: "Omron",
+    MC: "MUCCO",
+    SIE: "Siemens",
+    GAM: "GAMAK",
+    FNC: "FENAC",
+    RSSA: "RESSA",
+    ADM: "Adımsan",
+    STR: "STROMAG",
+    EMS: "EMAS",
+    BAN: "Banner Engineering",
+    ELFA: "Elfatek",
+    BEM: "BEMIS",
+    SIB: "SIBRE",
+    KOBA: "Kobastar",
+  };
+  return aliases[catalogIdentityPart(raw)] ?? raw;
+}
+
 export interface ElectricalCatalogIdentity {
   supplier: string;
   typeNo: string;
@@ -60,7 +94,9 @@ export function materialCatalogIdentity(
   material: Pick<ElectricalMaterialRow, "supplier" | "typeNo" | "partNo">
 ): ElectricalCatalogIdentity {
   const helukabelArticle = helukabelArticleNumber(material.partNo);
-  const supplier = helukabelArticle ? "HELUKABEL" : material.supplier;
+  const supplier = helukabelArticle
+    ? "HELUKABEL"
+    : canonicalElectricalCatalogSupplier(material.supplier);
   const typeNo = helukabelArticle ?? material.typeNo;
   return {
     supplier,

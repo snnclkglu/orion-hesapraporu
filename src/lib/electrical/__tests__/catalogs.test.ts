@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   catalogIdentityPart,
   catalogReferencesByMaterial,
+  canonicalElectricalCatalogSupplier,
   electricalCatalogLookupKey,
   helukabelArticleNumber,
   materialCatalogIdentity,
@@ -19,6 +20,19 @@ describe("elektrik katalog kimliği", () => {
       electricalCatalogLookupKey("SIEMENS", "5SL6210 7")
     );
     expect(catalogIdentityPart("Niki Elektronik")).toBe("NIKIELEKTRONIK");
+  });
+
+  it("EPLAN tedarikçi kısaltmalarını denetlenmiş üretici adına katlar", () => {
+    expect(canonicalElectricalCatalogSupplier("SE")).toBe("Schneider Electric");
+    expect(canonicalElectricalCatalogSupplier("SIE")).toBe("Siemens");
+    expect(canonicalElectricalCatalogSupplier("OMR")).toBe("Omron");
+    expect(canonicalElectricalCatalogSupplier("ELFA")).toBe("Elfatek");
+    expect(canonicalElectricalCatalogSupplier("ADM")).toBe("Adımsan");
+    expect(canonicalElectricalCatalogSupplier("Bilinmeyen Marka")).toBe("Bilinmeyen Marka");
+
+    expect(
+      materialCatalogLookupKey({ supplier: "SE", typeNo: "A9F74210", partNo: "SE.A9F74210" })
+    ).toBe(electricalCatalogLookupKey("Schneider Electric", "A9F74210"));
   });
 
   it("HELUKABEL ürününü aile adına değil proje kodundaki makale numarasına bağlar", () => {
