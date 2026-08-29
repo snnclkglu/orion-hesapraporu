@@ -314,12 +314,14 @@ depo nesneleri normal authenticated kullanıcıya açılmaz; public route yalnı
 server-side service-role veri katmanından, oturum + dosya allowlist'i
 doğrulandıktan sonra okur.
 
-**PUBLIC PORTAL İKİ SUNUCU FONKSİYONUDUR, DAHA FAZLASI DEĞİL.** Vercel Hobby
-dağıtımı en fazla 12 function kabul eder. Uygulamanın portal öncesi tabanı dokuz
-Node fonksiyonu ve bir proxy'dir; vinç portalı bu bütçeye yalnız iki uç ekler:
-müşteri liste/görüntüleyici sayfası ile giriş+content+indir işlemlerini
-birleştiren `[...action]/route.ts`. Giriş, content ve indir ayrı `route.ts`
-dosyalarına; belge görüntüleyici de ayrı bir `page.tsx`e bölünmez. İsim plakası
+**PORTAL YALNIZ BİR YENİ SUNUCU FONKSİYONU EKLER.** Vercel Hobby dağıtımı en
+fazla 12 function kabul eder ve uygulamanın mevcut fonksiyon + proxy bütçesi
+dolmaya yakındır. Vinç portalının HTML yüzü `next.config.ts` rewrite'ıyla zaten
+var olan `/paylas/resim/[token]` müşteri paylaşım fonksiyonunda çalışır; QR ve
+tarayıcı yine temiz `/paylas/vinc/[code]` adresini görür. Portalın eklediği tek
+yeni fonksiyon giriş+content+indir işlemlerini birleştiren
+`[...action]/route.ts`dir. Bu işlemler ayrı `route.ts` dosyalarına, portal
+listesi veya belge görüntüleyici ayrı `page.tsx`lere bölünmez. İsim plakası
 SVG'si de ayrı sunucu ucu açmaz: yönetim sayfasına gömülen aynı saf geometri,
 logo ve font verileri tarayıcıda Blob olarak indirilir. Böylece baskı dosyası
 self-contained kalırken dağıtım bütçesi aşılmaz. İşlem ayrımı catch-all içinde

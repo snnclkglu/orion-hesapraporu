@@ -99,6 +99,18 @@ const nextConfig: NextConfig = {
     // (kimlik doğrulamalı uçtan sunulur), bu yüzden trace'e elle eklenir.
     "/api/catalog-sheet/**": ["./catalog-sheets/**/*"],
   },
+  async rewrites() {
+    return [
+      // Vercel Hobby function bütçesi: vinç portalının HTML yüzü mevcut
+      // korumalı müşteri paylaşım fonksiyonunda çalışır. Tarayıcı ve QR temiz
+      // `/paylas/vinc/:code` adresini görmeye devam eder; işlem uçları aşağıdaki
+      // tam eşleşmeden etkilenmez.
+      {
+        source: "/paylas/vinc/:code",
+        destination: "/paylas/resim/:code?portal=vinc",
+      },
+    ];
+  },
   async headers() {
     return [
       { source: "/(.*)", headers: securityHeaders },
