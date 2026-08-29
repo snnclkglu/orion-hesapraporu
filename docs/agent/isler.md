@@ -364,3 +364,26 @@ bir bölüm seçicisidir; masaüstündeki adresler ve aktiflik kuralı aynıdır
 kalemleri, bağlı raporlar, bağlanan satışlar ve resim adet çizelgeleri `md`
 altında `data-label` başlıklı kartlara katlanır. Düzenleme ve belge eylemleri
 kartın içinde kalır; iş listesi ve hub gövdesi yatay sayfa taşması üretmez.
+
+## IS-29 — Müşteri profili kimlikten ticari ilişkiye uzanır; puan açıklanabilir.
+
+Yönetim → Müşteriler satırındaki **Profil** eylemi `/admin/customers/[id]`
+sayfasını açar. Profil; firma künyesi, logo, adres/vergi/telefon, etkin/pasif
+iletişim kişileri, teklifler, alınan işler ve mühendislik projelerini ayrı
+gruplarda gösterir. Teklif tutarları kur dönüşümü yapılmadan para birimi
+bazında ayrılır; EUR ile USD tek bir yanıltıcı toplamda birleştirilmez.
+
+Projeler müşteri ADI benzerliğiyle bağlanmaz. Önce `jobs.customer_id` ile
+müşterinin işleri bulunur, sonra yalnız bu işlerin `projects.job_id` kayıtları
+alınır ve `report_context = engineering` ile teklif hesabı projeleri dışarıda
+kalır. Benzer unvanlı iki müşteriyi karıştırmaktansa bağsız kaydı göstermemek
+daha güvenlidir.
+
+Müşteri ilişki puanı 100 üzerinden güncellik, son 12 ay teklif etkinliği,
+sonuçlanmış teklif kazanım oranı, aktif iş sayısı ve kayıt bütünlüğünden oluşur.
+Varsayılan ağırlıklar 25/20/25/20/10'dur; güncellik penceresi 365 gün, tam
+teklif hedefi 6/yıl, aktif iş hedefi 2'dir. Yönetim → Profil Puanlama bunları
+değiştirir ve ağırlık toplamını 100'e zorlar. Bütünlük adres, vergi dairesi,
+vergi no, firma telefonu, logo, etkin kişi ve etkin kişi e-postasını sayar.
+Puan finansal risk, ödeme davranışı veya müşteri memnuniyeti hükmü değildir;
+ekran formülü ve eksik alanları açıkça söyler.

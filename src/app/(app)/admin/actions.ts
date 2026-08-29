@@ -21,6 +21,7 @@ import {
 import { normalizeCustomerLogo } from "@/lib/customers/logo-image";
 import type { CustomerContact } from "@/lib/customer-contacts";
 import type { ReportSettings } from "@/lib/settings";
+import type { ProfileScoringSettings } from "@/lib/profile-scoring";
 
 export type AdminActionResult = { error?: string; ok?: boolean };
 
@@ -904,6 +905,83 @@ export async function updateReportSettings(
 
   revalidatePath("/admin/settings");
   revalidatePath("/projects");
+  return { ok: true };
+}
+
+// ----------------------------------------------------------- Profil puanlama
+
+const weight = z.number().int().min(0).max(100);
+const profileScoringSchema = z
+  .object({
+    user: z.object({
+      recencyWeight: weight,
+      consistencyWeight: weight,
+      engagementWeight: weight,
+      activeDaysTarget: z.number().int().min(1).max(30),
+      activeHoursTarget: z.number().min(1).max(300),
+    }),
+    customer: z.object({
+      recencyWeight: weight,
+      offerActivityWeight: weight,
+      conversionWeight: weight,
+      activeWorkWeight: weight,
+      completenessWeight: weight,
+      recencyWindowDays: z.number().int().min(30).max(1825),
+      annualOfferTarget: z.number().int().min(1).max(100),
+      activeJobTarget: z.number().int().min(1).max(50),
+    }),
+  })
+  .superRefine((value, ctx) => {
+    const userTotal = value.user.recencyWeight + value.user.consistencyWeight + value.user.engagementWeight;
+    if (userTotal !== 100) {
+      ctx.addIssue({ code: "custom", path: ["user"], message: "Kullanıcı ağırlıkları toplamı 100 olmalı" });
+    }
+    const customerTotal =
+      value.customer.recencyWeight +
+      value.customer.offerActivityWeight +
+      value.customer.conversionWeight +
+      value.customer.activeWorkWeight +
+      value.customer.completenessWeight;
+    if (customerTotal !== 100) {
+      ctx.addIssue({ code: "custom", path: ["customer"], message: "Müşteri ağırlıkları toplamı 100 olmalı" });
+    }
+  });
+
+export async function updateProfileScoringSettings(
+  input: ProfileScoringSettings
+): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+  const parsed = profileScoringSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Geçersiz puanlama ayarı" };
+
+  const { error } = await supabase.from("app_settings").upsert({
+    key: "profile_scoring",
+    value: parsed.data,
+    updated_at: new Date().toISOString(),
+    updated_by: user.id,
+  });
+  if (error) return { error: error.message };
+
+  await audit(supabase, user.id, "admin.profile_scoring_update", {
+    key: "profile_scoring",
+    user_weights: {
+      recency: parsed.data.user.recencyWeight,
+      consistency: parsed.data.user.consistencyWeight,
+      engagement: parsed.data.user.engagementWeight,
+    },
+    customer_weights: {
+      recency: parsed.data.customer.recencyWeight,
+      offer_activity: parsed.data.customer.offerActivityWeight,
+      conversion: parsed.data.customer.conversionWeight,
+      active_work: parsed.data.customer.activeWorkWeight,
+      completeness: parsed.data.customer.completenessWeight,
+    },
+  });
+  revalidatePath("/admin/profile-scoring");
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/customers");
   return { ok: true };
 }
 

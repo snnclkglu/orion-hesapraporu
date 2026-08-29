@@ -13,6 +13,7 @@ const ITEMS = [
   { href: "/admin/access", label: "Yetkiler" },
   { href: "/admin/deletion-requests", label: "Silme Onayları" },
   { href: "/admin/customers", label: "Müşteriler" },
+  { href: "/admin/profile-scoring", label: "Profil Puanlama" },
   // Tedarikçiler MÜŞTERİLERİN HEMEN ALTINDA: ikisi de bir CARİ defteridir ve
   // aynı sorulara cevap verir (ad düzeltme, kod, pasife çekme). Kataloglar
   // altta kalır — onlar ürün defteridir, firma defteri değil.

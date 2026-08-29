@@ -212,3 +212,16 @@ sözleşme teklif, maliyet, hesap raporu, ekipman listesi, kılavuz, iş emri,
 bordro, satın alma talebi/siparişi, hammadde/kesim planı ve üretilen teknik
 resim paketleri için ortaktır. Korumalı ASIL teknik resim görüntüleyicisi bu
 kurala girmez; RESIM-21'in indirme/yazdırma kısıtı değişmez.
+
+**KULLANICI VE MÜŞTERİ PROFİLLERİNİN PDF KARŞILIĞI VARDIR.** Profil başlığındaki
+küçük **PDF İndir** eylemi, admin yetkisini uçta yeniden doğrulayan Node route'a
+gider. Belge `pdf/profile-report.tsx`te `BrandPage`, `BrandBand`, onaylı logo,
+Archivo/Plex Mono, kırmızı omurga, firma künyesi ve folio ile üretilir;
+`next.config.ts` `/admin/**` için font/marka varlıklarını Vercel trace'ine alır.
+
+Ekran ve PDF aynı saf analiz çekirdeğini çağırır; puan ya da oran ikinci kez
+yazılmaz. Kullanıcı belgesi aktif süre/bölüm/cihaz/oturum/denetim izini ve
+mahremiyet sınırını; müşteri belgesi künye/puan/para birimi toplamı/teklif/iş/
+proje/kişi gruplarını taşır. Uzun teklif listesi otomatik adsız devam yaprağına
+bırakılmaz: 15 satırlık markalı `BrandPage` parçalarına bölünür, her yaprakta
+başlık ve künye korunur.

@@ -30,7 +30,8 @@ export default async function AdminUsersPage() {
           Ad soyad, unvan ve rol düzenleme. Her kullanıcının <strong>tek bir rolü</strong> vardır
           ve uygulamada neyi görebildiğini o belirler. Yeni kullanıcılar Supabase Auth üzerinden
           davet edilir; burada sadece profil bilgileri yönetilir. Hangi bölümün kime açık
-          olduğunu <strong>Yetkiler</strong> sayfası gösterir.
+          olduğunu <strong>Yetkiler</strong> sayfası gösterir. Kullanım süresi, bölüm dağılımı,
+          oturumlar ve kayıtlı işlemler için satırdaki <strong>Profil</strong> düğmesini açın.
         </p>
       </div>
       <div className="rounded-lg border">
@@ -60,7 +61,7 @@ export default async function AdminUsersPage() {
               <TableHead>E-posta</TableHead>
               <TableHead>Unvan</TableHead>
               <TableHead>Rol</TableHead>
-              <TableHead className="w-24" />
+              <TableHead className="w-48">İşlemler</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="max-xl:block">

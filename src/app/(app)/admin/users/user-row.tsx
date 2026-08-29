@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
+import { Eye } from "lucide-react";
 import { toast } from "sonner";
 import { updateUserProfile } from "../actions";
 import {
@@ -81,7 +83,6 @@ export function UserRow({
           id={`name-${profile.id}`}
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          placeholder="Ad Soyad"
           className="h-8 w-full pointer-coarse:h-10 xl:min-w-40"
         />
         {/* "(siz)" İŞARETİ KALDIRILDI (kullanıcı bildirimi, 11.08.2026).
@@ -102,7 +103,6 @@ export function UserRow({
           id={`title-${profile.id}`}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Unvan"
           className="h-8 w-full pointer-coarse:h-10 xl:max-w-64"
         />
       </TableCell>
@@ -138,17 +138,23 @@ export function UserRow({
         )}
       </TableCell>
       <TableCell className="max-xl:p-0">
-        {/* Dar kipte Kaydet alanların ALTINDA ve tam genişlikte durur:
-            değiştirilen alandan sonra göz onu aramak zorunda kalmasın. */}
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!dirty || pending}
-          onClick={handleSave}
-          className="w-full xl:w-auto"
-        >
-          {pending ? "Kaydediliyor..." : "Kaydet"}
-        </Button>
+        {/* Profil ve Kaydet tek eylem kümesidir. Dar kipte iki düğme aynı
+            satıra sığar; profil yalnız okumadır, değişiklikleri kaydetmez. */}
+        <div className="grid grid-cols-2 gap-2 xl:flex xl:items-center">
+          <Button asChild size="sm" variant="ghost" className="gap-1.5">
+            <Link href={`/admin/users/${profile.id}`} aria-label={`${profile.full_name || "Kullanıcı"} profilini aç`}>
+              <Eye className="size-4" /> Profil
+            </Link>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!dirty || pending}
+            onClick={handleSave}
+          >
+            {pending ? "Kaydediliyor..." : "Kaydet"}
+          </Button>
+        </div>
       </TableCell>
     </TableRow>
   );

@@ -8,9 +8,10 @@
 // unvan, vergi/iletişim özeti) durur.
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2, Users } from "lucide-react";
+import { Eye, Pencil, Trash2, Users } from "lucide-react";
 import { deleteCustomer, updateCustomer } from "../actions";
 import { ContactsDialog } from "./contacts-dialog";
 import { CustomerLogoUpload } from "./logo-upload";
@@ -356,6 +357,11 @@ export function CustomerRow({ row }: { row: CustomerAdminRow }) {
               parmakla yanlış düğmeye basmayı kolaylaştırıyordu. Boy ortak
               katmanın `icon-sm` varyantından gelir (dokunmatikte 40px). */}
           <div className="flex justify-end gap-2">
+            <Button asChild size="icon-sm" variant="ghost">
+              <Link href={`/admin/customers/${row.id}`} aria-label="Profili aç" title="Profili aç">
+                <Eye />
+              </Link>
+            </Button>
             {/* KİŞİ SAYISI DÜĞMENİN İÇİNDEDİR, ayrı bir sütun açılmadı: sayı
                 tek başına bir bilgi değil, defteri açma davetidir — ve altı
                 sütunlu tablo telefonda zaten katlanıyor (MOBIL-15). */}

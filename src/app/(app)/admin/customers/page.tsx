@@ -74,7 +74,7 @@ export default async function AdminCustomersPage() {
           <h2 className="text-lg font-semibold tracking-tight">Müşteriler</h2>
           <p className="text-sm text-muted-foreground">
             Müşteri defteri. Kısaltma ve renk İşler ile Satış Takibi
-            listelerinde görünür; her müşterinin rengi kendine özgüdür.
+            listelerinde görünür; Profil düğmesi ticari ilişki analizini açar.
           </p>
         </div>
         <NewCustomerButton />
@@ -97,7 +97,7 @@ export default async function AdminCustomersPage() {
               <TableHead className="hidden md:table-cell md:w-[22%]">Vergi Dairesi / No</TableHead>
               <TableHead className="hidden md:table-cell md:w-[10rem]">Telefon</TableHead>
               <TableHead className="hidden text-right md:table-cell md:w-[5rem]">İş</TableHead>
-              <TableHead className="md:w-[6rem]" />
+              <TableHead className="md:w-[12rem]"><span className="sr-only">İşlemler</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

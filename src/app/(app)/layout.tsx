@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionProfile } from "@/lib/profile";
 import { AppShell } from "@/components/app-shell";
+import { UsageTracker } from "@/components/usage-tracker";
 
 export default async function AppLayout({
   children,
@@ -34,6 +35,8 @@ export default async function AppLayout({
           {children}
         </div>
       </AppShell>
+      {/* Yalnız ana bölüm + aktif süre; tam adres ve sayfa içeriği tutulmaz. */}
+      <UsageTracker />
     </>
   );
 }

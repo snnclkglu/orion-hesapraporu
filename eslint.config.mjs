@@ -11,6 +11,13 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    // Yerel PDF/katalog doğrulama araçlarının ürettiği sanal ortam ve
+    // render çıktıları kaynak kod değildir; Windows bazı salt-okunur `bin`
+    // klasörlerinde scandir'i EPERM ile kesiyor.
+    ".tmp/**",
+    ".tmpcheck/**",
+    "tmp/**",
+    "output/**",
     "next-env.d.ts",
   ]),
 ]);

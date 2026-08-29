@@ -93,6 +93,8 @@ const nextConfig: NextConfig = {
     "/sales/**": PDF_ASSETS,
     // Teknik resim türev çıktıları (üretim listesi PDF'i)
     "/drawings/**": PDF_ASSETS,
+    // Yönetim kullanıcı/müşteri profil raporları
+    "/admin/**": PDF_ASSETS,
     // Katalog sayfaları: üretici katalog sayfaları `public/` altında DEĞİLDİR
     // (kimlik doğrulamalı uçtan sunulur), bu yüzden trace'e elle eklenir.
     "/api/catalog-sheet/**": ["./catalog-sheets/**/*"],

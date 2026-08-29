@@ -831,10 +831,10 @@ export function SplitBar({
                 {fmtManHours(item.records)} kayıt
               </span>
             )}
-            <span className="w-20 shrink-0 text-right font-mono text-[11px] tabular-nums">
+            <span className="w-20 shrink-0 text-right font-mono text-[11px] tabular-nums whitespace-nowrap">
               {format(item.value)}
             </span>
-            <span className="w-10 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
+            <span className="w-10 shrink-0 text-right font-mono text-[11px] tabular-nums whitespace-nowrap text-muted-foreground">
               %{fmtManHours(item.share * 100)}
             </span>
           </div>

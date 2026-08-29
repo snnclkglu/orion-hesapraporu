@@ -134,3 +134,37 @@ ray korunur. Rol × bölüm ve kişi × bölüm erişim tabloları telefonda bö
 `data-label` olan kartlara katlanır. Hücreler hâlâ `sectionAccess()` ile aynı
 kaynaktan hesaplanır; yalnız sunum değişir. Böylece yetki anlamı korunurken
 matris için yatay kaydırma gerekmez.
+
+## ROL-18 — Kullanım ölçümü bölüm bazlıdır; içerik toplamaz ve performans puanı değildir.
+
+Yönetici, `/admin/users/[id]` profilinde kullanıcının uygulamaya dönüşünü,
+aktif süresini, bölüm dağılımını, cihaz sınıfını, son oturumlarını ve var olan
+`audit_log` işlem izini görür. Kullanıcılar listesindeki **Profil** eylemi bu
+sayfaya gider; rota da yönetim kabuğunun Yönetici kontrolü altındadır.
+
+Ölçümün mahremiyet sınırı veritabanı şemasında başlar: `user_usage_metrics`
+tam URL, kayıt kimliği, müşteri/personel/belge adı, arama metni, form içeriği
+ve tuş bilgisi için alan taşımaz. `UsageTracker`, `usePathname()` değerini
+istemcide `usageSectionForPath()` ile ana bölüme indirger ve yalnız bölüm
+anahtarını gönderir. SQL RPC aynı kapalı sözlüğü yeniden doğrular; TypeScript
+ve migration sözlüğü `usage.test.ts`te migration kaynak dosyası okunarak
+birbirine bağlanır.
+
+**AKTİF SÜRE DUVAR SAATİ DEĞİLDİR.** Sekme arka plandayken sayaç durur;
+son işaretçi/klavye/kaydırma etkileşiminin üzerinden beş dakika geçince kişi
+boşta sayılır. Otuz dakikalık boşluk yeni oturum açar. Dönemsel darbe en çok
+60 saniyedir ve yazma doğrudan tabloya değil, `auth.uid()` adına çalışan dar
+`record_user_usage()` RPC'sine yapılır. Kişi kendi satırlarını, Yönetici bütün
+satırları okur; anonim erişim yoktur.
+
+**KULLANIM SKORU ÇALIŞAN PERFORMANSI DEĞİLDİR.** Son 30 gün için güncellik,
+aktif gün düzenliliği ve arka plan hariç aktif süre toplamıdır. Varsayılan
+ağırlıklar 35/35/30, hedefler 12 aktif gün ve 10 aktif saattir; Yönetim →
+Profil Puanlama bu ağırlık ve hedefleri değiştirir. Her profil türünde ağırlık
+toplamı 100 değilse ayar kaydedilmez; bozuk/eski bir saklı ayar güvenli
+varsayılanlara iner. Profil ve PDF puanı saklanmaz, her okumada güncel ayar ve
+güncel ölçümden yeniden hesaplanır.
+Rol veya erişilebilen bölüm sayısı puana girmez; aksi, dar yetkili bir rolü
+tasarım gereği cezalandırırdı. Ekran formülü ve tavanları açıkça gösterir,
+kullanıcıları sıralamaz. Veri yoksa `0` hükmü üretmek yerine skor `—` görünür;
+takip öncesi geçmiş geriye dönük uydurulmaz.
