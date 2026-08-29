@@ -26,6 +26,7 @@ import { loadManual, loadManualRevisions } from "@/lib/manual/data";
 import { DeleteRevisionButton } from "./delete-revision-button";
 import { ElectricalCard } from "./electrical/electrical-card";
 import { ManualCard, type ManualSourceStatus } from "./manual/manual-card";
+import { ProductPortalSection } from "./product-portal/product-portal-section";
 import { ProjectDetailHeader } from "./project-header";
 import { DrawingPackagesCard } from "./drawing-packages-card";
 import { DrawingPlanCard } from "./drawing-plan-card";
@@ -309,6 +310,7 @@ export async function ProjectPageView({
           electricalPartCount={elektrikParcalar.length}
           drawingPlanCount={drawingPlan.length}
           manualRevisionCount={elKitabiRevizyonlari.length}
+          showProductPortal={canWriteReports}
           compact={offerContext}
         />
 
@@ -603,6 +605,14 @@ export async function ProjectPageView({
             sources={elKitabiKaynaklari}
             canEdit={canWriteReports}
           />
+        </TabsContent>}
+
+        {/* ---------------- Vinç Kimliği */}
+        {/* Hesap, ekipman, elektrik, resim ve el kitabı burada otomatik kaynak
+            adaylarına dönüşür. A/B/C fiziksel üniteleri ayrı seri/QR taşır;
+            PDF paketi proje düzeyinde ortaktır ve yayımda snapshot olur. */}
+        {!offerContext && canWriteReports && <TabsContent value="product-portal">
+          <ProductPortalSection projectId={project.id} canEdit={canWriteReports} />
         </TabsContent>}
       </Tabs>
     </div>

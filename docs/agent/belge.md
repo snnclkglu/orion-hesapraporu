@@ -5,7 +5,7 @@
 > `.claude/rules/belge.md` ve haritadaki satır ondan ÜRETİLİR
 > (`npx tsx scripts/agent-docs/split.ts --uygula`).
 
-**Kapsam:** `src/lib/pdf/**` · `src/lib/excel/**` · `scripts/check-pdf-layout.py`
+**Kapsam:** `src/lib/pdf/**` · `src/lib/excel/**` · `src/lib/product-portal/**` · `src/components/customer-portal/**` · `src/app/(app)/projects/[id]/product-portal/**` · `src/app/(public)/paylas/vinc/**` · `scripts/check-pdf-layout.py`
 
 
 Marka altyapısı `pdf/brand.tsx`tedir ve TÜM belgeler onu paylaşır:
@@ -267,3 +267,56 @@ mahremiyet sınırını; müşteri belgesi künye/puan/para birimi toplamı/tekl
 proje/kişi gruplarını taşır. Uzun teklif listesi otomatik adsız devam yaprağına
 bırakılmaz: 15 satırlık markalı `BrandPage` parçalarına bölünür, her yaprakta
 başlık ve künye korunur.
+
+## Vinç kimlik plakası ve müşteri doküman portalı
+
+**PROJE BELGE PAKETİDİR, ÜNİTE FİZİKSEL VİNÇTİR.** Bir proje/iş kalemi hesap
+raporu, ekipman listesi, elektrik projesi ve el kitabı gibi ortak teslim
+belgelerini taşır. Aynı vinçten iki veya daha fazla üretildiğinde belgeler
+çoğaltılmaz; `crane_units` kayıtları `A`, `B`, `C` son ekleriyle ayrı seri
+numarası, ayrı QR kimliği, ayrı parola ve ayrı oturum taşır. Paket revizyonu
+ortaktır; hangi fiziksel vincin eriştiği denetim izinde üniteden okunur.
+
+**OTOMASYON BİR ÖNERİDİR, YAYIM MÜHENDİS KARARIDIR.** `data-server.ts` proje,
+iş kalemi, yayımlanmış hesap/el kitabı revizyonu, elektrik projesi, şartname ve
+teknik resim paketlerinden kimlik alanlarını ve belge adaylarını çözer. Taslak
+her kaynak yenilemesinde güncellenebilir; alan bazlı override, gizleme, başlık,
+klasör, sıra ve erişim kipi kullanıcıya aittir. “Kaynağa dön” yalnız seçilen
+override'ı kaldırır. Müşteri hiçbir taslağı görmez; yalnız açıkça yayımlanmış
+paketi görür.
+
+**YAYIMLANMIŞ PAKET SNAPSHOT'TIR.** `product_portal_revisions` ve ona bağlı
+`product_portal_files` yayımdan sonra değiştirilemez. Yayım anında seçilen her
+PDF `customer-portal` özel kovasına maddi bir kopya olarak konur; kaynak rapor
+sonradan değişse bile sahadaki QR'ın R01 paketi sessizce değişmez. Değişiklik
+yeni `Rnn` paketidir. Portalda her zaman son yayımlanmış paket gösterilir.
+
+**QR YALNIZ KALICI KISA URL TAŞIR.** Parola, müşteri adı ve belge adresleri QR
+içine yazılmaz. Plaka basıldıktan sonra içerik değişebilir ama URL ve alan adı
+kalır. `public_code` tahmin edilmesi zor bir yönlendirme kimliğidir; gerçek
+yetkilendirme ünite parolası, DB tabanlı deneme sınırı ve 12 saatlik HttpOnly
+oturumla yapılır. Parola açık metin saklanmaz; scrypt özeti saklanır ve yeni
+parola üretildiğinde eski oturumlar kapanır.
+
+**PLAKA TEK GEOMETRİDEN ÇIKAR.** Varsayılan ölçü `240 × 160 mm`dir. Yönetim
+önizlemesi ve baskıya giden SVG aynı `buildNameplateSvg` fonksiyonudur; ekran
+CSS'i SVG'yi yalnız orantılı küçültür, fiziksel `mm` ölçüsünü değiştirmez. Onaylı
+beyaz ORION SVG logosu, Archivo/Plex Mono, arduvaz zemin, kağıt rengi metin ve
+siyah/beyaz `Q` hata düzeltmeli QR kullanılır. QR kare kalır ve dört modül
+sessiz alan taşır. Montaj deliği ölçüsü üretim kararıdır; açıkça verilmeden
+çizilmez.
+
+**MÜŞTERİ PORTALI İÇ UYGULAMANIN KABUĞU DEĞİLDİR.** `/paylas/vinc/[code]`
+oturumsuz route grubundadır, `noindex` taşır ve yalnız yayımlanmış DTO'yu
+gösterir. Admin/mühendis önizlemesi de aynı `CustomerPortalView` bileşenidir;
+iframe veya ikinci bir yaklaşık tasarım yoktur. Portal metadatası ve özel
+depo nesneleri normal authenticated kullanıcıya açılmaz; public route yalnız
+server-side service-role veri katmanından, oturum + dosya allowlist'i
+doğrulandıktan sonra okur.
+
+**“GÖRÜNTÜLE” DRM DEĞİLDİR.** `view_watermarked` PDF'i ham dosya bağlantısı
+vermeden canvas üzerinde, seri/oturum/tarih filigranıyla gösterir; indirme ve
+yazdırma düğmesini kaldırır ama ekran görüntüsünü teknik olarak engelleyemez.
+Yasal veya teslim gereği indirilebilir belgeler (özellikle el kitabı) açıkça
+`download` kipinde yayımlanır. Erişim kipi dosya bazındadır ve yayım snapshot'ına
+donar.

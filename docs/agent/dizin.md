@@ -109,6 +109,19 @@
   `[revId]/pdf/route.ts` (`?ekler=1` → tam sürüm)
 - `src/lib/pdf/manual.tsx` — el kitabı gövdesi; `manualAppendixOrder` ek
   sırasının TEK kaynağıdır (`pdfEkleriYerlestir` sözleşmesi)
+- `src/lib/product-portal/` — VİNÇ KİMLİĞİ VE MÜŞTERİ PORTALI çekirdeği:
+  `identity.ts` (proje kaynakları + alan bazlı override) · `nameplate.ts`
+  (240 × 160 mm SVG ve Q seviyeli QR, ekran/baskı tek geometri) ·
+  `secrets.ts` (scrypt parola, oturum ve hash) · `data-server.ts` (otomatik
+  belge adayları) · `materialize-server.ts` (yayımda PDF snapshot) ·
+  `access-server.ts` (public DTO, oturum ve dosya allowlist'i)
+- `src/app/(app)/projects/[id]/product-portal/` — Mühendislik sekmesindeki
+  **Vinç Kimliği** yönetimi: A/B/C fiziksel üniteler, kimlik
+  override/gizleme, belge seçimi ve özel PDF, parola yenileme, yayımlama,
+  birebir plaka/müşteri önizlemesi ve baskı SVG ucu
+- `src/app/(public)/paylas/vinc/` + `src/components/customer-portal/` — iç
+  uygulama kabuğundan bağımsız, noindex, parola korumalı müşteri doküman
+  portalı; dosya bazında filigranlı görüntüleme veya açık indirme
 - `src/lib/offers/` — TEKLİF ÇEKİRDEĞİ, **saf** (DB/HTTP/React yok):
   `types.ts` (belge modeli: kapak · kalem · grup · satır · fiyat) ·
   `registry.ts` (grup/satır/parça defteri — firmanın on dört gerçek teklifinden

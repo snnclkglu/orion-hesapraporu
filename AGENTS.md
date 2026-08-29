@@ -135,7 +135,7 @@ işaretçiler aynı yönlendirmeyi otomatik yapar; harita onların yedeğidir.
 | Açılış Panosu | `docs/agent/panel.md` | Kök adres, LANDING_PATH, arama (trKatla), sinyal süzgeci, yaklaşan şeridi |
 | Roller ve yetki | `docs/agent/roller.md` | Sekiz rol, yetki SORUSU (liste değil), RLS, WORKSPACE_SECTIONS, yetki ızgarası |
 | Dokunmatik ve dar ekran | `docs/agent/arayuz.md` | 44px hedef, dvh, pencere kelepçesi, sütun önceliklendirme, telefonda tablo katlama, tablo yatayda sığar (kelepçe/çivi) |
-| Belge kimliği, PDF ve Excel | `docs/agent/belge.md` | BrandBand/CompanyBlock, rapor seviyeleri, doküman kodu ve dosya adı kuralı |
+| Belge kimliği, PDF ve Excel | `docs/agent/belge.md` | BrandBand/CompanyBlock, doküman kimliği, vinç plakası ve güvenli müşteri portalı |
 | Komutlar ve duman testleri | `docs/agent/komutlar.md` | Bütün npm/tsx/python betikleri ve ne sınadıkları |
 | Dizin haritası | `docs/agent/dizin.md` | Hangi kavram hangi dosyada — dosya dosya tarif |
 

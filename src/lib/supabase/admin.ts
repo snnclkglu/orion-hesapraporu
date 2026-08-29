@@ -5,9 +5,10 @@ import { createClient } from "@supabase/supabase-js";
 /**
  * RLS'i aşan sunucu istemcisi.
  *
- * Yalnız üyeliği olmayan müşterinin opak paylaşım anahtarını çözmek ve private
- * bucket'taki TEK dosyayı okumak için kullanılır. Anahtar istemci paketine
- * girmez; bu modül `server-only` ile yanlışlıkla tarayıcıdan içe aktarılamaz.
+ * Yalnız üyeliği olmayan müşterinin opak paylaşım/ürün kimliğini çözmek,
+ * server-side parola/oturum doğrulamak ve private bucket'taki izinli dosyayı
+ * okumak için kullanılır. Anahtar istemci paketine girmez; bu modül
+ * `server-only` ile yanlışlıkla tarayıcıdan içe aktarılamaz.
  */
 export function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

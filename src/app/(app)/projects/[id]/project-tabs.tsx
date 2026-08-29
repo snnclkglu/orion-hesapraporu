@@ -1,12 +1,12 @@
 // Proje detayının BÖLÜM RAYI — "Hesap Raporu" · "Elektrik Projesi" ·
 // "Ekipman Listeleri" · "Elektrik Projesi" · "Teknik Resim Takibi" ·
-// "İşletme ve Bakım El Kitabı".
+// "İşletme ve Bakım El Kitabı" · "Vinç Kimliği".
 //
 // SIRA İŞ AKIŞIDIR, bir düzen tercihi değil (kullanıcı kararı, 19.08.2026:
 // *"Hesap Raporu ile Teknik Resim Takibi sayfasının arasına Elektrik Projesi
 // bölümü"*): mekanik hesap biter → elektrik projesi gelir → resimler çizilir
-// → hepsinden el kitabı derlenir. El kitabı en sondadır çünkü ötekilerin
-// hepsinden beslenir.
+// → hepsinden el kitabı derlenir → isim plakası ve müşteri teslim paketi
+// yayımlanır. Portal el kitabından da belge aldığı için onun arkasındadır.
 //
 // NEDEN KENDİ DOSYASINDA: eski hâlinde şerit gri bir hap kümesiydi ve
 // "Teknik Çizimler" sekmesi künyenin altında gözden kaçıyordu (kullanıcı
@@ -19,7 +19,7 @@
 // `Tabs` KÖKÜ ÇAĞIRANDADIR: paneller (TabsContent) sayfanın kendisindedir ve
 // ray onlarla aynı kökü paylaşmak zorundadır.
 
-import { BookOpen, FileDown, FileSpreadsheet, Ruler, Zap } from "lucide-react";
+import { BookOpen, FileDown, FileSpreadsheet, Ruler, Tag, Zap } from "lucide-react";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
@@ -61,6 +61,7 @@ export function ProjectTabsNav({
   electricalPartCount,
   drawingPlanCount,
   manualRevisionCount,
+  showProductPortal,
   compact = false,
 }: {
   revisionCount: number;
@@ -71,6 +72,8 @@ export function ProjectTabsNav({
   drawingPlanCount: number;
   /** El kitabı revizyon adedi; kitap açılmamışsa 0. */
   manualRevisionCount: number;
+  /** Müşteri teslim alanı yalnız Yönetici + Mühendise görünür. */
+  showProductPortal: boolean;
   /** Teklif hesabında yalnız ortak motor çıktıları gösterilir. */
   compact?: boolean;
 }) {
@@ -128,6 +131,12 @@ export function ProjectTabsNav({
               <span className="hidden lg:inline">İşletme ve Bakım El Kitabı</span>
               {manualRevisionCount > 0 && <span className={COUNT}>{manualRevisionCount}</span>}
             </TabsTrigger>
+            {showProductPortal && (
+              <TabsTrigger value="product-portal" className={TAB}>
+                <Tag className="size-4" />
+                <span>Vinç Kimliği</span>
+              </TabsTrigger>
+            )}
           </>
         )}
       </TabsList>

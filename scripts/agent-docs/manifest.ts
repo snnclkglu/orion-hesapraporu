@@ -310,8 +310,16 @@ export const ALANLAR: Alan[] = [
     dosya: "belge",
     onek: "BELGE",
     baslik: "Belge kimliği, PDF ve Excel",
-    ozet: "BrandBand/CompanyBlock, rapor seviyeleri, doküman kodu ve dosya adı kuralı",
-    yollar: ["src/lib/pdf/**", "src/lib/excel/**", "scripts/check-pdf-layout.py"],
+    ozet: "BrandBand/CompanyBlock, doküman kimliği, vinç plakası ve güvenli müşteri portalı",
+    yollar: [
+      "src/lib/pdf/**",
+      "src/lib/excel/**",
+      "src/lib/product-portal/**",
+      "src/components/customer-portal/**",
+      "src/app/(app)/projects/[id]/product-portal/**",
+      "src/app/(public)/paylas/vinc/**",
+      "scripts/check-pdf-layout.py",
+    ],
     al: ["Belge kimliği ve dosya adı"],
   },
   {

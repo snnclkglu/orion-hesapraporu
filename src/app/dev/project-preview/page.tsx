@@ -186,6 +186,7 @@ export default function ProjectPreviewPage() {
             electricalPartCount={726}
             drawingPlanCount={DRAWING_PLAN.length}
             manualRevisionCount={2}
+            showProductPortal
           />
           <TabsContent value="equipment">
             <EquipmentRevisionsTable
