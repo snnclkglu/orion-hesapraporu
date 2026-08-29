@@ -380,21 +380,25 @@ geçerli belge yoksa var olmayan içeriği vaat eden boş kapak korunmaz. Ek
 yerleştirildikten sonra dizindeki adlandırılmış hedefler nihai sayfa
 referanslarına çevrilir; kopyalama işlemi bağlantıları sessizce öldüremez.
 
-## KITAP-18 — Marka ortaklığı, kapak görseli ve yayım kalite kapısı SNAPSHOT'tır.
+## KITAP-18 — Proje partner kimliği ORTAKTIR; el kitabına özel görseller SNAPSHOT'tır.
 
-Kullanıcı kararı (20.08.2026): ORION logosu kapakta ve belgenin bütün üst
-bantlarında **solda sabittir**; Partner 1 ortada, Partner 2 sağda yer alır.
-Partner logoları ORION kimliğinin yerine geçmez. Bir partner seçilmemişse onun
-yuvası boş kalır ve kalan logolar yer değiştirmez, büyümez ya da bandın
-dengesini bozmaz. Böylece aynı revizyonun kapak ve devam sayfaları tek bir
-ortaklık kimliği taşır.
+Kullanıcı kararı (29.08.2026): Hesap raporu ekranındaki
+`projects.report_brand_customer_id` alanının kullanıcı adı **Partner Firma**dır.
+ORION işi bu firmayla birlikte yürütür; seçilen firma hesap raporu, ekipman
+listesi ve işletme-bakım kitabında aynı ortak kimlik olarak kullanılır. ORION
+logosu kapakta ve belgenin bütün üst bantlarında **solda sabittir**; partner
+ORION kimliğinin yerine geçmez. Kapakta ORION bandının altında partnerin logo
+ve adı, devam sayfalarında orta logo yuvası gösterilir. Partner seçilmemişse
+bu blok/yuva açılmaz.
 
-**LOGO KİMLİĞİ REVİZYON GÖVDESİNDEDİR, BAYTI GÖRSEL DEFTERİNDEDİR.** Partner
-logo kimlikleri `manual_revisions.payload` snapshot'ında saklanır; görsel
-baytları diğer vince özel görseller gibi `manual_images` kaydı ve
-`manual-images` kovasında yaşar. Yeni revizyon açılırken kimlikler ve görsel
-kayıtları birlikte kopyalanır. Yayımlanmış bir revizyonun partneri, daha sonra
-başka bir revizyonda logo değiştirilince sessizce değişemez.
+**PROJE PARTNERİ BİRİNCİL, ELLE YÜKLENMİŞ LOGOLAR GERİYE DÖNÜK YEDEKTİR.**
+Proje partnerinin adı ve normalize logosu PDF ucunda
+`loadReportCoverIdentity` ile çözülür. Eski el kitaplarındaki
+`manual_revisions.payload.partnerLogos.centerImageId` kaydı, proje partneri
+yoksa orta yuvada kullanılmaya devam eder; `rightImageId` ek sağ logo olarak
+korunur. Bu elle yüklenmiş kimliklerin baytları diğer vince özel görseller gibi
+`manual_images` kaydı ve `manual-images` kovasında yaşar ve yeni revizyona
+snapshot olarak kopyalanır.
 
 `coverImageId` **kapak fotoğrafıdır**; partner logosu değildir. Kapak fotoğrafı
 belgenin kimlik alanının altında yer alır ve yokluğu kapağı bozmaz. Editör

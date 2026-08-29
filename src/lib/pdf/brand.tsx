@@ -575,6 +575,7 @@ export function BrandBand({
   rightLogo,
   manualHeight,
   marginBottom = 10,
+  fixed = false,
 }: {
   docCode?: string;
   /** Sağ sütuna alt alta yazılan mono satırlar (ör. "REV 01 · 09.08.2026") */
@@ -588,6 +589,8 @@ export function BrandBand({
   manualHeight?: number;
   /** Bandın ardından bırakılan akış payı. */
   marginBottom?: number;
+  /** Taşan fiziksel devam yapraklarında da tekrarlanan üst bant. */
+  fixed?: boolean;
 }) {
   const manual = manualHeight !== undefined;
   const ortakMarka = Boolean(centerLogo || rightLogo);
@@ -596,6 +599,7 @@ export function BrandBand({
     const meta = [docCode, ...lines].filter(Boolean).join("  ·  ");
     return (
       <View
+        {...(fixed ? { fixed: true } : {})}
         wrap={false}
         style={{
           height: manualHeight,
@@ -635,6 +639,7 @@ export function BrandBand({
 
   return (
     <View
+      {...(fixed ? { fixed: true } : {})}
       style={{
         flexDirection: "row",
         justifyContent: "space-between",
@@ -662,6 +667,90 @@ export function BrandBand({
 export interface BrandBandLogo {
   src: Buffer;
   ratio: number;
+}
+
+/** ORION ile birlikte belgeyi hazırlayan proje partnerinin kurumsal kimliği. */
+export interface PartnerBrandIdentity {
+  name: string;
+  logo?: Buffer | null;
+}
+
+/**
+ * Normalize edilmiş müşteri/partner logosunu React-PDF ölçüsüne çevirir.
+ *
+ * Logo yükleme katmanı görseli PNG'ye dönüştürür; eski kayıtlarda bu işlem
+ * başarısız olsa bile belge üretimi düşmemelidir. Bu yüzden okunamayan başlık
+ * güvenli bir yatay tuval oranına döner.
+ */
+export function brandLogoFromBuffer(src: Buffer | null | undefined): BrandBandLogo | undefined {
+  if (!src) return undefined;
+  try {
+    const width = src.readUInt32BE(16);
+    const height = src.readUInt32BE(20);
+    return { src, ratio: width > 0 && height > 0 ? height / width : 240 / 900 };
+  } catch {
+    return { src, ratio: 240 / 900 };
+  }
+}
+
+/**
+ * Kapakta ORION marka bandının altında gösterilen ortak proje kimliği.
+ * Hesap raporu, ekipman listesi ve işletme-bakım kitabı aynı bileşeni kullanır;
+ * böylece partner adı/logosu üç belgede farklı ölçülere kaymaz.
+ */
+export function PartnerIdentityBlock({
+  partner,
+  marginTop = 20,
+  height = 52,
+  maxLogoWidth = 164,
+  maxLogoHeight = 44,
+}: {
+  partner?: PartnerBrandIdentity | null;
+  marginTop?: number;
+  height?: number;
+  maxLogoWidth?: number;
+  maxLogoHeight?: number;
+}) {
+  if (!partner) return null;
+  const mark = brandLogoFromBuffer(partner.logo);
+  const logoWidth = mark ? Math.min(maxLogoWidth, maxLogoHeight / mark.ratio) : 0;
+  return (
+    <View
+      wrap={false}
+      style={{
+        marginTop,
+        height,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 16,
+      }}
+    >
+      {mark ? (
+        <Image
+          src={mark.src}
+          style={{
+            width: logoWidth,
+            height: logoWidth * mark.ratio,
+            objectFit: "contain",
+          }}
+        />
+      ) : null}
+      <View
+        style={{
+          flex: 1,
+          minHeight: Math.min(34, height),
+          justifyContent: "center",
+          borderLeftWidth: 0.7,
+          borderLeftColor: BRAND.line300,
+          paddingLeft: 16,
+        }}
+      >
+        <Text style={{ ...T.heading, fontSize: 11.5, lineHeight: 1.18 }}>
+          {trUpper(partner.name)}
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 function LogoSlot({

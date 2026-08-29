@@ -402,11 +402,11 @@ export function EditProjectDetailsDialog({
                 </Select>
               </div>
               <div className="grid min-w-0 gap-2">
-                <Label>Raporu Hazırlayan Firma</Label>
+                <Label>Partner Firma</Label>
                 <Select value={reportBrandCustomerId} onValueChange={setReportBrandCustomerId}>
                   <SelectTrigger className="w-full min-w-0 [&>span]:truncate"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_CUSTOMER}>ORION CRANES</SelectItem>
+                    <SelectItem value={NO_CUSTOMER}>Partner Firma Yok</SelectItem>
                     {customers.map((entry) => (
                       <SelectItem key={entry.id} value={entry.id}>
                         {entry.short_name || entry.name}{entry.has_logo ? "" : " · Logo Yok"}

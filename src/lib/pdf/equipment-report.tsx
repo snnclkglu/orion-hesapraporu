@@ -19,8 +19,8 @@ import {
   rowSheetUrl, summaryRowValue,
 } from "@/lib/excel/equipment";
 import {
-  BRAND, BrandBand, BrandPage, FONTS, PageHeader, RuleRed, T, trUpper,
-  type CompanyInfo,
+  BRAND, BrandBand, BrandPage, FONTS, PageHeader, PartnerIdentityBlock, RuleRed, T,
+  brandLogoFromBuffer, trUpper, type CompanyInfo, type PartnerBrandIdentity,
 } from "@/lib/pdf/brand";
 import { docCode } from "@/lib/pdf/doc-naming";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
@@ -204,6 +204,8 @@ export interface EquipmentAttachmentCover {
 export interface EquipmentPdfProps {
   meta: EquipmentMetaPdf;
   groups: EqGroup[];
+  /** Proje düzeyinde seçilen; ORION ile birlikte belgeyi hazırlayan partner. */
+  partner?: PartnerBrandIdentity | null;
   summary?: SummarySection[];
   /**
    * Belgenin İLK yaprağına basılan TEKNİK ÖZELLİKLER tablosu.
@@ -413,7 +415,7 @@ function MetaGrid({ meta }: { meta: EquipmentMetaPdf }) {
 }
 
 export function EquipmentDocument({
-  meta, groups, summary, specTable, settings, datasheetUrls, sheetUrls, mainDrawingUrl, sheetPages,
+  meta, groups, partner, summary, specTable, settings, datasheetUrls, sheetUrls, mainDrawingUrl, sheetPages,
   attachmentCovers,
 }: EquipmentPdfProps) {
   const covers = attachmentCovers ?? [];
@@ -455,6 +457,7 @@ export function EquipmentDocument({
   const rev = String(meta.revNo).padStart(2, "0");
   const year = /(\d{4})/.exec(meta.date)?.[1] ?? String(new Date().getFullYear());
   const code = docCode("EQ", meta.docNo, meta.revNo);
+  const partnerMark = brandLogoFromBuffer(partner?.logo);
   return (
     <Document
       title={`${meta.docNo}-V${meta.revNo} Ekipman Listesi`}
@@ -462,8 +465,36 @@ export function EquipmentDocument({
       subject={`${meta.customer} — ${meta.projectName}`}
       language="tr"
     >
+      {/* Hesap raporuyla aynı ortak marka sırası: ORION, partner ve proje künyesi. */}
+      <BrandPage
+        docLine={`ORION CRANES · EKİPMAN LİSTESİ · REV ${rev} · ${year}`}
+        docCode={code}
+        orientation="landscape"
+        company={companyInfo(settings)}
+      >
+        <BrandBand docCode={code} lines={[`REV ${rev} · ${meta.date}`]} logoWidth={150} />
+        <PartnerIdentityBlock
+          partner={partner}
+          marginTop={14}
+          height={44}
+          maxLogoWidth={146}
+          maxLogoHeight={34}
+        />
+        <View style={{ marginTop: partner ? 26 : 72 }}>
+          <Text style={T.kicker}>ORION CRANES · EKİPMAN LİSTESİ</Text>
+          <RuleRed width={24} />
+          <Text style={{ ...T.display, fontSize: 27, marginTop: 10 }}>
+            {trUpper(meta.projectName || "Ekipman Listesi")}
+          </Text>
+        </View>
+        <View style={{ marginTop: 34, maxWidth: 520 }}>
+          <MetaGrid meta={meta} />
+        </View>
+      </BrandPage>
+
       {/*
-        TEKNİK ÖZELLİKLER İLK YAPRAKTADIR (kullanıcı isteği, 19.08.2026).
+        TEKNİK ÖZELLİKLER İLK İÇERİK YAPRAĞINDADIR (kullanıcı isteği,
+        19.08.2026; ortak marka kapağı 29.08.2026'da eklendi).
         Ressamın eline giden belge "bu vinç nedir" ile başlar; ekipman dökümü
         ve ölçü çizelgeleri ondan sonra gelir. Tablo hesap raporunun özet
         sayfasındakiyle AYNI bileşendir (`FieldTable`) ve aynı süzgeçten
@@ -480,9 +511,15 @@ export function EquipmentDocument({
           docCode={code}
           orientation="landscape"
           company={companyInfo(settings)}
+          repeatedHeader={(
+            <PageHeader
+              fixed
+              kicker="ORION Cranes · Teknik Özellikler"
+              title={meta.projectName || "Ekipman Listesi"}
+              logo={partnerMark}
+            />
+          )}
         >
-          <BrandBand docCode={code} lines={[`REV ${rev} · ${meta.date}`]} logoWidth={150} />
-          <PageHeader kicker="Teknik Özellikler" title={meta.projectName || "Ekipman Listesi"} />
           <MetaGrid meta={meta} />
           <FieldTable
             defs={specTable.defs}
@@ -498,21 +535,17 @@ export function EquipmentDocument({
         docCode={code}
         orientation="landscape"
         company={companyInfo(settings)}
-      >
-        {/* Marka bandı: lockup logo + doküman kimliği. Müşteriye teslim edilen
-            belgenin ilk sayfası markayı taşır (hesap raporu kapağıyla aynı).
-            Teknik özellik yaprağı varsa bant ORADADIR; iki kez basılmaz. */}
-        {!specTable && (
-          <BrandBand docCode={code} lines={[`REV ${rev} · ${meta.date}`]} logoWidth={150} />
+        repeatedHeader={(
+          <PageHeader
+            fixed
+            kicker={detailed
+              ? "ORION Cranes · Ekipman Listesi · Katalog Sayfaları Ekli"
+              : "ORION Cranes · Ekipman Listesi"}
+            title={meta.projectName || "Ekipman Listesi"}
+            logo={partnerMark}
+          />
         )}
-
-        {/* Başlık PageHeader içinde tr-TR ile büyütülür; kaynak Title Case yazılır.
-            Kicker'da firma adı, sağda doküman kodu TEKRARLANMAZ — ikisi de marka
-            bandında. */}
-        <PageHeader
-          kicker={detailed ? "Ekipman Listesi · Katalog Sayfaları Ekli" : "Ekipman Listesi"}
-          title={meta.projectName || "Ekipman Listesi"}
-        />
+      >
 
         {/* PROJE künyeden çıktı: artık sayfa BAŞLIĞI o. Aynı bilgiyi hem
             başlıkta hem künyede tekrarlamak künyeyi gereksiz uzatıyordu. */}
@@ -602,15 +635,17 @@ export function EquipmentDocument({
           docCode={code}
           orientation="landscape"
           company={companyInfo(settings)}
+          repeatedHeader={(
+            <PageHeader
+              fixed
+              kicker="ORION Cranes · Teknik Ressam Özeti"
+              title={meta.projectName || "İmalat Özeti"}
+              meta="İMALAT ÖZETİ"
+              logo={partnerMark}
+            />
+          )}
         >
           <View>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 6 }}>
-              <View>
-                <Text style={T.kicker}>TEKNİK RESSAM ÖZETİ</Text>
-                <RuleRed />
-              </View>
-              <Text style={T.micro}>İMALAT ÖZETİ</Text>
-            </View>
             {summary.map((sec) => {
               // NOTLAR bir çizelge değildir: mühendisin cümleleri satır
               // sonlarıyla korunur ve kırmızı omurgalı bir kutuda durur.
@@ -705,16 +740,15 @@ export function EquipmentDocument({
                 @react-pdf `'id' in props` diye bakar ve tanımsız değeri de bir
                 hedef sayar, belgeye "undefined" adlı bir adlandırılmış hedef
                 yazar (çok yapraklı her katalog sayfası bunu üretiyordu). */}
-            <View {...(i === 0 ? { id: anchorId(sheet.keys[0] ?? "") } : {})} style={s.sheetHead}>
-              <Text style={T.kicker}>KATALOG SAYFASI</Text>
-              <RuleRed />
-              <Text style={[s.sheetTitle, { marginTop: 5 }]}>
-                {sheet.title} — {sheet.model}
-              </Text>
-              <Text style={s.sheetMeta}>
-                {sheet.source} · {sheet.printedPages}
-                {sheet.images.length > 1 ? ` · sayfa ${i + 1}/${sheet.images.length}` : ""}
-              </Text>
+            <View {...(i === 0 ? { id: anchorId(sheet.keys[0] ?? "") } : {})}>
+              <PageHeader
+                kicker="ORION Cranes · Katalog Sayfası"
+                title={`${sheet.title} — ${sheet.model}`}
+                meta={`${sheet.source} · ${sheet.printedPages}${
+                  sheet.images.length > 1 ? ` · sayfa ${i + 1}/${sheet.images.length}` : ""
+                }`}
+                logo={partnerMark}
+              />
             </View>
             <Image
               src={image}
@@ -745,15 +779,13 @@ export function EquipmentDocument({
             {...(covers.findIndex((c) => c.rowKey === cover.rowKey) === i
               ? { id: attachmentAnchorId(cover.rowKey) }
               : {})}
-            style={s.sheetHead}
           >
-            <Text style={T.kicker}>EK BELGE</Text>
-            <RuleRed />
-            <Text style={[s.sheetTitle, { marginTop: 5 }]}>{cover.component}</Text>
-            <Text style={s.sheetMeta}>
-              {cover.fileName}
-              {cover.pageCount > 0 ? ` · ${cover.pageCount} sayfa` : ""}
-            </Text>
+            <PageHeader
+              kicker="ORION Cranes · Ek Belge"
+              title={cover.component}
+              meta={`${cover.fileName}${cover.pageCount > 0 ? ` · ${cover.pageCount} sayfa` : ""}`}
+              logo={partnerMark}
+            />
           </View>
           <Text style={s.hint}>
             Bu sayfadan sonraki {cover.pageCount > 0 ? `${cover.pageCount} sayfa` : "sayfalar"}{" "}

@@ -22,12 +22,15 @@ import {
   BrandPage,
   CheckGlyph,
   FONTS,
+  PartnerIdentityBlock,
   RuleRed,
   T,
+  brandLogoFromBuffer,
   mm,
   trUpper,
   type BrandBandLogo,
   type CompanyInfo,
+  type PartnerBrandIdentity,
 } from "./brand";
 import {
   flattenManual,
@@ -77,6 +80,8 @@ export interface ManualPdfProps {
   payload: ManualPayload;
   sources: ManualSourceData;
   images: readonly ManualImageAsset[];
+  /** Proje düzeyinde seçilen; ORION ile birlikte belgeyi hazırlayan partner. */
+  partner?: PartnerBrandIdentity | null;
   /** `ORC-BK-0019-00-R01` */
   docCode: string;
   /** Altbilgi sol satırı. */
@@ -193,6 +198,7 @@ export function ManualPdf({
   payload,
   sources,
   images,
+  partner,
   docCode,
   docLine,
   company,
@@ -305,18 +311,24 @@ export function ManualPdf({
     // (teklifteki "değersiz satır basılmaz" kuralının aynısı).
   ].filter((r): r is [string, string] => Boolean(r[1]?.trim()));
 
-  const ortaLogo = bandLogo(gorseller.get(payload.partnerLogos.centerImageId ?? ""));
+  const eskiOrtaLogo = bandLogo(gorseller.get(payload.partnerLogos.centerImageId ?? ""));
   const sagLogo = bandLogo(gorseller.get(payload.partnerLogos.rightImageId ?? ""));
+  const projePartnerLogosu = brandLogoFromBuffer(partner?.logo);
+  // Projeden seçilen Partner Firma ortak kimliğin birincil kaynağıdır.
+  // Eski el kitaplarında elle yüklenmiş orta logo, partner seçilmemişse
+  // geriye dönük yedek olarak yaşamaya devam eder; sağdaki ek logo korunur.
+  const ortaLogo = projePartnerLogosu ?? eskiOrtaLogo;
   const kapakGorseli = gorseller.get(payload.coverImageId ?? "") ?? null;
 
-  const ustBant = () => (
+  const ustBant = (projePartneriniGoster = true, sabit = false) => (
     <BrandBand
       docCode={docCode}
       lines={bandLines ?? []}
-      centerLogo={ortaLogo}
+      centerLogo={projePartneriniGoster ? ortaLogo : eskiOrtaLogo}
       rightLogo={sagLogo}
       manualHeight={MANUAL_UST_BANT_YUKSEKLIK}
       marginBottom={MANUAL_UST_BANT_ALT_BOSLUK}
+      fixed={sabit}
     />
   );
 
@@ -331,11 +343,19 @@ export function ManualPdf({
           sütuna geçer — on bir kısa satır tek sütunda sayfanın yarısını boş
           bırakıyordu. */}
       <BrandPage docLine={docLine} docCode={docCode} company={company} sectionLabel="K" hidePageNumber={deferFolio}>
-        {ustBant()}
+        {/* Hesap raporu kapağıyla aynı ortak kimlik sırası: ORION marka bandı,
+            altında seçili partnerin logosu ve adı. El kitabına önceden elle
+            yüklenmiş ek logolar üst bantta geriye dönük olarak korunur. */}
+        {ustBant(false)}
+        <PartnerIdentityBlock partner={partner} />
         <Text
           style={[
             s.kapakBaslik,
-            kapakGorseli ? { marginTop: mm(12) } : {},
+            partner
+              ? { marginTop: kapakGorseli ? mm(8) : mm(18) }
+              : kapakGorseli
+                ? { marginTop: mm(12) }
+                : {},
           ]}
         >
           {trUpper(payload.coverTitle || payload.identity.product)}
@@ -392,8 +412,14 @@ export function ManualPdf({
       {dizinSayfalari.map((dizinBolumu, dizinSayfaIndisi) => {
         const dizinYarim = Math.ceil(dizinBolumu.length / 2);
         return (
-        <BrandPage key={dizinSayfaIndisi} docLine={docLine} docCode={docCode} sectionLabel="İÇ" hidePageNumber={deferFolio}>
-          {ustBant()}
+        <BrandPage
+          key={dizinSayfaIndisi}
+          docLine={docLine}
+          docCode={docCode}
+          sectionLabel="İÇ"
+          hidePageNumber={deferFolio}
+          repeatedHeader={ustBant(true, true)}
+        >
           <Text style={s.h1}>
             İÇİNDEKİLER{dizinSayfalari.length > 1 ? ` · ${dizinSayfaIndisi + 1}` : ""}
           </Text>

@@ -26,9 +26,11 @@ import {
   FONTS,
   Link,
   PageHeader,
+  PartnerIdentityBlock,
   RuleRed,
   SectionTag,
   T,
+  brandLogoFromBuffer,
 } from "@/lib/pdf/brand";
 import { docCode } from "@/lib/pdf/doc-naming";
 import { PdfMath } from "@/lib/pdf/pdf-math";
@@ -152,7 +154,7 @@ export interface ReportProps {
   revision: ReportRevision;
   preparedBy: string;
   checkedBy?: string;
-  /** Raporu kendi kurumsal kimliğiyle sunan firma; PDF'de özel bir ilişki adı kullanılmaz. */
+  /** ORION ile işi birlikte yürüten ve PDF'de ortak kimlik taşıyan Partner Firma. */
   reportBrand?: { name: string; logo?: Buffer | null } | null;
   /** Müşteri kaydından alınan, kapakta isteğe bağlı gösterilen son kullanıcı logosu. */
   endCustomerLogo?: Buffer | null;
@@ -202,18 +204,6 @@ function fmt(v: number | string | null | undefined, digits = 2): string {
   // olmayan bir sapmayı varmış gibi okutur (editördeki `fmt` ile aynı kural).
   if (Math.abs(v) < 0.5 / 10 ** digits) return (0).toLocaleString("tr-TR");
   return v.toLocaleString("tr-TR", { maximumFractionDigits: digits });
-}
-
-/** PNG'nin IHDR alanından yükseklik/genişlik oranı; hatada standart tuvale döner. */
-function customerLogo(src: Buffer | null | undefined) {
-  if (!src) return undefined;
-  try {
-    const width = src.readUInt32BE(16);
-    const height = src.readUInt32BE(20);
-    return { src, ratio: width > 0 && height > 0 ? height / width : 240 / 900 };
-  } catch {
-    return { src, ratio: 240 / 900 };
-  }
 }
 
 /** Girdi/seçim değerleri: sayılar tr-TR, hassasiyet kaybını önlemek için 4 hane */
@@ -1346,9 +1336,7 @@ function CoverPage(props: ReportProps) {
   const st = { ...DEFAULT_REPORT_SETTINGS, ...props.settings };
   const dateLabel = reportDateLabel(revision);
   const docCode = docCodeFor(project, revision);
-  const reportBrandMark = customerLogo(reportBrand?.logo);
-  const endCustomerMark = customerLogo(endCustomerLogo);
-  const reportBrandWidth = reportBrandMark ? Math.min(164, 44 / reportBrandMark.ratio) : 0;
+  const endCustomerMark = brandLogoFromBuffer(endCustomerLogo);
   const endCustomerWidth = endCustomerMark ? Math.min(205, 52.5 / endCustomerMark.ratio) : 0;
   const reportName = reportNameFor(props.level);
   return (
@@ -1374,42 +1362,7 @@ function CoverPage(props: ReportProps) {
       />
 
       {/* Seçili firma kimliği kapaktaki ayrılmış güvenli alana yerleşir. */}
-      {reportBrand ? (
-        <View
-          style={{
-            marginTop: 20,
-            height: 52,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 16,
-          }}
-        >
-          {reportBrandMark ? (
-            <Image
-              src={reportBrandMark.src}
-              style={{
-                width: reportBrandWidth,
-                height: reportBrandWidth * reportBrandMark.ratio,
-                objectFit: "contain",
-              }}
-            />
-          ) : null}
-          <View
-            style={{
-              flex: 1,
-              minHeight: 34,
-              justifyContent: "center",
-              borderLeftWidth: 0.7,
-              borderLeftColor: BRAND.line300,
-              paddingLeft: 16,
-            }}
-          >
-            <Text style={{ ...T.heading, fontSize: 11.5, lineHeight: 1.18 }}>
-              {reportBrand.name.toLocaleUpperCase("tr-TR")}
-            </Text>
-          </View>
-        </View>
-      ) : null}
+      <PartnerIdentityBlock partner={reportBrand} />
 
       {/* Başlık bloğu */}
       <View style={{ marginTop: reportBrand ? 20 : 84 }}>
@@ -1546,7 +1499,7 @@ function TocPage({
         <PageHeader
           kicker="ORION CRANES · HESAP RAPORU"
           title="İçindekiler"
-          logo={customerLogo(reportBrand?.logo)}
+          logo={brandLogoFromBuffer(reportBrand?.logo)}
           fixed
         />
       )}
@@ -1814,7 +1767,7 @@ function SummarySection({
         <PageHeader
           kicker="ORION CRANES · ÖZET"
           title="ÖZET HESAP RAPORU"
-          logo={customerLogo(reportBrand?.logo)}
+          logo={brandLogoFromBuffer(reportBrand?.logo)}
           fixed
         />
       )}
@@ -1972,7 +1925,7 @@ function ChecksSummarySection({
           kicker="ORION CRANES · KONTROLLER"
           title="Kontrol Özeti"
           meta={`${total} KONTROL · ${failed === 0 ? "TÜMÜ UYGUN" : `${failed} UYGUN DEĞİL`}`}
-          logo={customerLogo(reportBrand?.logo)}
+          logo={brandLogoFromBuffer(reportBrand?.logo)}
           fixed
         />
       )}
@@ -2375,7 +2328,7 @@ function SourcesSection({
         <PageHeader
           kicker="EK"
           title="Kaynaklar ve Standartlar"
-          logo={customerLogo(reportBrand?.logo)}
+          logo={brandLogoFromBuffer(reportBrand?.logo)}
           fixed
         />
       )}
@@ -2461,7 +2414,7 @@ function ModulePage({
           kicker={`BÖLÜM ${no}`}
           title={rest.join(" · ")}
           meta="FEM 1.001 · DIN 15018 · CMAA 70"
-          logo={customerLogo(props.reportBrand?.logo)}
+          logo={brandLogoFromBuffer(props.reportBrand?.logo)}
           fixed
         />
       )}

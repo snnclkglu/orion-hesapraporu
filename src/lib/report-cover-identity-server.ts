@@ -29,7 +29,9 @@ async function trimReportLogo(logo: Buffer | null): Promise<Buffer | null> {
 }
 
 /**
- * Hesap raporunun iki bağımsız görsel kimliğini yükler.
+ * Proje PDF'lerinin partner kimliği ile hesap kapağının son kullanıcı logosunu
+ * yükler. Partner alanı hesap raporu, ekipman listesi ve el kitabı tarafından
+ * ortak kullanılır.
  *
  * Firma adı logo olmasa da gösterilir; logo indirme/normalleştirme hatası ise
  * PDF üretimini durdurmaz. Böylece eski veya logosuz müşteri kayıtları kapak

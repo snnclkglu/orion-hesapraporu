@@ -38,6 +38,7 @@ import { pdfEkleriYerlestir } from "@/lib/pdf/merge";
 import { getReportSettings } from "@/lib/settings";
 import { loadDrawingNote } from "@/lib/equipment-drawing-note";
 import { loadCustomerDrawingPath } from "@/lib/equipment-customer-link";
+import { loadReportCoverIdentity } from "@/lib/report-cover-identity-server";
 
 export const runtime = "nodejs";
 
@@ -68,7 +69,7 @@ export async function GET(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("doc_no, name, customer, prepared_by, checked_by, checked_by_name")
+    .select("doc_no, name, customer, report_brand_customer_id, prepared_by, checked_by, checked_by_name")
     .eq("id", id)
     .single();
   if (!project) return new Response("Proje bulunamadı", { status: 404 });
@@ -89,7 +90,12 @@ export async function GET(
     revision.selections as RevisionSelectionsJson | null
   );
   const calcResult = runCalc(calcInput);
-  const settings = await getReportSettings(supabase);
+  const [settings, coverIdentity] = await Promise.all([
+    getReportSettings(supabase),
+    format === "pdf"
+      ? loadReportCoverIdentity(supabase, project.report_brand_customer_id, null)
+      : Promise.resolve(null),
+  ]);
 
   // Ek satırlar (equipment_extras) — tablo yoksa/boşsa sessizce atlanır
   let extras: EquipmentExtraRow[] = [];
@@ -206,7 +212,7 @@ export async function GET(
         ? undefined
         : { ...summarySpecsForReport(calcInput), specs: calcInput.specs };
     const basePdf = await renderEquipmentPdf({
-      meta, groups, summary, specTable, settings, datasheetUrls, sheetUrls, mainDrawingUrl, sheetPages,
+      meta, groups, partner: coverIdentity?.reportBrand ?? null, summary, specTable, settings, datasheetUrls, sheetUrls, mainDrawingUrl, sheetPages,
       attachmentCovers: orderedAttachments.map((a) => ({
         rowKey: a.rowKey,
         component: a.component,

@@ -39,6 +39,7 @@ import { ELECTRICAL_BUCKET, loadCurrentElectricalDoc } from "@/lib/electrical/da
 import { buildElectricalCatalogAppendix } from "@/lib/electrical/catalog-appendix";
 import { SPEC_BUCKET, loadCurrentSpec } from "@/lib/project-specs";
 import { resolveProjectItemNo } from "@/lib/drawing-plan-data";
+import { loadReportCoverIdentity } from "@/lib/report-cover-identity-server";
 import { buildManualSourceData } from "../../sources-data";
 
 export const runtime = "nodejs";
@@ -60,7 +61,7 @@ export async function GET(
 
   const { data: proje } = await supabase
     .from("projects")
-    .select("id, doc_no, name, customer")
+    .select("id, doc_no, name, customer, report_brand_customer_id")
     .eq("id", id)
     .maybeSingle();
   if (!proje) return new Response("Proje bulunamadı", { status: 404 });
@@ -71,11 +72,12 @@ export async function GET(
     return new Response("El kitabı bulunamadı", { status: 404 });
   }
 
-  const [kaynaklar, gorselKayitlari, itemNo, ayarlar] = await Promise.all([
+  const [kaynaklar, gorselKayitlari, itemNo, ayarlar, coverIdentity] = await Promise.all([
     buildManualSourceData(supabase, id),
     loadManualImages(supabase, revId),
     resolveProjectItemNo(supabase, id, String(proje.doc_no ?? "")),
     getReportSettings(supabase),
+    loadReportCoverIdentity(supabase, proje.report_brand_customer_id, null),
   ]);
 
   // GÖRSEL BAYTLARI PDF'E GİRER, imzalı bağlantı değil: react-pdf sunucuda
@@ -154,6 +156,7 @@ export async function GET(
       payload,
       sources: kaynaklar,
       images: gorseller,
+      partner: coverIdentity.reportBrand,
       docCode: belgeKodu,
       docLine,
       // Künye HESAP RAPORUYLA AYNI ALANLARDAN kurulur (`pdf/report.tsx`):

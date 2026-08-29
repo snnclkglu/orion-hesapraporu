@@ -9,7 +9,7 @@ import { manualUsedAssetKeys } from "@/lib/manual/assets";
 import { ManualPdf } from "@/lib/pdf/manual";
 
 describe("ManualPdf smoke", () => {
-  it("üçlü logo bandını, kapak görselini ve vektör işaretleriyle belgeyi basar", async () => {
+  it("proje partnerini, ek logo bandını, kapak görselini ve vektör işaretleriyle belgeyi basar", async () => {
     const payload = manualFromTemplate({
       manufacturer: "ORION CRANES",
       product: "ŞARJ VİNCİ",
@@ -52,6 +52,7 @@ describe("ManualPdf smoke", () => {
           })),
         },
         images,
+        partner: { name: "Karçel Partner Firma", logo: logoBytes },
         docCode: "ORC-BK-0019-00-R01",
         docLine: "ORION CRANES · İŞLETME VE BAKIM EL KİTABI · V1 · 2026",
         company: { company: "ORION CRANES", address: "ANKARA · TÜRKİYE", web: "orioncranes.com" },
@@ -62,6 +63,10 @@ describe("ManualPdf smoke", () => {
 
     expect(bytes.subarray(0, 4).toString()).toBe("%PDF");
     expect(bytes.byteLength).toBeGreaterThan(100_000);
+    const { extractText, getDocumentProxy } = await import("unpdf");
+    const textDocument = await getDocumentProxy(new Uint8Array(bytes));
+    const { text } = await extractText(textDocument, { mergePages: true });
+    expect(String(text)).toContain("KARÇEL PARTNER FİRMA");
     const pdf = await PDFDocument.load(bytes, { updateMetadata: false });
     // Gövde çıktısı boş EK kapsayıcısı ve yedi ayraç kapağı taşımaz. 180
     // elektrik satırı da pano özetine iner; eski tam döküm 14 yaprak

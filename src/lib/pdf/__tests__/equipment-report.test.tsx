@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { writeFileSync } from "node:fs";
 import sharp from "sharp";
 import { PDFDocument, PDFName, type PDFDict } from "pdf-lib";
 import { renderEquipmentPdf, breakEquipmentModelCode } from "@/lib/pdf/equipment-report";
-import { rowCatalogSheetKey } from "@/lib/excel/equipment";
+import {
+  buildEquipmentGroups,
+  buildSummarySections,
+  rowCatalogSheetKey,
+} from "@/lib/excel/equipment";
+import { BRAND_LOGO_INK } from "@/lib/pdf/brand";
+import { V5_TEMPLATE } from "@/lib/calc/defaults";
+import { runCalc } from "@/lib/calc/engine";
+import { summarySpecsForReport } from "@/lib/pdf/report";
 
 describe("ekipman listesi PDF düzeni", () => {
   it("uzun katalog kodlarına satır kırma noktası ekler ve yatay PDF üretir", async () => {
@@ -14,6 +23,7 @@ describe("ekipman listesi PDF düzeni", () => {
         docNo: "EQ-01", projectName: "Uzun Kod Testi", customer: "ORION", revLabel: "V0", revNo: 0,
         date: "07.08.2026",
       },
+      partner: { name: "Karçel Partner Firma", logo: BRAND_LOGO_INK },
       groups: [{
         name: "Ana Kaldırma",
         rows: [{
@@ -33,6 +43,37 @@ describe("ekipman listesi PDF düzeni", () => {
     const doc = await getDocumentProxy(new Uint8Array(pdf));
     const { text } = await extractText(doc, { mergePages: true });
     expect(String(text)).toContain("Proje Ana Paftasını Aç");
+    expect(String(text)).toContain("KARÇEL PARTNER FİRMA");
+  }, 120_000);
+
+  it("partner kimliğini teknik özellikler, liste ve teknik özet yapraklarında korur", async () => {
+    const input = structuredClone(V5_TEMPLATE);
+    const pdf = await renderEquipmentPdf({
+      meta: {
+        docNo: "EQ-04",
+        projectName: "Partnerli Çizim Paketi",
+        customer: "Örnek Müşteri",
+        revLabel: "Ön Tasarım",
+        revNo: 1,
+        date: "29.08.2026",
+        preparedBy: "Sinan Çolakoğlu",
+        checkedBy: "Alkım Kelleci",
+      },
+      partner: { name: "Karçel Partner Firma", logo: BRAND_LOGO_INK },
+      groups: buildEquipmentGroups(input),
+      summary: buildSummarySections(input, runCalc(input)),
+      specTable: { ...summarySpecsForReport(input), specs: input.specs },
+    });
+
+    const document = await PDFDocument.load(pdf, { updateMetadata: false });
+    expect(document.getPageCount()).toBeGreaterThanOrEqual(3);
+    const { extractText, getDocumentProxy } = await import("unpdf");
+    const textDocument = await getDocumentProxy(new Uint8Array(pdf));
+    const { text } = await extractText(textDocument, { mergePages: true });
+    expect(String(text)).toContain("KARÇEL PARTNER FİRMA");
+
+    const smokeOut = process.env.EQUIPMENT_PARTNER_OUT;
+    if (smokeOut) writeFileSync(smokeOut, pdf);
   }, 120_000);
 });
 
@@ -213,11 +254,12 @@ describe("detaylı listenin ek sayfaları", () => {
  *
  * Grubun tamamını saran kutuya `minPresenceAhead` konduğunda react-pdf, grup
  * sayfaya SIĞSA BİLE bitişinden sonra istenen boşluk kalmıyorsa bloğu bütünüyle
- * sonraki yaprağa atıyordu: ilk sayfada yalnız marka bandı, künye ve tablo
+ * sonraki yaprağa atıyordu: ilk içerik sayfasında yalnız marka bandı, künye ve tablo
  * başlığı kalıyor, tek bir satır bile basılmıyordu.
  *
  * Koşul DAR olduğu için tek bir fikstür yetmez — grup boyu taranır. Ölçüt
- * "ilk sayfada en az bir EKİPMAN SATIRI var mı"dır; sayfa sayısı değil, çünkü
+ * "kapaktan sonraki ilk içerik sayfasında en az bir EKİPMAN SATIRI var mı"dır;
+ * sayfa sayısı değil, çünkü
  * hata sayfa sayısını her zaman artırmıyordu.
  */
 describe("ilk sayfa boş kalmaz", () => {
@@ -232,7 +274,7 @@ describe("ilk sayfa boş kalmaz", () => {
     }));
   }
 
-  it("grup boyu ne olursa olsun tablo İLK sayfada başlar", async () => {
+  it("grup boyu ne olursa olsun tablo kapaktan sonraki İLK içerik sayfasında başlar", async () => {
     const { extractText, getDocumentProxy } = await import("unpdf");
     const bos: number[] = [];
     // 6…22 satır: hatayı 16 ve 17 satırda üretiyordu (yatay A4, künyeli altbilgi).
@@ -249,8 +291,8 @@ describe("ilk sayfa boş kalmaz", () => {
       });
       const doc = await getDocumentProxy(new Uint8Array(pdf));
       const { text } = await extractText(doc, { mergePages: false });
-      const ilkSayfa = (text as string[])[0].replace(/\s+/g, " ");
-      if (!ilkSayfa.includes("EKİPMAN 1 ")) bos.push(n);
+      const ilkIcerikSayfasi = (text as string[])[1].replace(/\s+/g, " ");
+      if (!ilkIcerikSayfasi.includes("EKİPMAN 1 ")) bos.push(n);
     }
     expect(bos, `boş ilk sayfa üreten grup boyları: ${bos.join(", ")}`).toEqual([]);
   }, 300_000);
