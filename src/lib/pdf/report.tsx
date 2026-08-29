@@ -31,6 +31,8 @@ import {
   SectionTag,
   T,
   brandLogoFromBuffer,
+  trUpper,
+  type CompanyInfo,
 } from "@/lib/pdf/brand";
 import { docCode } from "@/lib/pdf/doc-naming";
 import { PdfMath } from "@/lib/pdf/pdf-math";
@@ -241,10 +243,15 @@ function reportDate(revision: ReportRevision): Date {
   return iso ? new Date(iso) : new Date();
 }
 
-function reportDateLabel(revision: ReportRevision): string {
-  return reportDate(revision)
+export function documentMonthLabel(value: string | Date | null | undefined): string {
+  const date = value instanceof Date ? value : value ? new Date(value) : new Date();
+  return date
     .toLocaleDateString("tr-TR", { month: "long", year: "numeric" })
     .toLocaleUpperCase("tr-TR");
+}
+
+function reportDateLabel(revision: ReportRevision): string {
+  return documentMonthLabel(reportDate(revision));
 }
 
 /** Çıktının kapak, iç sayfa ve PDF meta verisindeki resmi belge adı. */
@@ -1299,7 +1306,20 @@ const FEM_GROUP_BY_ISO_CLASS: Record<string, string> = {
 };
 
 /** Kapak künyesi: vinç tipi → kapasite → açıklık → kaldırma yüksekliği → sınıflar. */
-function coverSpecs(input: CalcInput, craneType: string): { label: string; value: string }[] {
+export interface ReportCoverSpec {
+  label: string;
+  value: string;
+}
+
+export interface ReportCoverMeta {
+  customer: string;
+  date: string;
+  preparedBy: string;
+  checkedBy: string;
+  revision: string;
+}
+
+export function reportCoverSpecs(input: CalcInput, craneType: string): ReportCoverSpec[] {
   const sp = input.specs;
   const out: { label: string; value: string }[] = craneType.trim()
     ? [{ label: "VİNÇ TİPİ", value: craneType.trim() }]
@@ -1323,6 +1343,164 @@ function coverSpecs(input: CalcInput, craneType: string): { label: string; value
   return out;
 }
 
+/**
+ * Hesap raporu ailesinin ORTAK kapağı.
+ *
+ * Hesap raporu, ekipman listesi ve işletme-bakım el kitabı aynı veri sırasını
+ * kullanır: marka bandı → rapor firması → son müşteri logosu → proje adı →
+ * vinç özellikleri → müşteri/tarih/imza/revizyon künyesi. Yatay ekipman
+ * kapağında özellikler iki sütuna bölünür; veri ve görsel hiyerarşi değişmez.
+ */
+export function SharedReportCover({
+  orientation = "portrait",
+  footerDocLine,
+  docCode: code,
+  company,
+  bandLines,
+  reportBrand,
+  endCustomerLogo,
+  reportName,
+  projectName,
+  craneLocation,
+  specs,
+  meta,
+  hidePageNumber = false,
+}: {
+  orientation?: "portrait" | "landscape";
+  footerDocLine: string;
+  docCode: string;
+  company?: CompanyInfo;
+  bandLines: string[];
+  reportBrand?: { name: string; logo?: Buffer | null } | null;
+  endCustomerLogo?: Buffer | null;
+  reportName: string;
+  projectName: string;
+  craneLocation?: string | null;
+  specs: readonly ReportCoverSpec[];
+  meta: ReportCoverMeta;
+  hidePageNumber?: boolean;
+}) {
+  const landscape = orientation === "landscape";
+  const endCustomerMark = brandLogoFromBuffer(endCustomerLogo);
+  const maxLogoWidth = landscape ? 178 : 205;
+  const maxLogoHeight = landscape ? 42 : 52.5;
+  const endCustomerWidth = endCustomerMark
+    ? Math.min(maxLogoWidth, maxLogoHeight / endCustomerMark.ratio)
+    : 0;
+  const middle = Math.ceil(specs.length / 2);
+  const specColumns = landscape ? [specs.slice(0, middle), specs.slice(middle)] : [specs];
+
+  return (
+    <BrandPage
+      docLine={footerDocLine}
+      docCode={code}
+      company={company}
+      orientation={orientation}
+      hidePageNumber={hidePageNumber}
+    >
+      <BrandBand
+        docCode={code}
+        lines={bandLines}
+        logoWidth={landscape ? 150 : 168}
+      />
+
+      <PartnerIdentityBlock
+        partner={reportBrand}
+        {...(landscape
+          ? { marginTop: 12, height: 42, maxLogoWidth: 142, maxLogoHeight: 32 }
+          : {})}
+      />
+
+      <View style={{ marginTop: reportBrand ? (landscape ? 13 : 20) : (landscape ? 28 : 84) }}>
+        <Text style={T.kicker}>ORION CRANES · {trUpper(reportName)}</Text>
+        <RuleRed width={landscape ? 24 : 22} />
+        {endCustomerMark ? (
+          <View
+            style={{
+              marginTop: landscape ? 5 : 8,
+              height: landscape ? 42 : 53,
+              alignItems: "flex-start",
+              justifyContent: "center",
+            }}
+          >
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- React-PDF Image tarayıcı img öğesi değildir. */}
+            <Image
+              src={endCustomerMark.src}
+              style={{
+                width: endCustomerWidth,
+                height: endCustomerWidth * endCustomerMark.ratio,
+                objectFit: "contain",
+              }}
+            />
+          </View>
+        ) : null}
+        <Text
+          style={{
+            ...T.display,
+            fontSize: landscape ? 25 : T.display.fontSize,
+            marginTop: endCustomerMark ? (landscape ? 6 : 9) : (landscape ? 8 : 12),
+            maxWidth: landscape ? 680 : undefined,
+          }}
+        >
+          {trUpper(projectName)}
+        </Text>
+        {craneLocation?.trim() ? (
+          <Text style={{ ...T.data, color: BRAND.gray600, marginTop: 4 }}>
+            VİNÇ YERİ · {trUpper(craneLocation.trim())}
+          </Text>
+        ) : null}
+      </View>
+
+      {specs.length > 0 ? (
+        <View
+          style={{
+            marginTop: landscape ? 14 : 30,
+            borderTopWidth: 1.4,
+            borderTopColor: BRAND.ink,
+            flexDirection: landscape ? "row" : "column",
+            gap: landscape ? 24 : 0,
+          }}
+        >
+          {specColumns.map((column, columnIndex) => (
+            <View key={columnIndex} style={{ flex: 1 }}>
+              {column.map((row) => (
+                <View
+                  key={row.label}
+                  style={[s.specRow, landscape ? { paddingVertical: 4.2 } : {}]}
+                >
+                  <Text style={s.specLabel}>{row.label}</Text>
+                  <Text style={[s.specValue, landscape ? { fontSize: 11.5 } : {}]}>
+                    {reportRowUpper(row.value)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <View style={{ marginTop: "auto" }}>
+        <View style={{ flexDirection: "row", gap: landscape ? 24 : 14, marginBottom: 12 }}>
+          {[
+            ["MÜŞTERİ", meta.customer, false, 1.25],
+            ["TARİH", meta.date, true, 1],
+            ["HAZIRLAYAN", meta.preparedBy, false, 1],
+            ["KONTROL", meta.checkedBy, false, 1],
+            ["REVİZYON", meta.revision, true, 1],
+          ].map(([label, value, mono, flex]) => (
+            <View key={String(label)} style={{ flex: Number(flex) }}>
+              <Text style={s.coverMetaLabel}>{label}</Text>
+              <Text style={mono ? T.data : s.coverMetaValue}>
+                {mono ? String(value) : trUpper(String(value || "—"))}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </BrandPage>
+  );
+}
+
 function CoverPage(props: ReportProps) {
   const {
     project,
@@ -1336,15 +1514,10 @@ function CoverPage(props: ReportProps) {
   const st = { ...DEFAULT_REPORT_SETTINGS, ...props.settings };
   const dateLabel = reportDateLabel(revision);
   const docCode = docCodeFor(project, revision);
-  const endCustomerMark = brandLogoFromBuffer(endCustomerLogo);
-  const endCustomerWidth = endCustomerMark ? Math.min(205, 52.5 / endCustomerMark.ratio) : 0;
   const reportName = reportNameFor(props.level);
   return (
-    // Künye ALTBİLGİNİN İÇİNDE: ayrı bir blok olarak akışın sonuna konduğunda
-    // künye ile sayfa altbilgisi arasında doldurulmamış bir şerit kalıyordu
-    // (altbilgi sayfanın en altına sabit, künye ise içeriğin bittiği yere).
-    <BrandPage
-      docLine={coverDocLineFor(revision, props.level)}
+    <SharedReportCover
+      footerDocLine={coverDocLineFor(revision, props.level)}
       docCode={docCode}
       company={{
         company: st.company,
@@ -1353,88 +1526,23 @@ function CoverPage(props: ReportProps) {
         email: st.email,
         web: st.web,
       }}
-    >
-      {/* Üst bant: lockup logo + sağda mono doküman kimliği (ekipman listesiyle ortak) */}
-      <BrandBand
-        docCode={docCode}
-        lines={[`REV ${String(revision.rev_no).padStart(2, "0")} · ${dateLabel}`]}
-        logoWidth={168}
-      />
-
-      {/* Seçili firma kimliği kapaktaki ayrılmış güvenli alana yerleşir. */}
-      <PartnerIdentityBlock partner={reportBrand} />
-
-      {/* Başlık bloğu */}
-      <View style={{ marginTop: reportBrand ? 20 : 84 }}>
-        <Text style={T.kicker}>ORION CRANES · {reportName}</Text>
-        <RuleRed width={22} />
-        {endCustomerMark ? (
-          <View style={{ marginTop: 8, height: 53, alignItems: "flex-start", justifyContent: "center" }}>
-            <Image
-              src={endCustomerMark.src}
-              style={{
-                width: endCustomerWidth,
-                height: endCustomerWidth * endCustomerMark.ratio,
-                objectFit: "contain",
-              }}
-            />
-          </View>
-        ) : null}
-        <Text style={{ ...T.display, marginTop: endCustomerMark ? 9 : 12 }}>
-          {project.name.toLocaleUpperCase("tr-TR")}
-        </Text>
-        {project.crane_location?.trim() ? (
-          <Text style={{ ...T.data, color: BRAND.gray600, marginTop: 5 }}>
-            VİNÇ YERİ · {project.crane_location.trim().toLocaleUpperCase("tr-TR")}
-          </Text>
-        ) : null}
-      </View>
-
-      {/* Künye: vinç tipi → kapasite → açıklık → kaldırma yüksekliği → FEM sınıfı */}
-      <View style={{ marginTop: 30, borderTopWidth: 1.4, borderTopColor: BRAND.ink }}>
-        {coverSpecs(input, project.crane_type).map((row) => (
-          <View key={row.label} style={s.specRow}>
-            <View>
-              <Text style={s.specLabel}>{row.label}</Text>
-            </View>
-            <Text style={s.specValue}>{reportRowUpper(row.value)}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Meta: müşteri / tarih / hazırlayan / kontrol / revizyon */}
-      <View style={{ marginTop: "auto" }}>
-        <View style={{ flexDirection: "row", gap: 14, marginBottom: 12 }}>
-          <View style={{ flex: 1.25 }}>
-            <Text style={s.coverMetaLabel}>MÜŞTERİ</Text>
-            <Text style={s.coverMetaValue}>{project.customer.toLocaleUpperCase("tr-TR")}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.coverMetaLabel}>TARİH</Text>
-            <Text style={{ ...T.data }}>{dateLabel}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.coverMetaLabel}>HAZIRLAYAN</Text>
-            <Text style={s.coverMetaValue}>
-              {(preparedBy ?? "—").toLocaleUpperCase("tr-TR")}
-            </Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.coverMetaLabel}>KONTROL</Text>
-            <Text style={s.coverMetaValue}>
-              {(checkedBy ?? "—").toLocaleUpperCase("tr-TR")}
-            </Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.coverMetaLabel}>REVİZYON</Text>
-            <Text style={{ ...T.data }}>
-              R{String(revision.rev_no).padStart(2, "0")}
-              {revision.label && revision.label !== `V${revision.rev_no}` ? ` · ${revision.label}` : ""}
-            </Text>
-          </View>
-        </View>
-      </View>
-    </BrandPage>
+      bandLines={[`REV ${String(revision.rev_no).padStart(2, "0")} · ${dateLabel}`]}
+      reportBrand={reportBrand}
+      endCustomerLogo={endCustomerLogo}
+      reportName={reportName}
+      projectName={project.name}
+      craneLocation={project.crane_location}
+      specs={reportCoverSpecs(input, project.crane_type)}
+      meta={{
+        customer: project.customer,
+        date: dateLabel,
+        preparedBy: preparedBy ?? "—",
+        checkedBy: checkedBy ?? "—",
+        revision: `R${String(revision.rev_no).padStart(2, "0")}${
+          revision.label && revision.label !== `V${revision.rev_no}` ? ` · ${revision.label}` : ""
+        }`,
+      }}
+    />
   );
 }
 

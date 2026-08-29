@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { writeFileSync } from "node:fs";
 import sharp from "sharp";
-import { PDFDocument, PDFName, type PDFDict } from "pdf-lib";
+import { PDFArray, PDFDocument, PDFName, type PDFDict } from "pdf-lib";
 import { renderEquipmentPdf, breakEquipmentModelCode } from "@/lib/pdf/equipment-report";
 import {
   buildEquipmentGroups,
@@ -37,11 +37,25 @@ describe("ekipman listesi PDF düzeni", () => {
     const pdf = await renderEquipmentPdf({
       meta: {
         docNo: "EQ-00", projectName: "Birleşik Liste", customer: "ORION",
-        revLabel: "V0", revNo: 0, date: "29.08.2026",
+        revLabel: "V0", revNo: 0, date: "29.08.2026", coverDate: "AĞUSTOS 2026",
+        preparedBy: "Sinan Çolakoğlu", checkedBy: "Sinan Çolakoğlu",
       },
       groups,
       sections,
       listTitle: "Tüm Ekipman Listesi",
+      partner: { name: "Karçel Ortak Firma", logo: BRAND_LOGO_INK },
+      endCustomerLogo: BRAND_LOGO_INK,
+      craneLocation: "Çelikhane şarj holü tesisi",
+      coverSpecs: [
+        { label: "VİNÇ TİPİ", value: "Şarj / Döküm Vinci" },
+        { label: "KAPASİTE", value: "185 t / 40 t" },
+        { label: "AÇIKLIK", value: "18,29 m" },
+        { label: "KALDIRMA YÜKSEKLİĞİ", value: "19,5 m" },
+        { label: "FEM SINIFI", value: "FEM 5M / ISO M8" },
+        { label: "YÜK GRUBU", value: "H4/B6" },
+        { label: "ÇELİK KONSTRÜKSİYON SINIFI", value: "A8" },
+        { label: "KANCA TİPİ", value: "Kaldırma Kirişi" },
+      ],
     });
     const { extractText, getDocumentProxy } = await import("unpdf");
     const doc = await getDocumentProxy(new Uint8Array(pdf));
@@ -51,6 +65,11 @@ describe("ekipman listesi PDF düzeni", () => {
     expect(content).toContain("TÜM EKİPMAN LİSTESİ");
     expect(content).toContain("MEKANİK EKİPMANLAR");
     expect(content).toContain("ELEKTRİK EKİPMANLARI");
+    const parsed = await PDFDocument.load(pdf, { updateMetadata: false });
+    const directoryLinks = parsed.getPage(1).node.lookupMaybe(PDFName.of("Annots"), PDFArray);
+    expect(directoryLinks?.size()).toBeGreaterThanOrEqual(2);
+    const previewOut = process.env.EQUIPMENT_COVER_OUT;
+    if (previewOut) writeFileSync(previewOut, pdf);
   }, 120_000);
 
   it("uzun katalog kodlarına satır kırma noktası ekler ve yatay PDF üretir", async () => {
@@ -309,12 +328,15 @@ describe("detaylı listenin ek sayfaları", () => {
     const dests = belge.context.lookup(
       (names as PDFDict).get(PDFName.of("Dests"))
     );
-    const agac = String(dests);
-    expect(agac.split("ek-belge-main-gearbox").length - 1).toBe(1);
+    const adlar = (dests as PDFDict).lookup(PDFName.of("Names"), PDFArray);
+    const hedefAdlari = Array.from({ length: adlar.size() / 2 }, (_, index) =>
+      String(adlar.get(index * 2))
+    );
+    expect(hedefAdlari.filter((ad) => ad.includes("ek-belge-main-gearbox"))).toHaveLength(1);
     // `id={undefined}` DE BİR HEDEFTİR: @react-pdf `'id' in props` diye bakar
     // ve tanımsız değeri "undefined" adlı bir hedef olarak yazar. Çapasız
     // kapak, alanı hiç taşımamalıdır.
-    expect(agac).not.toContain("undefined");
+    expect(hedefAdlari.join(" ")).not.toContain("undefined");
     // İki kapak da basılmış olmalı — çapa tekilleşirken sayfa kaybolmasın.
     expect(belge.getPageCount()).toBeGreaterThanOrEqual(3);
   }, 120_000);
@@ -329,7 +351,7 @@ describe("detaylı listenin ek sayfaları", () => {
  * başlığı kalıyor, tek bir satır bile basılmıyordu.
  *
  * Koşul DAR olduğu için tek bir fikstür yetmez — grup boyu taranır. Ölçüt
- * "kapaktan sonraki ilk içerik sayfasında en az bir EKİPMAN SATIRI var mı"dır;
+ * "dizin yaprağından sonraki ilk tablo sayfasında en az bir EKİPMAN SATIRI var mı"dır;
  * sayfa sayısı değil, çünkü
  * hata sayfa sayısını her zaman artırmıyordu.
  */
@@ -345,7 +367,7 @@ describe("ilk sayfa boş kalmaz", () => {
     }));
   }
 
-  it("grup boyu ne olursa olsun tablo kapaktan sonraki İLK içerik sayfasında başlar", async () => {
+  it("grup boyu ne olursa olsun tablo dizinden sonraki İLK sayfada başlar", async () => {
     const { extractText, getDocumentProxy } = await import("unpdf");
     const bos: number[] = [];
     // 6…22 satır: hatayı 16 ve 17 satırda üretiyordu (yatay A4, künyeli altbilgi).
@@ -362,8 +384,10 @@ describe("ilk sayfa boş kalmaz", () => {
       });
       const doc = await getDocumentProxy(new Uint8Array(pdf));
       const { text } = await extractText(doc, { mergePages: false });
-      const ilkIcerikSayfasi = (text as string[])[1].replace(/\s+/g, " ");
-      if (!ilkIcerikSayfasi.includes("EKİPMAN 1 ")) bos.push(n);
+      const sayfalar = text as string[];
+      expect(sayfalar[1].replace(/\s+/g, " ")).toContain("BÖLÜM DİZİNİ");
+      const ilkTabloSayfasi = sayfalar[2].replace(/\s+/g, " ");
+      if (!ilkTabloSayfasi.includes("EKİPMAN 1 ")) bos.push(n);
     }
     expect(bos, `boş ilk sayfa üreten grup boyları: ${bos.join(", ")}`).toEqual([]);
   }, 300_000);

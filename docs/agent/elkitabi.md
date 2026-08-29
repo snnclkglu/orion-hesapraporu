@@ -54,6 +54,12 @@ Ekran proje detayının **dördüncü sekmesidir** (Hesap Raporu · Elektrik Pro
 Teknik Resim Takibi · İşletme ve Bakım El Kitabı); editör hesap raporu
 editörünün yanında kendi adresindedir (`/projects/[id]/manual/[revId]`).
 
+**KAPAK BAŞLIĞI SNAPSHOT'TAN YA DA İŞ EMRİNDEN GELMEZ.** Hesap raporuyla aynı
+güncel `projects.name` alanı kullanılır. Eski projelerde saklanan
+`payload.coverTitle` yalnız geriye dönük yedektir; güncel proje adı varsa PDF
+ve kâğıt önizlemesi onu basar. Editörde alan salt okunur gösterilir ki kullanıcı
+teslim PDF'ini etkilemeyen eski bir başlığı düzenlediğini sanmasın.
+
 ## KITAP-4 — Standart metin bir ÖNTANIMDIR, bir kilit değil.
 
 Kullanıcı isteği (19.08.2026): *"bazı başlıkların standart yazı olduğu ama
@@ -178,10 +184,13 @@ yeniden dizmek sayfayı düzgün ama belgeyi YANLIŞ yapardı.
 bir tutam yer ister, yoksa okuyan başlığı bir yerde gövdesini başka yerde
 bulur.
 
-**KAPAK, İÇİNDEKİLER VE EK KAPAKLARI AKIŞA GİRMEZ.** Kapak belgenin kimliğidir
-(künye bloğu yine de iki sütunludur); içindekiler kendi iki sütununu kurar; ek
-kapakları KENDİ YAPRAKLARINDA kalmak zorundadır (`pdfEkleriYerlestir`
-sözleşmesi, KITAP-8).
+**KAPAK, İÇİNDEKİLER, BELGE KİMLİĞİ VE EK KAPAKLARI AKIŞA GİRMEZ.** Kapak
+hesap raporuyla aynı ortak bileşeni kullanır: son müşteri logosu, vinç
+özellikleri ve beşli alt künye aynı kaynaklardan gelir. İçindekiler kendi iki
+sütununu kurar. Eski revizyonların seri numarası/üretim yılı/üretici adresi
+kaybolmasın diye bunlar kapaktan ayrılan **Belge Kimliği** ön sayfasında
+korunur. Ek kapakları KENDİ YAPRAKLARINDA kalmak zorundadır
+(`pdfEkleriYerlestir` sözleşmesi, KITAP-8).
 
 **9. BÖLÜM TEK SÜTUN / TAM GENİŞLİKTİR** (kullanıcı kararı, 29.08.2026).
 Bakım ve yedek parça çizelgelerinin bulunduğu bu bölümde sayfa ortasındaki
@@ -208,12 +217,15 @@ ortalaması 1.456'dan **1.759**'a çıktı.
 1. **Başlık numarası sarınca son satıra düşüyordu.** `alignItems: "baseline"`
    iki satırlık bir başlıkta "2"yi ikinci satırın soluna indiriyordu.
    `flex-start` + başlığa `flex: 1`.
-2. **İçindekilerde SAYFA NUMARASI YOKTU.** Numara dağıtımın SONUCUNDAN
-   türetilir (`bolumSayfalari`) — önceden bilinemez, çünkü bir bölümün hangi
-   yaprağa düştüğü ancak bütün dağıtım bitince belli olur. Ekler gövdeden
-   sonra sırayla numaralanır.
-3. **Derin girdiler (4.8.3.1) numara kutusunu taşırıyordu**; numara ile başlık
-   üst üste biniyordu. Kutu 46 pt'ye çıktı, girinti üçüncü düzeyde durdu.
+2. **İçindekiler profesyonel bir navigasyon sayfasıdır.** İki kolonun ayrı
+   Bölüm/Sayfa başlığı vardır; ana bölümler sol kırmızı çizgili nötr bantla,
+   alt başlıklar kademeli numaralarla ayrılır. Eski uzayan lider çizgisi
+   kaldırıldı; uzun başlık esnerken sayfa numarası sağda sabit kalır. Her satır
+   gerçek PDF `GoTo` bağlantısıdır.
+3. **Sayfa numarası dağıtımın SONUCUNDAN türetilir** (`bolumSayfalari`) —
+   önceden bilinemez, çünkü bir bölümün hangi yaprağa düştüğü ancak bütün
+   dağıtım bitince belli olur. Kapak, bütün dizin yaprakları ve Belge Kimliği
+   sayfası ofsete katılır; ekler gövdeden sonra sırayla numaralanır.
 4. **Tam genişlik kararı SÜTUN SAYARAK veriliyordu** ("dörtten fazla sütun").
    Yanlış: hücreleri kısa beş sütunlu bir ekipman listesi yarım sütunda rahat
    okunuyor, tam genişlikte tek satırlık bir tablo koca bir yaprağı kaplıyor

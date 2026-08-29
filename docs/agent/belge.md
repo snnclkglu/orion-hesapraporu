@@ -169,19 +169,25 @@ fonksiyondan gelir — dosya adı ile belgenin içi ayrışamaz.
 ### Teknik Ressam Özeti — ressamın belgesi
 
 Ekipman listesi PDF'i `scope = "full"` iken bir EKİPMAN DÖKÜMÜ değil bir
-ÇİZİM PAKETİdir (kullanıcı isteği, 19.08.2026). Dört yaprak grubu, bu sırayla:
+ÇİZİM PAKETİdir (kullanıcı isteği, 19.08.2026). Beş yaprak grubu, bu sırayla:
 
-1. **Ortak Marka Kapağı** — ORION bandı, proje Rapor Firması logo+adı, proje
-   adı ve künye. Teknik özellik tablosu bölünemez olduğundan ortak kimlik bloğuyla
-   aynı yaprağa sıkıştırılmaz; aksi durumda tablo ikinci yaprağa bütünüyle
-   kaçar ve kapak niyeti olmayan yarı boş bir ilk sayfa kalır.
-2. **Teknik Özellikler** — hesap raporunun özet sayfasındaki tablonun
+1. **Ortak Marka Kapağı** — hesap raporuyla aynı bileşendir: ORION bandı,
+   Rapor Firması, son müşteri logosu, güncel proje adı, vinç yeri, vinç
+   özellikleri ve alttaki Müşteri/Tarih/Hazırlayan/Kontrol/Revizyon satırı.
+   Yatay A4'te vinç özellikleri iki eşit kolona bölünür.
+2. **Bölüm Dizini** — bütün ekipman gruplarını sıra numarası aralığıyla tek
+   yatay yaprakta verir. Grup sayısı arttığında iki kolona bölünür; her satır
+   PDF içi bağlantıyla tablo bandına gider.
+3. **Teknik Özellikler** — hesap raporunun özet sayfasındaki tablonun
    KENDİSİ. Veri `summarySpecsForReport`, çizen bileşen `FieldTable`; ikisi de
    `pdf/report.tsx`ten dışa açıktır. İkinci bir tablo yazılsaydı iki belge bir
    gün farklı alan basardı ve ressam hangisinin güncel olduğunu bilemezdi.
    Kapatılan bölümlerin alanları burada da düşer (`specFieldVisibleForModules`).
-3. **Ekipman Listesi** — bugünkü tablo, değişmedi.
-4. **Teknik Ressam Özeti** — ölçü çizelgeleri + şemalar + Notlar.
+4. **Ekipman Listesi** — bütün bölümlerde kesintisiz sıra numarası kullanır;
+   çift numaralı satırlar soluk gri zeminlidir. PDF, ekran ve Excel aynı
+   sırayı taşır. Ekipman/Marka/Özellikler alanları genişletilmiş, Ek
+   Özellikler daraltılmıştır; Ek Belge yalnız kompakt `EK` göstergesidir.
+5. **Teknik Ressam Özeti** — ölçü çizelgeleri + şemalar + Notlar.
 
 **HER GRUP AYRI BİR `BrandPage`TİR, `break` DEĞİL.** Ekipman tablosunun başlığı
 `fixed`tir ve aynı sayfa bileşeninin BÜTÜN yapraklarında tekrar eder; özet

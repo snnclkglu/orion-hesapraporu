@@ -33,7 +33,11 @@ import {
 import { collectCatalogSheetPages } from "@/lib/pdf/catalog-sheet-images";
 import { docCode, downloadFileName } from "@/lib/pdf/doc-naming";
 import { renderEquipmentPdf } from "@/lib/pdf/equipment-report";
-import { summarySpecsForReport } from "@/lib/pdf/report";
+import {
+  documentMonthLabel,
+  reportCoverSpecs,
+  summarySpecsForReport,
+} from "@/lib/pdf/report";
 import { pdfEkleriYerlestir } from "@/lib/pdf/merge";
 import { getReportSettings } from "@/lib/settings";
 import { loadDrawingNote } from "@/lib/equipment-drawing-note";
@@ -71,7 +75,7 @@ export async function GET(
 
   const { data: revision } = await supabase
     .from("revisions")
-    .select("id, project_id, rev_no, label, status, inputs, selections, created_by, issued_by")
+    .select("id, project_id, rev_no, label, status, inputs, selections, created_by, issued_by, issued_at, updated_at")
     .eq("id", revId)
     .eq("project_id", id)
     .single();
@@ -79,7 +83,7 @@ export async function GET(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("doc_no, name, customer, report_context, report_brand_customer_id, prepared_by, checked_by, checked_by_name")
+    .select("doc_no, name, customer, crane_type, crane_location, report_context, report_brand_customer_id, end_customer_id, prepared_by, checked_by, checked_by_name")
     .eq("id", id)
     .single();
   if (!project) return new Response("Proje bulunamadı", { status: 404 });
@@ -103,7 +107,11 @@ export async function GET(
   const [settings, coverIdentity] = await Promise.all([
     getReportSettings(supabase),
     format === "pdf"
-      ? loadReportCoverIdentity(supabase, project.report_brand_customer_id, null)
+      ? loadReportCoverIdentity(
+          supabase,
+          project.report_brand_customer_id,
+          project.end_customer_id
+        )
       : Promise.resolve(null),
   ]);
 
@@ -154,6 +162,7 @@ export async function GET(
     revLabel: revision.label ?? "",
     revNo: revision.rev_no,
     date: new Date().toLocaleDateString("tr-TR"),
+    coverDate: documentMonthLabel(revision.issued_at ?? revision.updated_at),
     preparedBy: nameOf(preparedById),
     checkedBy: project.checked_by_name?.trim() || nameOf(project.checked_by),
   };
@@ -255,6 +264,9 @@ export async function GET(
       sections,
       listTitle,
       partner: coverIdentity?.reportBrand ?? null,
+      endCustomerLogo: coverIdentity?.endCustomerLogo ?? null,
+      coverSpecs: reportCoverSpecs(calcInput, project.crane_type ?? ""),
+      craneLocation: project.crane_location,
       summary,
       specTable,
       settings,

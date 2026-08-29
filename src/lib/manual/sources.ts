@@ -16,6 +16,7 @@
 
 import { rollupBy } from "@/lib/electrical/rollup";
 import type { ElectricalPart, ElectricalSheet } from "@/lib/electrical/types";
+import type { ReportCoverSpec } from "@/lib/pdf/report";
 import type { ManualAutoSource, ManualTable } from "./types";
 
 /** Etiket-değer satırı — hesap raporundan gelen üç tablonun ortak şekli. */
@@ -45,6 +46,8 @@ export interface ManualDrawingRow {
 
 /** Çözücünün beslendiği bütün kaynaklar. Hepsi isteğe bağlıdır. */
 export interface ManualSourceData {
+  /** Hesap raporuyla aynı kaynaktan üretilen kapak özellikleri. */
+  coverSpecs?: ReportCoverSpec[];
   classes?: LabeledValue[];
   characteristics?: LabeledValue[];
   speeds?: LabeledValue[];

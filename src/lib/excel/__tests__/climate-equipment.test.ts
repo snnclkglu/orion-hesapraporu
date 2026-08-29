@@ -183,7 +183,7 @@ describe("kabin ve elektrik odası", () => {
       scope: "customer",
     });
     const sheet = workbook.getWorksheet("Ekipman Listesi");
-    const climateCell = sheet?.getColumn(3).values.find((value) => value === "VKS-VS");
+    const climateCell = sheet?.getColumn(4).values.find((value) => value === "VKS-VS");
 
     expect(climateCell).toBe("VKS-VS");
     expect(canLinkEquipmentModel("air_conditioner")).toBe(false);

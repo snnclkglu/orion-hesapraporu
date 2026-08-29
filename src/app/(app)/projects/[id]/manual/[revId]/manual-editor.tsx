@@ -159,6 +159,7 @@ export function ManualEditor({
   status,
   label,
   initialPayload,
+  projectTitle,
   sources,
   images,
   itemNo,
@@ -170,6 +171,7 @@ export function ManualEditor({
   status: "draft" | "issued";
   label: string;
   initialPayload: ManualPayload;
+  projectTitle: string;
   sources: ManualSourceData;
   images: ManualImageRow[];
   itemNo: string;
@@ -530,7 +532,7 @@ export function ManualEditor({
           <KunyeFormu
           identity={payload.identity}
           docTitle={payload.docTitle || MANUAL_DOC_TITLE}
-          coverTitle={payload.coverTitle}
+          coverTitle={projectTitle}
           etiket={etiket}
           readOnly={!yazilabilir}
           onEtiket={(v) => {
@@ -752,6 +754,7 @@ export function ManualEditor({
         {kagitAcik && (
           <KagitPaneli
             payload={payload}
+            projectTitle={projectTitle}
             sources={sources}
             gorseller={kagitGorselleri}
             docLine={`ORION CRANES · ${payload.docTitle || MANUAL_DOC_TITLE} · V${revNo} · ${new Date().getFullYear()}`}
@@ -816,6 +819,7 @@ function editorBolumDurumu(section: ManualSection): ManualFillState {
  */
 function KagitPaneli({
   payload,
+  projectTitle,
   sources,
   gorseller,
   docLine,
@@ -825,6 +829,7 @@ function KagitPaneli({
   className,
 }: {
   payload: ManualPayload;
+  projectTitle: string;
   sources: ManualSourceData;
   gorseller: ReadonlyMap<string, { url: string; oran: number }>;
   docLine: string;
@@ -866,6 +871,7 @@ function KagitPaneli({
       >
         <ManualPaper
           payload={payload}
+          projectTitle={projectTitle}
           sources={sources}
           gorseller={gorseller}
           docLine={docLine}
@@ -1684,10 +1690,10 @@ function KunyeFormu({
           onChange={(v) => onDoc("docTitle", v)}
         />
         <Alan
-          etiket="Kapak Başlığı"
+          etiket="Kapak Başlığı (Proje Adı)"
           deger={coverTitle}
-          readOnly={readOnly}
-          onChange={(v) => onDoc("coverTitle", v)}
+          readOnly
+          onChange={() => undefined}
         />
         <Alan etiket="Revizyon Etiketi" deger={etiket} readOnly={readOnly} onChange={onEtiket} />
         {KUNYE_ALANLARI.map((k) => (

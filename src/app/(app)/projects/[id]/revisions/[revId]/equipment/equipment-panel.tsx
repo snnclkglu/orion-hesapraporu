@@ -23,7 +23,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
-  BookOpen, ExternalLink, FileDown, FilePlus2, FileSpreadsheet, Link2, Loader2, Plus, Save, Trash2,
+  BookOpen, ExternalLink, FileDown, FilePlus2, FileSpreadsheet, Link2, Loader2, Paperclip, Plus, Save, Trash2,
 } from "lucide-react";
 import type { EqGroup, EquipmentExtraRow, SummarySection } from "@/lib/excel/equipment";
 import { rowDatasheetUrl, rowSheetUrl, summaryRowValue } from "@/lib/excel/equipment";
@@ -225,6 +225,16 @@ export function EquipmentPanel({
   const [noteState, setNoteState] = useState<"temiz" | "bekliyor" | "kaydedildi">("temiz");
 
   const visibleSections = useMemo(() => sectionsForPart(sections, part), [sections, part]);
+  const numberedVisibleSections = useMemo(() => {
+    let sequence = 0;
+    return visibleSections.map((section) => ({
+      ...section,
+      groups: section.groups.map((group) => ({
+        ...group,
+        rows: group.rows.map((row) => ({ row, number: ++sequence })),
+      })),
+    }));
+  }, [visibleSections]);
   const hasMechanical = visibleSections.some((section) => section.key === "mechanical");
   const listTitle = equipmentListTitle(visibleSections);
 
@@ -419,17 +429,19 @@ export function EquipmentPanel({
     return (
       <div className="grid gap-1">
         {list.map((a) => (
-          <span key={a.id} className="flex items-start gap-1">
-            <span className="min-w-0 flex-1 text-[11px] leading-tight break-words">
-              <span className="font-mono text-muted-foreground">{a.pageCount} sf</span>{" "}
-              <span title={a.fileName}>{a.fileName}</span>
-            </span>
+          <span
+            key={a.id}
+            title={`${a.fileName} · ${a.pageCount} sayfa`}
+            className="inline-flex w-fit items-center gap-1 rounded-md border bg-background px-1.5 py-1 text-[10px] text-muted-foreground"
+          >
+            <Paperclip className="size-3 shrink-0 text-primary" />
+            <span className="whitespace-nowrap">{a.pageCount} sf</span>
             <button
               type="button"
               disabled={busy}
               onClick={() => void removeAttachment(a)}
               aria-label={`${a.fileName} ekini kaldır`}
-              className="oc-tap-square inline-flex size-5 shrink-0 items-center justify-center rounded text-destructive hover:bg-destructive/10 disabled:opacity-40"
+              className="oc-tap-square -mr-1 inline-flex size-5 shrink-0 items-center justify-center rounded text-destructive hover:bg-destructive/10 disabled:opacity-40"
             >
               <Trash2 className="size-3" />
             </button>
@@ -439,13 +451,16 @@ export function EquipmentPanel({
             type="file">` düğmesi tarayıcıdan tarayıcıya değişir ve Türkçe
             metni yazdırılamaz. `label` hem hedefi 44px'e taşır hem metni
             uygulamanın diline getirir. */}
-        <label className="oc-tap inline-flex min-h-8 cursor-pointer items-center gap-1 text-[11px] text-primary hover:underline pointer-coarse:min-h-10">
+        <label
+          title="PDF ekle"
+          className="oc-tap inline-flex size-8 cursor-pointer items-center justify-center rounded-md border border-dashed text-primary hover:bg-primary/5 pointer-coarse:size-10"
+        >
           {busy ? (
             <Loader2 className="size-3 animate-spin" />
           ) : (
             <FilePlus2 className="size-3" />
           )}
-          {busy ? "Yükleniyor…" : "PDF ekle"}
+          <span className="sr-only">{busy ? "Yükleniyor…" : "PDF ekle"}</span>
           <input
             type="file"
             accept="application/pdf,.pdf"
@@ -676,29 +691,30 @@ export function EquipmentPanel({
             >
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[46%] md:w-[17%]">Ekipman</TableHead>
-                  <TableHead className="hidden md:table-cell md:w-[9%]">Marka</TableHead>
-                  <TableHead className="hidden md:table-cell md:w-[13%]">Model</TableHead>
-                  <TableHead className="hidden md:table-cell">Özellikler</TableHead>
-                  <TableHead className="w-[36%] md:w-[16%]">Ek Özellikler</TableHead>
+                  <TableHead className="hidden w-[4%] text-center md:table-cell">#</TableHead>
+                  <TableHead className="w-[50%] md:w-[20%]">Ekipman</TableHead>
+                  <TableHead className="hidden md:table-cell md:w-[11%]">Marka</TableHead>
+                  <TableHead className="hidden md:table-cell md:w-[12%]">Model</TableHead>
+                  <TableHead className="hidden md:table-cell md:w-[32%]">Özellikler</TableHead>
+                  <TableHead className="w-[34%] md:w-[11%]">Ek Özellikler</TableHead>
                   {/* Ek Belge YALNIZ lg üstünde kendi sütunudur; altında
                       denetim ekipman adının altına iner (sözleşme §7 —
                       ikinci bir kart markup'ı yazılmaz, aynı bileşen
                       kırılıma göre bir kez basılır). */}
-                  <TableHead className="hidden lg:table-cell lg:w-[13%]">Ek Belge</TableHead>
-                  <TableHead className="w-[18%] text-center md:w-[6%]">Adet</TableHead>
+                  <TableHead className="hidden text-center lg:table-cell lg:w-[5%]">Ek</TableHead>
+                  <TableHead className="w-[16%] text-center md:w-[5%]">Adet</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visibleSections.map((section) => (
+                {numberedVisibleSections.map((section) => (
                   <Fragment key={`section-${section.key}`}>
-                    {visibleSections.length > 1 && (
+                    {numberedVisibleSections.length > 1 && (
                       <TableRow
                         data-mobile-summary
                         className="bg-primary hover:bg-primary"
                       >
                         <TableCell
-                          colSpan={7}
+                          colSpan={8}
                           data-mobile-span="full"
                           data-mobile-hide-label
                           className="py-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary-foreground"
@@ -714,7 +730,7 @@ export function EquipmentPanel({
                       className="bg-primary/5 hover:bg-primary/5"
                     >
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         data-mobile-span="full"
                         data-mobile-hide-label
                         className="py-1.5 text-xs font-semibold uppercase tracking-wide text-primary"
@@ -722,13 +738,25 @@ export function EquipmentPanel({
                         {g.name}
                       </TableCell>
                     </TableRow>
-                    {g.rows.map((r, i) => (
-                      <TableRow key={`${g.name}-${i}`} className="align-top">
+                    {g.rows.map(({ row: r, number }, i) => (
+                      <TableRow
+                        key={`${g.name}-${i}`}
+                        className={number % 2 === 0 ? "align-top bg-muted/25 hover:bg-muted/35" : "align-top"}
+                      >
+                        <TableCell
+                          data-label="Sıra"
+                          className="hidden text-center text-xs tabular-nums text-muted-foreground md:table-cell"
+                        >
+                          {number}
+                        </TableCell>
                         <TableCell
                           data-label="Ekipman"
                           data-mobile-span="full"
                           className="font-medium break-words whitespace-normal"
                         >
+                          <span className="mr-1 inline-flex rounded bg-primary/10 px-1 py-0.5 text-[10px] tabular-nums text-primary md:hidden">
+                            #{number}
+                          </span>
                           <ComponentCell row={r} />
                           {/* Mobilde gizlenen sütunların kritik bilgisi burada;
                               model bağlantısı da korunur. */}

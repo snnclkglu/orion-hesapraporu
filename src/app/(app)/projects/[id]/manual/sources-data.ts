@@ -29,7 +29,7 @@ import {
   type RevisionInputsJson,
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
-import { fieldShownValue, technicalSpecsForReport } from "@/lib/pdf/report";
+import { fieldShownValue, reportCoverSpecs, technicalSpecsForReport } from "@/lib/pdf/report";
 import { buildEquipmentGroups } from "@/lib/excel/equipment";
 import {
   loadCurrentElectricalDoc,
@@ -125,6 +125,11 @@ export async function buildManualSourceData(
   projectId: string
 ): Promise<ManualSourceData> {
   const veri: ManualSourceData = {};
+  const { data: proje } = await supabase
+    .from("projects")
+    .select("doc_no, crane_type")
+    .eq("id", projectId)
+    .maybeSingle();
 
   // ————————————————————————————————————————————————— hesap raporu
   const { data: revizyonlar } = await supabase
@@ -145,6 +150,7 @@ export async function buildManualSourceData(
     // Yine de çağrılır çünkü motor eksik girdiyi burada yakalar ve boş bir
     // tablo, hatalı bir tablodan iyidir.
     runCalc(calcInput);
+    veri.coverSpecs = reportCoverSpecs(calcInput, String(proje?.crane_type ?? ""));
 
     // Raporla AYNI sıralı ve zenginleştirilmiş belge yüzü: kaldırma donanımı
     // hücresi halat donanımını da taşır (örn. “Çift Tambur - 4/16”).
@@ -178,11 +184,6 @@ export async function buildManualSourceData(
   }
 
   // ————————————————————————————————————————— Teknik Resim Takibi
-  const { data: proje } = await supabase
-    .from("projects")
-    .select("doc_no")
-    .eq("id", projectId)
-    .maybeSingle();
   const itemNo = await resolveProjectItemNo(supabase, projectId, String(proje?.doc_no ?? ""));
   const plan = await loadDrawingPlan(supabase, projectId);
   veri.drawings = plan.map((r) => ({

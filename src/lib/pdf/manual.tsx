@@ -22,7 +22,6 @@ import {
   BrandPage,
   CheckGlyph,
   FONTS,
-  PartnerIdentityBlock,
   RuleRed,
   T,
   brandLogoFromBuffer,
@@ -32,6 +31,11 @@ import {
   type CompanyInfo,
   type PartnerBrandIdentity,
 } from "./brand";
+import {
+  SharedReportCover,
+  type ReportCoverMeta,
+  type ReportCoverSpec,
+} from "./report";
 import {
   flattenManual,
   numberManual,
@@ -65,6 +69,7 @@ import {
   type ManualPayload,
   type ManualTable,
 } from "@/lib/manual/types";
+import { MANUAL_DOC_TITLE } from "@/lib/manual/naming";
 
 void CheckGlyph;
 
@@ -82,6 +87,12 @@ export interface ManualPdfProps {
   images: readonly ManualImageAsset[];
   /** Proje düzeyinde seçilen; ORION ile birlikte belgeyi hazırlayan partner. */
   partner?: PartnerBrandIdentity | null;
+  /** Güncel proje adı; eski revizyon snapshot'ındaki başlığın yerini alır. */
+  projectTitle?: string;
+  craneLocation?: string;
+  coverSpecs?: readonly ReportCoverSpec[];
+  endCustomerLogo?: Buffer | null;
+  coverMeta?: ReportCoverMeta;
   /** `ORC-BK-0019-00-R01` */
   docCode: string;
   /** Altbilgi sol satırı. */
@@ -167,14 +178,55 @@ const s = StyleSheet.create({
 
   icindekilerSatir: {
     flexDirection: "row",
-    minHeight: 15,
+    minHeight: 16.5,
     paddingVertical: 2.5,
+    paddingHorizontal: 4,
     borderBottomWidth: 0.35,
     borderBottomColor: BRAND.hairline,
-    alignItems: "flex-start",
+    alignItems: "center",
     textDecoration: "none",
     color: BRAND.ink,
   },
+  icindekilerAnaSatir: {
+    backgroundColor: BRAND.paper150,
+    borderLeftWidth: 2.5,
+    borderLeftColor: BRAND.red,
+    paddingLeft: 6,
+  },
+  icindekilerKicker: {
+    fontFamily: FONTS.mono,
+    fontSize: 7,
+    letterSpacing: 1.5,
+    color: BRAND.red,
+  },
+  icindekilerBaslik: { fontSize: 22, fontWeight: 800, marginTop: 5 },
+  icindekilerAciklama: {
+    fontSize: 8,
+    lineHeight: 1.4,
+    color: BRAND.gray600,
+    marginTop: 5,
+    marginBottom: 12,
+    maxWidth: 350,
+  },
+  dizinKolBaslik: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1.1,
+    borderTopColor: BRAND.ink,
+    borderBottomWidth: 0.5,
+    borderBottomColor: BRAND.line350,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    marginBottom: 2,
+  },
+  dizinKolBaslikMetin: {
+    fontSize: 6.5,
+    fontWeight: 700,
+    letterSpacing: 0.9,
+    color: BRAND.gray600,
+  },
+  dizinNo: { width: 46, fontSize: 7.2, fontFamily: FONTS.mono, color: BRAND.red },
+  dizinBaslik: { flex: 1, fontSize: 7.2, lineHeight: 1.2 },
   dizinSayfa: { width: 24, fontSize: 7.5, textAlign: "right", fontFamily: FONTS.mono },
   ekKapakBaslik: { fontSize: 18, fontWeight: 800, marginTop: mm(30) },
 
@@ -199,6 +251,11 @@ export function ManualPdf({
   sources,
   images,
   partner,
+  projectTitle,
+  craneLocation,
+  coverSpecs = [],
+  endCustomerLogo,
+  coverMeta,
   docCode,
   docLine,
   company,
@@ -208,6 +265,8 @@ export function ManualPdf({
   deferFolio = false,
 }: ManualPdfProps) {
   const basilan = printedManual(payload);
+  const effectiveProjectTitle = projectTitle?.trim() || payload.coverTitle || payload.identity.product;
+  const effectiveDocTitle = payload.docTitle.trim() || MANUAL_DOC_TITLE;
   const numarali = numberManual(basilan.sections);
   const dahilEkler = new Set(includedAppendices);
   const gorseller = new Map(images.map((g) => [g.id, g]));
@@ -287,7 +346,10 @@ export function ManualPdf({
   const dizinSayfalari = Array.from({ length: dizinSayfaSayisi }, (_, i) =>
     duz.slice(i * dengeliDizinKapasitesi, (i + 1) * dengeliDizinKapasitesi)
   );
-  const govdeOfset = 1 + dizinSayfalari.length;
+  // Künye, eski revizyonlarda bulunabilen seri numarası ve üretici adresini
+  // kaybetmemek için kapaktan sonra ayrı bir ön sayfa olarak her zaman korunur.
+  const kimlikSayfasiVar = true;
+  const govdeOfset = 1 + dizinSayfalari.length + (kimlikSayfasiVar ? 1 : 0);
   const sayfaNo = bolumSayfalari(sayfalar, govdeOfset);
   const ekKapsayiciSayfa = govdeOfset + sayfalar.length + 1;
   const ekIlkSayfa = ekKapsayici && ekKapaklari.length > 0
@@ -334,77 +396,30 @@ export function ManualPdf({
 
   return (
     <Document
-      title={`${payload.docTitle} — ${payload.coverTitle}`}
+      title={`${effectiveDocTitle} — ${effectiveProjectTitle}`}
       author="ORION Cranes"
-      subject={payload.coverTitle}
+      subject={effectiveProjectTitle}
     >
-      {/* KAPAK TEK SÜTUNDUR ve bu bir istisna değil bir tanımdır: kapak
-          okunacak bir metin değil, belgenin kimliğidir. Künye bloğu ise iki
-          sütuna geçer — on bir kısa satır tek sütunda sayfanın yarısını boş
-          bırakıyordu. */}
-      <BrandPage docLine={docLine} docCode={docCode} company={company} sectionLabel="K" hidePageNumber={deferFolio}>
-        {/* Hesap raporu kapağıyla aynı ortak kimlik sırası: ORION marka bandı,
-            altında seçili partnerin logosu ve adı. El kitabına önceden elle
-            yüklenmiş ek logolar üst bantta geriye dönük olarak korunur. */}
-        {ustBant(false)}
-        <PartnerIdentityBlock partner={partner} />
-        <Text
-          style={[
-            s.kapakBaslik,
-            partner
-              ? { marginTop: kapakGorseli ? mm(8) : mm(18) }
-              : kapakGorseli
-                ? { marginTop: mm(12) }
-                : {},
-          ]}
-        >
-          {trUpper(payload.coverTitle || payload.identity.product)}
-        </Text>
-        <Text style={s.kapakAlt}>{trUpper(payload.docTitle)}</Text>
-        {/* Kural çizgisi başlığa YAPIŞIYORDU (ölçüldü, kapak): `RuleRed`in
-            kendi payı yok, çağıran verir. */}
-        <View style={{ marginTop: 8 }}>
-          <RuleRed width={64} />
-        </View>
-        <Text
-          style={{
-            marginTop: 7,
-            fontFamily: FONTS.mono,
-            fontSize: 7.5,
-            letterSpacing: 0.8,
-            color: BRAND.gray600,
-          }}
-        >
-          OPERATÖR GÜVENLİĞİ · KULLANIM · BAKIM · MUAYENE
-        </Text>
-        <Text style={s.kapakDoc}>{docCode}</Text>
-
-        {kapakGorseli ? <KapakGorseli image={kapakGorseli} /> : null}
-
-        {kunyeSatirlari.length > 0 && (
-          <View style={{ marginTop: kapakGorseli ? mm(8) : mm(16) }} wrap={false}>
-            <Text style={T.kicker}>GENEL BİLGİLER</Text>
-            <View>
-              {kunyeSatirlari.map(([e, d]) => (
-                <KunyeSatiri key={e} etiket={e} deger={d} />
-              ))}
-            </View>
-          </View>
-        )}
-
-        {kunye.manufacturerAddress.trim() && (
-          <View style={{ marginTop: mm(8) }}>
-            <Text style={T.kicker}>ÜRETİCİ BİLGİLERİ</Text>
-            <Text style={[s.p, { marginTop: 3 }]}>{kunye.manufacturerAddress}</Text>
-          </View>
-        )}
-
-        {kunye.copyright.trim() && (
-          <Text style={[s.p, { marginTop: mm(6), fontSize: 7, color: BRAND.gray600 }]}>
-            {kunye.copyright}
-          </Text>
-        )}
-      </BrandPage>
+      <SharedReportCover
+        footerDocLine={docLine}
+        docCode={docCode}
+        company={company}
+        bandLines={bandLines ?? []}
+        reportBrand={partner}
+        endCustomerLogo={endCustomerLogo}
+        reportName={effectiveDocTitle}
+        projectName={effectiveProjectTitle}
+        craneLocation={craneLocation}
+        specs={coverSpecs}
+        meta={coverMeta ?? {
+          customer: kunye.customer,
+          date: kunye.revisedOn || kunye.preparedOn,
+          preparedBy: "—",
+          checkedBy: "—",
+          revision: kunye.customerRevision,
+        }}
+        hidePageNumber={deferFolio}
+      />
 
       {/* İÇİNDEKİLER DE İKİ SÜTUNDUR: elli kısa satır tek sütunda iki yaprak
           ederdi. Dizin ÖNCE SOL sütunu doldurup sonra sağa geçer — okuyan bir
@@ -420,12 +435,21 @@ export function ManualPdf({
           hidePageNumber={deferFolio}
           repeatedHeader={ustBant(true, true)}
         >
-          <Text style={s.h1}>
+          <Text style={s.icindekilerKicker}>BELGE NAVİGASYONU</Text>
+          <Text style={s.icindekilerBaslik}>
             İÇİNDEKİLER{dizinSayfalari.length > 1 ? ` · ${dizinSayfaIndisi + 1}` : ""}
+          </Text>
+          <Text style={s.icindekilerAciklama}>
+            Bölüm adına tıklayarak ilgili sayfaya geçebilirsiniz. Ana bölümler kırmızı çizgiyle,
+            alt başlıklar kademeli numaralandırmayla ayrılmıştır.
           </Text>
           <IkiSutun>
             {[dizinBolumu.slice(0, dizinYarim), dizinBolumu.slice(dizinYarim)].map((kol, ki) => (
               <View style={s.sutun} key={ki}>
+                <View style={s.dizinKolBaslik}>
+                  <Text style={s.dizinKolBaslikMetin}>BÖLÜM</Text>
+                  <Text style={s.dizinKolBaslikMetin}>SAYFA</Text>
+                </View>
                 {kol.map((b) => {
                   // EK BÖLÜMLERİ GÖVDEDEN SONRA gelir ve sırayla numaralanır;
                   // her ek kapağı kendi yaprağındadır (KITAP-8 sözleşmesi).
@@ -443,38 +467,31 @@ export function ManualPdf({
                       ? ekIlkSayfa - 1
                       : (sayfaNo.get(b.id) ?? null);
                   return (
-                    <Link key={b.id} src={`#manual-${b.id}`} style={s.icindekilerSatir}>
-                      {/* NUMARA KUTUSU EN DERİN GİRDİYE GÖRE ölçülür:
-                          "4.8.3.1" 7,5 punto mono ile 31,5 pt tutar ve girinti
-                          onu 36 pt'lik bir kutudan taşırıyordu — numara ile
-                          başlık üst üste biniyordu (ölçüldü, içindekiler).
-                          Girinti de ÜÇÜNCÜ düzeyde durur; daha derinde
-                          numaranın kendisi zaten derinliği söylüyor. */}
+                    <Link
+                      key={b.id}
+                      src={`#manual-${b.id}`}
+                      wrap={false}
+                      style={[
+                        s.icindekilerSatir,
+                        b.depth === 1 ? s.icindekilerAnaSatir : {},
+                      ]}
+                    >
                       <Text
                         style={[
-                          s.numara,
+                          s.dizinNo,
                           {
-                            width: 42,
-                            fontSize: 7.5,
-                            paddingLeft: (Math.min(b.depth, 3) - 1) * 5,
+                            paddingLeft: b.depth === 1 ? 0 : (Math.min(b.depth, 3) - 1) * 5,
+                            fontWeight: b.depth === 1 ? 700 : 400,
                           },
                         ]}
                       >
                         {b.number}
                       </Text>
-                      {/* BAŞLIK ESNER, NUMARALAR SABİT: derin bir başlık
-                          (4.8.3.1) uzun adıyla birlikte sütunu taşırıyordu.
-                          `flex: 1` ile sarar, sayfa numarası sağda kalır. */}
                       <Text
-                        style={{
-                          flex: 1,
-                          fontSize: 7.5,
-                          fontWeight: b.depth === 1 ? 700 : 400,
-                        }}
+                        style={[s.dizinBaslik, { fontWeight: b.depth === 1 ? 700 : 400 }]}
                       >
                         {b.title}
                       </Text>
-                      <View style={{ flex: 1, borderBottomWidth: 0.35, borderBottomColor: BRAND.line300, marginHorizontal: 4, marginTop: 7 }} />
                       <Text style={[s.dizinSayfa, { color: BRAND.gray600 }]}>{no ?? ""}</Text>
                     </Link>
                   );
@@ -485,6 +502,51 @@ export function ManualPdf({
         </BrandPage>
         );
       })}
+
+      {/* Eski kılavuzlardan gelen seri numarası, üretim yılı ve üretici adresi
+          kapak hiyerarşisini kalabalıklaştırmadan bu ön sayfada korunur. */}
+      {kimlikSayfasiVar ? (
+        <BrandPage
+          docLine={docLine}
+          docCode={docCode}
+          company={company}
+          sectionLabel="KİM"
+          hidePageNumber={deferFolio}
+        >
+          {ustBant()}
+          <Text style={s.icindekilerKicker}>PROJE VE ÜRÜN KAYDI</Text>
+          <Text style={s.h1}>BELGE KİMLİĞİ</Text>
+          <Text style={[s.p, { color: BRAND.gray600, maxWidth: 380, marginBottom: 12 }]}>
+            Bu sayfa, proje kapağındaki özet bilgileri tamamlayan üretim ve doküman kaydını içerir.
+          </Text>
+
+          {kapakGorseli ? <KapakGorseli image={kapakGorseli} /> : null}
+
+          {kunyeSatirlari.length > 0 ? (
+            <View style={{ marginTop: kapakGorseli ? mm(8) : mm(5) }} wrap={false}>
+              <Text style={T.kicker}>GENEL BİLGİLER</Text>
+              <View>
+                {kunyeSatirlari.map(([e, d]) => (
+                  <KunyeSatiri key={e} etiket={e} deger={d} />
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {kunye.manufacturerAddress.trim() ? (
+            <View style={{ marginTop: mm(8) }}>
+              <Text style={T.kicker}>ÜRETİCİ BİLGİLERİ</Text>
+              <Text style={[s.p, { marginTop: 3 }]}>{kunye.manufacturerAddress}</Text>
+            </View>
+          ) : null}
+
+          {kunye.copyright.trim() ? (
+            <Text style={[s.p, { marginTop: mm(6), fontSize: 7, color: BRAND.gray600 }]}>
+              {kunye.copyright}
+            </Text>
+          ) : null}
+        </BrandPage>
+      ) : null}
 
       {/* GÖVDE — her sayfa çekirdeğin verdiği bantlardan çizilir. */}
       {govdeSayfalari.map(({ sayfa, sectionLabel }, si) => (

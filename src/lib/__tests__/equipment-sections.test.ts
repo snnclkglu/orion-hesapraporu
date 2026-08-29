@@ -124,16 +124,16 @@ describe("mekanik + elektrik ekipman bölümleri", () => {
     let technicalHref: unknown;
     let catalogHref: unknown;
     sheet.eachRow((row) => {
-      const component = row.getCell(1).value;
+      const component = row.getCell(2).value;
       if (
         typeof component === "object" && component !== null && "text" in component &&
         component.text === MATERIALS[0].designation
       ) {
         technicalHref = (component as { hyperlink?: string }).hyperlink;
-        catalogHref = (row.getCell(3).value as { hyperlink?: string }).hyperlink;
+        catalogHref = (row.getCell(4).value as { hyperlink?: string }).hyperlink;
       }
-      if (row.getCell(1).value === MATERIALS[1].designation) {
-        unknownQty = row.getCell(7).value;
+      if (row.getCell(2).value === MATERIALS[1].designation) {
+        unknownQty = row.getCell(8).value;
       }
     });
     expect(technicalHref).toBe("https://orion.example/api/electrical-catalog/foy-1");

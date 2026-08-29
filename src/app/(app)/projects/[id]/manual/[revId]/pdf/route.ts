@@ -40,6 +40,7 @@ import { buildElectricalCatalogAppendix } from "@/lib/electrical/catalog-appendi
 import { SPEC_BUCKET, loadCurrentSpec } from "@/lib/project-specs";
 import { resolveProjectItemNo } from "@/lib/drawing-plan-data";
 import { loadReportCoverIdentity } from "@/lib/report-cover-identity-server";
+import { documentMonthLabel } from "@/lib/pdf/report";
 import { buildManualSourceData } from "../../sources-data";
 
 export const runtime = "nodejs";
@@ -61,7 +62,7 @@ export async function GET(
 
   const { data: proje } = await supabase
     .from("projects")
-    .select("id, doc_no, name, customer, report_brand_customer_id")
+    .select("id, doc_no, name, customer, crane_location, report_brand_customer_id, end_customer_id, prepared_by, checked_by, checked_by_name")
     .eq("id", id)
     .maybeSingle();
   if (!proje) return new Response("Proje bulunamadı", { status: 404 });
@@ -72,12 +73,26 @@ export async function GET(
     return new Response("El kitabı bulunamadı", { status: 404 });
   }
 
+  const signatoryIds = [proje.prepared_by, proje.checked_by].filter(
+    (value): value is string => Boolean(value)
+  );
+  const { data: signatoryProfiles } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", signatoryIds);
+  const nameOf = (id: string | null | undefined) =>
+    (signatoryProfiles ?? []).find((profile) => profile.id === id)?.full_name || "";
+
   const [kaynaklar, gorselKayitlari, itemNo, ayarlar, coverIdentity] = await Promise.all([
     buildManualSourceData(supabase, id),
     loadManualImages(supabase, revId),
     resolveProjectItemNo(supabase, id, String(proje.doc_no ?? "")),
     getReportSettings(supabase),
-    loadReportCoverIdentity(supabase, proje.report_brand_customer_id, null),
+    loadReportCoverIdentity(
+      supabase,
+      proje.report_brand_customer_id,
+      proje.end_customer_id
+    ),
   ]);
 
   // GÖRSEL BAYTLARI PDF'E GİRER, imzalı bağlantı değil: react-pdf sunucuda
@@ -157,6 +172,17 @@ export async function GET(
       sources: kaynaklar,
       images: gorseller,
       partner: coverIdentity.reportBrand,
+      projectTitle: String(proje.name ?? ""),
+      craneLocation: String(proje.crane_location ?? ""),
+      coverSpecs: kaynaklar.coverSpecs,
+      endCustomerLogo: coverIdentity.endCustomerLogo,
+      coverMeta: {
+        customer: String(proje.customer ?? ""),
+        date: documentMonthLabel(revizyon.row.issuedAt ?? revizyon.row.createdAt),
+        preparedBy: nameOf(proje.prepared_by) || revizyon.row.createdByName || "—",
+        checkedBy: String(proje.checked_by_name ?? "").trim() || nameOf(proje.checked_by) || "—",
+        revision: `R${String(revizyon.row.revNo).padStart(2, "0")}`,
+      },
       docCode: belgeKodu,
       docLine,
       // Künye HESAP RAPORUYLA AYNI ALANLARDAN kurulur (`pdf/report.tsx`):

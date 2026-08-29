@@ -98,6 +98,7 @@ export default async function ManualEditorPage({
         status={revizyon.row.status}
         label={revizyon.row.label}
         initialPayload={revizyon.payload}
+        projectTitle={String(project.name ?? "")}
         sources={kaynaklar}
         images={gorseller}
         itemNo={itemNo || String(project.doc_no ?? "")}

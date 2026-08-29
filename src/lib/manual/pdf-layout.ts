@@ -64,9 +64,11 @@ export const MANUAL_GOVDE_YUKSEKLIK = ICERIK_YUKSEKLIK - MANUAL_UST_BANT_AKIS;
  * PDF ile tarayıcı önizlemesi aynı ofseti kullanmalıdır; bu sayı iki tarafta
  * ayrı yazılırsa editörde görülen sayfa numarası teslim PDF'inden bir yaprak
  * sapar. 70 satır, gövde dizininde sütun başına 35 kısa satıra karşılık
- * gelir; uzun başlıkların sarma payıyla birlikte A4 içerik alanında sınanır.
+ * gelir. Yeni dizin satırları 18 pt taban yüksekliğinde ve ana bölümler bantlı
+ * olduğundan, uzun başlıkların sarma payı için sütun başına en çok 32 satır
+ * kullanılır. Standart kılavuz dizini böylece tek yaprakta kalır.
  */
-export const MANUAL_DIZIN_SAYFA_KAPASITESI = 70;
+export const MANUAL_DIZIN_SAYFA_KAPASITESI = 64;
 
 /** Sütunlar arası oluk — teklifle aynı gerekçe (bkz. `offers/pdf-layout.ts`). */
 export const SUTUN_BOSLUK = 18;

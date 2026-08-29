@@ -73,6 +73,7 @@ export default function ManualPreviewPage() {
           status="draft"
           label="Ön Tasarım"
           initialPayload={payload}
+          projectTitle="185/40 T X 18,28 M KAPASİTELİ DÖRT KİRİŞLİ KÖPRÜLÜ ŞARJ VİNCİ"
           sources={SOURCES}
           images={[]}
           itemNo="0019-00"

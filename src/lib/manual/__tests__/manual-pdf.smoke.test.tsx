@@ -30,6 +30,7 @@ describe("ManualPdf smoke", () => {
     ];
     payload.partnerLogos = { centerImageId: "ortak-center", rightImageId: "ortak-right" };
     payload.coverImageId = "cover-image";
+    payload.coverTitle = "ESKİ İŞ EMRİ BAŞLIĞI";
 
     const bytes = await renderToBuffer(
       ManualPdf({
@@ -53,6 +54,26 @@ describe("ManualPdf smoke", () => {
         },
         images,
         partner: { name: "Karçel Ortak Firma", logo: logoBytes },
+        projectTitle: "185/40 T X 18,28 M KAPASİTELİ DÖRT KİRİŞLİ KÖPRÜLÜ ŞARJ VİNCİ",
+        craneLocation: "Çelikhane şarj holü tesisi",
+        endCustomerLogo: logoBytes,
+        coverSpecs: [
+          { label: "VİNÇ TİPİ", value: "Şarj / Döküm Vinci" },
+          { label: "KAPASİTE", value: "185 t / 40 t" },
+          { label: "AÇIKLIK", value: "18,29 m" },
+          { label: "KALDIRMA YÜKSEKLİĞİ", value: "19,5 m" },
+          { label: "FEM SINIFI", value: "FEM 5M / ISO M8" },
+          { label: "YÜK GRUBU", value: "H4/B6" },
+          { label: "ÇELİK KONSTRÜKSİYON SINIFI", value: "A8" },
+          { label: "KANCA TİPİ", value: "Kaldırma Kirişi" },
+        ],
+        coverMeta: {
+          customer: "Kardemir A.Ş.",
+          date: "AĞUSTOS 2026",
+          preparedBy: "Sinan Çolakoğlu",
+          checkedBy: "Sinan Çolakoğlu",
+          revision: "R01",
+        },
         docCode: "ORC-BK-0019-00-R01",
         docLine: "ORION CRANES · İŞLETME VE BAKIM EL KİTABI · V1 · 2026",
         company: { company: "ORION CRANES", address: "ANKARA · TÜRKİYE", web: "orioncranes.com" },
@@ -67,6 +88,8 @@ describe("ManualPdf smoke", () => {
     const textDocument = await getDocumentProxy(new Uint8Array(bytes));
     const { text } = await extractText(textDocument, { mergePages: true });
     expect(String(text)).toContain("KARÇEL ORTAK FİRMA");
+    expect(String(text)).toContain("185/40 T X 18,28 M KAPASİTELİ");
+    expect(String(text)).not.toContain("ESKİ İŞ EMRİ BAŞLIĞI");
     expect(String(text).toLocaleUpperCase("tr-TR")).not.toContain("PARTNER");
     const pdf = await PDFDocument.load(bytes, { updateMetadata: false });
     // Gövde çıktısı boş EK kapsayıcısı ve yedi ayraç kapağı taşımaz. 180

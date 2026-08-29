@@ -1386,10 +1386,10 @@ function writeEquipmentSheet(
   /** Bant başlığı — bölüm seçildiyse belgenin adı onu söyler. */
   bandTitle = "EKİPMAN LİSTESİ"
 ): number {
-  // Sütunlar: Ekipman · Marka · Model · Özellikler · Ek Özellikler · Ek Belge · Adet
-  const COL_COUNT = 7;
-  const QTY_COL = 7;
-  const ATTACH_COL = 6;
+  // Sütunlar: # · Ekipman · Marka · Model · Özellikler · Ek Özellikler · Ek Belge · Adet
+  const COL_COUNT = 8;
+  const QTY_COL = 8;
+  const ATTACH_COL = 7;
   let headerRowNo = writeBand(ws, bandTitle, meta, COL_COUNT);
 
   if (mainDrawingUrl) {
@@ -1407,7 +1407,7 @@ function writeEquipmentSheet(
   // çıktıların başlığıdır; müşteri belgesi kömür zeminli, çerçeveli ve adet
   // sütunu sağa dayalı başlık taşır.
   const header = ws.getRow(headerRowNo);
-  ["Ekipman", "Marka", "Model", "Özellikler", "Ek Özellikler", "Ek Belge", "Adet"].forEach((h, i) => {
+  ["#", "Ekipman", "Marka", "Model", "Özellikler", "Ek Özellikler", "Ek Belge", "Adet"].forEach((h, i) => {
     const cell = header.getCell(i + 1);
     cell.value = h;
     cell.font = { name: TITLE_FONT, bold: true, color: { argb: PAPER } };
@@ -1468,33 +1468,40 @@ function writeEquipmentSheet(
 
       group.rows.forEach((r) => {
         const row = ws.getRow(rowNo);
+      const sequence = componentCount + 1;
+      row.getCell(1).value = sequence;
+      row.getCell(1).font = { name: MONO_FONT, color: { argb: MUTED_GRAY } };
       // Ekipman adı: katalog sayfası varsa müşteriye açık görüntüleyiciye köprü.
       // Excel dosyası uygulamanın dışında açıldığı için adres MUTLAKTIR.
       const sheetUrl = rowSheetUrl(r, sheetUrls);
       if (sheetUrl) {
-        row.getCell(1).value = { text: r.component, hyperlink: sheetUrl };
-        row.getCell(1).font = HYPERLINK_FONT;
+        row.getCell(2).value = { text: r.component, hyperlink: sheetUrl };
+        row.getCell(2).font = HYPERLINK_FONT;
       } else {
-        row.getCell(1).value = r.component;
+        row.getCell(2).value = r.component;
       }
-      row.getCell(2).value = r.brand;
+      row.getCell(3).value = r.brand;
       // Model hücresi: üreticinin teknik föyü varsa köprüle. Anahtar KATALOG
       // kimliğidir, görünen model değil (bkz. `rowDatasheetUrl`). Klima
       // satırlarında website bağlantısı müşteri çıktılarında gösterilmez.
       const url = rowDatasheetUrl(r, datasheetUrls);
       if (url && r.model && r.model !== "-") {
-        row.getCell(3).value = { text: r.model, hyperlink: url };
-        row.getCell(3).font = HYPERLINK_FONT;
+        row.getCell(4).value = { text: r.model, hyperlink: url };
+        row.getCell(4).font = HYPERLINK_FONT;
       } else {
-        row.getCell(3).value = r.model;
+        row.getCell(4).value = r.model;
       }
-      row.getCell(4).value = r.spec;
-      row.getCell(5).value = r.note ?? "";
-      // "Ek Belge": baytlar Excel'e GİRMEZ, yalnız sayfa adedi ve dosya adı
-      // yazılır. Ekin kendisi DETAYLI PDF'in sonundadır; çalışma kitabına
+      row.getCell(5).value = r.spec;
+      row.getCell(6).value = r.note ?? "";
+      // "Ek Belge": baytlar Excel'e GİRMEZ; hücre yalnız kompakt bir ek
+      // göstergesi taşır. Ekin kendisi DETAYLI PDF'in sonundadır; çalışma kitabına
       // gömülü bir PDF, dosyayı hem şişirir hem de her açanda güven uyarısı
       // çıkarırdı.
-      row.getCell(ATTACH_COL).value = attachmentSummaryText(r.attachments);
+      row.getCell(ATTACH_COL).value = r.attachments?.length
+        ? `EK${r.attachments.reduce((sum, item) => sum + item.pageCount, 0) > 1
+          ? ` · ${r.attachments.reduce((sum, item) => sum + item.pageCount, 0)} sf`
+          : ""}`
+        : "";
       // OKUNAMAYAN ADET HÜCREYİ BOŞ BIRAKIR (`qtyCellValue`): "—" bir metindir
       // ve adet sütununu metne çevirip sıralamayı bozardı; `0` ise yalan olurdu.
       row.getCell(QTY_COL).value = qtyCellValue(r.qty);
@@ -1509,11 +1516,18 @@ function writeEquipmentSheet(
         cell.alignment = {
           horizontal: c === QTY_COL ? "right" : "left",
           vertical: "middle",
-          wrapText: c === 4 || c === 5 || c === ATTACH_COL,
+          wrapText: c === 5 || c === 6,
           // Alternatif satır ana satırın altında GİRİNTİLİ durur: satın alma
           // listesinde hangi satırın asıl seçim olduğu tek bakışta görünsün.
-          indent: r.alt && c === 1 ? 1 : undefined,
+          indent: r.alt && c === 2 ? 1 : undefined,
         };
+        if (sequence % 2 === 0) {
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFF3F3F2" },
+          };
+        }
         // Alternatifler ikincil bilgidir: eğik ve soluk yazılır. Köprülü
         // hücrelerin (ekipman adı, model) rengi bozulmaz — bağlantı mavisi
         // kalmazsa tıklanabilir olduğu anlaşılmaz.
@@ -1530,9 +1544,14 @@ function writeEquipmentSheet(
   writeFooterRow(ws, rowNo + 1, COL_COUNT, bandTitle, meta);
 
   autoWidth(ws, WIDTH_MIN, WIDTH_MAX);
-  ws.getColumn(4).width = 46; // özellik metni uzun; sabit geniş + wrap
-  ws.getColumn(5).width = 32; // ek özellikler: kullanıcı metni, wrap
-  ws.getColumn(ATTACH_COL).width = 26; // ek belge: sayfa adedi + dosya adı
+  ws.getColumn(1).width = 6; // sıra
+  ws.getColumn(2).width = 28; // ekipman: önceki düzene göre yaklaşık %20 geniş
+  ws.getColumn(3).width = 18; // marka: önceki düzene göre yaklaşık %20 geniş
+  ws.getColumn(4).width = 22; // model
+  ws.getColumn(5).width = 55; // özellikler: önceki 46'dan yaklaşık %20 geniş
+  ws.getColumn(6).width = 22; // ek özellikler: önceki 32'den yaklaşık %30 dar
+  ws.getColumn(ATTACH_COL).width = 9; // yalnız kompakt ek göstergesi
+  ws.getColumn(QTY_COL).width = 9;
   return componentCount;
 }
 

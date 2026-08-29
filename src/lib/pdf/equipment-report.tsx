@@ -16,11 +16,11 @@ import type {
 } from "@/lib/excel/equipment";
 import type { EquipmentSection } from "@/lib/equipment-sections";
 import {
-  attachmentSummaryText, rowCatalogSheetKey, rowDatasheetUrl,
+  rowCatalogSheetKey, rowDatasheetUrl,
   rowSheetUrl, summaryRowValue,
 } from "@/lib/excel/equipment";
 import {
-  BRAND, BrandBand, BrandPage, FONTS, PageHeader, PartnerIdentityBlock, RuleRed, T,
+  BRAND, BrandPage, FONTS, PageHeader,
   brandLogoFromBuffer, trUpper, type CompanyInfo, type PartnerBrandIdentity,
 } from "@/lib/pdf/brand";
 import { docCode } from "@/lib/pdf/doc-naming";
@@ -29,7 +29,12 @@ import { toDisplayUnitLabel } from "@/lib/units";
 import { PdfDiagram } from "@/lib/pdf/diagram";
 // TEKNİK ÖZELLİKLER TABLOSU HESAP RAPORUNUNKİYLE AYNI BİLEŞENDİR: ikinci bir
 // tablo yazmak, iki belgenin bir gün farklı alan basmasıyla biterdi.
-import { FieldTable, reportRowUpper } from "@/lib/pdf/report";
+import {
+  FieldTable,
+  SharedReportCover,
+  reportRowUpper,
+  type ReportCoverSpec,
+} from "@/lib/pdf/report";
 import type { AnyFieldDef } from "@/app/(app)/projects/[id]/revisions/[revId]/module-adapters";
 import type { TechnicalSpecs } from "@/lib/calc/types";
 
@@ -60,23 +65,25 @@ const s = StyleSheet.create({
     color: BRAND.paper100, paddingVertical: 4, paddingHorizontal: 5,
   },
   tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline },
+  zebraRow: { backgroundColor: BRAND.paper50 },
   td: { fontFamily: FONTS.sans, fontSize: 7.5, color: BRAND.ink, paddingVertical: 2.5, paddingHorizontal: 5 },
   mono: { fontFamily: FONTS.mono, fontSize: 7, fontWeight: 500, letterSpacing: 0.2 },
-  // Ekipman listesi A4 yataydır. Uzun katalog kodlarının özellik hücresine
-  // taşmaması için model sütunu özellikle geniş tutulur.
-  cComp: { width: "15%" },
-  cBrand: { width: "10%" },
-  cModel: { width: "17%" },
-  cSpec: { width: "30%" },
+  // Kullanıcı isteği (29.08.2026): sıra no eklendi; ekipman, marka ve
+  // özellikler büyütüldü. Ek belge yalnız kısa bir eylem işaretidir.
+  cNo: { width: "3.5%", textAlign: "right" as const },
+  cComp: { width: "18%" },
+  cBrand: { width: "12%" },
+  cModel: { width: "13.5%" },
+  cSpec: { width: "36%" },
   // Ek Özellikler: kullanıcının satıra yazdığı serbest açıklama (madde 34).
   // Renk ayrı stildedir; genişlik stili başlık satırında da kullanılıyor ve
   // oradaki paper100 metin rengini ezmemelidir.
-  cNote: { width: "14%" },
+  cNote: { width: "9.5%" },
   noteText: { color: BRAND.gray700 },
   // Ek Belge: satıra elle yüklenmiş PDF'in sayfa adedi. Dar tutulur — hücrede
   // bir cümle değil bir ölçü durur ("2 sayfa").
-  cAttach: { width: "8%" },
-  cQty: { width: "6%", textAlign: "right" as const },
+  cAttach: { width: "3.5%", textAlign: "center" as const },
+  cQty: { width: "4%", textAlign: "right" as const },
   custom: { color: BRAND.red },
   // Alternatif (seçenekli) satır: aktif seçim ana satırdır, alternatifler onun
   // ALTINDA soluk ve girintili durur. Eğik yazı KULLANILMAZ — Archivo eğik
@@ -135,11 +142,41 @@ const s = StyleSheet.create({
     fontFamily: FONTS.sans, fontSize: 8, fontWeight: 500, color: BRAND.steel,
     textDecoration: "underline", marginBottom: 6,
   },
+  directoryTitle: {
+    fontFamily: FONTS.sans, fontSize: 22, fontWeight: 800, color: BRAND.ink,
+    marginTop: 8, marginBottom: 4,
+  },
+  directoryLead: {
+    fontFamily: FONTS.sans, fontSize: 8, color: BRAND.gray600,
+    marginBottom: 14,
+  },
+  directoryGrid: { flexDirection: "row", gap: 24 },
+  directoryColumn: { flex: 1 },
+  directorySection: {
+    fontFamily: FONTS.mono, fontSize: 7, fontWeight: 600, letterSpacing: 0.8,
+    color: BRAND.red, paddingTop: 7, paddingBottom: 3,
+  },
+  directoryRow: {
+    flexDirection: "row", alignItems: "center", minHeight: 25,
+    borderBottomWidth: 0.5, borderBottomColor: BRAND.line300,
+    textDecoration: "none", color: BRAND.ink,
+  },
+  directoryRange: {
+    width: 52, fontFamily: FONTS.mono, fontSize: 7.2, fontWeight: 600,
+    color: BRAND.red,
+  },
+  directoryName: { flex: 1, fontFamily: FONTS.sans, fontSize: 9, fontWeight: 700 },
+  directoryCount: {
+    width: 42, fontFamily: FONTS.mono, fontSize: 7, color: BRAND.gray600,
+    textAlign: "right" as const,
+  },
 });
 
 export interface EquipmentMetaPdf {
   docNo: string; projectName: string; customer: string;
   revLabel: string; revNo: number; date: string;
+  /** Kapaktaki ay-yıl biçimi; verilmezse `date` kullanılır. */
+  coverDate?: string;
   preparedBy?: string;
   checkedBy?: string;
 }
@@ -213,6 +250,11 @@ export interface EquipmentPdfProps {
   listTitle?: string;
   /** Proje düzeyinde seçilen; ORION ile birlikte belgeyi hazırlayan partner. */
   partner?: PartnerBrandIdentity | null;
+  /** Hesap raporuyla aynı müşteri logosu. */
+  endCustomerLogo?: Buffer | null;
+  /** Hesap raporu kapak tablosuyla aynı, hazır vinç özellikleri. */
+  coverSpecs?: readonly ReportCoverSpec[];
+  craneLocation?: string | null;
   summary?: SummarySection[];
   /**
    * Belgenin İLK yaprağına basılan TEKNİK ÖZELLİKLER tablosu.
@@ -314,6 +356,15 @@ export function attachmentAnchorId(rowKey: string): string {
   return `ek-belge-${rowKey.replace(/[^a-z0-9]+/gi, "-")}`;
 }
 
+/** Bölüm dizini ile tablo grup bandının paylaştığı kararlı iç çapa. */
+export function equipmentGroupAnchor(
+  sectionKey: EquipmentSection["key"],
+  sectionIndex: number,
+  groupIndex: number
+): string {
+  return `ekipman-grup-${sectionKey}-${sectionIndex + 1}-${groupIndex + 1}`;
+}
+
 /** Uzun katalog kodlarının sütun sınırında güvenle kırılabileceği işaretler. */
 export function breakEquipmentModelCode(model: string): string {
   return model.replace(/([./_-])/g, "$1\u200B");
@@ -382,7 +433,7 @@ function ComponentCell({
 }
 
 /**
- * "Ek Belge" hücresi — satıra yüklenmiş PDF'in ölçüsü ("2 sayfa · katalog.pdf").
+ * "Ek Belge" hücresi — yalnız kısa eylem işareti.
  *
  * Detaylı listede belgenin sonundaki yaprağa bağlanır; standart listede düz
  * metindir çünkü ek o dosyada YOKTUR ve var olmayan bir hedefe bağlantı vermek,
@@ -395,8 +446,12 @@ function AttachmentCell({
   row: EqGroup["rows"][number];
   href?: string;
 }) {
-  const text = reportRowUpper(attachmentSummaryText(row.attachments));
-  if (!text) return <Text style={[s.td, s.cAttach]} />;
+  const pageCount = (row.attachments ?? []).reduce(
+    (total, attachment) => total + Math.max(0, attachment.pageCount),
+    0
+  );
+  if (!row.attachments?.length) return <Text style={[s.td, s.cAttach]} />;
+  const text = pageCount > 0 ? `EK · ${pageCount}` : "EK";
   if (!href) return <Text style={[s.td, s.cAttach, s.noteText]}>{text}</Text>;
   return (
     <View style={[s.td, s.cAttach]}>
@@ -422,13 +477,43 @@ function MetaGrid({ meta }: { meta: EquipmentMetaPdf }) {
 }
 
 export function EquipmentDocument({
-  meta, groups, sections, listTitle = "Ekipman Listesi", partner, summary, specTable, settings,
+  meta, groups, sections, listTitle = "Ekipman Listesi", partner,
+  endCustomerLogo, coverSpecs = [], craneLocation,
+  summary, specTable, settings,
   datasheetUrls, sheetUrls, mainDrawingUrl, sheetPages,
   attachmentCovers,
 }: EquipmentPdfProps) {
   const documentSections: readonly EquipmentSection[] = sections ?? [
     { key: "mechanical", name: "Mekanik Ekipmanlar", groups },
   ];
+  let equipmentSequence = 0;
+  const numberedSections = documentSections.map((section, sectionIndex) => ({
+    ...section,
+    sectionIndex,
+    groups: section.groups.map((group, groupIndex) => ({
+      ...group,
+      groupIndex,
+      anchor: equipmentGroupAnchor(section.key, sectionIndex, groupIndex),
+      rows: group.rows.map((row) => ({ row, no: ++equipmentSequence })),
+    })),
+  }));
+  const directoryEntries = numberedSections.flatMap((section) =>
+    section.groups.map((group) => ({
+      sectionName: section.name,
+      sectionKey: section.key,
+      anchor: group.anchor,
+      name: group.name,
+      startNo: group.rows[0]?.no ?? 0,
+      endNo: group.rows.at(-1)?.no ?? 0,
+      count: group.rows.length,
+    }))
+  );
+  const directorySplit = directoryEntries.length > 9
+    ? Math.ceil(directoryEntries.length / 2)
+    : directoryEntries.length;
+  const directoryColumns = directoryEntries.length > 9
+    ? [directoryEntries.slice(0, directorySplit), directoryEntries.slice(directorySplit)]
+    : [directoryEntries];
   const sectionBands = documentSections.length > 1;
   const covers = attachmentCovers ?? [];
   const detailed = (!!sheetPages && sheetPages.length > 0) || covers.length > 0;
@@ -480,36 +565,70 @@ export function EquipmentDocument({
       subject={`${meta.customer} — ${meta.projectName}`}
       language="tr"
     >
-      {/*
-        ORTAK MARKA KAPAĞI: hesap raporuyla aynı sıra — ORION bandı, Partner
-        Firma logo+adı, belge adı ve proje künyesi. Ayrı yaprak olması bilinçli:
-        teknik özellik tablosu büyük ve bölünemezdir; kimlik bloğu aynı yaprağa
-        sıkıştırılırsa tablonun tamamı örtük ikinci sayfaya kaçar ve ilk yaprak
-        yarı boş görünür.
-      */}
+      <SharedReportCover
+        orientation="landscape"
+        footerDocLine={`${trUpper(listTitle)} · REV ${rev} · ${year}`}
+        docCode={code}
+        company={companyInfo(settings)}
+        bandLines={[`REV ${rev} · ${meta.coverDate ?? meta.date}`]}
+        reportBrand={partner}
+        endCustomerLogo={endCustomerLogo}
+        reportName={listTitle}
+        projectName={meta.projectName || "Ekipman Listesi"}
+        craneLocation={craneLocation}
+        specs={coverSpecs}
+        meta={{
+          customer: meta.customer,
+          date: meta.coverDate ?? meta.date,
+          preparedBy: meta.preparedBy ?? "—",
+          checkedBy: meta.checkedBy ?? "—",
+          revision: `R${rev}${meta.revLabel && meta.revLabel !== `V${meta.revNo}` ? ` · ${meta.revLabel}` : ""}`,
+        }}
+      />
+
+      {/* İlk içerik yaprağı: bütün ekipman gruplarının tıklanabilir dizini. */}
       <BrandPage
-        docLine={`ORION CRANES · ${trUpper(listTitle)} · REV ${rev} · ${year}`}
+        docLine={`ORION CRANES · ${trUpper(listTitle)} · BÖLÜM DİZİNİ · REV ${rev} · ${year}`}
         docCode={code}
         orientation="landscape"
         company={companyInfo(settings)}
       >
-        <BrandBand docCode={code} lines={[`REV ${rev} · ${meta.date}`]} logoWidth={150} />
-        <PartnerIdentityBlock
-          partner={partner}
-          marginTop={14}
-          height={44}
-          maxLogoWidth={146}
-          maxLogoHeight={34}
+        <PageHeader
+          kicker={`ORION Cranes · ${listTitle}`}
+          title={meta.projectName || "Ekipman Listesi"}
+          meta={`${equipmentSequence} EKİPMAN · ${directoryEntries.length} GRUP`}
+          logo={partnerMark}
         />
-        <View style={{ marginTop: partner ? 26 : 72 }}>
-          <Text style={T.kicker}>ORION CRANES · {trUpper(listTitle)}</Text>
-          <RuleRed width={24} />
-          <Text style={{ ...T.display, fontSize: 27, marginTop: 10 }}>
-            {trUpper(meta.projectName || "Ekipman Listesi")}
-          </Text>
-        </View>
-        <View style={{ marginTop: 34, maxWidth: 520 }}>
-          <MetaGrid meta={meta} />
+        <Text style={s.directoryTitle}>BÖLÜM DİZİNİ</Text>
+        <Text style={s.directoryLead}>
+          Grup adına tıklayınca ekipman tablosundaki ilgili bölüme gidilir. Sıra aralığı,
+          grubun listede izlediği ekipman numaralarını gösterir.
+        </Text>
+        <View style={s.directoryGrid}>
+          {directoryColumns.map((column, columnIndex) => (
+            <View key={columnIndex} style={s.directoryColumn}>
+              {column.map((entry, entryIndex) => {
+                const previous = column[entryIndex - 1];
+                const showSection = !previous || previous.sectionKey !== entry.sectionKey;
+                return (
+                  <React.Fragment key={entry.anchor}>
+                    {showSection ? (
+                      <Text style={s.directorySection}>{trUpper(entry.sectionName)}</Text>
+                    ) : null}
+                    <Link src={`#${entry.anchor}`} style={s.directoryRow}>
+                      <Text style={s.directoryRange}>
+                        {entry.startNo === entry.endNo
+                          ? `#${entry.startNo}`
+                          : `#${entry.startNo}-${entry.endNo}`}
+                      </Text>
+                      <Text style={s.directoryName}>{trUpper(entry.name)}</Text>
+                      <Text style={s.directoryCount}>{entry.count} SATIR</Text>
+                    </Link>
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          ))}
         </View>
       </BrandPage>
 
@@ -589,6 +708,7 @@ export function EquipmentDocument({
         )}
 
         <View style={s.tHead} fixed>
+          <Text style={[s.th, s.cNo]}>#</Text>
           <Text style={[s.th, s.cComp]}>{trUpper("Ekipman")}</Text>
           <Text style={[s.th, s.cBrand]}>{trUpper("Marka")}</Text>
           <Text style={[s.th, s.cModel]}>{trUpper("Model")}</Text>
@@ -613,10 +733,15 @@ export function EquipmentDocument({
           başlık nereye giderse en az bir satır onunla birlikte gider ve
           hiçbir zaman sayfa dibinde yalnız kalmaz.
         */}
-        {documentSections.flatMap((section) =>
+        {numberedSections.flatMap((section) =>
           section.groups.map((g, groupIndex) => {
-            const rows = g.rows.map((r, i) => (
-              <View key={i} style={[s.tr, r.alt ? s.altRow : {}]} wrap={false}>
+            const rows = g.rows.map(({ row: r, no }, i) => (
+              <View
+                key={i}
+                style={[s.tr, no % 2 === 0 ? s.zebraRow : {}, r.alt ? s.altRow : {}]}
+                wrap={false}
+              >
+                <Text style={[s.td, s.mono, s.cNo, r.alt ? s.altText : {}]}>{no}</Text>
                 <ComponentCell
                   row={r}
                   href={linkFor(r)}
@@ -642,7 +767,9 @@ export function EquipmentDocument({
                       <Text style={s.sectionCell}>{trUpper(section.name)}</Text>
                     </View>
                   ) : null}
-                  <View style={s.groupRow}><Text style={s.groupCell}>{trUpper(g.name)}</Text></View>
+                  <View id={g.anchor} style={s.groupRow}>
+                    <Text style={s.groupCell}>{trUpper(g.name)}</Text>
+                  </View>
                   {rows[0]}
                 </View>
                 {rows.slice(1)}

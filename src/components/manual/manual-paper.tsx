@@ -86,6 +86,8 @@ export interface OnizlemeGorsel {
 
 export interface ManualPaperProps {
   payload: ManualPayload;
+  /** Hesap raporu kapağıyla ortak, güncel proje adı. */
+  projectTitle: string;
   sources: ManualSourceData;
   /** `assetKey` ya da `imageId` → adres. */
   gorseller: ReadonlyMap<string, OnizlemeGorsel>;
@@ -123,12 +125,13 @@ export function manualOnizlemeOlcusu(
   const sayfalar = manualAnaBolumSayfalari(govdeBolumleri, sources, oranlar);
   const govdeBolumSayisi = flattenManual(govdeBolumleri).length;
   const dizinSayfasi = Math.ceil(govdeBolumSayisi / MANUAL_DIZIN_SAYFA_KAPASITESI);
-  const govdeOfset = 1 + dizinSayfasi;
+  const govdeOfset = 2 + dizinSayfasi;
   return { sayfalar, sayfaNo: bolumSayfalari(sayfalar, govdeOfset), govdeOfset };
 }
 
 export function ManualPaper({
   payload,
+  projectTitle,
   sources,
   gorseller,
   docLine,
@@ -163,6 +166,7 @@ export function ManualPaper({
         />
         <KapakIcerigi
           payload={payload}
+          projectTitle={projectTitle}
           docCode={docCode}
           coverImage={kapakGorseli}
         />
@@ -327,10 +331,12 @@ function KagitLogoSlot({
 
 function KapakIcerigi({
   payload,
+  projectTitle,
   docCode,
   coverImage,
 }: {
   payload: ManualPayload;
+  projectTitle: string;
   docCode: string;
   coverImage?: OnizlemeGorsel;
 }) {
@@ -344,7 +350,7 @@ function KapakIcerigi({
           letterSpacing: pt(0.4),
         }}
       >
-        {trUpper(payload.coverTitle || payload.identity.product)}
+        {trUpper(projectTitle || payload.identity.product)}
       </div>
       <div style={{ marginTop: pt(6), fontSize: pt(14), fontWeight: 500, color: BRAND.gray700 }}>
         {trUpper(payload.docTitle)}
