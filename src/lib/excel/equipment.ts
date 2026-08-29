@@ -734,21 +734,22 @@ function travelRows(
     },
   ];
 
-  rows.push({
-    rowKey: rk("brake"),
-    kind: "brake",
-    component: "Fren",
-    brand: textOr(sel.brakeBrand, "Seçilmedi"),
-    model: "-",
-    // Yürütme freninin kimliği tek birleşik alandadır ve MARKA sütununda
-    // görünür; katalog sayfası o metinle aranır.
-    catalogModel: sel.brakeBrand,
-    spec:
-      sel.brakeTorqueNm > 0
-        ? `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm${brakeOptionsNote(sel.brakeOptions)}`
-        : "Seçim yapılmadı",
-    qty: sel.brakeTorqueNm > 0 ? sel.motorCount : "-",
-  });
+  // SEÇİLMEYEN EKİPMAN SATIR AÇMAZ. “Seçim yapılmadı” bir teknik özellik
+  // değildir; hem ekipman listesinde hem özet raporda doğrudan düşer.
+  if (sel.brakeTorqueNm > 0) {
+    rows.push({
+      rowKey: rk("brake"),
+      kind: "brake",
+      component: "Fren",
+      brand: textOr(sel.brakeBrand),
+      model: "-",
+      // Yürütme freninin kimliği tek birleşik alandadır ve MARKA sütununda
+      // görünür; katalog sayfası o metinle aranır.
+      catalogModel: sel.brakeBrand,
+      spec: `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm${brakeOptionsNote(sel.brakeOptions)}`,
+      qty: sel.motorCount,
+    });
+  }
 
   rows.push(
     {
@@ -1732,16 +1733,20 @@ export function buildSummarySections(
     { label: "Açıklık (L)", value: specs.spanM, unit: "m" },
   ];
   for (const key of MODULE_ORDER) {
-    if (!isHoistKey(key) || !moduleState(input, key)) continue;
+    if (!isHoistKey(key)) continue;
+    const state = moduleState(input, key);
+    if (!state) continue;
     const view = hoistSpecView(specs, key);
     const ad = groupName(key);
+    const arrangement = HOIST_EQUIPMENT_ARRANGEMENT_LABELS[hoistEquipmentArrangement(specs, key)];
+    const reeving = (state.inputs as { reevingLabel?: string }).reevingLabel?.trim();
     genelRows.push(
       { label: `${ad} kapasitesi`, value: view.capacityT, unit: "ton" },
       { label: `${ad} yüksekliği`, value: view.liftHeightM, unit: "m" },
       { label: `${ad} hızı`, value: view.liftSpeedMpm, unit: "m/dak" },
       {
-        label: `${ad} donanımı`,
-        value: HOIST_EQUIPMENT_ARRANGEMENT_LABELS[hoistEquipmentArrangement(specs, key)],
+        label: `${ad} Donanımı`,
+        value: reeving ? `${arrangement} - ${reeving}` : arrangement,
       }
     );
   }

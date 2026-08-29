@@ -136,7 +136,7 @@ yol sözleşmesi `revisions/[revId]/actions.ts` ile aynıdır ve tabloda bir
 hesapları uygulamada henüz tek bir dosya olarak durmuyor; bağlanana kadar
 kapakları da düşer.
 
-## KITAP-11 — Gövde İKİ SÜTUNDA akar; dağıtım VERİDİR, çizim değil.
+## KITAP-11 — Gövde İKİ SÜTUNDA akar; 9. bölüm tek sütundur; dağıtım VERİDİR, çizim değil.
 
 Kullanıcı isteği (19.08.2026): *"PDF'te sayfayı bölebildiğin her yerde yatayda
 ikiye böl, daha kompakt ve düzgün bir doküman istiyorum"* — örnek olarak
@@ -175,6 +175,12 @@ bulur.
 (künye bloğu yine de iki sütunludur); içindekiler kendi iki sütununu kurar; ek
 kapakları KENDİ YAPRAKLARINDA kalmak zorundadır (`pdfEkleriYerlestir`
 sözleşmesi, KITAP-8).
+
+**9. BÖLÜM TEK SÜTUN / TAM GENİŞLİKTİR** (kullanıcı kararı, 29.08.2026).
+Bakım ve yedek parça çizelgelerinin bulunduğu bu bölümde sayfa ortasındaki
+yatay iki sütun ayrımı ve orta ayırıcı çizgi basılmaz. Başlık, metin, liste ve
+tabloların tamamı kullanılabilir gövde genişliğini alır; PDF ve kâğıt
+önizlemesi aynı `manualAnaBolumSayfalari` dağıtıcısını okur.
 
 **ÖLÇÜ YAKLAŞIKTIR VE BİLEREK FAZLA ÖLÇER** (`KAPASITE_PAYI` 0,94; teklifin
 dersi). Fazla ölçmek sütunu erken kapatır, dipte bir parmak boşluk kalır. Eksik
@@ -421,12 +427,12 @@ onların kapsayıcısını ve ayraçlarını taşır. Bir ek yoksa belge var olm
 içeriği vaat etmez. Birleştirme sözleşmesi değişmez: tam sürüm için üretilen
 temel PDF'nin son n yaprağı, eklerle aynı sıradaki n ayraç kapağıdır.
 
-**ANA BÖLÜMLER TEK AKIŞTIR.** Dağıtıcı her ana bölümde yeniden başlatılmaz;
-önceki bölümden kalan sağ sütun bir sonraki bölümle devam eder. Bakım çizelgesi
-ve yedek listeleri bölüm adına bakılarak tam genişliğe zorlanmaz; çekirdek tablo
-hücrelerinin gerçek sarma yüksekliğini ölçer ve yalnız sıkışan tabloyu geniş
-banda alır. Ekran önizlemesi ve PDF aynı birleşik atom akışını ve aynı
-içindekiler kapasitesini okur; sayfa numarası iki yerde ayrı tahmin edilmez.
+**HER ANA BÖLÜM YENİ BİR SAYFADAN BAŞLAR** (kullanıcı kararı, 29.08.2026;
+önceki “tek kesintisiz akış” kararı geri alınmıştır). Dağıtıcı her üst düzey
+bölüm için temiz bir fiziksel yaprak açar; alt bölümler kendi ana bölümlerinin
+akışında devam eder. 9. bölüm ayrıca KITAP-11 uyarınca tam genişliktir. Ekran
+önizlemesi ve PDF aynı atom dağıtımını ve aynı içindekiler kapasitesini okur;
+sayfa numarası iki yerde ayrı tahmin edilmez.
 
 **ELEKTRİK MALZEMESİ KILAVUZDA KARAR ÖZETİDİR.** Yüzlerce aygıt satırı el
 kitabında ikinci kez basılmaz. Kılavuz pano bazında proje satırı ve okunabilen

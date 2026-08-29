@@ -29,7 +29,7 @@ import {
   type RevisionInputsJson,
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
-import { fieldShownValue, specFieldsFor } from "@/lib/pdf/report";
+import { fieldShownValue, technicalSpecsForReport } from "@/lib/pdf/report";
 import { buildEquipmentGroups } from "@/lib/excel/equipment";
 import {
   loadCurrentElectricalDoc,
@@ -52,16 +52,26 @@ import type {
  * yanlış değer basmaz.
  */
 const SINIF_ALANLARI = [
-  "steelStructureClass",
-  "hoistClass",
-  "mainHoistClass",
-  "auxHoistClass",
-  "craneTravelClass",
-  "mainTrolleyTravelClass",
-  "auxTrolleyTravelClass",
-  "loadSpectrum",
-  "serviceClass",
-  "designStandard",
+  "structureClass",
+  "hoistLoadClass",
+  "hoistMechanismClass",
+  "hoistUsageClass",
+  "auxMechanismClass",
+  "auxUsageClass",
+  "mono1MechanismClass",
+  "mono1UsageClass",
+  "mono2MechanismClass",
+  "mono2UsageClass",
+  "trolleyMechanismClass",
+  "trolleyUsageClass",
+  "auxTrolleyMechanismClass",
+  "auxTrolleyUsageClass",
+  "mono1TrolleyMechanismClass",
+  "mono1TrolleyUsageClass",
+  "mono2TrolleyMechanismClass",
+  "mono2TrolleyUsageClass",
+  "bridgeMechanismClass",
+  "bridgeUsageClass",
 ];
 
 /** Hız çizelgesine giren alanlar — adı `Speed` ile biten her şey. */
@@ -136,8 +146,9 @@ export async function buildManualSourceData(
     // tablo, hatalı bir tablodan iyidir.
     runCalc(calcInput);
 
-    const defs = specFieldsFor(calcInput);
-    const kaynak = { ...calcInput.specs } as Record<string, unknown>;
+    // Raporla AYNI sıralı ve zenginleştirilmiş belge yüzü: kaldırma donanımı
+    // hücresi halat donanımını da taşır (örn. “Çift Tambur - 4/16”).
+    const { defs, source: kaynak } = technicalSpecsForReport(calcInput);
     const sinifKumesi = new Set(SINIF_ALANLARI);
 
     veri.classes = satirlar(defs, kaynak, calcInput.specs, (k) => sinifKumesi.has(k));

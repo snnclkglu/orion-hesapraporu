@@ -223,6 +223,29 @@ function fmtField(v: unknown): string {
   return String(v);
 }
 
+/**
+ * Rapor satırındaki sözcükleri Türkçe kurallarıyla büyütür; teknik birim
+ * simgelerinin harf büyüklüğünü korur. `kW`yi `KW` yapmak yalnız tipografik
+ * bir değişiklik değildir, birim yazımını da bozar.
+ */
+const REPORT_UNIT_TOKENS = new Set([
+  "knm", "kn", "kw", "nm", "mm", "kg", "m/dak", "d/dak", "m", "t", "°c",
+]);
+// `\b` yalnız ASCII harflerini tanır; “DONANIMI” içindeki `m` harfini birim
+// sanıp küçük bırakıyordu. Unicode harf/sayı sınırı gerçek sözcüğü korur.
+const REPORT_UNIT_SPLIT = /((?<![\p{L}\p{N}])(?:kNm|kN|kW|Nm|mm|kg|m\/dak|d\/dak|°C|m|t)(?![\p{L}\p{N}]))/giu;
+
+export function reportRowUpper(text: string): string {
+  return text
+    .split(REPORT_UNIT_SPLIT)
+    .map((part) =>
+      REPORT_UNIT_TOKENS.has(part.toLocaleLowerCase("tr-TR"))
+        ? part
+        : part.toLocaleUpperCase("tr-TR")
+    )
+    .join("");
+}
+
 function reportDate(revision: ReportRevision): Date {
   const iso = revision.issued_at ?? revision.updated_at;
   return iso ? new Date(iso) : new Date();
@@ -695,6 +718,7 @@ function KvRow({
   unit,
   labelMono,
   narrowLabel,
+  uppercase,
 }: {
   label: string;
   value: string;
@@ -706,13 +730,17 @@ function KvRow({
    * iki satıra bölünüyor, değer ise tek satıra sıkışıyordu.
    */
   narrowLabel?: boolean;
+  /** Satırdaki sözcükleri büyütür; teknik birim simgelerini korur. */
+  uppercase?: boolean;
 }) {
   const labelStyle = labelMono ? s.kvLabelMono : s.kvLabel;
+  const shownLabel = uppercase ? reportRowUpper(label) : label;
+  const shownValue = uppercase ? reportRowUpper(value) : value;
   return (
     <View style={s.kvRow} wrap={false}>
-      <Text style={narrowLabel ? [labelStyle, s.kvLabelNarrow] : labelStyle}>{label}</Text>
+      <Text style={narrowLabel ? [labelStyle, s.kvLabelNarrow] : labelStyle}>{shownLabel}</Text>
       <Text style={narrowLabel ? [s.kvValue, s.kvValueWide] : s.kvValue}>
-        {value}
+        {shownValue}
         {unit ? <Text style={s.kvUnit}> {unit}</Text> : null}
       </Text>
     </View>
@@ -731,8 +759,37 @@ function isAbsentSummarySpec(f: AnyFieldDef, specs: TechnicalSpecs): boolean {
     return true;
   }
   const label = f.optionLabels?.[String(raw)];
-  return label === "Yok";
+  const normalizedLabel = label?.trim().toLocaleLowerCase("tr-TR") ?? "";
+  return ["yok", "seçim yapılmadı", "seçilmedi"].includes(normalizedLabel);
 }
+
+/** Teknik özellik tablosunun belge içindeki anlamlı grup sırası. */
+const REPORT_SPEC_GROUP_ORDER = [
+  // Genel bilgiler
+  "crane",
+  "config",
+  "weights",
+  "operatorCabin",
+  "electricalAccommodation",
+  "electrical",
+  "environment",
+  // Mekanizma grupları
+  "mainHoist",
+  "auxHoist",
+  "mono1Hoist",
+  "mono2Hoist",
+  "trolley",
+  "auxTrolley",
+  "mono1Trolley",
+  "mono2Trolley",
+  "bridge",
+  // Bütün mekanizmalara ortak kalan özellikler
+  "brakes",
+] as const;
+
+const REPORT_SPEC_GROUP_RANK = new Map<string, number>(
+  REPORT_SPEC_GROUP_ORDER.map((group, index) => [group, index])
+);
 
 /** Özet PDF'deki teknik özellik alanlarının görünürlük ve sıralama kuralları. */
 export function specFieldsFor(input: CalcInput): AnyFieldDef[] {
@@ -752,11 +809,50 @@ export function specFieldsFor(input: CalcInput): AnyFieldDef[] {
     return visibleForModule && visibleInReport && visibleForSpecs && !isAbsentSummarySpec(f, input.specs);
   });
 
-  // Özet sayfasının ilk teknik bilgisi her zaman ana kaldırma kapasitesidir.
-  const mainCapacity = fields.find((f) => f.key === "mainCapacityT");
-  return mainCapacity
-    ? [mainCapacity, ...fields.filter((f) => f !== mainCapacity)]
-    : fields;
+  // Kaynak dosyadaki form sırası bir ekran kararıdır. Belgede ise önce genel
+  // bilgiler, ardından kaldırma, araba yürütme ve köprü yürütme grupları gelir.
+  // Modern JS sıralaması kararlıdır; aynı grupteki alanların kendi sırası
+  // değişmez.
+  return fields.sort((a, b) =>
+    (REPORT_SPEC_GROUP_RANK.get(String(a.group ?? "")) ?? Number.MAX_SAFE_INTEGER) -
+    (REPORT_SPEC_GROUP_RANK.get(String(b.group ?? "")) ?? Number.MAX_SAFE_INTEGER)
+  );
+}
+
+const HOIST_ARRANGEMENT_ROWS = [
+  ["mainHoistEquipmentArrangement", "mainHoist"],
+  ["auxHoistEquipmentArrangement", "auxHoist"],
+  ["mono1HoistEquipmentArrangement", "mono1Hoist"],
+  ["mono2HoistEquipmentArrangement", "mono2Hoist"],
+] as const;
+
+/**
+ * Teknik özelliklerin belge yüzü.
+ *
+ * Kaldırma donanımının adı tek başına yeterli değildir: “Çift Tambur” aynı
+ * donanımın halat düzenini söylemez. İlgili kaldırma grubunun `reevingLabel`
+ * değeri aynı hücreye eklenir (örn. `Çift Tambur - 4/16`). Bu kaynak hem hesap
+ * raporunu hem ekipman raporunu hem de el kitabındaki karakteristik tabloyu
+ * besler.
+ */
+export function technicalSpecsForReport(input: CalcInput): {
+  defs: AnyFieldDef[];
+  source: Record<string, unknown>;
+} {
+  const defs = specFieldsFor(input);
+  const source: Record<string, unknown> = { ...input.specs };
+
+  for (const [specKey, moduleKey] of HOIST_ARRANGEMENT_ROWS) {
+    const def = defs.find((field) => field.key === specKey);
+    if (!def) continue;
+    const raw = source[specKey];
+    if (raw === undefined || raw === null || raw === "") continue;
+    const arrangement = def.optionLabels?.[String(raw)] ?? fmtField(raw);
+    const reeving = input[moduleKey]?.inputs.reevingLabel?.trim();
+    source[specKey] = reeving ? `${arrangement} - ${reeving}` : arrangement;
+  }
+
+  return { defs, source };
 }
 
 /**
@@ -776,8 +872,7 @@ export function summarySpecsForReport(input: CalcInput): {
   defs: AnyFieldDef[];
   source: Record<string, unknown>;
 } {
-  const source: Record<string, unknown> = { ...input.specs };
-  const defs = specFieldsFor(input);
+  const { source, defs } = technicalSpecsForReport(input);
   const printed = (key: string) => defs.some((f) => f.key === key);
 
   const attachmentWeightT = Math.max(0, (input.mainHoist?.inputs.hookBlockWeightKg ?? 0) / 1000);
@@ -845,10 +940,12 @@ export function selectionDefsForReport(
   defs: readonly AnyFieldDef[],
   selections: Record<string, unknown>
 ): AnyFieldDef[] {
-  return defs.filter((f) =>
-    (!f.visibleWhen || f.visibleWhen(selections)) &&
-    (!f.reportVisibleWhen || f.reportVisibleWhen(selections))
-  );
+  return defs.filter((f) => {
+    if (f.visibleWhen && !f.visibleWhen(selections)) return false;
+    if (f.reportVisibleWhen && !f.reportVisibleWhen(selections)) return false;
+    const shown = fieldShownValue(f, selections).trim().toLocaleLowerCase("tr-TR");
+    return shown !== "" && shown !== "—" && shown !== "seçim yapılmadı" && shown !== "seçilmedi";
+  });
 }
 
 /**
@@ -897,8 +994,8 @@ export function FieldTable({
             return (
               <KvRow
                 key={f.key}
-                label={uppercase ? label.toLocaleUpperCase("tr-TR") : label}
-                value={uppercase ? shown.toLocaleUpperCase("tr-TR") : shown}
+                label={uppercase ? reportRowUpper(label) : label}
+                value={uppercase ? reportRowUpper(shown) : shown}
                 unit={toDisplayUnitLabel(f.unit)}
                 labelMono={labelMono}
               />
@@ -1211,10 +1308,12 @@ const FEM_GROUP_BY_ISO_CLASS: Record<string, string> = {
   M5: "2m", M6: "3m", M7: "4m", M8: "5m",
 };
 
-/** Kapak künyesi: kılavuz spec sırası — kapasite → açıklık → kaldırma yüksekliği → sınıflar */
-function coverSpecs(input: CalcInput): { label: string; value: string }[] {
+/** Kapak künyesi: vinç tipi → kapasite → açıklık → kaldırma yüksekliği → sınıflar. */
+function coverSpecs(input: CalcInput, craneType: string): { label: string; value: string }[] {
   const sp = input.specs;
-  const out: { label: string; value: string }[] = [];
+  const out: { label: string; value: string }[] = craneType.trim()
+    ? [{ label: "VİNÇ TİPİ", value: craneType.trim() }]
+    : [];
   if (Number.isFinite(sp.mainCapacityT)) {
     const aux = input.auxHoist && Number.isFinite(sp.auxCapacityT) ? ` / ${fmt(sp.auxCapacityT)} t` : "";
     out.push({ label: "KAPASİTE", value: `${fmt(sp.mainCapacityT)} t${aux}` });
@@ -1331,7 +1430,6 @@ function CoverPage(props: ReportProps) {
         <Text style={{ ...T.display, marginTop: endCustomerMark ? 9 : 12 }}>
           {project.name.toLocaleUpperCase("tr-TR")}
         </Text>
-        <Text style={{ ...T.caption, marginTop: 6 }}>{project.crane_type}</Text>
         {project.crane_location?.trim() ? (
           <Text style={{ ...T.data, color: BRAND.gray600, marginTop: 5 }}>
             VİNÇ YERİ · {project.crane_location.trim().toLocaleUpperCase("tr-TR")}
@@ -1339,14 +1437,14 @@ function CoverPage(props: ReportProps) {
         ) : null}
       </View>
 
-      {/* Künye: kapasite → açıklık → kaldırma yüksekliği → FEM sınıfı */}
+      {/* Künye: vinç tipi → kapasite → açıklık → kaldırma yüksekliği → FEM sınıfı */}
       <View style={{ marginTop: 30, borderTopWidth: 1.4, borderTopColor: BRAND.ink }}>
-        {coverSpecs(input).map((row) => (
+        {coverSpecs(input, project.crane_type).map((row) => (
           <View key={row.label} style={s.specRow}>
             <View>
               <Text style={s.specLabel}>{row.label}</Text>
             </View>
-            <Text style={s.specValue}>{row.value}</Text>
+            <Text style={s.specValue}>{reportRowUpper(row.value)}</Text>
           </View>
         ))}
       </View>
@@ -1603,7 +1701,7 @@ function travelSelectionItems(st: { selections: object } | undefined): SummaryGr
   const n = (k: string) => sel[k] as number | undefined;
   const t = (k: string) => (sel[k] as string | undefined) ?? "";
   const hardness = travelWheelHardnessText(sel.wheelHardness);
-  return [
+  const items: SummaryGroup["items"] = [
     {
       label: "Teker",
       sectionRawId: "5.1",
@@ -1624,13 +1722,6 @@ function travelSelectionItems(st: { selections: object } | undefined): SummaryGr
       )} kNm`,
     },
     {
-      label: "Fren",
-      sectionRawId: "5.5b",
-      value: (n("brakeTorqueNm") ?? 0) > 0
-        ? `${t("brakeBrand")} · ${fmt(n("brakeTorqueNm"))} Nm`
-        : "Seçim yapılmadı",
-    },
-    {
       label: "Motor kaplini",
       sectionRawId: "5.6",
       value: `${t("motorCouplingBrand")} ${t("motorCouplingModel")} · ${fmt(
@@ -1648,6 +1739,14 @@ function travelSelectionItems(st: { selections: object } | undefined): SummaryGr
       )} Nm`,
     },
   ];
+  if ((n("brakeTorqueNm") ?? 0) > 0) {
+    items.splice(3, 0, {
+      label: "Fren",
+      sectionRawId: "5.5b",
+      value: `${t("brakeBrand")} · ${fmt(n("brakeTorqueNm"))} Nm`,
+    });
+  }
+  return items;
 }
 
 /**
@@ -1740,9 +1839,15 @@ function SummarySection({
             <View style={s.kvCol} key={ci}>
               {col.map((g) => (
                 <View key={g.title} style={s.sumModule} wrap={false}>
-                  <Text style={s.sumModuleTitle}>{g.title}</Text>
+                  <Text style={s.sumModuleTitle}>{reportRowUpper(g.title)}</Text>
                   {g.items.map((it) => (
-                    <KvRow key={it.label} label={it.label} value={it.value} narrowLabel />
+                    <KvRow
+                      key={it.label}
+                      label={it.label}
+                      value={it.value}
+                      narrowLabel
+                      uppercase
+                    />
                   ))}
                 </View>
               ))}
@@ -2401,10 +2506,14 @@ function ModulePage({
 
         const inputTables: React.ReactNode[] = [];
         if (section.inputDefs.length > 0) {
-          inputTables.push(<FieldTable key="in" defs={section.inputDefs} source={scoped} specs={input.specs} />);
+          inputTables.push(
+            <FieldTable key="in" defs={section.inputDefs} source={scoped} specs={input.specs} uppercase />
+          );
         }
         if (section.extraInputDefs && section.extraInputDefs.length > 0) {
-          inputTables.push(<FieldTable key="ex" defs={section.extraInputDefs} source={inputs} specs={input.specs} />);
+          inputTables.push(
+            <FieldTable key="ex" defs={section.extraInputDefs} source={inputs} specs={input.specs} uppercase />
+          );
         }
         if (inputTables.length > 0) {
           addHeaded("GİRDİLER / TASARIM KABULLERİ", inputTables[0], inputTables.slice(1));
@@ -2437,7 +2546,13 @@ function ModulePage({
         );
         if (visibleSelectionDefs.length > 0) {
           const selectionTable = (
-            <FieldTable defs={visibleSelectionDefs} source={state.selections} labelMono specs={input.specs} />
+            <FieldTable
+              defs={visibleSelectionDefs}
+              source={state.selections}
+              labelMono
+              specs={input.specs}
+              uppercase
+            />
           );
           // "catalog" yerleşiminde rozetler başlığın hemen altındadır: başlık
           // ilk parçasıyla birlikte taşınır (KeepWithNext), tablo peşinden gelir.

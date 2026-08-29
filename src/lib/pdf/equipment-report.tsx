@@ -5,11 +5,9 @@
 // linki varsa köprülenir (çelik mavisi); klima satırları düz metindir.
 // scope="full" → Teknik Ressam Özeti.
 //
-// Sütun metinleri `buildEquipmentGroups` içinde biçimlenmiş olarak gelir ve
-// burada yeniden dokunulmaz: ekipman adı ile özellikler "Baş Harfler Büyük"
-// (madde 33), MARKA ve MODEL ise BÜYÜK HARF (12.08.2026 kararı — ikisi de ürün
-// kimliğidir). "Ek Özellikler" sütunu kullanıcının satıra yazdığı serbest
-// nottur (equipment_notes, madde 34).
+// Belge satırlarının tamamı burada Türkçe BÜYÜK HARFE çevrilir; teknik birim
+// yazımları (`kW`, `mm`, `kNm`...) hesap raporuyla aynı yardımcı üzerinden
+// korunur. Kaynak ekipman verisine dokunulmaz.
 
 import React from "react";
 import { Document, Image, Link, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
@@ -30,7 +28,7 @@ import { toDisplayUnitLabel } from "@/lib/units";
 import { PdfDiagram } from "@/lib/pdf/diagram";
 // TEKNİK ÖZELLİKLER TABLOSU HESAP RAPORUNUNKİYLE AYNI BİLEŞENDİR: ikinci bir
 // tablo yazmak, iki belgenin bir gün farklı alan basmasıyla biterdi.
-import { FieldTable } from "@/lib/pdf/report";
+import { FieldTable, reportRowUpper } from "@/lib/pdf/report";
 import type { AnyFieldDef } from "@/app/(app)/projects/[id]/revisions/[revId]/module-adapters";
 import type { TechnicalSpecs } from "@/lib/calc/types";
 
@@ -331,7 +329,7 @@ function companyInfo(settings?: ReportSettings): CompanyInfo {
 
 function ModelCell({ row, urls }: { row: EqGroup["rows"][number]; urls?: Map<string, string> }) {
   const url = row.kind ? urls?.get(dsKey(row.kind, row.brand, row.model)) : undefined;
-  const model = breakEquipmentModelCode(row.model);
+  const model = breakEquipmentModelCode(reportRowUpper(row.model));
   // Klima tipleri için üretici websitesi bağlantısı müşteri çıktılarında
   // istenmiyor; diğer katalog ekipmanlarının datasheet bağlantıları korunur.
   if (canLinkEquipmentModel(row.kind) && url && row.model && row.model !== "-") {
@@ -362,7 +360,7 @@ function ComponentCell({
   href?: string;
   style: React.ComponentProps<typeof View>["style"];
 }) {
-  const text = `${row.component}${row.custom ? " *" : ""}`;
+  const text = reportRowUpper(`${row.component}${row.custom ? " *" : ""}`);
   if (!href) return <Text style={style}>{text}</Text>;
   return (
     <View style={style}>
@@ -387,7 +385,7 @@ function AttachmentCell({
   row: EqGroup["rows"][number];
   href?: string;
 }) {
-  const text = attachmentSummaryText(row.attachments);
+  const text = reportRowUpper(attachmentSummaryText(row.attachments));
   if (!text) return <Text style={[s.td, s.cAttach]} />;
   if (!href) return <Text style={[s.td, s.cAttach, s.noteText]}>{text}</Text>;
   return (
@@ -403,12 +401,12 @@ function AttachmentCell({
 function MetaGrid({ meta }: { meta: EquipmentMetaPdf }) {
   return (
     <View style={s.metaGrid}>
-      <View style={s.metaItem}><Text style={s.metaLabel}>Müşteri</Text><Text style={s.metaVal}>{meta.customer}</Text></View>
-      <View style={s.metaItem}><Text style={s.metaLabel}>Doküman</Text><Text style={s.metaMono}>{meta.docNo}</Text></View>
-      <View style={s.metaItem}><Text style={s.metaLabel}>Revizyon</Text><Text style={s.metaMono}>V{meta.revNo}{meta.revLabel ? ` — ${meta.revLabel}` : ""}</Text></View>
-      <View style={s.metaItem}><Text style={s.metaLabel}>Tarih</Text><Text style={s.metaMono}>{meta.date}</Text></View>
-      <View style={s.metaItem}><Text style={s.metaLabel}>Hazırlayan</Text><Text style={s.metaVal}>{meta.preparedBy || "—"}</Text></View>
-      <View style={s.metaItem}><Text style={s.metaLabel}>Kontrol</Text><Text style={s.metaVal}>{meta.checkedBy || "—"}</Text></View>
+      <View style={s.metaItem}><Text style={s.metaLabel}>MÜŞTERİ</Text><Text style={s.metaVal}>{reportRowUpper(meta.customer)}</Text></View>
+      <View style={s.metaItem}><Text style={s.metaLabel}>DOKÜMAN</Text><Text style={s.metaMono}>{reportRowUpper(meta.docNo)}</Text></View>
+      <View style={s.metaItem}><Text style={s.metaLabel}>REVİZYON</Text><Text style={s.metaMono}>{reportRowUpper(`V${meta.revNo}${meta.revLabel ? ` — ${meta.revLabel}` : ""}`)}</Text></View>
+      <View style={s.metaItem}><Text style={s.metaLabel}>TARİH</Text><Text style={s.metaMono}>{reportRowUpper(meta.date)}</Text></View>
+      <View style={s.metaItem}><Text style={s.metaLabel}>HAZIRLAYAN</Text><Text style={s.metaVal}>{reportRowUpper(meta.preparedBy || "—")}</Text></View>
+      <View style={s.metaItem}><Text style={s.metaLabel}>KONTROL</Text><Text style={s.metaVal}>{reportRowUpper(meta.checkedBy || "—")}</Text></View>
     </View>
   );
 }
@@ -485,7 +483,12 @@ export function EquipmentDocument({
           <BrandBand docCode={code} lines={[`REV ${rev} · ${meta.date}`]} logoWidth={150} />
           <PageHeader kicker="Teknik Özellikler" title={meta.projectName || "Ekipman Listesi"} />
           <MetaGrid meta={meta} />
-          <FieldTable defs={specTable.defs} source={specTable.source} specs={specTable.specs} />
+          <FieldTable
+            defs={specTable.defs}
+            source={specTable.source}
+            specs={specTable.specs}
+            uppercase
+          />
         </BrandPage>
       )}
 
@@ -565,10 +568,10 @@ export function EquipmentDocument({
                   r.alt ? s.altText : {}, r.alt ? s.altIndent : {},
                 ]}
               />
-              <Text style={[s.td, s.cBrand, r.alt ? s.altText : {}]}>{r.brand}</Text>
+              <Text style={[s.td, s.cBrand, r.alt ? s.altText : {}]}>{reportRowUpper(r.brand)}</Text>
               <ModelCell row={r} urls={datasheetUrls} />
-              <Text style={[s.td, s.cSpec, r.alt ? s.altText : {}]}>{r.spec}</Text>
-              <Text style={[s.td, s.cNote, s.noteText]}>{r.note ?? ""}</Text>
+              <Text style={[s.td, s.cSpec, r.alt ? s.altText : {}]}>{reportRowUpper(r.spec)}</Text>
+              <Text style={[s.td, s.cNote, s.noteText]}>{reportRowUpper(r.note ?? "")}</Text>
               <AttachmentCell row={r} href={attachmentLinkFor(r)} />
               <Text style={[s.td, s.mono, s.cQty, r.alt ? s.altText : {}]}>{String(r.qty)}</Text>
             </View>

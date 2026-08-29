@@ -21,6 +21,14 @@ import { CABIN_SECTIONS } from "@/lib/calc/presentation/cabinSections";
 function fullTravelInput(): CalcInput {
   return {
     ...V5_TEMPLATE,
+    trolley: V5_TEMPLATE.trolley
+      ? {
+          ...V5_TEMPLATE.trolley,
+          // Fren satırı seçim olmadığında bilinçli olarak düşer; iki yönlü
+          // slug koruması koşullu satırı gerçekten üreten bir fikstür ister.
+          selections: { ...V5_TEMPLATE.trolley.selections, brakeTorqueNm: 850 },
+        }
+      : undefined,
     specs: {
       ...V5_TEMPLATE.specs,
       trolleyPowerSupply: "festoon",

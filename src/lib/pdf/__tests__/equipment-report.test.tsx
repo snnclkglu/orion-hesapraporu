@@ -250,7 +250,7 @@ describe("ilk sayfa boş kalmaz", () => {
       const doc = await getDocumentProxy(new Uint8Array(pdf));
       const { text } = await extractText(doc, { mergePages: false });
       const ilkSayfa = (text as string[])[0].replace(/\s+/g, " ");
-      if (!ilkSayfa.includes("Ekipman 1 ")) bos.push(n);
+      if (!ilkSayfa.includes("EKİPMAN 1 ")) bos.push(n);
     }
     expect(bos, `boş ilk sayfa üreten grup boyları: ${bos.join(", ")}`).toEqual([]);
   }, 300_000);

@@ -952,7 +952,7 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   // --- Ana kaldırma
   { key: "mainCapacityT", label: "Kaldırma Kapasitesi", unit: "ton", type: "number", group: "mainHoist" },
   {
-    key: "mainHoistEquipmentArrangement", label: "Kaldırma Donanımı", type: "select",
+    key: "mainHoistEquipmentArrangement", label: "Ana Kaldırma Donanımı", type: "select",
     options: HOIST_EQUIPMENT_ARRANGEMENTS, optionLabels: HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
     group: "mainHoist", hint: "İkiz donanım ekipman adetlerini iki katına çıkarır. Çift tamburda ortak redüktör iki simetrik tamburu tahrik eder.",
   },
@@ -970,7 +970,7 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   // --- Yardımcı kaldırma (bölüm kapalıysa gizlenir)
   { key: "auxCapacityT", label: "Kaldırma Kapasitesi", unit: "ton", type: "number", group: "auxHoist", requiresModule: "aux" },
   {
-    key: "auxHoistEquipmentArrangement", label: "Kaldırma Donanımı", type: "select",
+    key: "auxHoistEquipmentArrangement", label: "Yardımcı Kaldırma Donanımı", type: "select",
     options: HOIST_EQUIPMENT_ARRANGEMENTS, optionLabels: HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
     group: "auxHoist", requiresModule: "aux", hint: "İkiz donanım ekipman adetlerini iki katına çıkarır. Çift tamburda ortak redüktör iki simetrik tamburu tahrik eder.",
   },
@@ -997,7 +997,7 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   // --- Monoray 1 kaldırma
   { key: "mono1CapacityT", label: "Kaldırma Kapasitesi", unit: "ton", type: "number", group: "mono1Hoist", requiresModule: "mono1" },
   {
-    key: "mono1HoistEquipmentArrangement", label: "Kaldırma Donanımı", type: "select",
+    key: "mono1HoistEquipmentArrangement", label: "Monoray 1 Kaldırma Donanımı", type: "select",
     options: HOIST_EQUIPMENT_ARRANGEMENTS, optionLabels: HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
     group: "mono1Hoist", requiresModule: "mono1", hint: "İkiz donanım ekipman adetlerini iki katına çıkarır. Çift tamburda ortak redüktör iki simetrik tamburu tahrik eder.",
   },
@@ -1014,7 +1014,7 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   // --- Monoray 2 kaldırma
   { key: "mono2CapacityT", label: "Kaldırma Kapasitesi", unit: "ton", type: "number", group: "mono2Hoist", requiresModule: "mono2" },
   {
-    key: "mono2HoistEquipmentArrangement", label: "Kaldırma Donanımı", type: "select",
+    key: "mono2HoistEquipmentArrangement", label: "Monoray 2 Kaldırma Donanımı", type: "select",
     options: HOIST_EQUIPMENT_ARRANGEMENTS, optionLabels: HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
     group: "mono2Hoist", requiresModule: "mono2", hint: "İkiz donanım ekipman adetlerini iki katına çıkarır. Çift tamburda ortak redüktör iki simetrik tamburu tahrik eder.",
   },

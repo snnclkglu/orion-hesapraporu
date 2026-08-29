@@ -41,8 +41,7 @@ import {
   MANUAL_UST_BANT_ALT_BOSLUK,
   MANUAL_UST_BANT_YUKSEKLIK,
   bolumSayfalari,
-  manualAtomlari,
-  manualPdfSayfalari,
+  manualAnaBolumSayfalari,
   type ManualAtom,
   type ManualPdfSayfa,
 } from "@/lib/manual/pdf-layout";
@@ -110,7 +109,8 @@ export interface ManualPaperOlcu {
  * Gövdenin yerleşimi — editör bunu sayfa numarası göstermek için de çağırır.
  *
  * `pdf/manual.tsx`teki aritmetiğin AYNISI: ek kapsayıcısı gövdeden ayrılır,
- * ana bölümler kesintisiz akar, ofset kapak + içindekiler kadardır.
+ * her ana bölüm yeni sayfadan başlar, 9. bölüm tek sütundur; ofset kapak +
+ * içindekiler kadardır.
  */
 export function manualOnizlemeOlcusu(
   payload: ManualPayload,
@@ -120,10 +120,7 @@ export function manualOnizlemeOlcusu(
   const numarali = numberManual(printedManual(payload).sections);
   const ekKapsayici = numarali.find((b) => b.children.some((c) => c.appendix)) ?? null;
   const govdeBolumleri = numarali.filter((b) => b !== ekKapsayici);
-  const atomlar = govdeBolumleri.flatMap((bolum) =>
-    manualAtomlari([bolum], sources, oranlar)
-  );
-  const sayfalar = manualPdfSayfalari(atomlar);
+  const sayfalar = manualAnaBolumSayfalari(govdeBolumleri, sources, oranlar);
   const govdeBolumSayisi = flattenManual(govdeBolumleri).length;
   const dizinSayfasi = Math.ceil(govdeBolumSayisi / MANUAL_DIZIN_SAYFA_KAPASITESI);
   const govdeOfset = 1 + dizinSayfasi;

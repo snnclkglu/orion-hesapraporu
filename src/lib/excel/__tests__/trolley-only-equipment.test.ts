@@ -57,13 +57,39 @@ describe("kapalı modül — ekipman listesi", () => {
     }
   });
 
-  it("her yürütme grubu kendi fren satırını taşır; yalnız kapalı köprü satırı düşer", () => {
+  it("yalnız seçilmiş yürütme freni kendi grubunda satır açar", () => {
     const keys = (input: CalcInput) =>
       buildEquipmentGroups(input).flatMap((g) => g.rows.map((r) => r.rowKey));
-    expect(keys(FULL)).toContain("bridge:brake");
-    expect(keys(FULL)).toContain("trolley:brake");
+    const selected: CalcInput = {
+      ...FULL,
+      trolley: FULL.trolley
+        ? {
+            ...FULL.trolley,
+            selections: { ...FULL.trolley.selections, brakeTorqueNm: 850 },
+          }
+        : undefined,
+    };
+    // Yeni iş şablonunda yürütme frenleri henüz seçili değildir.
+    expect(keys(FULL)).not.toContain("bridge:brake");
+    expect(keys(FULL)).not.toContain("trolley:brake");
+    expect(keys(selected)).toContain("trolley:brake");
     expect(keys(TROLLEY_ONLY)).not.toContain("bridge:brake");
-    expect(keys(TROLLEY_ONLY)).toContain("trolley:brake");
+    expect(keys(TROLLEY_ONLY)).not.toContain("trolley:brake");
+  });
+
+  it("seçilmemiş yürütme freni 'Seçim yapılmadı' satırı açmaz", () => {
+    const withoutBrake: CalcInput = {
+      ...TROLLEY_ONLY,
+      trolley: TROLLEY_ONLY.trolley
+        ? {
+            ...TROLLEY_ONLY.trolley,
+            selections: { ...TROLLEY_ONLY.trolley.selections, brakeTorqueNm: 0 },
+          }
+        : undefined,
+    };
+    const rows = buildEquipmentGroups(withoutBrake).flatMap((group) => group.rows);
+    expect(rows.map((row) => row.rowKey)).not.toContain("trolley:brake");
+    expect(rows.map((row) => row.spec)).not.toContain("Seçim yapılmadı");
   });
 });
 

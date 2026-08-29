@@ -43,8 +43,7 @@ import {
   MANUAL_UST_BANT_ALT_BOSLUK,
   MANUAL_UST_BANT_YUKSEKLIK,
   bolumSayfalari,
-  manualAtomlari,
-  manualPdfSayfalari,
+  manualAnaBolumSayfalari,
   tabloPaylari,
   type ManualAtom,
 } from "@/lib/manual/pdf-layout";
@@ -233,17 +232,14 @@ export function ManualPdf({
     return !bolum.appendix || dahilEkler.has(bolum.appendix);
   });
 
-  // GÖVDE İKİ SÜTUNDA AKAR (kullanıcı isteği, 19.08.2026). Dağıtım saf
-  // çekirdektedir (`manual/pdf-layout.ts`); burası yalnız çizer.
-  // ANA BÖLÜMLER TEK AKIŞTIR: her bölüm için dağıtıcıyı yeniden başlatmak,
-  // önceki bölümün sağ sütununu boş bırakıp gereksiz yaprak üretiyordu.
-  // Tablonun tam genişlik kararı ölçüm çekirdeğindedir; kısa bakım ve yedek
-  // tablolarını bölüm adına bakarak koca bir banda zorlamak boş yaprak
-  // üretiyordu. Yalnız atom akışları birleşir, belge sırası değişmez.
-  const govdeAtomlari = govdeBolumleri.flatMap((bolum) =>
-    manualAtomlari([bolum], sources, oranlar)
+  // HER ANA BÖLÜM YENİ SAYFADAN başlar. 9. bölüm tek sütun/tam genişliktir;
+  // diğer bölümlerde iki sütunlu kompakt akış korunur. PDF ve tarayıcı
+  // önizlemesi aynı saf dağıtıcıyı çağırır.
+  const dagitilmisSayfalar = manualAnaBolumSayfalari(
+    govdeBolumleri,
+    sources,
+    oranlar
   );
-  const dagitilmisSayfalar = manualPdfSayfalari(govdeAtomlari);
   const govdeSayfalari = dagitilmisSayfalar.map((sayfa, sayfaIndisi) => {
     const atomlar = sayfa.bantlar.flatMap((bant) =>
       bant.kind === "full" ? bant.atoms : [...bant.sol, ...bant.sag]

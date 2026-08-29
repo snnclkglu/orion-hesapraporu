@@ -123,11 +123,31 @@ bir hesap bölümü fiziksel olarak devam yaprağına bölündüğünde de kendi
 tekrarlanır. Metin `REPORT_FOOTER_NOTICE` sabitinden gelir; sayfa türleri kendi
 kopyalarını yazmaz.
 
-**ÖZET HESAP RAPORU / 01 TEKNİK ÖZELLİKLER TABLOSU BÜYÜK HARFTİR.** Etiketler
-ve metinsel değerler `tr-TR` ile dönüştürülür; sayısal değerler ve `kW`, `m/s`,
-`mm` gibi teknik birim simgeleri dönüştürülmez. Bu tercih yalnız hesap raporu
-özetindeki tabloya uygulanır; aynı `FieldTable` bileşenini kullanan başka
-belgelerin tipografisini sessizce değiştirmez.
+**HESAP RAPORLARINDAKİ SATIR TABLOLARI BÜYÜK HARFTİR.** Özet, standart ve
+detaylı hesap raporlarının teknik özellik, girdi, tasarım kabulü ve katalog
+seçim satırları ile Teknik Ressam Özeti'nin ilk teknik özellik yaprağı aynı
+`FieldTable` bileşeninden geçer. Etiketler ve metinsel değerler `tr-TR` ile
+dönüştürülür; sayısal değerler ve `kW`, `m/s`, `mm` gibi teknik birim simgeleri
+dönüştürülmez. Özet sayfasındaki “Ana Ekipman Seçimleri” satırları ve rapor
+kapağındaki künye tablosu da aynı büyük harf kuralını taşır. Ekipman listesi
+PDF'inin künye ve ekipman satırları da bu yardımcıyı kullanır; kaynak katalog
+verisinin harf biçimi değiştirilmez.
+
+**SEÇİLMEYEN DEĞER SATIR AÇMAZ.** Boş, `—`, “Seçim yapılmadı” veya “Seçilmedi”
+olan katalog seçimi satırı rapora basılmaz. Yürütme freni seçilmemişse hem özet
+hesap raporundan hem ekipman listesinden düşer; boş bir karar satırı bırakmaz.
+
+**TEKNİK ÖZELLİK SIRASI BELGE KARARIDIR:** genel bilgiler → ana/yardımcı/
+monoray kaldırma grupları → ana/yardımcı/monoray araba yürütme grupları →
+köprü yürütme → ortak frenler. Başlık bandı eklenmez; anlamlı sıra satırların
+kendisinden okunur. “Kaldırma Donanımı” belirsiz etiketi kullanılmaz; grup adı
+etikettedir (`Ana Kaldırma Donanımı`, `Yardımcı Kaldırma Donanımı` …) ve
+değer halat donanımını da taşır (`Çift Tambur - 4/16`). Aynı sıralı/zengin
+kaynak el kitabının sınıflandırma, karakteristik ve hız tablolarını besler.
+
+**KAPAK KÜNYESİ VİNÇ TİPİYLE BAŞLAR.** Proje başlığının altındaki ikinci bir
+serbest “Portal Vinç” satırı yoktur; `VİNÇ TİPİ` künye tablosunda kapasitenin
+üstündeki ilk satırdır ve değeri büyük harfle basılır.
 
 **Dosya adı tek yerdedir: `pdf/doc-naming.ts`.** Firma kuralı
 **İŞ ADI - DOKÜMAN KODU - VERSİYON**, tamamı BÜYÜK HARF, sonda belgenin

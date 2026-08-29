@@ -40,7 +40,10 @@ describe("ikiz kaldırma donanımı", () => {
     const summary = buildSummarySections(twin, runCalc(twin));
     const general = summary.find((section) => section.name === "Genel Ölçüler ve Kapasiteler");
     expect(general?.rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ label: "Ana Kaldırma donanımı", value: "İkiz Donanım" }),
+      expect.objectContaining({
+        label: "Ana Kaldırma Donanımı",
+        value: `İkiz Donanım - ${twin.mainHoist?.inputs.reevingLabel}`,
+      }),
     ]));
   });
 });

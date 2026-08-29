@@ -617,6 +617,28 @@ function atomuBol(
 const BASLIK_KUYRUK = 26;
 
 /**
+ * Ana bölümleri kullanıcının belge kurallarına göre ayrı ayrı dağıtır.
+ *
+ * Her ana bölüm yeni bir fiziksel sayfadan başlar. 9. bölüm bakım ve yedek
+ * parça çizelgelerini taşır; bu bölümde bütün atomlar tam genişliktir ve
+ * sayfanın ortasında iki sütun ayırıcı çizgisi oluşmaz.
+ */
+export function manualAnaBolumSayfalari(
+  sections: readonly NumberedSection[],
+  sources: ManualSourceData,
+  oranlar: GorselOranlari = new Map()
+): ManualPdfSayfa[] {
+  return sections.flatMap((section) => {
+    // Numara gizlenen bölümlerden sonra yeniden dizilir; kararı kararlı şablon
+    // anahtarına bağlarız. Böylece “Yedek Parça Listeleri” 8'e düşse bile
+    // tekrar iki sütuna dönmez.
+    const tekSutun = section.key === "yedek";
+    const atoms = manualAtomlari([section], sources, oranlar, tekSutun);
+    return manualPdfSayfalari(atoms);
+  });
+}
+
+/**
  * Atomları sayfalara, sütunlara ve tam genişlik bantlarına dağıtır.
  *
  * SIRA KORUNUR, DENGE ARANMAZ (teklifin kuralı): bloklar sırayla önce sol

@@ -16,6 +16,7 @@ import {
   SUTUN_GENISLIK,
   TAM_GENISLIK,
   blokOlcusu,
+  manualAnaBolumSayfalari,
   manualAtomlari,
   manualPdfSayfalari,
   tabloYuksekligi,
@@ -295,6 +296,46 @@ describe("manualPdfSayfalari", () => {
 
   it("boş akış boş liste verir", () => {
     expect(manualPdfSayfalari([])).toEqual([]);
+  });
+});
+
+describe("ana bölüm sayfa kuralları", () => {
+  it("her ana bölümü yeni bir fiziksel sayfadan başlatır", () => {
+    const sections = numberManual([
+      bolum({ id: "bir", title: "Bir", blocks: [paragraf("p1", "Kısa metin")] }),
+      bolum({ id: "iki", title: "İki", blocks: [paragraf("p2", "Kısa metin")] }),
+    ]);
+    const pages = manualAnaBolumSayfalari(sections, BOS_KAYNAK);
+
+    expect(pages).toHaveLength(2);
+    const firstHeadingId = (page: (typeof pages)[number]) =>
+      page.bantlar
+        .flatMap((band) => band.kind === "full" ? band.atoms : [...band.sol, ...band.sag])
+        .find((atom) => atom.kind === "heading")?.section.id;
+    expect(pages.map(firstHeadingId)).toEqual(["bir", "iki"]);
+  });
+
+  it("9. bölümde bütün akışı tam genişlikte tutar ve orta sütun ayırıcı açmaz", () => {
+    const sections = numberManual(
+      Array.from({ length: 9 }, (_, index) =>
+        bolum({
+          id: `b${index + 1}`,
+          ...(index === 8 ? { key: "yedek" } : {}),
+          title: `Bölüm ${index + 1}`,
+          blocks: [paragraf(`p${index + 1}`, "Bakım çizelgesi açıklaması")],
+        })
+      )
+    );
+    const ninthPages = manualAnaBolumSayfalari([sections[8]], BOS_KAYNAK);
+
+    expect(ninthPages.length).toBeGreaterThan(0);
+    expect(ninthPages.flatMap((page) => page.bantlar).every((band) => band.kind === "full")).toBe(true);
+    expect(
+      ninthPages
+        .flatMap((page) => page.bantlar)
+        .flatMap((band) => band.kind === "full" ? band.atoms : [])
+        .every((atom) => atom.tam)
+    ).toBe(true);
   });
 });
 

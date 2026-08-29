@@ -15,6 +15,7 @@ import { runCalc } from "@/lib/calc/engine";
 import {
   ReportDocument,
   isReportLevel,
+  reportRowUpper,
   renderReportPdf,
   summarySpecsForReport,
   type ReportLevel,
@@ -49,7 +50,13 @@ let cached: Promise<Buffer> | undefined;
 const report = () => (cached ??= renderReportPdf(props));
 
 describe("hesap raporu PDF duman testi", () => {
-  it("özet teknik tablosu kapasiteyle başlar; yok alanları ve çarpma oranlarını basmaz", () => {
+  it("satırları Türkçe büyük harfe çevirirken teknik birimleri korur", () => {
+    expect(reportRowUpper("Ana Kaldırma Donanımı · 55 kW · 40 m/dak")).toBe(
+      "ANA KALDIRMA DONANIMI · 55 kW · 40 m/dak"
+    );
+  });
+
+  it("özet teknik tablosunu genel bilgi → kaldırma → araba → köprü sırasına dizer", () => {
     const summary = summarySpecsForReport({
       ...input,
       specs: {
@@ -65,7 +72,7 @@ describe("hesap raporu PDF duman testi", () => {
     const labels = new Map(summary.defs.map((f) => [f.key, f.label]));
     const bridgeWeight = keys.indexOf("bridgeWeightT");
 
-    expect(keys[0]).toBe("mainCapacityT");
+    expect(keys[0]).toBe("spanM");
     expect(keys).not.toContain("monorailCount");
     expect(keys).not.toContain("trolleyBufferImpactSpeedPct");
     expect(keys).not.toContain("bridgeBufferImpactSpeedPct");
@@ -79,6 +86,18 @@ describe("hesap raporu PDF duman testi", () => {
     expect(labels.get("bridgeSpeedMpm")).toBe("Köprü Yürütme Hızı");
     expect(labels.get("trolleyPowerSupply")).toBe("Ana Araba Enerji Besleme Sistemi");
     expect(labels.get("bridgeBufferType")).toBe("Köprü Tampon Tipi");
+    expect(labels.get("mainHoistEquipmentArrangement")).toBe("Ana Kaldırma Donanımı");
+    expect(labels.get("auxHoistEquipmentArrangement")).toBe("Yardımcı Kaldırma Donanımı");
+    expect(summary.source.mainHoistEquipmentArrangement).toBe(
+      `Standart Donanım - ${input.mainHoist?.inputs.reevingLabel}`
+    );
+
+    const firstMainHoist = keys.findIndex((key) => key === "mainCapacityT");
+    const firstTrolley = keys.findIndex((key) => key === "trolleySpeedMpm");
+    const firstBridge = keys.findIndex((key) => key === "bridgeSpeedMpm");
+    expect(firstMainHoist).toBeGreaterThan(keys.indexOf("installationEnvironment"));
+    expect(firstTrolley).toBeGreaterThan(firstMainHoist);
+    expect(firstBridge).toBeGreaterThan(firstTrolley);
   });
 
   it("V5 şablonundan detaylı rapor üretir (>20KB) ve örneği .smoke/ altına yazar", async () => {
@@ -192,6 +211,14 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
     expect(ozet.all).not.toContain("RAPORU HAZIRLAYAN FİRMA");
     expect(ozet.all.toLocaleLowerCase("tr-TR")).not.toContain("partner");
     expect(ozet.squeezed).not.toContain("TASARIMHESAPRAPORU");
+    const cover = ozet.pages[0];
+    const squeezedCover = cover.replace(/\s+/g, "");
+    expect(squeezedCover.indexOf("VİNÇTİPİ")).toBeGreaterThanOrEqual(0);
+    expect(squeezedCover.indexOf("VİNÇTİPİ")).toBeLessThan(squeezedCover.indexOf("KAPASİTE"));
+    expect(squeezedCover).toContain(
+      props.project.crane_type.toLocaleUpperCase("tr-TR").replace(/\s+/g, "")
+    );
+    expect(cover).not.toContain(props.project.crane_type);
   }, 300_000);
 
   it("özet teknik özellik tablosunu Türkçe büyük harfle, birimleri bozmadan basar", async () => {
@@ -203,7 +230,33 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
     expect(summaryPage).toBeDefined();
     expect(summaryPage).toContain("KALDIRMA KAPASİTESİ");
     expect(summaryPage).not.toContain("Kaldırma Kapasitesi");
+    expect(summaryPage).toContain("ANA KALDIRMA DONANIMI");
+    expect(summaryPage).not.toContain("Ana Kaldırma Donanımı");
+    expect(summaryPage).not.toContain("Ana Kaldırma");
     expect(summaryPage).toContain("m/dak");
+  }, 300_000);
+
+  it("seçilmemiş yürütme frenini özet raporda satır olarak basmaz", async () => {
+    const withoutBrake = {
+      ...input,
+      trolley: input.trolley
+        ? {
+            ...input.trolley,
+            selections: { ...input.trolley.selections, brakeTorqueNm: 0 },
+          }
+        : undefined,
+    };
+    const text = await pagesOf(
+      await renderToBuffer(
+        <ReportDocument
+          {...props}
+          input={withoutBrake}
+          result={runCalc(withoutBrake)}
+          level="ozet"
+        />
+      ) as Buffer
+    );
+    expect(text.all).not.toContain("Seçim yapılmadı");
   }, 300_000);
 
   it("mülkiyet ve gizlilik satırını kapakta değil bütün iç sayfalarda tekrarlar", async () => {
