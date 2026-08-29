@@ -54,6 +54,28 @@ export const PORTAL_SOURCE_KINDS = [
 export type PortalSourceKind = (typeof PORTAL_SOURCE_KINDS)[number];
 export type PortalAccessMode = "view_watermarked" | "download";
 
+export const PORTAL_REPORT_LEVELS = [
+  "ozet",
+  "standart",
+  "detayli",
+  "teker_yukleri",
+] as const;
+
+export type PortalReportLevel = (typeof PORTAL_REPORT_LEVELS)[number];
+export type PortalEquipmentDetail = "standart" | "detayli";
+
+export const PORTAL_FOLDER_OPTIONS = [
+  { key: "hesap-raporlari", title: "Hesap Raporları", sort: 10 },
+  { key: "ekipman-listeleri", title: "Ekipman Listeleri", sort: 20 },
+  { key: "isletme-bakim", title: "İşletme ve Bakım", sort: 30 },
+  { key: "elektrik-projeleri", title: "Elektrik Projeleri", sort: 40 },
+  { key: "proje-belgeleri", title: "Proje Belgeleri", sort: 50 },
+  { key: "teknik-resimler", title: "Teknik Resimler", sort: 60 },
+  { key: "diger", title: "Diğer Belgeler", sort: 90 },
+] as const;
+
+export type PortalFolderKey = (typeof PORTAL_FOLDER_OPTIONS)[number]["key"];
+
 export interface PortalDocumentSelection {
   /** Taslakta kararlı kimlik; source kind/id değişse bile sıralama buna bağlıdır. */
   id: string;
@@ -61,6 +83,9 @@ export interface PortalDocumentSelection {
   sourceId: string;
   sourceLabel: string;
   sourceRevisionLabel: string;
+  /** Kaynağın kendi resmî çıktı seçimi; eski kayıtlarda güvenli varsayıma iner. */
+  reportLevel?: PortalReportLevel;
+  equipmentDetail?: PortalEquipmentDetail;
   title: string;
   folderKey: string;
   folderTitle: string;

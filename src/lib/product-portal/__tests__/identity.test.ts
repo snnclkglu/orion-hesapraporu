@@ -47,10 +47,18 @@ describe("otomatik alan + override", () => {
   });
 
   it("eksik JSONB kaydını 240 × 160 ve boş bilinmeyenlerle taşır", () => {
-    const payload = withProductPortalDefaults({ overrides: { product: "Özel Vinç" } });
+    const payload = withProductPortalDefaults({
+      overrides: { product: "Özel Vinç" },
+      documents: [
+        { id: "report", sourceKind: "report" },
+        { id: "equipment", sourceKind: "equipment" },
+      ],
+    });
     expect(payload.plate).toEqual({ widthMm: 240, heightMm: 160 });
     expect(payload.overrides.product).toBe("Özel Vinç");
     expect(payload.portal.title).toBe("Teknik Dokümanlar");
+    expect(payload.documents[0]?.reportLevel).toBe("detayli");
+    expect(payload.documents[1]?.equipmentDetail).toBe("standart");
   });
 
   it("başlangıçta kaynak belgeleri ve destek adresini taşır", () => {

@@ -31,6 +31,8 @@ import {
   newPublicCode,
 } from "@/lib/product-portal/secrets";
 import {
+  PORTAL_FOLDER_OPTIONS,
+  PORTAL_REPORT_LEVELS,
   PORTAL_SOURCE_KINDS,
   PRODUCT_IDENTITY_FIELDS,
   type PortalDocumentSelection,
@@ -48,6 +50,7 @@ const UUID = z.string().uuid();
 const accessMode = z.enum(["view_watermarked", "download"]);
 const sourceKind = z.enum(PORTAL_SOURCE_KINDS);
 const identityField = z.enum(PRODUCT_IDENTITY_FIELDS);
+const reportLevel = z.enum(PORTAL_REPORT_LEVELS);
 
 const documentSchema = z.object({
   id: z.string().min(1).max(120),
@@ -55,6 +58,8 @@ const documentSchema = z.object({
   sourceId: z.string().min(1).max(500),
   sourceLabel: z.string().max(240),
   sourceRevisionLabel: z.string().max(80),
+  reportLevel: reportLevel.optional(),
+  equipmentDetail: z.enum(["standart", "detayli"]).optional(),
   title: z.string().trim().min(1).max(180),
   folderKey: z.string().regex(/^[a-z0-9-]{1,40}$/),
   folderTitle: z.string().trim().min(1).max(100),
@@ -310,7 +315,9 @@ export async function createNextProductPortalRevision(
   const workspace = await loadProductPortalWorkspace(context.supabase, projectId);
   if (!workspace) return { error: "Portal bulunamadı." };
   if (workspace.editableRevision) return { error: "Önce açık taslak sürümü tamamlayın." };
-  const previous = workspace.revisions[0];
+  const previous = workspace.revisions.find((entry) => entry.id === workspace.currentRevisionId)
+    ?? workspace.revisions.find((entry) => entry.status === "issued")
+    ?? workspace.revisions[0];
   if (!previous) return { error: "Kopyalanacak portal sürümü bulunamadı." };
   const payload = withProductPortalDefaults(previous.payload);
   delete payload.issuedIdentity;
@@ -327,6 +334,45 @@ export async function createNextProductPortalRevision(
   if (error || !data) return { error: "Yeni portal sürümü açılamadı." };
   revalidatePath(`/projects/${projectId}`);
   return { ok: true, revisionId: data.id };
+}
+
+export async function withdrawProductPortal(
+  projectId: string
+): Promise<ProductPortalActionResult> {
+  const context = await portalContext(projectId);
+  if ("error" in context) return { error: context.error };
+  if (!context.portal.current_revision_id) return { error: "Yayında bir müşteri paketi yok." };
+
+  const { error } = await context.supabase.rpc("withdraw_product_portal", {
+    p_portal_id: context.portal.id,
+  });
+  if (error) return { error: error.message || "Müşteri paketi yayından kaldırılamadı." };
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
+export async function activateProductPortalRevision(
+  projectId: string,
+  revisionId: string
+): Promise<ProductPortalActionResult> {
+  if (!UUID.safeParse(revisionId).success) return { error: "Geçersiz portal sürümü." };
+  const context = await portalContext(projectId);
+  if ("error" in context) return { error: context.error };
+  const { data: revision } = await context.supabase
+    .from("product_portal_revisions")
+    .select("id, portal_id, status")
+    .eq("id", revisionId)
+    .eq("portal_id", context.portal.id)
+    .eq("status", "issued")
+    .maybeSingle();
+  if (!revision) return { error: "Bu vinç kimliğine ait yayımlanmış sürüm bulunamadı." };
+
+  const { error } = await context.supabase.rpc("activate_product_portal_revision", {
+    p_revision_id: revisionId,
+  });
+  if (error) return { error: error.message || "Portal sürümü yeniden yayıma alınamadı." };
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
 }
 
 export async function rotateCraneUnitPassword(
@@ -426,6 +472,8 @@ export async function uploadCustomPortalDocument(
 
   const payload = withProductPortalDefaults(context.revision.payload);
   const title = file.name.replace(/\.pdf$/i, "").slice(0, 180) || "Ek Belge";
+  const customFolder = PORTAL_FOLDER_OPTIONS.find((entry) => entry.key === "diger");
+  if (!customFolder) return { error: "Diğer belgeler klasörü tanımlı değil." };
   payload.documents.push({
     id: `custom:${randomUUID()}`,
     sourceKind: "custom",
@@ -433,9 +481,9 @@ export async function uploadCustomPortalDocument(
     sourceLabel: "Elle yüklenen PDF",
     sourceRevisionLabel: "",
     title,
-    folderKey: "diger",
-    folderTitle: "Diğer Belgeler",
-    folderSort: 90,
+    folderKey: customFolder.key,
+    folderTitle: customFolder.title,
+    folderSort: customFolder.sort,
     fileSort: payload.documents.filter((entry) => entry.folderKey === "diger").length + 1,
     accessMode: "view_watermarked",
     included: true,

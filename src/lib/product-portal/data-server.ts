@@ -11,6 +11,7 @@ import {
   resolveIdentityFields,
   withProductPortalDefaults,
 } from "./identity";
+import { PORTAL_FOLDER_OPTIONS } from "./types";
 import type {
   CraneUnitRow,
   IdentitySource,
@@ -24,6 +25,16 @@ import type {
 } from "./types";
 
 export const CUSTOMER_PORTAL_BUCKET = "customer-portal";
+
+function portalFolder(key: (typeof PORTAL_FOLDER_OPTIONS)[number]["key"]) {
+  const folder = PORTAL_FOLDER_OPTIONS.find((entry) => entry.key === key);
+  if (!folder) throw new Error(`Portal klasörü tanımlı değil: ${key}`);
+  return {
+    folderKey: folder.key,
+    folderTitle: folder.title,
+    folderSort: folder.sort,
+  };
+}
 
 export interface ProductPortalWorkspace {
   portalId: string;
@@ -192,28 +203,26 @@ export async function discoverPortalDocuments(
   const report = revisions?.[0] ?? null;
   if (report) {
     output.push(documentCandidate({
-      id: `report:${report.id}`,
+      id: "auto:report",
       sourceKind: "report",
       sourceId: String(report.id),
       sourceLabel: "Yayımlanmış hesap raporu arşivi",
       sourceRevisionLabel: `V${report.rev_no}`,
-      title: `Hesap Raporu · V${report.rev_no}`,
-      folderKey: "proje-belgeleri",
-      folderTitle: "Proje Belgeleri",
-      folderSort: 10,
+      reportLevel: "detayli",
+      title: `Hesap Raporu · Detaylı · V${report.rev_no}`,
+      ...portalFolder("hesap-raporlari"),
       fileSort: 10,
       accessMode: "view_watermarked",
     }));
     output.push(documentCandidate({
-      id: `equipment:${report.id}`,
+      id: "auto:equipment",
       sourceKind: "equipment",
       sourceId: String(report.id),
       sourceLabel: "Hesap raporu revizyonundan otomatik üretilir",
       sourceRevisionLabel: `V${report.rev_no}`,
-      title: `Ekipman Listesi · V${report.rev_no}`,
-      folderKey: "ekipman",
-      folderTitle: "Ekipman Listeleri",
-      folderSort: 20,
+      equipmentDetail: "standart",
+      title: `Ekipman Listesi · Standart · V${report.rev_no}`,
+      ...portalFolder("ekipman-listeleri"),
       fileSort: 10,
       accessMode: "view_watermarked",
     }));
@@ -222,15 +231,13 @@ export async function discoverPortalDocuments(
   if (manual) {
     const issued = (await loadManualRevisions(supabase, manual.id)).find((entry) => entry.status === "issued");
     if (issued) output.push(documentCandidate({
-      id: `manual:${issued.id}`,
+      id: "auto:manual",
       sourceKind: "manual",
       sourceId: issued.id,
       sourceLabel: "Yayımlanmış işletme ve bakım el kitabı",
       sourceRevisionLabel: `V${issued.revNo}`,
       title: `İşletme ve Bakım El Kitabı · V${issued.revNo}`,
-      folderKey: "proje-belgeleri",
-      folderTitle: "Proje Belgeleri",
-      folderSort: 10,
+      ...portalFolder("isletme-bakim"),
       fileSort: 20,
       // Dijital kullanım talimatı müşterinin kaydedip yazdırabilmesi için indirilir.
       accessMode: "download",
@@ -238,29 +245,25 @@ export async function discoverPortalDocuments(
   }
 
   if (electrical) output.push(documentCandidate({
-    id: `electrical:${electrical.id}`,
+    id: "auto:electrical",
     sourceKind: "electrical",
     sourceId: electrical.id,
     sourceLabel: "Güncel olarak işaretlenmiş elektrik projesi",
     sourceRevisionLabel: electrical.revision,
     title: `Elektrik Projesi${electrical.revision ? ` · ${electrical.revision}` : ""}`,
-    folderKey: "elektrik",
-    folderTitle: "Elektrik Belgeleri",
-    folderSort: 30,
+    ...portalFolder("elektrik-projeleri"),
     fileSort: 10,
     accessMode: "view_watermarked",
   }));
 
   if (spec && spec.contentType === "application/pdf") output.push(documentCandidate({
-    id: `specification:${spec.id}`,
+    id: "auto:specification",
     sourceKind: "specification",
     sourceId: spec.id,
     sourceLabel: "Güncel teknik şartname",
     sourceRevisionLabel: spec.revision,
     title: `Teknik Şartname${spec.revision ? ` · ${spec.revision}` : ""}`,
-    folderKey: "proje-belgeleri",
-    folderTitle: "Proje Belgeleri",
-    folderSort: 10,
+    ...portalFolder("proje-belgeleri"),
     fileSort: 30,
     accessMode: "download",
   }));
@@ -296,9 +299,7 @@ export async function discoverPortalDocuments(
           sourceLabel: String(pack?.folder_name ?? "Teknik resim paketi"),
           sourceRevisionLabel: pack ? `R${String(pack.rev_no).padStart(2, "0")}` : "",
           title: String(file.file_name).replace(/\.pdf$/i, ""),
-          folderKey: "teknik-resimler",
-          folderTitle: "Teknik Resimler",
-          folderSort: 40,
+          ...portalFolder("teknik-resimler"),
           fileSort: index + 1,
           accessMode: "view_watermarked",
           // Yüzlerce imalat paftasını fark edilmeden yayımlamamak için bulunur
@@ -319,19 +320,58 @@ export function mergeDiscoveredDocuments(
   discovered: readonly PortalDocumentSelection[]
 ): PortalDocumentSelection[] {
   const byId = new Map(discovered.map((entry) => [entry.id, entry]));
-  const merged = existing.map((entry) => {
-    const fresh = byId.get(entry.id);
+  const singletonKinds = new Set<PortalDocumentSelection["sourceKind"]>([
+    "report",
+    "equipment",
+    "manual",
+    "electrical",
+    "specification",
+  ]);
+  const merged = existing.flatMap((entry) => {
+    const semanticId = entry.automatic && singletonKinds.has(entry.sourceKind)
+      ? `auto:${entry.sourceKind}`
+      : entry.id;
+    const fresh = byId.get(semanticId);
     if (!fresh || entry.sourceKind === "custom") return entry;
-    byId.delete(entry.id);
+    byId.delete(semanticId);
+    const reportLevel = entry.reportLevel ?? fresh.reportLevel;
+    const equipmentDetail = entry.equipmentDetail ?? fresh.equipmentDetail;
+    const generatedTitle = (() => {
+      if (entry.sourceKind === "report") {
+        const label = reportLevel === "ozet"
+          ? "Özet"
+          : reportLevel === "standart"
+            ? "Standart"
+            : reportLevel === "teker_yukleri"
+              ? "Teker Yükleri"
+              : "Detaylı";
+        return `Hesap Raporu · ${label}${fresh.sourceRevisionLabel ? ` · ${fresh.sourceRevisionLabel}` : ""}`;
+      }
+      if (entry.sourceKind === "equipment") {
+        const label = equipmentDetail === "detayli" ? "Detaylı" : "Standart";
+        return `Ekipman Listesi · ${label}${fresh.sourceRevisionLabel ? ` · ${fresh.sourceRevisionLabel}` : ""}`;
+      }
+      return fresh.title;
+    })();
+    const hadGeneratedTitle = entry.automatic && (
+      entry.sourceKind === "report"
+        ? /^Hesap Raporu(?: · (?:Özet|Standart|Detaylı|Teker Yükleri))?(?: · V\d+)?$/u.test(entry.title)
+        : entry.sourceKind === "equipment"
+          ? /^Ekipman Listesi(?: · (?:Standart|Detaylı))?(?: · V\d+)?$/u.test(entry.title)
+          : entry.title === fresh.title
+            || entry.title.startsWith(`${fresh.title.split(" · ")[0]} · `)
+    );
     return {
       ...fresh,
-      title: entry.title,
+      title: hadGeneratedTitle ? generatedTitle : entry.title,
       folderKey: entry.folderKey,
       folderTitle: entry.folderTitle,
       folderSort: entry.folderSort,
       fileSort: entry.fileSort,
       accessMode: entry.accessMode,
       included: entry.included,
+      ...(reportLevel ? { reportLevel } : {}),
+      ...(equipmentDetail ? { equipmentDetail } : {}),
     };
   });
   return [...merged, ...byId.values()].sort(

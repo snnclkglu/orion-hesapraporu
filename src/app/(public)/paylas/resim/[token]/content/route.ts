@@ -80,7 +80,7 @@ async function loginPortal(request: Request, rawCode: string): Promise<Response>
   const password = String(form.get("password") ?? "");
   const { data: unit } = await admin
     .from("crane_units")
-    .select("id, password_salt, password_hash, password_version, portal_enabled")
+    .select("id, portal_id, password_salt, password_hash, password_version, portal_enabled")
     .eq("public_code", code)
     .eq("portal_enabled", true)
     .maybeSingle();
@@ -100,6 +100,43 @@ async function loginPortal(request: Request, rawCode: string): Promise<Response>
       ip_hash: fingerprints.ipHash,
       user_agent_hash: fingerprints.userAgentHash,
       result: "invalid",
+    });
+    return failure(request, code);
+  }
+
+  // Yayım işaretçisi veya dosya paketi yoksa oturum üretme. Aksi hâlde giriş
+  // başarılı görünür, sonraki sayfa current revision bulamayınca tekrar parola
+  // ekranına düşer ve müşteri QR'ın bozuk olduğunu sanır.
+  const { data: portal } = await admin
+    .from("product_portals")
+    .select("current_revision_id")
+    .eq("id", unit.portal_id)
+    .maybeSingle();
+  const currentRevisionId = portal?.current_revision_id
+    ? String(portal.current_revision_id)
+    : "";
+  const [{ data: revision }, { count: fileCount }] = currentRevisionId
+    ? await Promise.all([
+        admin
+          .from("product_portal_revisions")
+          .select("id")
+          .eq("id", currentRevisionId)
+          .eq("portal_id", unit.portal_id)
+          .eq("status", "issued")
+          .maybeSingle(),
+        admin
+          .from("product_portal_files")
+          .select("id", { count: "exact", head: true })
+          .eq("revision_id", currentRevisionId),
+      ])
+    : [{ data: null }, { count: 0 }];
+  if (!revision || !fileCount) {
+    await admin.from("product_portal_access_events").insert({
+      unit_id: unit.id,
+      code_hash: fingerprints.codeHash,
+      ip_hash: fingerprints.ipHash,
+      user_agent_hash: fingerprints.userAgentHash,
+      result: "inactive_release",
     });
     return failure(request, code);
   }

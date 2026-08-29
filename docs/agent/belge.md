@@ -289,22 +289,44 @@ paketi görür.
 `product_portal_files` yayımdan sonra değiştirilemez. Yayım anında seçilen her
 PDF `customer-portal` özel kovasına maddi bir kopya olarak konur; kaynak rapor
 sonradan değişse bile sahadaki QR'ın R01 paketi sessizce değişmez. Değişiklik
-yeni `Rnn` paketidir. Portalda her zaman son yayımlanmış paket gösterilir.
+yeni `Rnn` paketidir. Yanlış yayımda snapshot silinmez: `current_revision_id`
+geri çekilir, bütün ünite erişimleri kapatılır ve oturumlar iptal edilir.
+Arşivdeki dosyaları hazır bir `issued` sürüm aynı işaretçiye yeniden bağlanarak
+geri alınabilir; ünite erişimini yeniden açmak ayrıca bilinçli bir operatör
+kararıdır. Yeni taslak en yeni arşivi değil, önce aktif sürümü kopyalar.
 
 **QR YALNIZ KALICI KISA URL TAŞIR.** Parola, müşteri adı ve belge adresleri QR
 içine yazılmaz. Plaka basıldıktan sonra içerik değişebilir ama URL ve alan adı
-kalır. `public_code` tahmin edilmesi zor bir yönlendirme kimliğidir; gerçek
+kalır. Origin, şirket web adresinden türetilmez; sunucudaki
+`CUSTOMER_PORTAL_ORIGIN` (ve Vercel üretim adresi/istek hostu yedeği) ile bu
+uygulamanın dış portalına bağlanır. `public_code` tahmin edilmesi zor bir yönlendirme kimliğidir; gerçek
 yetkilendirme ünite parolası, DB tabanlı deneme sınırı ve 12 saatlik HttpOnly
 oturumla yapılır. Parola açık metin saklanmaz; scrypt özeti saklanır ve yeni
-parola üretildiğinde eski oturumlar kapanır.
+parola üretildiğinde eski oturumlar kapanır. QR hazırlık kutusu aktif paket,
+parola ve ünite erişimini ayrı ayrı gösterir; bu üçü tamamlanmadan plaka
+bağlantısı müşteri erişimine hazır sayılmaz.
 
 **PLAKA TEK GEOMETRİDEN ÇIKAR.** Varsayılan ölçü `240 × 160 mm`dir. Yönetim
-önizlemesi ve baskıya giden SVG aynı `buildNameplateSvg` fonksiyonudur; ekran
-CSS'i SVG'yi yalnız orantılı küçültür, fiziksel `mm` ölçüsünü değiştirmez. Onaylı
-beyaz ORION SVG logosu, Archivo/Plex Mono, arduvaz zemin, kağıt rengi metin ve
-siyah/beyaz `Q` hata düzeltmeli QR kullanılır. QR kare kalır ve dört modül
-sessiz alan taşır. Montaj deliği ölçüsü üretim kararıdır; açıkça verilmeden
-çizilmez.
+önizlemesi ve baskıya giden self-contained SVG `createNameplateLayout`
+geometrisini kullanır; istemcide oluşturulan tek sayfalık vektör PDF de aynı
+geometriyi tam fiziksel `mm` sayfa ölçüsüne çizer. Ekran CSS'i yalnız orantılı
+küçültür. Plaka marka kılavuzundaki kömür (`ink`), kâğıt ve ORION kırmızısı
+omurgayı; onaylı beyaz ORION logosunu ve Archivo/Plex Mono yazılarını kullanır.
+Son müşteri kimliği (`projects.end_customer_id`) varsa normalize edilmiş
+müşteri logosu başlık bandına gelir, yoksa müşteri adı yedektir. Uzun ürün adı
+kesilmez veya üç nokta yapılmaz: gerçek baskı genişliğine göre dengeli iki
+satıra bölünür; iki satıra da sığmıyorsa baskıdan önce açık uyarı gösterilir.
+Siyah/beyaz QR `Q` hata düzeltmeli, kare ve dört modül sessiz alanlıdır. Montaj
+deliği ölçüsü üretim kararıdır; açıkça verilmeden çizilmez.
+
+**BELGE TÜRÜ VE KLASÖR KONTROLLÜ SÖZLÜKTÜR.** Hesap raporunda `Özet`,
+`Standart`, `Detaylı` ve `Teker Yükleri`; ekipman listesinde `Standart` ve
+`Detaylı` kullanıcı tarafından seçilir. Seçim yayım sırasında mevcut PDF
+uçlarından maddileştirilir; kaynak revizyon yenilenince otomatik başlık ve
+revizyon etiketi güncellenir, elle değiştirilmiş başlık korunur. Klasör serbest
+metin değildir: dropdown, anahtar/başlık/sıra üçlüsünü birlikte değiştirir.
+Hesap raporları, ekipman listeleri, işletme-bakım, elektrik projeleri, proje
+belgeleri, teknik resimler ve diğer belgeler tek sözlükten gelir.
 
 **MÜŞTERİ PORTALI İÇ UYGULAMANIN KABUĞU DEĞİLDİR.** `/paylas/vinc/[code]`
 oturumsuz route grubundadır, `noindex` taşır ve yalnız yayımlanmış DTO'yu
@@ -314,6 +336,10 @@ depo nesneleri normal authenticated kullanıcıya açılmaz; public route yalnı
 server-side service-role veri katmanından, oturum + dosya allowlist'i
 doğrulandıktan sonra okur.
 
+Yönetim sayfasında müşteri yüzü uzun bir alt panel değildir; geniş bir dialog
+içinde açılır. Taslak ve yayındaki snapshot aynı dialogda değiştirilebilir ve
+seçili A/B/C ünitesinin seri numarasıyla gösterilir.
+
 **PORTAL YENİ SUNUCU FONKSİYONU EKLEMEZ.** Vercel Hobby dağıtımı en fazla 12
 function kabul eder ve uygulamanın mevcut fonksiyon + proxy bütçesi doludur.
 Vinç portalının HTML yüzü `next.config.ts` rewrite'ıyla zaten var olan
@@ -321,9 +347,10 @@ Vinç portalının HTML yüzü `next.config.ts` rewrite'ıyla zaten var olan
 işlemleri de var olan `/paylas/resim/[token]/content` fonksiyonunda çalışır. QR
 ve tarayıcı yine temiz `/paylas/vinc/[code]` adresini görür. Portal işlemleri
 ayrı `route.ts` dosyalarına, portal listesi veya belge görüntüleyici ayrı
-`page.tsx`lere bölünmez. İsim plakası SVG'si de ayrı sunucu ucu açmaz: yönetim
-sayfasına gömülen aynı saf geometri, logo ve font verileri tarayıcıda Blob
-olarak indirilir. Böylece baskı dosyası self-contained kalırken dağıtım bütçesi
+`page.tsx`lere bölünmez. İsim plakası SVG/PDF çıktısı da ayrı sunucu ucu açmaz:
+yönetim sayfasına gömülen aynı saf geometri, logo ve font verileri tarayıcıda
+dinamik istemci parçasıyla Blob olarak üretilir. Böylece baskı dosyası
+self-contained kalırken dağıtım bütçesi
 aşılmaz. İşlem ayrımı mevcut content ucu içinde HTTP yöntemi ve rewrite'ın
 eklediği kesin `portal`/`action` sorgularıyla, belge seçimi sayfada
 `?belge=<uuid>` ile yapılır; her ikisi de aynı oturum/allowlist denetimini

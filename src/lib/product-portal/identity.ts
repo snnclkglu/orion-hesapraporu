@@ -1,6 +1,8 @@
 import {
+  PORTAL_REPORT_LEVELS,
   PRODUCT_IDENTITY_FIELDS,
   type IdentitySource,
+  type PortalEquipmentDetail,
   type ProductIdentityField,
   type ProductIdentityValues,
   type ProductPortalPayload,
@@ -88,10 +90,26 @@ export function withProductPortalDefaults(raw: unknown): ProductPortalPayload {
   const hidden = new Set(
     Array.isArray(value.hiddenFields) ? value.hiddenFields.map(String) : []
   );
-  const documents = Array.isArray(value.documents)
+  const documents = (Array.isArray(value.documents)
     ? value.documents.filter((entry): entry is ProductPortalPayload["documents"][number] =>
         Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
-    : [];
+    : []).map((entry) => {
+      if (entry.sourceKind === "report") {
+        const reportLevel = PORTAL_REPORT_LEVELS.find((level) => level === entry.reportLevel)
+          ?? "detayli";
+        return { ...entry, reportLevel };
+      }
+      if (entry.sourceKind === "equipment") {
+        const equipmentDetail: PortalEquipmentDetail = entry.equipmentDetail === "detayli"
+          ? "detayli"
+          : "standart";
+        return {
+          ...entry,
+          equipmentDetail,
+        };
+      }
+      return entry;
+    });
 
   let issuedIdentity: ProductIdentityValues | undefined;
   if (value.issuedIdentity && typeof value.issuedIdentity === "object" && !Array.isArray(value.issuedIdentity)) {

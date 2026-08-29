@@ -7,6 +7,7 @@ import { ELECTRICAL_BUCKET } from "@/lib/electrical/data";
 import { SPEC_BUCKET } from "@/lib/project-specs";
 import { sha256 } from "./secrets";
 import { CUSTOMER_PORTAL_BUCKET } from "./data-server";
+import { PORTAL_REPORT_LEVELS } from "./types";
 import type { PortalDocumentSelection } from "./types";
 
 // Equipment/manual route modüllerini buraya doğrudan import ETME. Bu modül
@@ -87,6 +88,20 @@ async function sourceBytes(
           .maybeSingle(),
       ]);
       if (!project?.doc_no || !revision) throw new Error("Yayımlanmış hesap raporu bulunamadı.");
+      const level = PORTAL_REPORT_LEVELS.find((entry) => entry === selection.reportLevel)
+        ?? "detayli";
+      if (level !== "detayli") {
+        const url = new URL(
+          `/projects/${projectId}/revisions/${selection.sourceId}/report`,
+          requestOrigin
+        );
+        url.searchParams.set("level", level);
+        const response = await fetch(url, {
+          cache: "no-store",
+          headers: { Accept: "application/pdf", Cookie: requestCookie },
+        });
+        return responsePdf(response, "Hesap raporu");
+      }
       return download(
         supabase,
         "reports",
@@ -102,6 +117,7 @@ async function sourceBytes(
       );
       url.searchParams.set("format", "pdf");
       url.searchParams.set("scope", "customer");
+      if (selection.equipmentDetail === "detayli") url.searchParams.set("detay", "1");
       const response = await fetch(url, {
         cache: "no-store",
         headers: { Accept: "application/pdf", Cookie: requestCookie },
