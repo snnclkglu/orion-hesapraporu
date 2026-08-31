@@ -2,8 +2,10 @@
 //
 // KAYNAK: firmanın kendi teslim ettiği "185/40 Ton Kapasiteli Şarj Vinci
 // Kullanma ve Bakım Kılavuzu" (Karçel A.Ş., 028.00-KBK01, 24.07.2026) —
-// 14 ana bölüm, 40'tan fazla alt bölüm. Şablon o belgenin İSKELETİ ve
-// PROJEDEN BAĞIMSIZ metinleridir.
+// DÖRT ana bölüm ve 47 alt başlık. (Uzun süre "14 ana bölüm" yazıyordu; 14
+// aslında DÖRDÜNCÜ bölümün alt bölüm sayısıdır — 4.1…4.14.) Şablon o belgenin
+// İSKELETİ ve PROJEDEN BAĞIMSIZ metinleridir; kendi bölümlendirmesi kaynağın
+// aynısı DEĞİLDİR — dokuz gövde bölümü + numarasız Ekler kapsayıcısı.
 //
 // ŞABLONA VİNCE ÖZEL HİÇBİR SAYI GİRMEZ (değişmez md. 4). "185T", "8 adet
 // acil stop butonu", "Mevcut Şifre : 028", "192.168.221.23" — bunların hepsi
@@ -21,7 +23,7 @@
 // bağlanır: hepsi zaten uygulamada duran birer PDF'tir ve gövdeye kopyalanan
 // her sayfa bir gün kaynağıyla ayrışır.
 
-import { bosluk, not, ol, oto, p, resim, ul } from "./template-kit";
+import { bosluk, not, ol, oto, p, resim, tablo, ul } from "./template-kit";
 import type { TemplateSection } from "./template-kit";
 
 // Tipler ve kurucular `template-kit.ts`tedir ve BURADAN YENİDEN DIŞA
@@ -34,10 +36,18 @@ export type { TemplateBlock, TemplateSection } from "./template-kit";
  * "şablonda yeni bölümler var" der ve eklemeyi kullanıcı seçer. Belge
  * kullanıcınındır; bir güncelleme onun sildiği bölümü geri getiremez.
  */
-// Kurucu yardımcılarının `template-kit.ts`e taşınması yalnız kod refaktörüdür;
-// bölüm/metin sözleşmesini değiştirmez. Sürümü artırmak mevcut kılavuzlara
-// gerçekte olmayan bir "yeni şablon" uyarısı verirdi.
-export const MANUAL_TEMPLATE_VERSION = 1;
+// SÜRÜM 2 (30.08.2026): şablon on iki yeni bölümle büyüdü — vinç hareketleri,
+// kumanda cihazları, ana parçalar, çalışma prensibi, ana kesici, acil stop,
+// açıklık ölçümü, cıvatalı birleşimler, yağlama noktaları, gres sistemi,
+// yedek parça siparişi ve servis, atık bertarafı, terminoloji, garanti.
+// Kapsam haritası piyasadaki bir kılavuzdan OKUNDU ama METİN VE ŞEKİL
+// ALINMADI (KITAP-13); metinler özgün yazıldı ve dayanakları kamuya açık
+// standartlardır.
+//
+// SÜRÜM ARTIŞI VAR OLAN BELGELERİ DEĞİŞTİRMEZ (KITAP-4): editör yalnız
+// "şablonda yeni bölümler var" der ve eklemeyi kullanıcı seçer. Belge
+// kullanıcınındır; bir güncelleme onun sildiği bölümü geri getiremez.
+export const MANUAL_TEMPLATE_VERSION = 2;
 
 export const MANUAL_TEMPLATE: TemplateSection[] = [
   // ————————————————————————————————————————————————— 1 Kullanıcı Notları
@@ -68,6 +78,27 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
           ol(["Yapılacak işlem basamağı 1"], "Yapılacak işlemin beklenen sonucu"),
           p("Sıralamanın öneminin bulunmadığı maddeler aşağıdaki şekilde gösterilir:", "Listeler"),
           ul("Madde 1", "Madde 2"),
+        ],
+      },
+      {
+        key: "notlar.garanti",
+        title: "Garantinin Kapsamı ve Hariç Tutmalar",
+        blocks: [
+          p(
+            "Garanti, üreticinin teslim sözleşmesinde tanımlanan süre ve koşullarla sınırlıdır. Bu kılavuzdaki talimatlara uyulmaması garantiyi düşürür."
+          ),
+          p("Aşağıdaki durumlar garanti kapsamı DIŞINDADIR:"),
+          ul(
+            "Vincin kullanım amacı dışında ya da anma değerlerinin üzerinde çalıştırılması,",
+            "Üreticinin yazılı onayı olmadan yapılan yapısal ya da elektriksel değişiklikler,",
+            "Bakım çizelgesindeki işlemlerin yapılmaması ya da kayıt altına alınmaması,",
+            "Orijinal olmayan ya da eşdeğerliği belgelenmemiş yedek parça kullanımı,",
+            "Aşınma parçalarının olağan ömrünü tamamlaması (halat, balata, tekerlek bandajı, keçe)."
+          ),
+          not(
+            "onemli",
+            "Garanti kapsamındaki bir talep için bakım defterinin eksiksiz tutulmuş olması gerekir; kayıt yoksa bakımın yapıldığı gösterilemez."
+          ),
         ],
       },
       {
@@ -325,6 +356,52 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
         ],
       },
       {
+        key: "guvenlik.anaKesici",
+        title: "Ana Kesici ve Enerji Kesme",
+        blocks: [
+          p(
+            "Ana kesici vincin bütün enerjisini kesen tek anahtardır. Bakım, muayene ve arıza giderme işlemlerine başlamadan önce ana kesici kapatılır ve KİLİTLENİR."
+          ),
+          ol(
+            [
+              "Kancayı yüksüz bırakın ve arabayı bakım konumuna alın.",
+              "Ana kesiciyi kapalı konuma getirin.",
+              "Kesiciyi asma kilitle kilitleyin ve üzerine çalışan kişinin adını taşıyan uyarı etiketini asın.",
+              "Gerilim yokluğunu ölçerek doğrulayın.",
+            ],
+            "Vinç enerjisiz ve kilitli durumdadır; çalışma başlayabilir."
+          ),
+          not(
+            "tehlike",
+            "Kilitlemeden yapılan bir bakım, başka birinin vinci farkında olmadan devreye almasıyla sonuçlanabilir. Kilidi yalnız onu takan kişi açar."
+          ),
+          not(
+            "onemli",
+            "Ana kesici kapalıyken bile pano girişinde ve akım alma baralarında gerilim bulunabilir. Bara üzerinde çalışma bara şalterinin de kesilmesini gerektirir."
+          ),
+          bosluk("Ana kesicinin yeri"),
+        ],
+      },
+      {
+        key: "guvenlik.acilStop",
+        title: "Acil Stop",
+        blocks: [
+          p(
+            "Acil stop butonu tehlike anında bütün hareketleri durdurur ve frenleri devreye sokar. Olağan durdurma için KULLANILMAZ; olağan durdurma kumanda organının sıfır konumuyla yapılır."
+          ),
+          ul(
+            "Butona basıldığında bütün hareketler durur ve enerji kesilir.",
+            "Buton kilitlenir; çevrilerek serbest bırakılana kadar vinç yeniden çalıştırılamaz.",
+            "Serbest bırakmak vinci ÇALIŞTIRMAZ — devreye alma işlemi baştan yapılır."
+          ),
+          not(
+            "uyari",
+            "Acil stop bir güvenlik fonksiyonudur ve haftalık olarak DENENİR. Denenmemiş bir acil stop, olmayan bir güvenlik önlemidir."
+          ),
+          bosluk("Acil stop butonlarının sayısı ve yerleri"),
+        ],
+      },
+      {
         key: "guvenlik.uyariIsaretleri",
         title: "Uyarı İşaretleri",
         blocks: [
@@ -358,6 +435,39 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
     ],
     children: [
       { key: "tanim.kullanimAlanlari", title: "Kullanım Alanları", blocks: [bosluk()] },
+      {
+        key: "tanim.anaParcalar",
+        title: "Vincin Ana Parçaları",
+        blocks: [
+          p(
+            "Bu bölüm vincin ana gruplarını tanıtır. Kılavuzun geri kalanında geçen parça adları burada tanımlananlarla aynıdır."
+          ),
+          // ANA GRUP LİSTESİ EKİPMAN LİSTESİNDEN TÜRETİLİR (`autofill.ts`):
+          // ikinci bir "ana parçalar" listesi tutmak ikisinin ayrışması demekti.
+          bosluk(),
+        ],
+      },
+      {
+        key: "tanim.calismaPrensibi",
+        title: "Vinç Nasıl Çalışır",
+        blocks: [
+          p(
+            "Vinç üç temel hareketi birleştirerek yükü çalışma alanı içinde istenen noktaya taşır:"
+          ),
+          ul(
+            "KALDIRMA — motor, redüktör ve tambur üzerinden çelik halatı sarar; yük kanca bloğuyla düşey olarak hareket eder.",
+            "ARABA YÜRÜTME — kanca bloğunu taşıyan araba, ana kirişler üzerindeki ray boyunca yatay hareket eder.",
+            "KÖPRÜ YÜRÜTME — bütün köprü, kren yolu rayları üzerinde bina eksenine göre hareket eder."
+          ),
+          p(
+            "Her hareketin kendi motoru, redüktörü ve freni vardır. Frenler yay ile kapanır ve elektrik ile açılır: enerji kesildiğinde fren KENDİLİĞİNDEN kapanır ve yük tutulur."
+          ),
+          not(
+            "not",
+            "Hareketlerin sınırları limit şalterleriyle korunur. Limit şalteri bir işletme sınırıdır, bir durdurma yöntemi değildir; her seferinde limite dayanarak çalışmak donanımı yorar."
+          ),
+        ],
+      },
       { key: "tanim.guvenliErisim", title: "Vince Güvenli Erişim", blocks: [bosluk()] },
       {
         key: "tanim.teknik",
@@ -374,6 +484,17 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
             blocks: [oto("karakteristik")],
           },
           { key: "tanim.teknik.hiz", title: "Hızlar", blocks: [oto("hiz")] },
+          {
+            // `teknikResim` otomatik kaynağı kodda ve sunucu adaptöründe
+            // vardı ama onu basan HİÇBİR BÖLÜM YOKTU (30.08.2026). Resim
+            // listesi belgenin hangi paftalara dayandığını söyler ve
+            // müşterinin arşivinde aradığını bulmasını sağlar.
+            key: "tanim.teknik.resimler",
+            title: "Teknik Resim Listesi",
+            blocks: [
+              oto("teknikResim", "Teknik Resim Takibi defteri boş; resim listesi basılmadı."),
+            ],
+          },
         ],
       },
     ],
@@ -388,7 +509,168 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
       { key: "kullanim.kabin", title: "Operatör Kabini", blocks: [bosluk()] },
       { key: "kullanim.anaKesici", title: "Ana Kesiciyi Açmak", blocks: [bosluk()] },
       { key: "kullanim.devreyeAlmak", title: "Vinci Devreye Almak", blocks: [bosluk()] },
+      {
+        key: "kullanim.hareketler",
+        title: "Vinç Hareketleri",
+        blocks: [
+          p(
+            "Hareketler kumanda organının yönüne ve kademesine göre verilir. Her hareket, kumanda bırakıldığında kendiliğinden durur."
+          ),
+        ],
+        children: [
+          {
+            key: "kullanim.hareketler.yurutme",
+            title: "Yürütme Hareketleri",
+            blocks: [
+              p(
+                "Köprü ve araba yürütmesi frekans dönüştürücü ile hızlandırılır ve yavaşlatılır. Ani yön değiştirmek yükü savurur ve yapıyı yorar."
+              ),
+              ol(
+                [
+                  "Hareket yönünde engel olmadığını gözle doğrulayın.",
+                  "Kumanda organını yavaşça istenen yöne alın.",
+                  "Hedefe yaklaşırken kademeyi düşürün ve organı sıfıra getirin.",
+                ],
+                "Hareket kontrollü biçimde durur ve yük salınımı sönümlenir."
+              ),
+              not(
+                "dikkat",
+                "Yürütme sırasında yükün altında ya da hareket yolunda kimsenin bulunmadığından emin olun; gerekiyorsa sesli uyarı verin."
+              ),
+            ],
+          },
+          {
+            key: "kullanim.hareketler.limitler",
+            title: "Hareket Limitleri",
+            blocks: [
+              p(
+                "Her hareketin çalışma alanı limit şalterleriyle sınırlanmıştır. Limitler İŞLETME SINIRIDIR; tampona dayanmak bir durdurma yöntemi değildir."
+              ),
+              // Hangi limitin nerede olduğu VİNCE ÖZELDİR ve elektrik
+              // projesinden okunur; şablon bir sayı vermez.
+              bosluk("Limitlerin yeri ve etkisi"),
+              not(
+                "uyari",
+                "Bir limit şalteri devre dışı bırakılmışsa vinç ÇALIŞTIRILMAZ. Arızalı limit, aşırı kaldırma ve tampona çarpma demektir."
+              ),
+            ],
+          },
+          {
+            key: "kullanim.hareketler.kombinasyon",
+            title: "Hareket Kombinasyonları",
+            blocks: [
+              p(
+                "Kaldırma ile yürütme aynı anda verilebilir; ancak yükü kaldırırken yürütmeye başlamak salınımı büyütür."
+              ),
+              ul(
+                "Yükü önce kancanın düşeyine alın, sonra kaldırın.",
+                "Kaldırma tamamlanmadan yürütmeye başlamayın.",
+                "İki kaldırma grubuyla ortak yük taşınıyorsa hızlar eşitlenmeden yürütme verilmez."
+              ),
+              not(
+                "uyari",
+                "Yükü yatay çekmek (sürükleme) için yürütme hareketi KULLANILMAZ; halat eğik çeker, tambur yivinden çıkabilir ve yapı hesaplanmamış bir yanal kuvvet görür."
+              ),
+            ],
+          },
+          {
+            key: "kullanim.hareketler.firtinaKilidi",
+            title: "Fırtına Kilidi ve Park Konumu",
+            blocks: [
+              p(
+                "Açık sahada çalışan vinçlerde rüzgâr, vinci ray boyunca sürükleyebilir. Vardiya sonunda ve fırtına uyarısında vinç park konumuna alınır ve fırtına kilidi devreye sokulur."
+              ),
+              // Kilidin türü ve park noktası VİNCE ÖZELDİR: raylı kama,
+              // pense tipi kilit ya da çapa olabilir.
+              bosluk("Fırtına kilidinin türü ve park konumu"),
+              not(
+                "dikkat",
+                "Fırtına kilidi devredeyken yürütme hareketi verilmez; kilit ve tahrik birbirine zarar verir."
+              ),
+            ],
+          },
+        ],
+      },
       { key: "kullanim.limitSivicler", title: "Limit Siviçler", blocks: [bosluk()] },
+      {
+        key: "kullanim.kumandaCihazlari",
+        title: "Kumanda Cihazları ve Yerleri",
+        blocks: [
+          p(
+            "Vinç, donanımına göre kabinden, radyo kumandadan ya da askı kumandadan (pendant) kullanılır. Aynı anda YALNIZ BİR kumanda etkindir; seçim devre kilitlemesiyle korunur."
+          ),
+        ],
+        children: [
+          {
+            key: "kullanim.kumandaCihazlari.radyo",
+            title: "Radyo Kumanda",
+            blocks: [
+              p(
+                "Radyo kumanda operatörün yükü yakından görebileceği bir konumdan çalışmasına izin verir."
+              ),
+              ul(
+                "Kullanmadan önce pil durumunu ve acil stop butonunu denetleyin.",
+                "Vericiyi başkasının erişemeyeceği biçimde taşıyın; başıboş bırakmayın.",
+                "Vardiya sonunda vericiyi kapatın ve kilitli dolaba koyun."
+              ),
+              not(
+                "uyari",
+                "Radyo bağlantısı kesildiğinde vinç kendiliğinden durur. Bağlantı kesintisi tekrarlıyorsa vinç kullanılmaz ve arıza bildirilir."
+              ),
+              bosluk("Verici tipi ve kanal bilgisi"),
+            ],
+          },
+          {
+            key: "kullanim.kumandaCihazlari.pendant",
+            title: "Askı Kumanda (Pendant)",
+            blocks: [
+              p(
+                "Askı kumanda taşıyıcı halatıyla asılır; kablo taşıyıcıyı çekmek için KULLANILMAZ."
+              ),
+              ul(
+                "Butonların üzerindeki yön işaretlerinin okunur olduğunu denetleyin.",
+                "Kumandayı yürütme hareketiyle sürüklemeyin; operatör vinçle birlikte yürür.",
+                "Kablo ve askı halatını ezilme ve kopmaya karşı gözle kontrol edin."
+              ),
+            ],
+          },
+          {
+            key: "kullanim.kumandaCihazlari.hareketKumandalari",
+            title: "Hareket Kumandaları",
+            blocks: [
+              p(
+                "Her kumanda organı bir hareketi ve bir yönü verir. Kademe sayısı ve hız kademeleri vince özeldir."
+              ),
+              // Hangi kolun hangi ekseni verdiği KABİN KONSOLUNA bağlıdır ve
+              // fotoğrafla birlikte doldurulur.
+              bosluk("Kumanda organlarının dökümü"),
+              not(
+                "onemli",
+                "Kumanda organının yönü OPERATÖRÜN KULLANMA POZİSYONUNA göredir. Kabin ters yöne bakıyorsa yönler değişmez; operatör buna göre alışmalıdır."
+              ),
+            ],
+          },
+          {
+            key: "kullanim.kumandaCihazlari.islevselKontrol",
+            title: "Acil Stop Basılıyken İşlevsel Kontroller",
+            blocks: [
+              p(
+                "Vardiya başında, vinci hareket ettirmeden önce yapılan denetim. Acil stop BASILI tutulur; böylece hiçbir hareket verilemez."
+              ),
+              ol(
+                [
+                  "Ana kesiciyi açın ve acil stop butonunu basılı bırakın.",
+                  "Kabin/kumanda aydınlatmasının ve gösterge lambalarının yandığını doğrulayın.",
+                  "Uyarı kornasını deneyin.",
+                  "Arıza ihbar ekranında bekleyen bir hata olup olmadığını okuyun.",
+                  "Acil stop butonunu serbest bırakın ve devreye alma işlemini yapın.",
+                ],
+                "Vinç hareketsizken bütün gösterge ve uyarı düzenekleri denetlenmiş olur."
+              ),
+            ],
+          },
+        ],
+      },
       { key: "kullanim.frenler", title: "Frenler", blocks: [bosluk()] },
       {
         key: "kullanim.gucKumanda",
@@ -856,6 +1138,33 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
         ],
       },
       {
+        key: "muayene.aciklikOlcumu",
+        title: "Açıklık ve Köşegen Ölçümü",
+        blocks: [
+          p(
+            "Köprünün açıklığı ve köşegenleri, tekerleklerin ray üzerinde düzgün yürümesini belirler. Açıklık sapması eğik aşınmaya, flanş yenmesine ve yürütme direncine yol açar."
+          ),
+          ol(
+            [
+              "Vinci düz ve temiz bir ray bölgesine alın, enerjiyi kesin.",
+              "Ölçümü ray üst yüzeyi hizasında, tekerlek eksenlerinden yapın.",
+              "Her iki başkirişte açıklığı ölçün ve köşegenleri karşılaştırın.",
+              "Sonuçları önceki ölçümle birlikte muayene defterine yazın.",
+            ],
+            "Açıklık ve köşegen değerleri kayıt altına alınmış olur."
+          ),
+          not(
+            "onemli",
+            "Sapma sınırı vincin imalat toleransından gelir ve montaj raporunda yazılıdır. Sınır aşıldıysa vinç ayarlanmadan çalıştırılmaz."
+          ),
+          p(
+            "Ölçüm sıcaklığı kaydedilir: çelik yapı ısı ile uzar ve yaz-kış ölçümleri doğrudan karşılaştırılamaz.",
+            "Ölçüm sıcaklığı"
+          ),
+          bosluk("Bu vincin açıklık ve tolerans değerleri"),
+        ],
+      },
+      {
         key: "muayene.kayit",
         title: "Muayene Defteri ve Belgeleme",
         blocks: [
@@ -944,6 +1253,34 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
         ],
       },
       {
+        key: "bakimGuvenlik.civata",
+        title: "Cıvatalı Birleşimler ve Sıkma Momentleri",
+        blocks: [
+          p(
+            "Ana kiriş–başkiriş birleşimi, yürütme grubu bağlantıları ve ray bağlantı elemanları ÖN GERİLMELİ cıvatalarla yapılır. Bu birleşimlerde yükü sürtünme taşır; cıvatanın kendisi kesmeye çalışmaz."
+          ),
+          ul(
+            "Temas yüzeyleri boya, yağ, pas ve çapaktan arındırılmış olmalıdır.",
+            "Sıkma, birleşimin ortasından kenarlara doğru ve birkaç kademede yapılır.",
+            "Sıkma momenti KALİBRELİ bir tork anahtarıyla verilir ve kayda geçirilir.",
+            "İlk çalıştırmadan sonra ve ilk periyodik muayenede momentler tekrar denetlenir."
+          ),
+          tablo(
+            ["Birleşim", "Cıvata Sınıfı / Ölçü", "Sıkma Momenti", "Denetim Aralığı"],
+            [],
+            "Değerler üreticinin montaj raporundan ve cıvata üreticisinin kataloğundan alınır."
+          ),
+          not(
+            "uyari",
+            "Gevşemiş ya da yenilenmiş bir ön gerilmeli cıvata TEKRAR KULLANILMAZ. Bir kez ön gerilme almış cıvata plastik şekil değiştirmiş olabilir; yerine yenisi takılır."
+          ),
+          not(
+            "onemli",
+            "Sıkma momenti tablosu boş bırakıldıysa birleşim denetlenemez. Değerleri montaj raporundan alıp doldurun."
+          ),
+        ],
+      },
+      {
         key: "bakimGuvenlik.degisiklik",
         title: "Vinçte Değişiklik Yapılması",
         blocks: [
@@ -1022,6 +1359,49 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
         caption: "Yağlama tablosu — kullanılan ekipmanın kataloğuna göre doldurulur.",
       },
     ],
+    children: [
+      {
+        key: "yaglama.noktalar",
+        title: "Makine Bazında Yağlama Noktaları",
+        blocks: [
+          p(
+            "Yağlama noktaları mekanizma mekanizma gruplanır. Bir noktaya ulaşmak için koruma kapağı sökülüyorsa, kapak yerine takılmadan vinç devreye ALINMAZ."
+          ),
+          ul(
+            "Kaldırma grubu: redüktör yağ seviyesi, tambur yatakları, kanca bloğu rulmanı, makara rulmanları.",
+            "Araba ve köprü yürütme: redüktör yağ seviyesi, teker yatakları, kaplinler.",
+            "Fren: mafsal ve pim noktaları — BALATAYA VE KASNAĞA YAĞ BULAŞTIRILMAZ.",
+            "Çelik halat: halat yağıyla dıştan yağlanır."
+          ),
+          not(
+            "dikkat",
+            "Fren balatasına ya da kasnağına bulaşan yağ frenin tutma momentini düşürür. Bulaşma varsa balata değiştirilir; temizlemek yeterli değildir."
+          ),
+        ],
+      },
+      {
+        key: "yaglama.gresSistemi",
+        title: "Merkezi Gres Sistemi ve Katılaşma",
+        blocks: [
+          p(
+            "Merkezi yağlama sistemi bulunan vinçlerde gres, pompadan dağıtıcı bloklara ve oradan noktalara basılır. Uzun duruşlarda ve düşük sıcaklıkta gres katılaşabilir; sistem basar ama gres ilerlemez."
+          ),
+          ol(
+            [
+              "Pompa haznesinde gres olduğunu ve karıştırıcı kanadın döndüğünü doğrulayın.",
+              "Dağıtıcı bloktaki gösterge pimlerinin hareket ettiğini izleyin.",
+              "Hareket etmeyen hatta boruyu blok çıkışından sökün ve elle gres basarak tıkanıklığı arayın.",
+              "Tıkalı hattı temizleyin ya da değiştirin; noktaya elle gres basarak yağlamayı tamamlayın.",
+            ],
+            "Bütün gösterge pimleri hareket eder ve hatlar açıktır."
+          ),
+          not(
+            "onemli",
+            "Katılaşmış gresi çözmek için hattı ISITMAYIN. Gres ayrışır, yağ ile sabun fazı ayrılır ve yağlama özelliğini kaybeder."
+          ),
+        ],
+      },
+    ],
   },
 
   // ———————————————————————————————————— 7 Yedek Parça ve Sarf Listeleri
@@ -1063,10 +1443,123 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
         blocks: [oto("ekipman", "Hesap raporu bağlanmadığı için ekipman listesi boş.")],
       },
       {
+        key: "yedek.siparis",
+        title: "Yedek Parça Siparişi",
+        blocks: [
+          p(
+            "Yedek parça siparişinde aşağıdaki bilgiler eksiksiz verilir; eksik bilgiyle gelen bir talep yanlış parçayla sonuçlanır."
+          ),
+          ul(
+            "Vincin seri numarası ve üretim yılı (kapak künyesinde),",
+            "Belgenin doküman numarası ve revizyonu,",
+            "Parçanın bu kılavuzdaki adı ve bulunduğu grup,",
+            "Ekipman listesindeki marka ve model bilgisi,",
+            "İstenen adet ve gerekiyorsa aciliyet."
+          ),
+          not(
+            "onemli",
+            "Orijinal olmayan bir parça, eşdeğerliği yazılı olarak belgelenmedikçe kullanılmaz. Kaldırma ve fren donanımında eşdeğerlik üreticinin onayını gerektirir."
+          ),
+        ],
+      },
+      {
+        key: "yedek.servis",
+        title: "Servis Hizmetleri",
+        blocks: [
+          p(
+            "Periyodik muayene, genel revizyon ve kalan servis ömrü değerlendirmesi üreticinin servis ekibince yapılabilir."
+          ),
+          ul(
+            "PERİYODİK MUAYENE — ISO 9927-1 kapsamında muayene ve raporlama.",
+            "KALAN SERVİS ÖMRÜ DEĞERLENDİRMESİ — ISO 12482 / FEM 9.755 uyarınca kaldırma mekanizmasının kalan ömrünün hesaplanması.",
+            "GENEL REVİZYON — servis ömrünü tamamlamış mekanizmanın sökülerek yenilenmesi.",
+            "YEDEK PARÇA VE ARIZA DESTEĞİ."
+          ),
+          bosluk("Servis iletişim bilgileri"),
+        ],
+      },
+      {
         key: "yedek.elektrik",
         title: "Elektrik Malzeme Özeti",
         blocks: [oto("elektrikMalzeme", "Elektrik projesi yüklenmediği için pano özeti boş.")],
       },
+    ],
+  },
+
+  // ————————————————————————————————————— Atık Bertarafı ve Çevre
+  {
+    key: "atik",
+    title: "Atık Bertarafı ve Çevre",
+    blocks: [
+      p(
+        "Vincin bakımında ve ömrünü tamamlamasında ortaya çıkan atıklar yerel mevzuata göre ayrıştırılır ve yetkili kuruluşlara teslim edilir."
+      ),
+    ],
+    children: [
+      {
+        key: "atik.bertaraf",
+        title: "Bakım Atıkları",
+        blocks: [
+          ul(
+            "ATIK YAĞ VE GRES — sızdırmaz kaplarda toplanır; kanalizasyona ve toprağa DÖKÜLMEZ.",
+            "FREN BALATASI VE AŞINMA TOZU — solunmaması için ıslak temizlik yapılır, tehlikeli atık olarak toplanır.",
+            "ÇELİK HALAT — yağlıdır; metal hurdasından ayrı toplanır.",
+            "AKÜ, PİL VE ELEKTRONİK KART — tehlikeli atıktır, geri dönüşüm noktasına verilir.",
+            "TEMİZLİK BEZİ VE EMİCİ MALZEME — yağ bulaşmışsa tehlikeli atıktır."
+          ),
+          not(
+            "dikkat",
+            "Yağ bulaşmış bez yığını kendiliğinden tutuşabilir. Kapalı metal kapta biriktirin ve vardiya sonunda boşaltın."
+          ),
+        ],
+      },
+      {
+        key: "atik.cevre",
+        title: "Ömrünü Tamamlayan Vinç",
+        blocks: [
+          p(
+            "Sökümden önce vincin enerjisi kesilir, halatlar boşaltılır ve yaylı fren gibi enerji depolayan elemanlar güvenli biçimde serbest bırakılır."
+          ),
+          ul(
+            "Çelik yapı ve mekanizmalar metal geri dönüşümüne verilir.",
+            "Redüktör ve hidrolik gruplardaki yağ sökümden ÖNCE boşaltılır.",
+            "Elektrik panosu, sürücüler ve kablolar elektronik atık olarak ayrıştırılır."
+          ),
+          not(
+            "uyari",
+            "Söküm, kaldırma işlerinde yetkin bir ekip tarafından ve bir söküm planına göre yapılır. Yaylı fren ve gergili halat, söküm sırasında beklenmedik enerji açığa çıkarır."
+          ),
+        ],
+      },
+    ],
+  },
+
+  // ————————————————————————————————————— Terminoloji ve Kısaltmalar
+  {
+    key: "sozluk",
+    title: "Terminoloji ve Kısaltmalar",
+    blocks: [
+      p(
+        "Bu kılavuzda geçen terimler aşağıdaki anlamlarda kullanılmıştır. Standart adları kaynak gösterimidir; tam metinleri ilgili standarttadır."
+      ),
+      tablo(
+        ["Terim / Kısaltma", "Anlamı"],
+        [
+          ["Anma yükü", "Vincin taşımak üzere tasarlandığı en büyük yük."],
+          ["Açıklık", "Kren yolu raylarının eksenleri arasındaki yatay uzaklık."],
+          ["Kanca yüksekliği", "Kancanın en üst ve en alt konumu arasındaki düşey yol."],
+          ["Kaldırma grubu (M)", "Mekanizmanın çalışma süresi ve yük kolektifine göre sınıfı (FEM 1.001)."],
+          ["Yapı sınıfı (A)", "Çelik yapının yorulma bakımından sınıfı (FEM 1.001 / DIN 15018)."],
+          ["SWP", "Kalan servis ömrü — tüketilmiş çalışma payı (ISO 12482 / FEM 9.755)."],
+          ["Halat donanımı", "Tambur, makara ve kanca bloğu arasındaki halat geçiş düzeni."],
+          ["Emniyet sarımı", "Kanca en altta iken tamburda kalması gereken en az sarım (DIN 15020)."],
+          ["Limit şalteri", "Bir hareketin çalışma sınırını belirleyen elektriksel sınırlayıcı."],
+          ["Tampon", "Hareketin sonunda çarpma enerjisini yutan eleman."],
+          ["LOTO", "Enerji kesme ve kilitleme — bakım öncesi kilitleme/etiketleme yöntemi."],
+          ["KKD", "Kişisel koruyucu donanım."],
+        ],
+        "Bakım çizelgesindeki insan gücü, zaman dilimi ve çalışma durumu kısaltmaları o bölümün kendi açıklama tablosundadır."
+      ),
     ],
   },
 

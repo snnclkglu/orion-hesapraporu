@@ -95,7 +95,12 @@ describe("ManualPdf smoke", () => {
     // Gövde çıktısı boş EK kapsayıcısı ve yedi ayraç kapağı taşımaz. 180
     // elektrik satırı da pano özetine iner; eski tam döküm 14 yaprak
     // üretiyordu. Bu üst sınır iki regresyonu birlikte yakalar.
-    expect(pdf.getPageCount()).toBeLessThan(24);
+    //
+    // SINIR 24'TEN 32'YE ÇIKTI (30.08.2026): şablon on iki yeni bölümle
+    // büyüdü (şablon sürümü 2) ve gövde meşru olarak uzadı. Sınır YİNE
+    // ANLAMLIDIR: ek kapsayıcısı + yedi ayraç ~8 yaprak, elektrik tam dökümü
+    // ~13 yaprak ekler; ikisi de bu tavanı aşar.
+    expect(pdf.getPageCount()).toBeLessThan(32);
     for (const page of pdf.getPages()) {
       expect(page.getWidth()).toBeCloseTo(595.28, 1);
       expect(page.getHeight()).toBeCloseTo(841.89, 1);

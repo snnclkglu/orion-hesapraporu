@@ -26,7 +26,11 @@ import {
   MANUAL_APPENDIX_KINDS,
   MANUAL_AUTO_SOURCES,
   MANUAL_NOTE_LEVELS,
+  MANUAL_PACKAGES,
   type ManualAppendixKind,
+  type ManualAppendixOption,
+  type ManualPackageKey,
+  type ManualScope,
   type ManualAutoSource,
   type ManualBlock,
   type ManualIdentity,
@@ -140,6 +144,19 @@ export const BOS_KIMLIK: ManualIdentity = {
  * Künye alanları ÇAĞIRANDAN gelir (proje, müşteri, vinç tipi); şablon onları
  * bilmez ve uydurmaz. Verilmeyen alan BOŞ kalır (değişmez md. 4).
  */
+/**
+ * SERBEST KAPSAM — hiçbir paket uygulanmamış hâl.
+ *
+ * Yeni belge de burada doğar: paketi `createManual` vinç tipinden ÖNERİR ve
+ * uygular; şablonun kendisi bir kapsam dayatmaz.
+ */
+export const BOS_KAPSAM: ManualScope = {
+  packageKey: "",
+  appliedAt: "",
+  keptSections: [],
+  appendixOptions: [],
+};
+
 export function manualFromTemplate(kimlik: Partial<ManualIdentity> = {}): ManualPayload {
   const id = makeIdFactory("s");
   return {
@@ -148,6 +165,7 @@ export function manualFromTemplate(kimlik: Partial<ManualIdentity> = {}): Manual
     coverTitle: "",
     partnerLogos: {},
     identity: { ...BOS_KIMLIK, ...kimlik },
+    scope: { ...BOS_KAPSAM },
     sections: MANUAL_TEMPLATE.map((t) => templateToSection(t, id)),
     templateVersion: MANUAL_TEMPLATE_VERSION,
   };
@@ -263,6 +281,9 @@ function blokOku(v: unknown, id: () => string): ManualBlock | null {
     ...(bayrak(o.fromTemplate) ? { fromTemplate: true as const } : {}),
     ...(bayrak(o.edited) ? { edited: true as const } : {}),
     ...(bayrak(o.hidden) ? { hidden: true as const } : {}),
+    // Tanınmayan kural kimliği ALAN OLARAK düşer ama BLOK KALIR: içeriği zaten
+    // somut metindir ve onu düşürmek bir bakım talimatının kaybolması demekti.
+    ...(metin(o.derived) ? { derived: metin(o.derived) } : {}),
   };
   switch (o.kind) {
     case "text":
@@ -306,6 +327,31 @@ function blokOku(v: unknown, id: () => string): ManualBlock | null {
         ...(typeof o.fullWidth === "boolean" ? { fullWidth: o.fullWidth } : {}),
       };
     }
+    case "diagram": {
+      const d = o.diagram as Record<string, unknown> | undefined;
+      const w = Number(d?.width);
+      const h = Number(d?.height);
+      // ÖLÇÜSÜ OLMAYAN ŞEMA ÇİZİLEMEZ ve yerleşim onu ölçemez; blok DÜŞER.
+      if (!d || !Array.isArray(d.els) || !(w > 0) || !(h > 0)) return null;
+      const pctD = Number(o.widthPct);
+      return {
+        ...taban,
+        kind: "diagram",
+        diagramKey: metin(o.diagramKey),
+        // MODEL DOĞRULANMAZ, TAŞINIR: çizim modeline eklenen yeni bir eleman
+        // türü eski kılavuzları açılmaz yapmamalıdır (`types.ts` gerekçesi).
+        diagram: {
+          width: w,
+          height: h,
+          els: d.els,
+          ...(Number.isFinite(Number(d.x0)) ? { x0: Number(d.x0) } : {}),
+          ...(Number.isFinite(Number(d.y0)) ? { y0: Number(d.y0) } : {}),
+        },
+        ...(metin(o.caption) ? { caption: metin(o.caption) } : {}),
+        ...(Number.isFinite(pctD) && pctD >= 10 && pctD <= 100 ? { widthPct: pctD } : {}),
+        ...(typeof o.fullWidth === "boolean" ? { fullWidth: o.fullWidth } : {}),
+      };
+    }
     case "auto": {
       const source = o.source as ManualAutoSource;
       if (!MANUAL_AUTO_SOURCES.includes(source)) return null;
@@ -316,11 +362,63 @@ function blokOku(v: unknown, id: () => string): ManualBlock | null {
         source,
         ...(frozen && (frozen.head.length || frozen.rows.length) ? { frozen } : {}),
         ...(metin(o.emptyText) ? { emptyText: metin(o.emptyText) } : {}),
+        // Varyant SERBEST METİNDİR ve burada doğrulanmaz: kaynağa göre
+        // anlamı değişir ve tanınmayan değeri çözücü öntanıma indirir.
+        // Burada reddetmek, gelecekte eklenecek bir basamağı taşıyan
+        // belgenin eski bir sürümde sessizce sıfırlanması demekti.
+        ...(metin(o.variant) ? { variant: metin(o.variant) } : {}),
       };
     }
     default:
       return null;
   }
+}
+
+/**
+ * KAPSAMI OKUR — eski belgelerde YOKTUR ve olmaması bir kusur değildir.
+ *
+ * Boş `packageKey` "serbest kapsam" demektir: hiçbir paket uygulanmamıştır ve
+ * ağaca hiçbir şey yazılmaz. Bu yüzden kapsam modeli eklendikten sonra da eski
+ * bir kılavuz BİREBİR aynı belgeyi basar (`payload-legacy.test.ts` bunu
+ * dondurulmuş çıktıyla kanıtlar).
+ *
+ * Tanınmayan paket adı boşa düşer; tanınmayan ek türü satırdan düşer. Kapsamı
+ * bozuk diye belgeyi açmamak, bu bölümde yapılabilecek en kötü şeydir.
+ */
+function kapsamOku(v: unknown): ManualScope {
+  const o = (v && typeof v === "object" && !Array.isArray(v) ? v : {}) as Record<string, unknown>;
+  const ad = metin(o.packageKey);
+  const packageKey: ManualPackageKey | "" = (MANUAL_PACKAGES as readonly string[]).includes(ad)
+    ? (ad as ManualPackageKey)
+    : "";
+
+  const appendixOptions: ManualAppendixOption[] = Array.isArray(o.appendixOptions)
+    ? o.appendixOptions
+        .map((ham): ManualAppendixOption | null => {
+          if (!ham || typeof ham !== "object" || Array.isArray(ham)) return null;
+          const r = ham as Record<string, unknown>;
+          const kind = r.kind as ManualAppendixKind;
+          if (!MANUAL_APPENDIX_KINDS.includes(kind)) return null;
+          return {
+            kind,
+            ...(metin(r.option) ? { option: metin(r.option) } : {}),
+            ...(bayrak(r.edited) ? { edited: true as const } : {}),
+          };
+        })
+        .filter((o2): o2 is ManualAppendixOption => o2 !== null)
+    : [];
+
+  return {
+    packageKey,
+    appliedAt: metin(o.appliedAt),
+    // SAPMA LİSTESİ ANCAK PAKET VARSA ANLAMLIDIR: paketsiz bir belgede
+    // "paketten sapma" diye bir şey yoktur ve listeyi taşımak, sonradan bir
+    // paket uygulandığında hiç verilmemiş kararların korunması demekti.
+    keptSections: packageKey && Array.isArray(o.keptSections)
+      ? o.keptSections.map(metin).filter(Boolean)
+      : [],
+    appendixOptions,
+  };
 }
 
 function tabloOku(v: unknown): ManualTable {
@@ -380,6 +478,7 @@ export function withManualDefaults(raw: unknown): ManualPayload {
     ...(metin(o.coverImageId) ? { coverImageId: metin(o.coverImageId) } : {}),
     partnerLogos: partnerLogolariOku(o.partnerLogos),
     identity: kimlik,
+    scope: kapsamOku(o.scope),
     sections,
     templateVersion: Number.isFinite(surum) ? surum : 0,
   };
@@ -402,6 +501,9 @@ export function blockHasContent(b: ManualBlock): boolean {
       // Kaynağı olmayan görsel `withManualDefaults`ta zaten düşer; burada
       // yalnız süzgecin tam olması için sınanır.
       return Boolean(b.imageId || b.assetKey);
+    case "diagram":
+      // Ölçüsüz şema okuyucuda düşer; burada da elemansız model basılmaz.
+      return b.diagram.els.length > 0;
     case "auto":
       // Otomatik blok içeriğini çözüldüğünde alır; burada kararı `frozen`
       // varsa o verir, yoksa blok AYAKTA kalır ve çözücü boşsa düşürür.
@@ -524,4 +626,121 @@ export function usedAppendices(sections: readonly ManualSection[]): ManualAppend
   };
   gez(sections);
   return out;
+}
+
+// ————————————————————————————————————————————— şablon büyümesi
+
+export interface TemplateAddition {
+  /** Şablondaki bölüm anahtarı. */
+  key: string;
+  title: string;
+  /** Üst bölümün anahtarı; kök bölümde boştur. */
+  parentKey: string;
+  /** Üst bölümün çocukları arasındaki sırası. */
+  index: number;
+}
+
+/** Ağaçtaki bütün bölüm anahtarları. */
+function anahtarKumesi(sections: readonly ManualSection[]): Set<string> {
+  const out = new Set<string>();
+  const gez = (liste: readonly ManualSection[]) => {
+    for (const s of liste) {
+      if (s.key) out.add(s.key);
+      gez(s.children);
+    }
+  };
+  gez(sections);
+  return out;
+}
+
+/**
+ * ŞABLONDA OLUP BELGEDE OLMAYAN BÖLÜMLER.
+ *
+ * ŞABLON SÜRÜMÜ ARTTIĞINDA VAR OLAN BELGELER DEĞİŞMEZ (KITAP-4). Belge
+ * kullanıcınındır; bir güncelleme onun sildiği bölümü geri getiremez. Bu
+ * yüzden burası yalnız NE EKLENEBİLECEĞİNİ söyler; ekleme kararı kullanıcınındır.
+ *
+ * Kullanıcının bilinçli olarak SİLDİĞİ bir bölüm de listede görünür ve bu
+ * kabul edilebilir: karar yine kullanıcınındır ve kart kapatılabilir. Silinen
+ * bölümü "bir daha önerme" diye işaretlemek, belgeye kullanıcının görmediği
+ * bir durum eklemek olurdu.
+ */
+export function templateAdditions(payload: ManualPayload): TemplateAddition[] {
+  const varOlan = anahtarKumesi(payload.sections);
+  const out: TemplateAddition[] = [];
+  const gez = (liste: readonly TemplateSection[], parentKey: string) => {
+    liste.forEach((t, i) => {
+      if (!varOlan.has(t.key)) {
+        out.push({ key: t.key, title: t.title, parentKey, index: i });
+        // ALT AĞACA İNİLMEZ: üst bölüm eklenirse çocukları da onunla gelir.
+        return;
+      }
+      if (t.children) gez(t.children, t.key);
+    });
+  };
+  gez(MANUAL_TEMPLATE, "");
+  return out;
+}
+
+function sablonBolumuBul(
+  liste: readonly TemplateSection[],
+  key: string
+): TemplateSection | null {
+  for (const t of liste) {
+    if (t.key === key) return t;
+    const alt = t.children ? sablonBolumuBul(t.children, key) : null;
+    if (alt) return alt;
+  }
+  return null;
+}
+
+/**
+ * Şablondaki bir bölümü (alt ağacıyla birlikte) belgeye ekler.
+ *
+ * SIRASI ŞABLONDAKİ SIRADIR: bölüm üst bölümünün çocukları arasında şablondaki
+ * yerine yerleştirilir, sona değil. Sona eklemek "5.6 Açıklık Ölçümü"nü
+ * "5.5 Muayene Defteri"nden sonraya atardı ve numaralandırma şablondan
+ * ayrışırdı.
+ *
+ * Kimlikler `makeIdFactory("e")` ile üretilir; var olan kimliklerle çakışmaz
+ * çünkü şablon kopyaları `s`, okuyucu `r`, türetim `t` öneki kullanır.
+ */
+export function addTemplateSection(payload: ManualPayload, key: string): ManualPayload {
+  const kaynak = sablonBolumuBul(MANUAL_TEMPLATE, key);
+  if (!kaynak) return payload;
+  if (anahtarKumesi(payload.sections).has(key)) return payload;
+
+  const id = makeIdFactory("e");
+  const yeni = templateToSection(kaynak, id);
+
+  const ekle = (liste: readonly TemplateSection[], parentKey: string): TemplateAddition | null => {
+    for (let i = 0; i < liste.length; i += 1) {
+      if (liste[i].key === key) {
+        return { key, title: liste[i].title, parentKey, index: i };
+      }
+      const alt = liste[i].children ? ekle(liste[i].children!, liste[i].key) : null;
+      if (alt) return alt;
+    }
+    return null;
+  };
+  const yer = ekle(MANUAL_TEMPLATE, "");
+  if (!yer) return payload;
+
+  const yerlestir = (liste: readonly ManualSection[]): ManualSection[] => {
+    const kopya = [...liste];
+    kopya.splice(Math.max(0, Math.min(yer.index, kopya.length)), 0, yeni);
+    return kopya;
+  };
+
+  if (!yer.parentKey) {
+    return { ...payload, sections: yerlestir(payload.sections) };
+  }
+
+  const gez = (liste: readonly ManualSection[]): ManualSection[] =>
+    liste.map((s) =>
+      s.key === yer.parentKey
+        ? { ...s, children: yerlestir(s.children) }
+        : { ...s, children: gez(s.children) }
+    );
+  return { ...payload, sections: gez(payload.sections) };
 }

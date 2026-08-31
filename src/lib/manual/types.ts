@@ -119,6 +119,21 @@ interface ManualBlockBase {
   edited?: boolean;
   /** Blok belgeden DÜŞER (bkz. `printedPayload`). */
   hidden?: boolean;
+  /**
+   * İÇERİĞİ BU VİNCİN VERİSİNDEN TÜRETİLDİ — değeri kuralın kimliğidir
+   * (`lib/manual/autofill.ts`).
+   *
+   * `fromTemplate` ile AYNI ANDA BULUNMAZ ve bu bir testle kilitlidir: bir
+   * blok ya şablondan doğar ya kaynaktan türer. İkisi birden olsaydı
+   * "Standarda Dön" ile "Kaynaktan Tazele" aynı bloğa iki farklı geçmiş vaat
+   * ederdi.
+   *
+   * Türetilmiş blok MATERYALİZEDİR, canlı değil: üretildiği anda somut
+   * metin/tablo olarak snapshot'a yazılır. Bu yüzden yayımda ayrıca
+   * dondurulması gerekmez — `frozen` yalnız `kind: "auto"` bloklarına aittir
+   * (KITAP-7).
+   */
+  derived?: string;
 }
 
 /** Paragraf — satır sonları KORUNUR, işaretleme yoktur. */
@@ -209,6 +224,62 @@ export interface ManualAutoBlock extends ManualBlockBase {
   frozen?: ManualTable;
   /** Kaynak boşsa bölümde ne yazacağı — boşsa blok hiç basılmaz. */
   emptyText?: string;
+  /**
+   * KAYNAĞIN NE KADARININ BASILACAĞI — kapsam paketinin bloğa yazdığı ayar.
+   *
+   * Bugün yalnız `ekipman` kaynağı okur (`standart` · `detayli` · `kataloglu`);
+   * tanınmayan değer öntanıma iner. VARYANT BLOĞUN KENDİSİNDE YAŞAR, ayrı bir
+   * arama tablosunda değil: çözücü (`autoTableFor`) zaten bloğu alıyor ve
+   * ikinci bir tablo tutmak, bloğun kopyalandığı her yerde (yeni revizyon,
+   * metin parçası) ayrışması demekti.
+   */
+  variant?: string;
+}
+
+/**
+ * PARAMETRİK ŞEMA — hesap motorunun ürettiği diyagramın DONMUŞ hâli.
+ *
+ * RASTERLENMEZ. `Diagram` saf bir SVG veri modelidir ve iki çizici zaten
+ * vardır: `components/diagrams/diagram-svg.tsx` (ekran) ve `lib/pdf/diagram.tsx`
+ * (PDF). Rasterlemek teslim belgesinde halat donanımı şemasını bulanıklaştırır
+ * ve dosyayı büyütürdü. Ölçüldü (30.08.2026): seksen şemanın en büyüğü 38 KB,
+ * ortalaması 10 KB — modelin snapshot'ta taşınması ucuzdur.
+ *
+ * DONMUŞ, CANLI DEĞİL (KITAP-7'nin dersi): şema EKLEME ANINDA çözülür ve
+ * payload'a yazılır. Canlı olsaydı yayımlanmış bir kılavuz, hesap sonradan
+ * revize edilince sessizce başka bir şey söylerdi.
+ *
+ * Oran modelin kendi `width`/`height`ından okunur; yerleşim dosyaya bakmadan
+ * ölçer (KITAP-12'nin "oran defterdedir" kuralının ikizi).
+ */
+export interface ManualDiagramBlock extends ManualBlockBase {
+  kind: "diagram";
+  /** Hangi modül/bölümden geldi ("main:2.5") — "Kaynaktan Tazele" bunu okur. */
+  diagramKey: string;
+  /** Çizim modeli; `lib/diagrams/model.ts` şeklindedir. */
+  diagram: ManualDiagramModel;
+  caption?: string;
+  /** KABIN genişliğinin yüzdesi (10–100); verilmezse 100. */
+  widthPct?: number;
+  fullWidth?: boolean;
+}
+
+/**
+ * Şema modelinin el kitabındaki YÜZÜ.
+ *
+ * `lib/diagrams/model.ts`teki `Diagram` tipi burada YENİDEN TANIMLANMAZ —
+ * çekirdek onu yalnız TAŞIR ve ölçer; çizen taraflar kendi tipini kullanır.
+ * Saklanan JSON'un şekli çizim modelinin sözleşmesidir ve `withManualDefaults`
+ * onu doğrulamaz: doğrulasaydı çizim modeline eklenen her yeni eleman türü
+ * eski kılavuzları açılmaz yapardı.
+ */
+export interface ManualDiagramModel {
+  width: number;
+  height: number;
+  els: unknown[];
+  /** viewBox köşesi — içerik 0'ın soluna taşarsa kutu o yöne büyütülür. */
+  x0?: number;
+  y0?: number;
 }
 
 export type ManualBlock =
@@ -217,6 +288,7 @@ export type ManualBlock =
   | ManualNoteBlock
   | ManualTableBlock
   | ManualImageBlock
+  | ManualDiagramBlock
   | ManualAutoBlock;
 
 // ———————————————————————————————————————————————————————————————— bölüm
@@ -313,6 +385,78 @@ export interface ManualPartnerLogos {
   rightImageId?: string;
 }
 
+// ——————————————————————————————————————————————————————————————— kapsam
+
+/**
+ * TESLİM PAKETLERİ — belgenin kapsamının hazır üç ayarı.
+ *
+ * Kullanıcı isteği (30.08.2026): *"bir müşteriye projeleri vermeyebilirim
+ * diğerine verebilirim; birine ekipman listesini detaylı kataloglu veririm
+ * diğerine standart versiyonu."* Paket bu kararların adı konmuş hâlidir.
+ */
+export const MANUAL_PACKAGES = ["standart", "detayli", "tamTeknik"] as const;
+
+export type ManualPackageKey = (typeof MANUAL_PACKAGES)[number];
+
+export const MANUAL_PACKAGE_LABELS: Record<ManualPackageKey, string> = {
+  standart: "Standart",
+  detayli: "Detaylı",
+  tamTeknik: "Tam Teknik",
+};
+
+/** Ekipman listesinin ayrıntı basamağı — `ManualAutoBlock.variant` değeri. */
+export const MANUAL_EQUIPMENT_VARIANTS = ["standart", "detayli", "kataloglu"] as const;
+
+export type ManualEquipmentVariant = (typeof MANUAL_EQUIPMENT_VARIANTS)[number];
+
+export const MANUAL_EQUIPMENT_VARIANT_LABELS: Record<ManualEquipmentVariant, string> = {
+  standart: "Standart — ekipman, marka, model, adet",
+  detayli: "Detaylı — teknik özellik sütunu da basılır",
+  kataloglu: "Kataloglu — katalog föyü sütunu ve katalog ekleri",
+};
+
+/**
+ * EKİN SEÇENEĞİ — indirme ucuna taşınan tek ayar.
+ *
+ * Ekin belgeye GİRİP GİRMEYECEĞİ burada DEĞİLDİR: o `section.hidden`'dır ve
+ * `manualAppendixOrder` zaten `printedManual`'ı okur (KITAP-6 · KITAP-8).
+ * Burada yalnız "girecekse hangi biçimde" durur: mekanik hesap eki hangi
+ * rapor seviyesiyle, elektrik katalog eki ürün başına kaç teknik föyle.
+ * Bunların başka bir evi yoktur — ağaçta bir karşılıkları yok.
+ */
+export interface ManualAppendixOption {
+  kind: ManualAppendixKind;
+  /** `mekanikHesap` → ReportLevel · `elektrikKatalog` → föy sayısı. */
+  option?: string;
+  /** Kullanıcı elle değiştirdi — paket yeniden uygulanınca EZİLMEZ. */
+  edited?: boolean;
+}
+
+/**
+ * BELGENİN KAPSAMI.
+ *
+ * GÖRÜNÜRLÜK BURADA DEĞİLDİR ve bu bir eksiklik değil bir SÖZLEŞMEDİR: paket
+ * uygulamak `section.hidden` yazan bir İŞLEMDİR, ikinci bir görünürlük deposu
+ * değil. İki depo olsaydı gizlenen bölüm ekrandan düşer ama belgeye girmeye
+ * devam ederdi (KITAP-6'nın anlattığı en pahalı hata).
+ *
+ * Burada yalnız başka evi olmayan üç şey durur: hangi paket uygulandı,
+ * kullanıcı paketten nerede saptı, eklerin seçenekleri.
+ */
+export interface ManualScope {
+  /** Son uygulanan paket; BOŞ ise "serbest kapsam" (eski belgeler burada). */
+  packageKey: ManualPackageKey | "";
+  /** Uygulandığı an (ISO); sapma listesi bundan sonrasını sayar. */
+  appliedAt: string;
+  /**
+   * Paket uygulandıktan SONRA görünürlüğüne ELLE dokunulan bölüm anahtarları.
+   * KITAP-4'ün (`edited`) kapsam düzeyindeki ikizidir: paket yeniden
+   * uygulandığında bunlara DOKUNULMAZ — makine önerir, insan son sözü söyler.
+   */
+  keptSections: string[];
+  appendixOptions: ManualAppendixOption[];
+}
+
 export interface ManualPayload {
   /** Sözleşme sürümü — `withManualDefaults` eski kayıtları bugüne taşır. */
   v: 1;
@@ -325,6 +469,8 @@ export interface ManualPayload {
   /** Üst banttaki opsiyonel orta ve sağ partner logoları. */
   partnerLogos: ManualPartnerLogos;
   identity: ManualIdentity;
+  /** Teslim kapsamı — paket, sapmalar ve ek seçenekleri. */
+  scope: ManualScope;
   sections: ManualSection[];
   /**
    * Şablonun hangi sürümünden doğdu. Şablon büyüdüğünde eski belgeye YENİ

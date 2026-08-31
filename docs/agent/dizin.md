@@ -95,7 +95,7 @@
   "Şartname" (basılınca imzalı bağlantıyla açılır)
 - `src/lib/manual/` — İŞLETME VE BAKIM EL KİTABI ÇEKİRDEĞİ, **saf**:
   `types.ts` (bölüm ağacı · altı blok türü · yedi ek türü · künye) ·
-  `template.ts` (14 ana bölümlük şablon ve STANDART METİNLER — vince özel
+  `template.ts` (dokuz gövde bölümü + Ekler; şablon ve STANDART METİNLER — vince özel
   hiçbir sayı YOK) · `payload.ts` (`withManualDefaults` taşıma,
   **`printedManual` — gizleme süzgecinin TEK yeri**, `numberManual` 1·1.1 ve
   EK-A·EK-B zincirleri) · `sources.ts` (otomatik blokların saf çözücüsü) ·

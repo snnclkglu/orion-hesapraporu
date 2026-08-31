@@ -27,6 +27,9 @@ const ITEMS = [
   { href: "/admin/couplings", label: "Kaplin Katalogu" },
   { href: "/admin/rails", label: "Raylar" },
   { href: "/admin/standards", label: "Standart Tablolar" },
+  // El Kitabı Defterleri STANDART TABLOLARIN yanındadır: ikisi de
+  // "belgede tekrar eden şey nerede tanımlı" sorusuna cevap verir.
+  { href: "/admin/manual", label: "El Kitabı Defterleri" },
   { href: "/admin/settings", label: "Rapor Ayarları" },
 ];
 

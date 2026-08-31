@@ -5,7 +5,13 @@
 // (`docs/agent/belge.md`, rapor seviyeleri dersi) — bu yüzden çıktı bir dosya
 // olarak da yazılır ve göz kontrolü mümkün kalır.
 //
-//   npx tsx scripts/test-manual-pdf.ts [cikti.pdf]
+//   npx tsx scripts/test-manual-pdf.ts [cikti.pdf] [ek.pdf] [--turet] [--sema] [--paket=<key>]
+//
+// `--turet` TÜRETİM ÇEKİRDEĞİNİ de koşturur (bakım çizelgesi ~200 satır,
+// yağlama tablosu). Yerleşimin asıl sınandığı yer burasıdır: `atomuBol` uzun
+// bir tabloyu sütunlar arasında bölmek zorunda kalır ve dilim başlıkları
+// tekrar eder. `--paket` teslim paketini uygular (standart · detayli ·
+// tamTeknik) ve ek sırasının kapsama göre değiştiğini gösterir.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { renderToBuffer } from "@react-pdf/renderer";
@@ -17,10 +23,57 @@ import { MANUAL_APPENDIX_LABELS } from "@/lib/manual/types";
 import { manualAssetsFor } from "@/lib/manual/asset-bytes";
 import { manualUsedAssetKeys } from "@/lib/manual/assets";
 import { allBlocks } from "@/lib/manual/payload";
-import type { ManualSourceData } from "@/lib/manual/sources";
+import { NEW_WORK_TEMPLATE } from "@/lib/calc/defaults";
+import { runCalc } from "@/lib/calc/engine";
+import { diagramsForSection } from "@/lib/diagrams/select";
+import { applyAutofill } from "@/lib/manual/autofill";
+import { applyManualPackage } from "@/lib/manual/packages";
+import { isManualPackageKey } from "@/lib/manual/packages";
+import type { ManualEquipmentRow, ManualSourceData } from "@/lib/manual/sources";
+
+/**
+ * TÜRETİM FİKSTÜRÜ — gerçek bir vincin ekipman listesi mertebesinde.
+ *
+ * Küçük bir liste bakım çizelgesini de küçük yapar ve `atomuBol` hiç
+ * çalışmazdı; oysa bu betiğin varlık sebebi tam olarak o yolu sınamaktır.
+ */
+const TURETIM_EKIPMANI: ManualEquipmentRow[] = [
+  ...["Ana Kaldırma", "Yardımcı Kaldırma", "Araba", "Köprü"].flatMap((group) =>
+    [
+      ["Motor", "SIEMENS", "1LE1001"],
+      ["Redüktör", "YILMAZ", "MRD 90"],
+      ["Fren", "EMG", "EBD 250"],
+      ["Motor kaplini", "", ""],
+      ["Tekerlek", "", ""],
+      ["Teker rulmanı", "SKF", "22215"],
+    ].map(([component, brand, model]) => ({
+      component,
+      brand,
+      model,
+      qty: "2",
+      group,
+    }))
+  ),
+  { component: "Tambur", brand: "", model: "", qty: "1", group: "Ana Kaldırma" },
+  { component: "Tambur rulman yatağı", brand: "SKF", model: "SNL 520", qty: "2", group: "Ana Kaldırma" },
+  { component: "Çelik halat", brand: "GÜVEN", model: "6x36 WS", qty: "2", group: "Ana Kaldırma" },
+  { component: "Halat makarası", brand: "", model: "", qty: "8", group: "Ana Kaldırma" },
+  { component: "Makara rulmanı", brand: "SKF", model: "22213", qty: "8", group: "Ana Kaldırma" },
+  { component: "Kanca", brand: "PEWAG", model: "RSN 16", qty: "1", group: "Ana Kaldırma" },
+  { component: "Kanca (eksenel) rulmanı", brand: "SKF", model: "29320", qty: "1", group: "Ana Kaldırma" },
+  { component: "Tampon", brand: "", model: "", qty: "4", group: "Köprü" },
+  { component: "Operatör kabini", brand: "", model: "", qty: "1", group: "Operatör Kabini" },
+  { component: "Elektrik panosu", brand: "", model: "", qty: "2", group: "Elektrik Odası" },
+];
 
 async function main() {
-  const hedef = process.argv[2] ?? "tmp/el-kitabi-ornek.pdf";
+  const argv = process.argv.slice(2);
+  const bayraklar = argv.filter((a) => a.startsWith("--"));
+  const konumlu = argv.filter((a) => !a.startsWith("--"));
+  const hedef = konumlu[0] ?? "tmp/el-kitabi-ornek.pdf";
+  const turet = bayraklar.includes("--turet");
+  const sema = bayraklar.includes("--sema");
+  const paketAdi = bayraklar.find((a) => a.startsWith("--paket="))?.slice("--paket=".length) ?? "";
 
   const payload = manualFromTemplate({
     manufacturer: "ORION CRANES",
@@ -66,6 +119,60 @@ async function main() {
     drawings: [{ no: "0019-00-0100", name: "GENEL MONTAJ", status: "Çizildi" }],
   };
 
+  if (turet) sources.equipment = TURETIM_EKIPMANI;
+
+  // PAKET ÖNCE, TÜRETİM SONRA: paket otomatik blokların varyantını yazar ve
+  // bölümleri gizler; türetim yalnız GÖRÜNEN bölümlere blok üretmez ama gizli
+  // bölümde üretilen blok da belgeye girmez — sıra bu yüzden okunur kalsın.
+  if (paketAdi) {
+    if (!isManualPackageKey(paketAdi)) throw new Error(`Bilinmeyen paket: ${paketAdi}`);
+    const sonuc = applyManualPackage(payload, paketAdi, { at: "2026-08-30T00:00:00.000Z" });
+    payload.sections = sonuc.payload.sections;
+    payload.scope = sonuc.payload.scope;
+    console.log(`Paket: ${paketAdi} · değişen ${sonuc.degisen}`);
+  }
+  if (turet) {
+    sources.hoistGroup = "M8";
+    const sonuc = applyAutofill(payload, { sources });
+    payload.sections = sonuc.payload.sections;
+    console.log(`Türetim: ${sonuc.uretilen} blok yazıldı, ${sonuc.korunan} blok korundu`);
+  }
+
+  // ŞEMA BLOĞU GERÇEK BİR DİYAGRAMLA SINANIR. Uydurma bir model yerleşimi
+  // ölçer ama ÇİZİMİ sınamaz; asıl soru `PdfDiagram`ın el kitabı kabında
+  // doğru boyda basılıp basılmadığıdır.
+  if (sema) {
+    const girdi = NEW_WORK_TEMPLATE;
+    const hesap = runCalc(girdi);
+    const secilenler: [string, string][] = [
+      ["main", "2.5"],
+      ["main", "2.2.3"],
+      ["wheelLoads", "10.2"],
+    ];
+    const bloklar = secilenler.flatMap(([modul, bolum], i) => {
+      const d = diagramsForSection(modul, bolum, girdi, hesap)[0];
+      if (!d) return [];
+      return [
+        {
+          id: `sema${i}`,
+          kind: "diagram" as const,
+          diagramKey: `${modul}:${bolum}`,
+          diagram: {
+            width: d.width,
+            height: d.height,
+            els: d.els as unknown[],
+            ...(d.x0 !== undefined ? { x0: d.x0 } : {}),
+            ...(d.y0 !== undefined ? { y0: d.y0 } : {}),
+          },
+          caption: `Şema ${modul} ${bolum}`,
+        },
+      ];
+    });
+    const hedefBolum = payload.sections.find((b) => b.key === "tanim");
+    if (hedefBolum) hedefBolum.blocks.push(...bloklar);
+    console.log(`Şema: ${bloklar.length} diyagram eklendi`);
+  }
+
   // ŞABLON VARLIKLARI İNDİRME UCUNDAKİ GİBİ YÜKLENİR. Yüklenmezse yerleşim
   // görselleri ÖLÇER ama çizim onları BASMAZ ve ortaya bomboş bir yaprak
   // çıkar — bu betik tam olarak o ayrışmayı yakalamak için var.
@@ -108,7 +215,7 @@ async function main() {
   // bozulursa ek YANLIŞ KAPAĞIN altına düşer ve bunu ancak belgeyi açan
   // müşteri görür. İkinci argüman verilirse o PDF "Elektrik Projeleri" eki
   // olarak yerleştirilir ve birleşik belge de yazılır.
-  const ekYolu = process.argv[3];
+  const ekYolu = konumlu[1];
   // BEKLENEN BAŞLIKLAR yerleşim denetçisine yazılır: iki sütunlu akışta
   // "kayıp içerik" gözle görülmez, ancak belgeyi geri okuyup aranarak
   // yakalanır (`scripts/check-manual-layout.py`).

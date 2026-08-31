@@ -22,6 +22,9 @@ import {
   manualFromProjectTemplate,
   withManualDefaults,
 } from "@/lib/manual/payload";
+import { applyAutofill } from "@/lib/manual/autofill";
+import { loadManualBooks } from "@/lib/manual/books-data";
+import { applyManualPackage, suggestManualPackage } from "@/lib/manual/packages";
 import { resolveAutoTable, type ManualSourceData } from "@/lib/manual/sources";
 import { MANUAL_IMAGE_BUCKET } from "@/lib/manual/data";
 import { manualPublishReadiness } from "@/lib/manual/guide";
@@ -74,10 +77,18 @@ export async function createManual(projectId: string): Promise<ManualResult> {
 
   const ad = String(proje.name ?? "");
   const tip = String(proje.crane_type ?? "");
-  const govde = manualFromProjectTemplate({
+  const taslak = manualFromProjectTemplate({
     customer: String(proje.customer ?? ""),
     product: ad,
     craneType: tip,
+  });
+
+  // TESLİM PAKETİ VİNÇ TİPİNDEN ÖNERİLİR (KITAP-20). Öneri bir dayatma
+  // değildir: kullanıcı Kapsam panelinden paketi değiştirebilir ve tek tek
+  // bölüm kararı verebilir. Ama boş bir kapsamla açmak, standart bir vinçte
+  // yedi ekin de kapalı ya da açık olduğu belirsiz bir belge demekti.
+  const { payload: govde } = applyManualPackage(taslak, suggestManualPackage(tip), {
+    at: new Date().toISOString(),
   });
   const kapak = govde.coverTitle;
 
@@ -147,12 +158,91 @@ export async function saveManualRevision(
   return { ok: true };
 }
 
-/** Otomatik blokları kaynaktan çözüp `frozen`a yazar (yayım hazırlığı). */
+const turetSemasi = z.object({
+  revisionId: z.uuid("Geçersiz revizyon"),
+  payload: z.unknown(),
+  /** Yalnız bu bölüm anahtarı tazelensin. */
+  sectionKey: z.string().trim().max(120).optional(),
+  /** Yalnız bu blok tazelensin — `edited` bilerek yok sayılır. */
+  blockId: z.string().trim().max(80).optional(),
+});
+
+export type ManualAutofillResult =
+  | { error: string }
+  | { ok: true; payload: ManualPayload; uretilen: number; korunan: number };
+
+/**
+ * "KAYNAKTAN DOLDUR" — türetilmiş blokları üretir ve GÖVDEYİ DÖNDÜRÜR.
+ *
+ * VERİTABANINA YAZMAZ. Kaydetme AÇIKTIR (KITAP-10) ve arka planda dolaşan bir
+ * kaydedici hangi hâlin kaydedildiğini belirsizleştirirdi; kullanıcı türetimin
+ * sonucunu görür, beğenmezse geri alır, beğenirse Kaydet'e basar.
+ *
+ * KAYNAK VE DEFTER SUNUCUDA ÇÖZÜLÜR: hesap raporu, elektrik projesi ve panel
+ * defterleri istemciye hiç inmez — hem yetki hem boyut sebebiyle.
+ */
+export async function autofillManualRevision(
+  projectId: string,
+  input: { revisionId: string; payload: unknown; sectionKey?: string; blockId?: string }
+): Promise<ManualAutofillResult> {
+  const izin = await yetki();
+  if ("error" in izin) return izin;
+  const parsed = turetSemasi.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const supabase = await createClient();
+  const { data: rev } = await supabase
+    .from("manual_revisions")
+    .select("status")
+    .eq("id", parsed.data.revisionId)
+    .maybeSingle();
+  if (!rev) return { error: "Revizyon bulunamadı." };
+  // YAYIMLANMIŞ REVİZYON DEĞİŞMEZ (KITAP-2). Tetikleyici zaten reddeder ama
+  // kullanıcıya okunur bir cümle söylemek eylemin işidir.
+  if ((rev as { status?: string }).status !== "draft") {
+    return { error: "Yayımlanmış revizyonda türetim yapılamaz." };
+  }
+
+  const [sources, books] = await Promise.all([
+    buildManualSourceData(supabase, projectId),
+    loadManualBooks(supabase),
+  ]);
+
+  const govde = withManualDefaults(parsed.data.payload);
+  const sonuc = applyAutofill(
+    govde,
+    {
+      sources,
+      maintenanceRules: books.maintenance,
+      lubricationPoints: books.lubrication,
+    },
+    {
+      ...(parsed.data.sectionKey ? { yalnizBolum: parsed.data.sectionKey } : {}),
+      ...(parsed.data.blockId ? { yalnizBlok: parsed.data.blockId } : {}),
+    }
+  );
+
+  return {
+    ok: true,
+    payload: sonuc.payload,
+    uretilen: sonuc.uretilen,
+    korunan: sonuc.korunan,
+  };
+}
+
+/**
+ * Otomatik blokları kaynaktan çözüp `frozen`a yazar (yayım hazırlığı).
+ *
+ * BLOĞUN VARYANTI DA GEÇİRİLİR (KITAP-20): kapsam paketi ekipman listesini
+ * "kataloglu" yaptıysa donan tablo da kataloglu olmalıdır. Varyantsız
+ * çözülseydi taslakta detaylı görünen liste yayımda sessizce standarda döner
+ * ve müşteriye ekranda onaylanandan başka bir belge giderdi.
+ */
 function dondur(sections: ManualSection[], veri: ManualSourceData): ManualSection[] {
   return sections.map((s) => ({
     ...s,
     blocks: s.blocks.map((b) =>
-      b.kind === "auto" ? { ...b, frozen: resolveAutoTable(b.source, veri) } : b
+      b.kind === "auto" ? { ...b, frozen: resolveAutoTable(b.source, veri, b.variant) } : b
     ),
     children: dondur(s.children, veri),
   }));
@@ -294,7 +384,7 @@ export async function newManualRevision(
   if (son) {
     const { data } = await supabase
       .from("manual_images")
-      .select("id, file_name, storage_path, width, height, size_bytes")
+      .select("id, file_name, storage_path, width, height, size_bytes, origin")
       .eq("revision_id", son.id);
     gorseller = (data ?? []) as Record<string, unknown>[];
   }
@@ -334,6 +424,9 @@ export async function newManualRevision(
       width: Number(g.width ?? 0),
       height: Number(g.height ?? 0),
       size_bytes: Number(g.size_bytes ?? 0),
+      // KAYNAK DA KOPYALANIR: yeni revizyonda "bu resim hangi paftanın kaçıncı
+      // sayfası" sorusu aynen geçerlidir (KITAP-22).
+      origin: (g.origin ?? {}) as Record<string, unknown>,
       created_by: izin.userId,
     });
     if (kayitHatasi) {

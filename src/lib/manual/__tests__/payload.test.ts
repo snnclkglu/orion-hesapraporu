@@ -6,6 +6,8 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  addTemplateSection,
+  templateAdditions,
   allBlocks,
   flattenManual,
   manualDraftForNextRevision,
@@ -30,6 +32,7 @@ const govde = (sections: ManualSection[]): ManualPayload => ({
   coverTitle: "",
   partnerLogos: {},
   identity: withManualDefaults({}).identity,
+  scope: withManualDefaults({}).scope,
   sections,
   templateVersion: MANUAL_TEMPLATE_VERSION,
 });
@@ -319,5 +322,152 @@ describe("adlandırma", () => {
 
   it("belge kodu kalem numarasını taşır", () => {
     expect(manualDocCode("0019-00", 1)).toBe("ORC-BK-0019-00-R01");
+  });
+});
+
+// ————————————————————————————————————————————————————— şema bloğu
+
+describe("şema bloğu", () => {
+  const model = { width: 400, height: 200, els: [{ kind: "line" }], x0: -10 };
+
+  it("ölçüsü olan şemayı okur ve viewBox köşesini korur", () => {
+    const p = withManualDefaults({
+      sections: [
+        {
+          id: "s",
+          title: "T",
+          blocks: [{ id: "b", kind: "diagram", diagramKey: "main:2.5", diagram: model }],
+          children: [],
+        },
+      ],
+    });
+    const b = p.sections[0].blocks[0];
+    expect(b.kind).toBe("diagram");
+    expect(b.kind === "diagram" && b.diagram.width).toBe(400);
+    expect(b.kind === "diagram" && b.diagram.x0).toBe(-10);
+    expect(b.kind === "diagram" && b.diagramKey).toBe("main:2.5");
+  });
+
+  // ÖLÇÜSÜ OLMAYAN ŞEMA ÇİZİLEMEZ ve yerleşim onu ölçemez; blok DÜŞER —
+  // yüksekliği bilinmeyen bir atom komşusunu sayfadan taşırırdı.
+  it("ölçüsüz ya da elemansız şema bloğu DÜŞER", () => {
+    for (const bozuk of [
+      { width: 0, height: 200, els: [] },
+      { width: 400, height: 0, els: [] },
+      { width: 400, height: 200 },
+      undefined,
+    ]) {
+      const p = withManualDefaults({
+        sections: [
+          {
+            id: "s",
+            title: "T",
+            blocks: [{ id: "b", kind: "diagram", diagram: bozuk }],
+            children: [],
+          },
+        ],
+      });
+      expect(p.sections[0].blocks).toEqual([]);
+    }
+  });
+
+  it("elemansız şema BASILMAZ", () => {
+    const p = withManualDefaults({
+      sections: [
+        {
+          id: "s",
+          title: "T",
+          blocks: [{ id: "b", kind: "diagram", diagram: { ...model, els: [] } }],
+          children: [],
+        },
+      ],
+    });
+    expect(printedManual(p).sections).toEqual([]);
+  });
+
+  // MODEL DOĞRULANMAZ, TAŞINIR: çizim modeline eklenen yeni bir eleman türü
+  // eski kılavuzları açılmaz yapmamalıdır.
+  it("tanınmayan eleman türü modelde KALIR", () => {
+    const p = withManualDefaults({
+      sections: [
+        {
+          id: "s",
+          title: "T",
+          blocks: [
+            {
+              id: "b",
+              kind: "diagram",
+              diagram: { width: 10, height: 10, els: [{ kind: "gelecekteki-tur", x: 1 }] },
+            },
+          ],
+          children: [],
+        },
+      ],
+    });
+    const b = p.sections[0].blocks[0];
+    expect(b.kind === "diagram" && b.diagram.els).toEqual([{ kind: "gelecekteki-tur", x: 1 }]);
+  });
+});
+
+// ————————————————————————————————————————————— şablon büyümesi
+
+describe("şablon büyümesi", () => {
+  it("taze belgede eklenecek bölüm YOKTUR", () => {
+    expect(templateAdditions(manualFromTemplate())).toEqual([]);
+  });
+
+  // ŞABLON SÜRÜMÜ ARTTIĞINDA VAR OLAN BELGELER DEĞİŞMEZ (KITAP-4).
+  it("eksik bölümü bildirir ama KENDİLİĞİNDEN EKLEMEZ", () => {
+    const p = manualFromTemplate();
+    const once = p.sections.length;
+    const kirpik = {
+      ...p,
+      sections: p.sections.filter((s) => s.key !== "sozluk"),
+    };
+    const eksikler = templateAdditions(kirpik);
+    expect(eksikler.map((e) => e.key)).toEqual(["sozluk"]);
+    // Bildirmek eklemek değildir.
+    expect(kirpik.sections).toHaveLength(once - 1);
+  });
+
+  it("eklenen bölüm ŞABLONDAKİ SIRASINA yerleşir", () => {
+    const p = manualFromTemplate();
+    const sira = p.sections.findIndex((s) => s.key === "sozluk");
+    const kirpik = { ...p, sections: p.sections.filter((s) => s.key !== "sozluk") };
+    const geri = addTemplateSection(kirpik, "sozluk");
+    expect(geri.sections.findIndex((s) => s.key === "sozluk")).toBe(sira);
+  });
+
+  it("alt bölüm de kendi üst bölümünün altına döner", () => {
+    const p = manualFromTemplate();
+    const kirpik = {
+      ...p,
+      sections: p.sections.map((s) =>
+        s.key === "tanim"
+          ? { ...s, children: s.children.filter((c) => c.key !== "tanim.anaParcalar") }
+          : s
+      ),
+    };
+    expect(templateAdditions(kirpik).map((e) => e.key)).toEqual(["tanim.anaParcalar"]);
+    const geri = addTemplateSection(kirpik, "tanim.anaParcalar");
+    const tanim = geri.sections.find((s) => s.key === "tanim")!;
+    expect(tanim.children.map((c) => c.key)).toEqual(
+      p.sections.find((s) => s.key === "tanim")!.children.map((c) => c.key)
+    );
+  });
+
+  it("var olan bölüm İKİNCİ KEZ eklenmez", () => {
+    const p = manualFromTemplate();
+    expect(addTemplateSection(p, "sozluk").sections).toHaveLength(p.sections.length);
+  });
+
+  it("ÜST BÖLÜM EKSİKSE ALT AĞACA İNİLMEZ — bölüm çocuklarıyla gelir", () => {
+    const p = manualFromTemplate();
+    const kirpik = { ...p, sections: p.sections.filter((s) => s.key !== "atik") };
+    const eksikler = templateAdditions(kirpik);
+    expect(eksikler.map((e) => e.key)).toEqual(["atik"]);
+    const geri = addTemplateSection(kirpik, "atik");
+    const atik = geri.sections.find((s) => s.key === "atik")!;
+    expect(atik.children.map((c) => c.key)).toEqual(["atik.bertaraf", "atik.cevre"]);
   });
 });

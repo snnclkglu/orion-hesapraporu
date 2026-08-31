@@ -84,11 +84,17 @@
   [sayfa-siniri]` — güncel elektrik projesindeki doğrulanmış teknik belgeleri
   EK-F dizini ve iç bağlantılarıyla PDF'e dök. Varsayılan sınır 2'dir; detaylı
   ekipman listesinin üretim davranışını sınamak için üçüncü argüman `6` verilir.
-- `npx tsx scripts/test-manual-pdf.ts [cikti.pdf] [ek.pdf]` — İŞLETME VE BAKIM
-  EL KİTABI'nı şablondan bas ve METNİNİ ölç: yazılan/BASILAN bölüm sayısı, ek
-  sırası, ilk on başlık. İkinci argüman verilirse EK YERLEŞTİRME SÖZLEŞMESİ de
-  sınanır (temel belgenin son n sayfası = eklerle aynı sıradaki n kapak) ve
-  birleşik "tam sürüm" yazılır. Bu modüldeki en kırılgan varsayım odur
+- `npx tsx scripts/test-manual-pdf.ts [cikti.pdf] [ek.pdf] [--turet] [--paket=<key>]`
+  — İŞLETME VE BAKIM EL KİTABI'nı şablondan bas ve METNİNİ ölç: yazılan/BASILAN
+  bölüm sayısı, ek sırası, ilk on başlık. İkinci argüman verilirse EK
+  YERLEŞTİRME SÖZLEŞMESİ de sınanır (temel belgenin son n sayfası = eklerle
+  aynı sıradaki n kapak) ve birleşik "tam sürüm" yazılır. Bu modüldeki en
+  kırılgan varsayım odur.
+  **`--turet`** türetim çekirdeğini de koşturur (~200 satırlık bakım çizelgesi,
+  yağlama tablosu) — `atomuBol`un uzun tabloyu sütunlar arasında bölmesi ANCAK
+  burada sınanır; belge 20 yapraktan 29'a çıkar. **`--paket=standart|detayli|
+  tamTeknik`** teslim paketini uygular ve ek sırasının kapsama göre değiştiğini
+  gösterir (standart pakette yalnız `elektrikProje` basılır)
 - `python scripts/check-manual-layout.py <pdf> [basliklar.json]` — EL KİTABI
   PDF'ini GERİ OKUR: taşma (gövde içerik alanının altına inmiş mi), kayıp
   (beklenen başlıkların hepsi belgede mi) ve doluluk (karakter/sayfa). İki

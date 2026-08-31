@@ -99,10 +99,28 @@ function satirlar(
   return out;
 }
 
-/** Ekipman gruplarını el kitabının satır şekline indirger. */
+/**
+ * Ekipman gruplarını el kitabının satır şekline indirger.
+ *
+ * TEKNİK ÖZELLİK DE TAŞINIR (`EqRow.spec`): kapsam paketinin DETAYLI ve
+ * KATALOGLU varyantları o sütunu ister ve alan zaten ekipman listesinde
+ * hazırdır. Boşsa sütun hiç açılmaz — sütunun açılıp açılmayacağına saf
+ * çözücü karar verir (KITAP-20).
+ */
 function ekipmanSatirlari(
-  groups: readonly { name: string; rows: readonly { component: string; brand: string; model: string; qty: number | string }[] }[]
+  groups: readonly {
+    name: string;
+    rows: readonly {
+      component: string;
+      brand: string;
+      model: string;
+      spec?: string;
+      alt?: number;
+      qty: number | string;
+    }[];
+  }[]
 ): ManualEquipmentRow[] {
+  const bos = (v: string | undefined) => (v && v !== "-" ? v : "");
   const out: ManualEquipmentRow[] = [];
   for (const g of groups) {
     for (const r of g.rows) {
@@ -110,10 +128,14 @@ function ekipmanSatirlari(
         component: r.component,
         // Ekipman listesinde bilinmeyen alan "-" ile basılıyor; el kitabında
         // BOŞ kalır — "-" bir değer gibi okunuyordu.
-        brand: r.brand === "-" ? "" : r.brand,
-        model: r.model === "-" ? "" : r.model,
+        brand: bos(r.brand),
+        model: bos(r.model),
         qty: r.qty === 0 || r.qty === "-" ? "" : String(r.qty),
         group: g.name,
+        ...(bos(r.spec) ? { specs: bos(r.spec) } : {}),
+        // SEÇENEK SATIRI İŞARETLENİR: ekipman listesinde görünmeye devam eder
+        // ama bakım çizelgesine ve yağlama tablosuna girmez (takılı değildir).
+        ...(r.alt === undefined ? {} : { alternative: true as const }),
       });
     }
   }
@@ -168,6 +190,13 @@ export async function buildManualSourceData(
       calcInput.specs,
       (k) => !sinifKumesi.has(k) && !HIZ_DESENI.test(k)
     );
+
+    // KALDIRMA GRUBU AYRI BİR ALANDIR, sınıflandırma tablosundan METİN
+    // AYIKLANMAZ: etiket dile ve biçime bağlıdır ("Kaldırma Mekanizma Grubu"),
+    // ham alan ise motorun kendi anahtarıdır. Bakım defterindeki `minGroup`
+    // kuralları bunu okur; bilinmiyorsa BOŞ kalır ve o kurallar çıkmaz.
+    const grup = kaynak["hoistMechanismClass"];
+    if (typeof grup === "string" && grup.trim()) veri.hoistGroup = grup.trim();
 
     const alts = altsFromRevision(revizyon.selections as RevisionSelectionsJson | null);
     const gizli = hiddenSectionsFromRevision(revizyon.inputs as RevisionInputsJson | null);

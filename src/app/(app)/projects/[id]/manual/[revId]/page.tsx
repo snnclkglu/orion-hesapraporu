@@ -20,6 +20,7 @@ import {
 } from "@/lib/manual/data";
 import { MANUAL_LABEL } from "@/lib/manual/naming";
 import { resolveProjectItemNo } from "@/lib/drawing-plan-data";
+import { loadManualSnippets } from "@/lib/manual/books-data";
 import { buildManualSourceData } from "../sources-data";
 import { ManualEditor } from "./manual-editor";
 
@@ -50,10 +51,12 @@ export default async function ManualEditorPage({
     : { data: null };
   const canEdit = canEditReports((profil as { role?: string } | null)?.role);
 
-  const [kaynaklar, gorseller, itemNo] = await Promise.all([
+  const [kaynaklar, gorseller, itemNo, parcalar] = await Promise.all([
     buildManualSourceData(supabase, id),
     loadManualImages(supabase, revId),
     resolveProjectItemNo(supabase, id, String(project.doc_no ?? "")),
+    // METİN PARÇALARI DEFTERİ blok ekleme menüsünde görünür (KITAP-21).
+    loadManualSnippets(supabase),
   ]);
 
   const job = (project.jobs as unknown as { id: string; job_no: string } | null) ?? null;
@@ -101,6 +104,7 @@ export default async function ManualEditorPage({
         projectTitle={String(project.name ?? "")}
         sources={kaynaklar}
         images={gorseller}
+        snippets={parcalar}
         itemNo={itemNo || String(project.doc_no ?? "")}
         canEdit={canEdit}
       />

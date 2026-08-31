@@ -47,6 +47,8 @@ import {
 } from "@/lib/manual/pdf-layout";
 import { flattenManual, numberManual, printedManual } from "@/lib/manual/payload";
 import { autoTableFor, type ManualSourceData } from "@/lib/manual/sources";
+import { DiagramSvg } from "@/components/diagrams/diagram-svg";
+import type { Diagram } from "@/lib/diagrams/model";
 import {
   MANUAL_APPENDIX_LABELS,
   MANUAL_NOTE_LABELS,
@@ -691,6 +693,22 @@ function Blok({
             alt={blok.caption ?? ""}
             style={{ width: `${en * 100}%`, display: "block" }}
           />
+          {blok.caption?.trim() ? (
+            <figcaption style={{ fontSize: pt(7), color: BRAND.gray600, marginTop: pt(2) }}>
+              {blok.caption}
+            </figcaption>
+          ) : null}
+        </figure>
+      );
+    }
+
+    case "diagram": {
+      // EKRAN VE PDF AYNI MODELİ ÇİZER, ayrı bir önizleme çizimi YOKTUR:
+      // ikisi ayrışsaydı kâğıtta gördüğü şema belgede başka türlü basılırdı.
+      const en = (blok.widthPct ?? 100) / 100;
+      return (
+        <figure style={{ marginBlock: pt(6), width: `${en * 100}%` }}>
+          <DiagramSvg diagram={blok.diagram as unknown as Diagram} className="w-full" />
           {blok.caption?.trim() ? (
             <figcaption style={{ fontSize: pt(7), color: BRAND.gray600, marginTop: pt(2) }}>
               {blok.caption}

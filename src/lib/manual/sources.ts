@@ -35,6 +35,24 @@ export interface ManualEquipmentRow {
   qty: string;
   /** Hangi modülden geldi ("Ana Kaldırma") — listeyi okunur kılar. */
   group: string;
+  /**
+   * Seçimin belirleyici teknik özelliği ("i=52,57 · 22 kNm", "Ø400 mm").
+   * DETAYLI ve KATALOGLU varyantlarda bir sütun olarak basılır; kaynak bunu
+   * doldurmuyorsa sütun HİÇ AÇILMAZ — boş bir sütun bilgi değil kusurdur
+   * (değişmez md. 4·5).
+   */
+  specs?: string;
+  /** Katalog föyünün insan okunur atfı ("YILMAZ H/B, s. 214"). */
+  catalogRef?: string;
+  /**
+   * Satır bir SEÇENEK (alternatif ekipman) — vince TAKILI DEĞİLDİR.
+   *
+   * Ekipman listesi seçenekleri ana satırın altında gösterir ve el kitabında
+   * da öyle basılır. Ama bakım çizelgesi ve yağlama tablosu yalnız TAKILI
+   * ekipmanı sayar: takılmamış bir redüktörün yağını değiştirmek diye bir
+   * görev yoktur ve o satır bakımcıyı olmayan bir parçayı aramaya gönderirdi.
+   */
+  alternative?: boolean;
 }
 
 /** Teknik Resim Takibi defterinin el kitabına giren yüzü. */
@@ -55,6 +73,16 @@ export interface ManualSourceData {
   electricalParts?: ElectricalPart[];
   electricalSheets?: ElectricalSheet[];
   drawings?: ManualDrawingRow[];
+  /**
+   * Kaldırma mekanizması grubu ("M8") — bakım kural defterindeki `minGroup`
+   * kuralları bunu okur.
+   *
+   * Sınıflandırma tablosunda da geçer ama oradan METİN AYIKLAMAK gerekirdi
+   * (etiket dile ve biçime bağlıdır); grup burada AYRI bir alan olarak durur.
+   * Bilinmiyorsa BOŞTUR ve `minGroup` kuralları çıkmaz — varsayılmaz
+   * (değişmez md. 4).
+   */
+  hoistGroup?: string;
 }
 
 /**
@@ -78,17 +106,53 @@ function etiketDegerTablosu(rows: readonly LabeledValue[] | undefined): ManualTa
   };
 }
 
-function ekipmanTablosu(rows: readonly ManualEquipmentRow[]): ManualTable {
+/**
+ * EKİPMAN TABLOSU — kapsam paketinin verdiği ayrıntı basamağına göre.
+ *
+ * Kullanıcı isteği (30.08.2026): *"bir müşteriye ekipman listesini detaylı
+ * kataloglu veririm diğerine standart versiyonu."*
+ *
+ * SÜTUN VERİ VARSA AÇILIR. `detayli` teknik özellik sütununu, `kataloglu`
+ * ayrıca katalog sütununu ister; ama kaynak o alanı doldurmuyorsa sütun hiç
+ * basılmaz. Baştan sona boş bir sütun, okuyana bir şey vaat edip vermemekti —
+ * üstelik dar sütunda tabloyu gereksiz yere tam genişliğe iterdi (KITAP-11).
+ */
+function ekipmanTablosu(
+  rows: readonly ManualEquipmentRow[],
+  variant?: string
+): ManualTable {
+  const ozellik = variant === "detayli" || variant === "kataloglu";
+  const katalog = variant === "kataloglu";
+  const ozellikVar = ozellik && rows.some((r) => (r.specs ?? "").trim() !== "");
+  const katalogVar = katalog && rows.some((r) => (r.catalogRef ?? "").trim() !== "");
+
   return {
-    head: ["Ekipman", "Marka", "Model", "Adet", "Grup"],
-    rows: rows.map((r) => [r.component, r.brand, r.model, r.qty, r.group]),
+    head: [
+      "Ekipman",
+      "Marka",
+      "Model",
+      ...(ozellikVar ? ["Teknik Özellik"] : []),
+      "Adet",
+      "Grup",
+      ...(katalogVar ? ["Katalog"] : []),
+    ],
+    rows: rows.map((r) => [
+      r.component,
+      r.brand,
+      r.model,
+      ...(ozellikVar ? [r.specs ?? ""] : []),
+      r.qty,
+      r.group,
+      ...(katalogVar ? [r.catalogRef ?? ""] : []),
+    ]),
   };
 }
 
 /** Otomatik bloğun kaynaktan çözülmüş tablosu; kaynak yoksa BOŞ tablo. */
 export function resolveAutoTable(
   source: ManualAutoSource,
-  data: ManualSourceData
+  data: ManualSourceData,
+  variant?: string
 ): ManualTable {
   switch (source) {
     case "siniflandirma":
@@ -99,16 +163,18 @@ export function resolveAutoTable(
       return etiketDegerTablosu(data.speeds);
 
     case "ekipman":
-      return ekipmanTablosu(data.equipment ?? []);
+      return ekipmanTablosu(data.equipment ?? [], variant);
 
     case "rulman":
       return ekipmanTablosu(
-        (data.equipment ?? []).filter((r) => RULMAN_DESENI.test(r.component))
+        (data.equipment ?? []).filter((r) => RULMAN_DESENI.test(r.component)),
+        variant
       );
 
     case "halat":
       return ekipmanTablosu(
-        (data.equipment ?? []).filter((r) => HALAT_DESENI.test(r.component))
+        (data.equipment ?? []).filter((r) => HALAT_DESENI.test(r.component)),
+        variant
       );
 
     case "elektrikMalzeme":
@@ -151,8 +217,8 @@ export function resolveAutoTable(
  * edilince sessizce başka bir şey söylerdi (`types.ts` başlığı).
  */
 export function autoTableFor(
-  block: { source: ManualAutoSource; frozen?: ManualTable },
+  block: { source: ManualAutoSource; frozen?: ManualTable; variant?: string },
   data: ManualSourceData
 ): ManualTable {
-  return block.frozen ?? resolveAutoTable(block.source, data);
+  return block.frozen ?? resolveAutoTable(block.source, data, block.variant);
 }

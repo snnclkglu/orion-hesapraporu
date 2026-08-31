@@ -76,6 +76,7 @@ export default function ManualPreviewPage() {
           projectTitle="185/40 T X 18,28 M KAPASİTELİ DÖRT KİRİŞLİ KÖPRÜLÜ ŞARJ VİNCİ"
           sources={SOURCES}
           images={[]}
+          snippets={[]}
           itemNo="0019-00"
           canEdit
         />

@@ -443,6 +443,18 @@ export function blokOlcusu(
       const altyazi = block.caption?.trim() ? ALTYAZI_YUK : 0;
       return { h: genislik * oran + altyazi + GORSEL_PAY, tam };
     }
+
+    case "diagram": {
+      // ŞEMANIN ORANI KENDİ MODELİNDEDİR: dosyaya bakmak gerekmez ve çekirdek
+      // saf kalır (KITAP-12'nin "oran defterdedir" kuralının ikizi). Görselde
+      // oran bilinmediğinde kare varsayılır; burada TAHMİN YOKTUR.
+      const pct = block.widthPct ?? 100;
+      const tam = tamGenislik || (block.fullWidth ?? pct > TAM_GENISLIK_GORSEL_ESIGI);
+      const genislik = ((tam ? TAM_GENISLIK : sutun) * pct) / 100;
+      const oran = block.diagram.height / block.diagram.width;
+      const altyazi = block.caption?.trim() ? ALTYAZI_YUK : 0;
+      return { h: genislik * oran + altyazi + GORSEL_PAY, tam };
+    }
   }
 }
 

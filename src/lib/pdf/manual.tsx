@@ -42,6 +42,8 @@ import {
   printedManual,
 } from "@/lib/manual/payload";
 import { autoTableFor, type ManualSourceData } from "@/lib/manual/sources";
+import { PdfDiagram } from "@/lib/pdf/diagram";
+import type { Diagram } from "@/lib/diagrams/model";
 import {
   SUTUN_BOSLUK,
   SUTUN_GENISLIK,
@@ -837,6 +839,23 @@ function Blok({
       return (
         <View style={{ marginVertical: 6 }} wrap={false}>
           <Image src={g.bytes} style={{ width: en, height: yukseklik }} />
+          {blok.caption?.trim() ? <Text style={s.altyazi}>{blok.caption}</Text> : null}
+        </View>
+      );
+    }
+
+    case "diagram": {
+      // ŞEMA VEKTÖRDÜR: aynı `PdfDiagram` çizicisi hesap raporunda da kullanılır
+      // ve ikinci bir çizici yazılsaydı iki belge aynı şemayı başka türlü
+      // basardı (KITAP-22).
+      const en = (genislik * (blok.widthPct ?? 100)) / 100;
+      return (
+        <View style={{ marginVertical: 6 }} wrap={false}>
+          <PdfDiagram
+            diagram={blok.diagram as unknown as Diagram}
+            maxWidth={en}
+            framed={false}
+          />
           {blok.caption?.trim() ? <Text style={s.altyazi}>{blok.caption}</Text> : null}
         </View>
       );

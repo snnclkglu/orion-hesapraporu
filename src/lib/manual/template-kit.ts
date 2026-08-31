@@ -1,8 +1,9 @@
 // ŞABLONUN YAPI TAŞLARI — tipler ve blok kurucuları (saf).
 //
-// NEDEN AYRI DOSYA: şablon 2026-08-20'de on ana bölümden yirmi altıya çıktı ve
-// tek dosyada üç bin satırı geçiyordu. Bölüm ağacı artık `template-parts/`
-// altında konu konu yaşar; hepsi bu dosyadan aynı kurucuları alır.
+// NEDEN AYRI DOSYA: kurucular şablonun DIŞINDA da çağrılır — türetim
+// (`autofill.ts`) ve metin parçaları defteri aynı blokları üretir. Bölüm ağacı
+// bugün hâlâ tek dosyadadır (`template.ts`); bölünürse hepsi kurucuları
+// buradan almaya devam eder.
 //
 // KURUCULAR TEK YERDEDİR ve bu bir kolaylık değil bir SÖZLEŞMEDİR: `bosluk()`
 // ile doğan bir blok "mühendis dolduracak" demektir ve editörün rehberi

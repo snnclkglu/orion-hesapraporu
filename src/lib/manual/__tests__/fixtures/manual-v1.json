@@ -1,0 +1,251 @@
+{
+  "_neden": "TESLİM EDİLMİŞ BİR EL KİTABININ DONMUŞ HÂLİ. Bu dosya ASLA şablondan yeniden üretilmez ve şablon büyüdüğünde DEĞİŞMEZ; `payload-legacy.test.ts` onu bugünün okuyucusundan geçirip çıktının aynı kaldığını sınar. Sözleşme sürümü v1'dir ve `scope` alanı BİLEREK YOKTUR — kapsam modeli eklendikten sonra eski belgelerin nasıl açıldığı tam olarak burada kanıtlanır.",
+  "v": 1,
+  "docTitle": "İŞLETME VE BAKIM EL KİTABI",
+  "coverTitle": "60/12,5 TON KAPASİTELİ GEZER KÖPRÜ VİNCİ",
+  "coverImageId": "img-kapak",
+  "partnerLogos": { "centerImageId": "img-orta" },
+  "templateVersion": 1,
+  "identity": {
+    "manufacturer": "ORION CRANES",
+    "product": "60/12,5 Ton Gezer Köprü Vinci",
+    "craneType": "Gezer Köprü Vinci",
+    "serialNo": "0042.00",
+    "productionYear": "2026",
+    "customer": "ÖRNEK SANAYİ A.Ş.",
+    "site": "DÖKÜMHANE",
+    "manufacturerAddress": "ORION CRANES\nAnkara",
+    "customerDocNo": "0042.00-BK01",
+    "customerRevision": "0.0",
+    "preparedOn": "01.03.2026",
+    "revisedOn": "",
+    "copyright": "Bu belgenin çoğaltılması üreticinin iznine bağlıdır."
+  },
+  "sections": [
+    {
+      "id": "s1",
+      "key": "notlar",
+      "title": "Kullanıcı Notları",
+      "blocks": [],
+      "children": [
+        {
+          "id": "s1a",
+          "key": "notlar.amac",
+          "title": "Dokümanın Amacı",
+          "blocks": [
+            { "id": "b1", "kind": "text", "text": "Bu kullanma talimatları:", "fromTemplate": true },
+            {
+              "id": "b2",
+              "kind": "list",
+              "items": [
+                "Bu makinenin kullanma prensiplerini ve bakım talimatlarını tanımlar,",
+                "Güvenli ve verimli bir kullanım için önemli notlar içerir."
+              ],
+              "fromTemplate": true
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "s1b",
+          "key": "notlar.gorseller",
+          "title": "Bu kılavuzda kullanılan uyarılar",
+          "blocks": [
+            {
+              "id": "b3",
+              "kind": "image",
+              "assetKey": "sinyalKelimeleri",
+              "caption": "Sinyal kelimeleri çizelgesi",
+              "widthPct": 100,
+              "fromTemplate": true
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "key": "guvenlik",
+      "title": "Temel Güvenlik Notları ve Talimatları",
+      "blocks": [],
+      "children": [
+        {
+          "id": "s2a",
+          "key": "guvenlik.amac",
+          "title": "Kullanım Amacı",
+          "blocks": [
+            {
+              "id": "b4",
+              "kind": "text",
+              "text": "Vinç yalnızca kapasitesi içinde ve kullanım amacına uygun yüklerin kaldırılmasında kullanılır.",
+              "fromTemplate": true,
+              "edited": true
+            },
+            {
+              "id": "b5",
+              "kind": "note",
+              "level": "uyari",
+              "text": "Anma kapasitesinin üzerinde yük kaldırılmaz.",
+              "fromTemplate": true
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "s2b",
+          "key": "guvenlik.yangin",
+          "title": "Yangın Güvenliği",
+          "hidden": true,
+          "blocks": [
+            {
+              "id": "b6",
+              "kind": "text",
+              "text": "Bu bölüm bu teslimatta bilinçli olarak kapsam dışı bırakıldı.",
+              "fromTemplate": true
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "key": "tanim",
+      "title": "Makine Tanımı",
+      "blocks": [],
+      "children": [
+        {
+          "id": "s3a",
+          "key": "tanim.teknik",
+          "title": "Teknik Bilgiler",
+          "blocks": [],
+          "children": [
+            {
+              "id": "s3a1",
+              "key": "tanim.teknik.siniflandirma",
+              "title": "Sınıflandırma",
+              "blocks": [
+                { "id": "b7", "kind": "auto", "source": "siniflandirma", "fromTemplate": true }
+              ],
+              "children": []
+            },
+            {
+              "id": "s3a2",
+              "key": "tanim.teknik.karakteristik",
+              "title": "Karakteristik Özellikler",
+              "blocks": [
+                {
+                  "id": "b8",
+                  "kind": "auto",
+                  "source": "karakteristik",
+                  "frozen": {
+                    "head": ["Özellik", "Değer"],
+                    "rows": [["Kaldırma kapasitesi", "60 t"], ["Açıklık", "22,5 m"]]
+                  },
+                  "fromTemplate": true
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s4",
+      "key": "kullanim",
+      "title": "Kullanım",
+      "blocks": [],
+      "children": [
+        {
+          "id": "s4a",
+          "key": "kullanim.kabin",
+          "title": "Operatör Kabini",
+          "blocks": [
+            { "id": "b9", "kind": "text", "text": "", "fromTemplate": true },
+            { "id": "b10", "kind": "image", "imageId": "img-kabin", "caption": "Kabin konsolu" }
+          ],
+          "children": []
+        },
+        {
+          "id": "s4b",
+          "key": "kullanim.frenler",
+          "title": "Frenler",
+          "blocks": [
+            {
+              "id": "b11",
+              "kind": "table",
+              "table": {
+                "head": ["Yer", "Marka", "Model"],
+                "rows": [["Ana kaldırma", "ORION", "EF-250"]]
+              }
+            },
+            {
+              "id": "b12",
+              "kind": "text",
+              "text": "Bu paragraf gizlendi; belgeye girmez.",
+              "hidden": true
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "s9",
+      "key": "yedek",
+      "title": "Yedek Parça Listeleri",
+      "blocks": [],
+      "children": [
+        {
+          "id": "s9a",
+          "key": "yedek.kece",
+          "title": "Yağ Keçesi Listesi",
+          "blocks": [
+            {
+              "id": "b13",
+              "kind": "table",
+              "table": { "head": ["Kullanıldığı Yer", "Tip", "Ölçü (d × D × b)", "Adet"], "rows": [] },
+              "fromTemplate": true
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "sek",
+      "key": "ekler",
+      "title": "Ekler",
+      "blocks": [],
+      "children": [
+        {
+          "id": "ekA",
+          "key": "ekler.mekanikHesap",
+          "title": "Mekanik Hesaplamalar",
+          "appendix": "mekanikHesap",
+          "blocks": [],
+          "children": []
+        },
+        {
+          "id": "ekB",
+          "key": "ekler.mekanikProje",
+          "title": "Mekanik Projeler",
+          "appendix": "mekanikProje",
+          "hidden": true,
+          "blocks": [],
+          "children": []
+        },
+        {
+          "id": "ekC",
+          "key": "ekler.elektrikProje",
+          "title": "Elektrik Projeleri",
+          "appendix": "elektrikProje",
+          "blocks": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

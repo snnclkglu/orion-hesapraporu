@@ -75,8 +75,10 @@ bir güncelleme onun sildiği bölümü geri getiremez.
 ## KITAP-5 — ŞABLONA VİNCE ÖZEL HİÇBİR SAYI GİRMEZ.
 
 Kaynak, firmanın kendi teslim ettiği 185/40 Ton Şarj Vinci kılavuzudur
-(Karçel A.Ş., 028.00-KBK01) — 14 ana bölüm, 40'tan fazla alt bölüm. Şablon o
-belgenin **iskeleti ve projeden bağımsız metinleridir**.
+(Karçel A.Ş., 028.00-KBK01) — DÖRT ana bölüm ve 47 alt başlık; uzun süre
+"14 ana bölüm" diye yazılmıştı, oysa 14 dördüncü bölümün alt bölüm sayısıdır
+(4.1…4.14). Şablon o belgenin **iskeleti ve projeden bağımsız metinleridir**
+ve kendi bölümlendirmesi kaynağın aynısı değildir.
 
 "185T", "8 adet acil stop butonu", "Mevcut Şifre : 028", "192.168.221.23" —
 bunların hepsi O VİNCİN gerçeğidir ve başka bir vinçte yanlıştır. Bir şablonun
@@ -370,10 +372,20 @@ kaydedildiğini belirsizleştirirdi. Kaydedilmemiş değişiklikle sayfadan çı
 uyarır — bir kılavuzda yarım saatlik yazının sekme kapanınca kaybolması,
 kullanıcının o ekrana bir daha güvenmemesi demektir.
 
+**YEREL KURTARMA KOPYASI OTOMATİK KAYDETME DEĞİLDİR** (30.08.2026). Üç panelli
+yüzde yerinde düzenleme kayıp riskini artırdığı için gövdenin bir kopyası
+`localStorage`a, revizyon kimliğiyle anahtarlı olarak yazılır. VERİTABANINA
+HİÇBİR ŞEY GİTMEZ: `Kaydet` tek yazma eylemi olarak kalır ve belirsizlik
+doğmaz. Açılışta sunucudakinden yeni bir yerel kopya varsa editör SORAR
+("Geri Yükle / Yoksay"); kaydetmede kopya silinir. Kopya bir sonraki tıkta
+okunur — render sırasında `window` yoktur ve etkinin gövdesinde `setState`
+çağırmak zincirleme render üretirdi.
+
 ## KITAP-17 — EK-F'ye TAM KATALOG değil TEKNİK FÖY girer.
 
 Tam sürüm üretilirken `elektrikKatalog` eki güncel elektrik malzeme sırasından
-çözülür. Her eşsiz kaynak/aralık için en çok ilk **iki** teknik sayfa alınır;
+çözülür. Her eşsiz kaynak/aralık için en çok **kapsam paketinin verdiği sayıda**
+(öntanım **iki**, 30.08.2026 · KITAP-20) teknik sayfa alınır;
 aynı föy birden çok üründe kullanılıyorsa `source_document_id + source_pages`
 anahtarıyla bir kez basılır. Tam üretici kataloğu malzeme tablosundaki Katalog
 düğmesinden erişilebilir kalır fakat yüzlerce sayfalık kataloğun tamamı EK-F'yi
@@ -432,12 +444,43 @@ blok değildir. Kapı kullanıcıya eksikleri bölüm adıyla gösterir ve edit�
 bölüme götürür. Sunucu eylemi aynı denetimi yeniden yapar; yalnız istemci
 engelinin aşılması yayıma izin vermez.
 
-## KITAP-19 — Editör GÖREV ODAKLIDIR; gövde eki vaat etmez, bölüm akışı kesilmez.
+## KITAP-19 — Editör ÜÇ PANELLİ BİR BELGE YÜZÜDÜR; gövde eki vaat etmez.
 
 Kullanıcı kararı (20.08.2026): seksen beş satırlık düz bölüm ağacı bir çalışma
-yüzü değildir. Sol ray yalnız **ana bölümleri** gösterir; seçilen ana bölümün
-gerçek düzenleme yüzleri orta alandaki kısa seçicide açılır. Editör boş bir
-başlık kapsayıcısıyla değil, yayıma engel olan ilk vince özel işle açılır.
+yüzü değildir. **Bu tespit geçerlidir; çözümü 30.08.2026'da DEĞİŞTİRİLDİ**
+(kullanıcı: *"şu anki arayüz bana hiç iyi gelmiyor"*). Eski karar — "sol ray
+yalnız ana bölümleri gösterir, alt bölümler orta alandaki kısa seçicide açılır"
+— GERİ ALINMIŞTIR: kullanıcıyı belgenin neresinde olduğunu iki ayrı listeden
+çıkarmaya zorluyor ve belgeyi hâlâ bir FORM gibi gösteriyordu.
+
+**AĞACI KISALTMAK DEĞİL, SÜZMEK.** Sol **Belge Haritası** ağacın TAMAMINI
+gösterir; arama (`trKatla`) ve "yalnız eksikler" onu o anki işe indirger.
+Seçili bölümün dalı her zaman açıktır — kullanıcı aradığı bölümü kapalı bir
+dalın içinde kaybetmez.
+
+**ORTA PANEL BİR FORM DEĞİL, BİR TOMARDIR.** Seçilen bölümün BÜTÜN alt ağacı
+basılı belgeye benzer tipografiyle ve YERİNDE düzenlenebilir olarak akar; ana
+bölümü seçmek bölümün tamamını açar. Tomar A4 SAYFALAMAZ ve bu bilinçlidir:
+"ne yazdığımı görüyorum" Tomar'ın, "kaç yaprak tutuyor" Kâğıt modunun işidir.
+İkisini birleştirmek her tuşta bütün dağıtımı hesaplamak ve yazarken imlecin
+sayfa atlaması demekti.
+
+**SAĞ PANEL MÜFETTİŞTİR** ve «Kâğıt» açıkken yerini A4 önizlemesine bırakır:
+uyarı düzeyi, görsel genişliği ve otomatik tablo varyantı SEYREK dokunulan ama
+varlığı bilinmesi gereken ayarlardır; Tomar'a gömülselerdi her blok bir ayar
+kutusuna döner, tamamen gizlenselerdi kullanıcı görselin sayfaya
+yayılabildiğini hiç öğrenmezdi.
+
+**SEKMELER AYRI ÇALIŞMA YÜZLERİDİR:** İçerik · Kapsam · Künye · Kalite ·
+Kaynaklar. Dar ekranda üç panel yığılmaz; kutu ızgaralı bir geçiş Harita /
+Belge / Kâğıt arasında dolaştırır (değişmez md. 10).
+
+**BLOK EKLEME İKİ BLOK ARASINDAN AÇILIR.** Eski şerit bloğu her zaman bölümün
+SONUNA ekliyordu ve araya blok koymak ok düğmesiyle taşımayı gerektiriyordu.
+Menü metin parçaları defterini de taşır (KITAP-21).
+
+Editör boş bir başlık kapsayıcısıyla değil, yayıma engel olan ilk vince özel
+işle açılır.
 İlerleme yüzdesi standart metinleri tamamlanmış iş gibi saymaz; kalite kartı
 yalnız eksik künye alanlarını ve doldurulması ya da bilinçli gizlenmesi gereken
 vince özel bölümleri sayar. Künye ayrı bir çalışma yüzüdür; içerik formlarıyla
@@ -462,3 +505,211 @@ kitabında ikinci kez basılmaz. Kılavuz pano bazında proje satırı ve okunab
 adet toplamını verir; ürün/aygıt düzeyindeki tam döküm elektrik projesindedir,
 seçilen teknik föyler EK-F'dedir. Yayımlanmış revizyonun donmuş eski tablosu
 değiştirilmez; yeni özet yalnız canlı taslak kaynağına uygulanır.
+
+## KITAP-20 — KAPSAM bir DURUM değil, bir İŞLEMDİR; defter KODDADIR.
+
+Kullanıcı kararı (30.08.2026): *"bir müşteriye projeleri vermeyebilirim
+diğerine verebilirim. Bir müşteriye ekipman listesini detaylı kataloglu
+veririm diğerine standart versiyonu, bir müşteriye hesap raporunu detaylı
+veririm diğerine standart."* Bunun adı **TESLİM PAKETİDİR** ve üç basamağı
+vardır: **Standart · Detaylı · Tam Teknik** (`lib/manual/packages.ts`).
+
+**PAKET UYGULAMAK AĞACA YAZAR.** `applyManualPackage` bölümlerin
+`section.hidden` alanını ve otomatik blokların `variant` alanını değiştirir;
+`scope.sectionVisibility` gibi İKİNCİ BİR GÖRÜNÜRLÜK DEPOSU AÇMAZ. Açsaydı
+KITAP-6 çiğnenirdi: gizlenen bölüm ekrandan düşer ama belgeye girmeye devam
+ederdi — bu bölümde olabilecek en pahalı hata budur. `printedManual` TEK
+süzgeç olarak kalır.
+
+**EKİN BELGEYE GİRİP GİRMEYECEĞİ DE AYNI YOLDAN GEÇER.**
+`manualAppendixOrder` zaten `printedManual`ı okur, yani ek bölümünü gizlemek
+eki de düşürür. Bu yüzden paketin "ek seçimi" diye ayrı bir alanı YOKTUR ve
+KITAP-8'in birleştirme sözleşmesine hiç dokunulmadı. `scope.appendixOptions`
+yalnız **başka evi olmayan** ayarı taşır: ek girecekse hangi biçimde —
+`mekanikHesap` için rapor seviyesi, `elektrikKatalog` için ürün başına föy
+sayısı.
+
+**DEFTER KODDADIR, VERİTABANINDA DEĞİL.** Paket şablonun `key`lerine atıf
+yapar. Veritabanında dursaydı bir bölüm anahtarı yeniden adlandırıldığında
+satırlar sessizce ölür ve hiçbir test bunu yakalayamazdı; kodda durunca tek bir
+test her anahtarın `MANUAL_TEMPLATE`te gerçekten var olduğunu doğrular
+(değişmez md. 8). Üç paket vardır, üç yüz değil — müşterisi olmayan bir yönetim
+ekranı bir maliyettir.
+
+**SAPMA KORUNUR VE KENDİ KENDİNİ ONARIR.** Paket uygulandıktan sonra bir
+bölümün görünürlüğüne elle dokunulursa anahtarı `scope.keptSections`a girer ve
+paket yeniden uygulandığında o bölüme DOKUNULMAZ; eylem `korunan` listesini
+döndürür, arayüz "3 bölüm sizin kararınızla korundu" der. Bu KITAP-4'ün
+(`edited`) kapsam düzeyindeki ikizidir: makine önerir, insan son sözü söyler.
+Kullanıcı bölümü paketin dediği yere geri getirirse anahtar listeden ÇIKAR —
+aksi hâlde bir kere dokunulan bölüm sonsuza dek paketin dışında kalırdı.
+Görünürlüğü değiştiren TEK giriş `manualToggleSection`dır; ağacı çeviren ve
+sapmayı yazan iki ayrı çağrı olsaydı sapma bir yerde kaydedilir bir yerde
+kaydedilmezdi. "Paketi Baştan Uygula" (`sapmalariYokSay`) listeyi temizler ve
+onay ister.
+
+**PAKET BLOK SİLMEZ**, yalnız `hidden` yazar: gizlemek silmek değildir ve paket
+değiştirmek geri alınabilir olmalıdır. Tam Teknik'ten Standart'a inip geri
+dönmek belgeyi eski hâline getirir.
+
+**ANAHTARI OLMAYAN BÖLÜME PAKET KARIŞMAZ.** Kullanıcının kendi eklediği serbest
+bir bölümü paket gizleseydi, kullanıcı yazdığı şeyin nereye gittiğini bir daha
+bilemezdi. Ek KAPSAYICISI da gizlenmez — bütün ekleri kapalıysa süzgeç onu
+zaten düşürür, ayrıca gizlemek bir ek geri açıldığında kapsayıcının kapalı
+kalması demekti.
+
+**VARYANT BLOĞUN KENDİSİNDE YAŞAR** (`ManualAutoBlock.variant`), ayrı bir arama
+tablosunda değil: çözücü `autoTableFor` zaten bloğu alıyor ve ikinci bir tablo,
+bloğun kopyalandığı her yerde (yeni revizyon, metin parçası) ayrışması demekti.
+Ekipman listesinde üç basamak vardır — `standart · detayli · kataloglu` — ve
+**SÜTUN ANCAK VERİ VARSA AÇILIR**: kaynak teknik özelliği doldurmuyorsa o sütun
+hiç basılmaz. Baştan sona boş bir sütun okuyana bir şey vaat edip vermemekti ve
+dar sütundaki tabloyu gereksiz yere tam genişliğe iterdi (KITAP-11).
+
+**ESKİ BELGELER SERBEST KAPSAMDADIR.** `scope` alanı olmayan bir payloadda
+`packageKey` boş doğar ve boş kapsam ağaca HİÇBİR ŞEY yazmaz; hiçbir paket
+geriye dönük uygulanmaz. Bu yüzden kapsam modeli eklendikten sonra da teslim
+edilmiş bir kılavuz birebir aynı belgeyi basar. Kanıt bir testtedir:
+`__tests__/payload-legacy.test.ts` donmuş bir v1 fikstürünü bugünün
+okuyucusundan geçirip basılan iskeleti dondurulmuş listeyle karşılaştırır ve
+BÜTÜN FAZLARDA koşar.
+
+**PAKET ÖNERİLİR, DAYATILMAZ.** `suggestManualPackage(craneType)` yeni belgenin
+başlangıç paketini seçer: şarj/pota/döküm/cüruf vinçleri Tam Teknik,
+portal/konsol/pergel Detaylı, geri kalanı Standart. Karşılaştırma `trKatla` ile
+yapılır — `/şarj/i` deseni "ŞARJ VİNCİ"yi BULMAZ (Türkçe ı/I tuzağı) ve bu
+karşılaştırma hem sunucuda hem istemcide koşar.
+
+## KITAP-21 — ÜÇÜNCÜ İÇERİK TÜRÜ: TÜRETİLMİŞ BLOK.
+
+Kullanıcı isteği (30.08.2026): *"standart vinçleri neredeyse otomatik bir
+işletme kılavuzu olsun."* Şablon vince özel bölümleri bilerek boş doğurur
+(KITAP-5) ama o boşlukların ÇOĞUNUN kaynağı zaten uygulamadadır: gerilim hesap
+raporunda, frenler ekipman listesinde, bakım çizelgesi ekipman listesi + kural
+defterindedir. Belgede artık üç tür içerik yaşar:
+
+| | Şablon metni | Otomatik tablo | **Türetilmiş blok** |
+|---|---|---|---|
+| İşaret | `fromTemplate` | `kind: "auto"` | **`derived: "<kuralId>"`** |
+| Kaynağı | her vinçte aynı | uygulamanın verisi | bu vincin verisi |
+| Yayımda | snapshot | `frozen`a donar | zaten somut |
+| Geri alma | **Standarda Dön** | — | **Kaynaktan Tazele** |
+
+**TÜRETİLMİŞ BLOK MATERYALİZEDİR, CANLI DEĞİL.** Üretildiği anda somut
+metin/tablo olarak snapshot'a yazılır. Canlı olsaydı yayımda ayrıca
+dondurulması gerekirdi; `frozen` yalnız `kind: "auto"` bloklarına aittir ve
+`issueManualRevision` hiç değişmedi.
+
+**`derived` İLE `fromTemplate` AYNI BLOKTA BULUNMAZ** ve bu testle kilitlidir.
+İkisi birden olsaydı "Standarda Dön" ile "Kaynaktan Tazele" aynı bloğa iki
+farklı geçmiş vaat ederdi.
+
+**BOŞ ŞABLON YER TUTUCUSU DEVRALINIR.** Bir kuralın ilk uygulamasında bölümdeki
+dokunulmamış `bosluk()` bloğu aynı türdense türetilmiş blok ONUN YERİNE geçer
+ve kimliğini devralır. Aksi hâlde belgede biri hiç basılmayan iki blok kalır ve
+kullanıcı hangisini dolduracağını bilemezdi.
+
+**KAYNAK KÜÇÜLÜRSE BLOK DÜŞER.** Frenler ekipman listesinden çıktığında o
+bölümün türetilmiş blokları da temizlenir — belge olmayan bir parçanın bakımını
+anlatmaya devam edemez. Kaynağı düşen kural `null` döndürür ve `null` DA BİR
+SONUÇTUR: eski bloklar yine temizlenir.
+
+**`edited` KAZANIR ama TEKİL TAZELEME ONU BİLEREK YOK SAYAR.** Toplu "Kaynaktan
+Doldur" dokunulmuş blokları atlar ve korunanı SAYAR; blok başındaki "Kaynaktan
+Tazele" düğmesine basmak ise "benim düzenlemem gitsin, kaynağı geri getir"
+demektir.
+
+**BAKIM VE YAĞLAMA DEFTERLERİ İKİ KATMANLIDIR** (kullanıcı kararı, 30.08.2026).
+KOD KATMANI (`maintenance-rules.ts`, `lubrication-rules.ts`) dayanağı bir
+STANDART olan satırları taşır ve testle kilitlidir; PANEL KATMANI firmaya özel
+satırları taşır, kod kuralının üzerine binebilir (`disabled` ile kapatabilir) ya
+da yenisini ekler. Birleştirme TEK yerdedir (`mergeMaintenanceRules` /
+`mergeLubricationPoints`) ve çekirdek DB OKUMAZ — defteri sunucu adaptörü okur
+ve çekirdeğe geçirir (değişmez md. 7).
+
+**DAYANAK STANDARDIN ADIDIR, MADDE NUMARASI DEĞİL.** Standartların baskıları
+arasında madde numaraları kayar; uydurma bir "md. 5.2" atfı bir güvenlik
+belgesinde doğrulanamayan bir otorite iddiası olurdu. `basis` alanı belgeye
+BASILMAZ — defterde durur ve "her kod kuralının dayanağı doludur" testiyle
+korunur.
+
+**BAKIM ÇİZELGESİ ~40 KURALIN EKİPMAN LİSTESİYLE GENİŞLEMESİDİR.** Kaynak
+belgedeki 235 satır elle taşınmıyor; desensiz kurallar (günlük kontrol, kaynaklı
+yapı, acil stop) her vinçte basılır, desenli kurallar yalnız o vinçte KARŞILIĞI
+OLAN ekipman için. Parça adı KAYNAKTAN gelir, kuralın genel adından değil: kural
+"Rulman / yatak" der, vinçte o parça "Tambur rulman yatağı"dır ve bakımı yapacak
+kişi listede o adı arar. **SEÇENEK SATIRLARI ÇİZELGEYE GİRMEZ** — alternatif
+ekipman takılı değildir ve takılmamış bir redüktörün yağını değiştirmek diye bir
+görev yoktur (`ManualEquipmentRow.alternative`).
+
+**YAĞLAMA TABLOSUNUN İSKELETİ TÜRETİLİR, MARKA SÜTUNLARI BOŞ DOĞAR.** Hangi
+noktaların yağlanacağı ekipman listesinde yazılıdır; hangi ÜRÜNÜN kullanılacağı
+uygulamada YOKTUR ve "Shell Omala S2 G 220" yazmak uydurma veri olurdu (değişmez
+md. 4). Köprü, tablonun üstüne düşen türetilmiş bir nottur ve yağ SINIFINI söyler
+(ISO VG kademesi, NLGI kıvamı). **YAĞ KEÇESİ LİSTESİ TÜRETİLMEZ** — KITAP-5 bunu
+açıkça yasaklar.
+
+**DUMAN TESTİ TÜRETİMLE KOŞAR:**
+`npx tsx scripts/test-manual-pdf.ts tmp/kitap.pdf --turet [--paket=<key>]`.
+Türetimsiz belge 20 yaprak; ~200 satırlık bakım çizelgesiyle 29 yaprak olur ve
+`atomuBol` asıl orada sınanır.
+
+## KITAP-22 — GÖRSEL DÖRT KAYNAKTAN GELİR, İKİ YERDE DURUR.
+
+Kullanıcı kararı (30.08.2026): kılavuzdaki görseller elle yüklenen fotoğraf,
+**hesap motorunun şeması**, **Teknik Resim Takibi'nden bir pafta** ve
+**üretici katalog sayfası** olabilir. Şikâyet "çok metin, az görsel"di; oysa
+bu vincin halat donanımı, tamburu, kanca bloğu ve kiriş kesiti ZATEN çiziliydi
+— ikinci bir çizim yapmak değil, olanı getirmek gerekiyordu.
+
+**DÖRT KAYNAK, TEK KAPI.** Baytlar `lib/manual/image-intake.ts`ten geçer ve
+KITAP-9'un üç kuralı dördünde de aynen işler ("PNG bir BEYANDIR", 8-bit sRGB
+paletsiz yeniden kodlama, oranın ÖLÇÜLMESİ). Dört uç kendi kodlamasını
+yazsaydı biri `sharp`ı atlar ve o kaynaktan gelen tek bozuk görsel bütün
+kılavuzu 500'e çevirirdi.
+
+**ŞEMA RASTERLENMEZ — VEKTÖR BLOKTUR** (`kind: "diagram"`). `Diagram` saf bir
+SVG veri modelidir ve iki çizici zaten vardır: `lib/pdf/diagram.tsx` (PDF) ve
+`components/diagrams/diagram-svg.tsx` (ekran). Karar ÖLÇÜLEREK verildi
+(30.08.2026): seksen şemanın en büyüğü **38 KB**, ortalaması **10 KB**, hiçbiri
+100 KB'ı geçmiyor — modeli snapshot'ta taşımak ucuzdur ve teslim belgesinde
+şema KESKİN kalır. Oranı da kendi `width`/`height`ındadır; yerleşim dosyaya
+bakmadan ölçer ve burada görseldeki "bilinmiyorsa kare varsayılır" TAHMİNİ
+YOKTUR.
+
+**ŞEMA DONMUŞ EKLENİR, CANLI DEĞİL** (KITAP-7'nin dersi): ekleme anında
+çözülür ve payload'a yazılır. Canlı olsaydı yayımlanmış bir kılavuz, hesap
+sonradan revize edilince sessizce başka bir şey söylerdi. Model DOĞRULANMAZ,
+TAŞINIR: çizim modeline eklenen yeni bir eleman türü eski kılavuzları açılmaz
+yapmamalıdır. Yalnız ÖLÇÜSÜ olmayan şema düşer — yüksekliği bilinmeyen bir atom
+komşusunu sayfadan taşırırdı.
+
+**KATALOG SAYFASI ZATEN GÖRÜNTÜDÜR** (`lib/catalog-sheets.ts`: "PDF dilimi
+SAKLANMAZ"), bu yüzden orada da rasterleme yoktur. Liste defterin tamamından
+değil BU VİNCİN EKİPMANINDAN süzülür; iki yüz altmış sayfayı olduğu gibi
+göstermek, aradığını bulmayı imkânsız kılardı. Yol hem defterdeki izin
+listesiyle hem de kök denetimiyle doğrulanır — uç bir dizin gezme yüzeyi açmaz.
+
+**TEK RASTERLENEN KAYNAK PAFTADIR** ve 1600 px'tir — `catalog-appendix.ts` ile
+aynı ölçü, aynı gerekçe. Vektör gömmek istenirdi ama @react-pdf yabancı bir PDF
+sayfasını gövdeye alamaz; o iş `pdf-lib` birleştirmesinindir ve orası EKLERİN
+yoludur (KITAP-8). Gövdeye giren tek yaprak için ek açmak, bir resmi göstermek
+uğruna belgeye ayraç kapağı eklemek olurdu.
+
+**GÖVDEDEKİ TEK YAPRAK, EKTEKİ BÜTÜN BELGEDEN AYRIDIR.** "Mekanik Projeler"
+eki bütün paftaları teslim paketine bağlar, EK-F seçilmiş teknik föyleri
+taşır; buradaki blok "genel montaj resmi 3. bölümde dursun" diyen mühendisin
+ihtiyacıdır.
+
+**KAYNAK KAYDEDİLİR** (`manual_images.origin`): "bu resim hangi paftanın
+kaçıncı sayfası" sorusunun cevabı bir yıl sonra da gerekir — pafta revize
+edildiğinde hangi kılavuzun tazelenmesi gerektiği ancak böyle bilinir. Dosya
+adına gömmek bir adlandırma sözleşmesi icat etmek olurdu ve kullanıcı adı
+değiştirdiğinde bağ sessizce kopardı. Boş nesne "bilinmiyor" demektir ve
+sütundan önceki kayıtlar için geçerli bir durumdur. Kaynak, yeni revizyona
+snapshot'la birlikte KOPYALANIR.
+
+**İKİ TÜR DEĞİL ÜÇ DEĞİL — İKİ YER.** Şema payload'da yaşar (vektör model),
+öteki üçü `manual_images` kaydı + `manual-images` kovasında. KITAP-12'nin
+`assetKey`/`imageId` ayrımı bozulmaz; şema onlara rakip değil, ayrı bir blok
+türüdür.

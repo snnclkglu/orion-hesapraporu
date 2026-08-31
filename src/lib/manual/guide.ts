@@ -86,7 +86,7 @@ export const MANUAL_SECTION_GUIDE: Record<string, string> = {
     "Vincin üzerindeki etiketlerin FOTOĞRAFINI ekleyin; okunmayan bir etiket ISO 12480-1'e göre yenilenmelidir.",
   "guvenlik.kimlikPlakalari":
     "Kimlik plakasının fotoğrafı ve okunan değerleri; seri numarası kapak künyesiyle AYNI olmalıdır.",
-  "guvenlik.guvenlikEkipmanlari":
+  "guvenlik.ekipmanlar":
     "Acil stop butonlarının SAYISI ve YERİ vince özeldir — kaç adet, nerede, hangisi neyi keser.",
   "tanim.guvenliErisim":
     "Platform, merdiven, kilit noktaları ve emniyet kemeri bağlantı noktaları; yüksekte çalışma bölümüyle tutarlı olmalı.",
@@ -95,11 +95,11 @@ export const MANUAL_SECTION_GUIDE: Record<string, string> = {
   "kullanim.anaKesici": "Ana kesicinin yeri, kilitlenebilirliği ve kilitleme (LOTO) sırası.",
   "kullanim.devreyeAlmak":
     "Adım adım devreye alma. Numaralı liste kullanın ve son adımın SONUCUNU yazın.",
-  "kullanim.sematik":
+  "kullanim.gucKumanda":
     "Güç ve kumanda şeması — elektrik projesinden sayfa atfı verin, şemayı kopyalamayın.",
   "kullanim.emniyetBakimSistemleri.sensorIptal":
     "Sensör iptali GÜVENLİK FONKSİYONUNU devre dışı bırakır: hangi yetkiyle, hangi şartla, ne kadar süreyle.",
-  "kullanim.halatlar.telHalat.hasar":
+  "kullanim.halatKontrol.telHalat.hasarGorunumleri":
     "Şekiller DIN 15020 / ISO 4309 muayene kıstaslarıdır ve her çelik halatlı vinçte geçerlidir.",
   "muayene.kalanOmur":
     "Kalan servis ömrü (SWP) ISO 12482 / FEM 9.755'e göre izlenir; vincin çalışma grubu hesap raporundadır.",
