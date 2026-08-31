@@ -1,27 +1,82 @@
-// 240 × 160 mm VİNÇ KİMLİK PLAKASI — saf baskı geometrisi.
+// VİNÇ KİMLİK PLAKASI — SAF BASKI GEOMETRİSİ.
 //
-// SVG önizleme/indirme ve PDF çizicisi aynı `createNameplateLayout` sonucunu
-// kullanır. Başlık hiçbir zaman üç noktayla kesilmez; gerçek baskı alanına
-// göre kelime sınırında en fazla iki satıra ayrılır.
+// SVG önizleme/indirme ve @react-pdf çizicisi AYNI `createNameplateLayout`
+// sonucunu okur. Burada tek bir piksel bile çizilmez; yalnız mm cinsinden
+// koordinat üretilir.
+//
+// ————————————————————————————— NEDEN YENİDEN YAZILDI
+//
+// Önceki sürüm 240×160'a GÖMÜLÜ sabit koordinatlar taşıyordu ve başka bir ölçü
+// istendiğinde çizimi `scale = min(w/240, h/160)` ile orantılı küçültüp kalan
+// yeri boş bırakıyordu. Üç bedeli vardı:
+//
+//   1. Küçük plakada bütün yazılar birlikte küçülüyordu; 2,05 mm'lik satırlar
+//      metal kazımada okunmaz hâle geliyordu. "Ölçüyü değiştir" gerçekte
+//      "tasarımı yeniden akıt" demektir.
+//   2. 3:2 dışındaki bir ölçüde çizim mektup kutusuna düşüyor, plakanın
+//      kenarlarında boş bantlar kalıyordu.
+//   3. Yasal blok (CE, imalatçı adresi, tip/model, kütle) için yer yoktu.
+//
+// Artık yerleşim GERÇEK mm kutusundan hesaplanır: bantlar oranla, yazılar
+// sığdırmayla belirlenir ve zorunlu blok taşımıyorsa `fits` false döner.
+//
+// ————————————————————————————— HARF ARALIĞI NEDEN ELLE VERİLİR
+//
+// @react-pdf'in yerleşim motoru `letterSpacing`i OKUMAZ (bkz.
+// `@react-pdf/layout`: `getFragments` özellik listesinde yoktur). SVG'de
+// `letter-spacing` çalıştığı için önizleme ile baskı sessizce ayrışıyordu.
+// Bu yüzden aralıklı yazılar `trackedGlyphs` ile KARAKTER KARAKTER konumlanır;
+// iki çizici de aynı x dizisini basar, ayrışma imkânsızdır.
 
 import QRCode from "qrcode";
 import { BRAND, trUpper } from "@/lib/pdf/palette";
 import type { ProductIdentityField, ProductIdentityValues } from "./types";
 
+/** Plakada gösterilip gizlenebilen alanlar. Yasal zorunlular BURADA DEĞİLDİR. */
 export const NAMEPLATE_TOGGLE_FIELDS = [
-  "product",
   "craneType",
   "projectCode",
-  "productionYear",
-  "capacity",
   "span",
   "liftHeight",
+  "mass",
   "dutyClass",
   "supplyVoltage",
   "controlVoltage",
   "frequency",
   "customer",
 ] as const satisfies readonly ProductIdentityField[];
+
+/**
+ * YASAL ZORUNLU ALANLAR GİZLENEMEZ.
+ *
+ * 2006/42/AT Ek I md. 1.7.3 ve md. 4.3.3 bunları makinenin üzerinde ister;
+ * kullanıcının "plakada gösterme" anahtarı bu alanlara AÇILMAZ. Anahtarı
+ * sunmak, bir gün birinin yasal bir satırı kapatması demekti.
+ */
+export const NAMEPLATE_MANDATORY_FIELDS = [
+  "manufacturer",
+  "manufacturerAddress",
+  "product",
+  "machineModel",
+  "productionYear",
+  "capacity",
+] as const satisfies readonly ProductIdentityField[];
+
+/** Hazır ölçüler; her biri zorunlu bloğu okunur taşıyabildiği doğrulanmıştır. */
+export const NAMEPLATE_SIZE_PRESETS = [
+  { label: "Köprü · 240 × 160 mm", widthMm: 240, heightMm: 160 },
+  { label: "Köprü · 200 × 140 mm", widthMm: 200, heightMm: 140 },
+  { label: "Pano · 160 × 110 mm", widthMm: 160, heightMm: 110 },
+] as const;
+
+/*
+ * 120 × 80 mm BİLEREK LİSTEDE YOKTUR.
+ *
+ * O ölçüde CE işareti, imalatçı künyesi, azami yük ve veri satırları okunur
+ * biçimde birlikte sığmıyor (ölçüldü: satırlar sığmıyor + QR modülü 0,56 mm).
+ * Kullanıcı yine de elle girebilir — ama hazır seçenek olarak sunmak, çalışmayan
+ * bir ölçüyü önermek olurdu. Denetim listesi elle girilen her ölçüyü sınar.
+ */
 
 export interface NameplateInput {
   widthMm: number;
@@ -34,28 +89,97 @@ export interface NameplateInput {
   customerLogoDataUrl?: string | null;
   holeDiameterMm?: number;
   holeInsetMm?: number;
+  ceMark?: boolean;
+  monochrome?: boolean;
   embeddedFontsCss?: string;
+}
+
+export interface TrackedGlyph {
+  char: string;
+  x: number;
+}
+
+export interface NameplateRow {
+  label: string;
+  value: string;
+  y: number;
+  labelSize: number;
+  valueSize: number;
+}
+
+export interface NameplatePalette {
+  accent: string;
+  band: string;
+  bandText: string;
+  paper: string;
+  ink: string;
+  muted: string;
+  hairline: string;
 }
 
 export interface NameplateLayout {
   widthMm: number;
   heightMm: number;
-  scale: number;
-  offsetX: number;
-  offsetY: number;
-  title: { lines: string[]; fontSize: number; overflow: boolean };
-  rows: Array<{ label: string; value: string; valueFontSize: number }>;
+  palette: NameplatePalette;
+  /** Zorunlu blok okunur biçimde sığdı mı; sığmadıysa `issues` doludur. */
+  fits: boolean;
+  issues: string[];
+  frameInset: number;
+  accent: { width: number };
+  header: {
+    y: number;
+    height: number;
+    logo: { x: number; y: number; width: number; height: number };
+    customerLogo: { x: number; y: number; width: number; height: number } | null;
+    customerName: string;
+    customerNameX: number;
+    customerNameY: number;
+    customerNameSize: number;
+    rule: { y: number; height: number };
+  };
+  kicker: { glyphs: TrackedGlyph[]; y: number; size: number };
+  title: { lines: string[]; x: number; y: number; size: number; lineHeight: number };
+  capacity: { x: number; y: number; width: number; height: number; label: string; value: string; labelSize: number; valueSize: number } | null;
+  rows: NameplateRow[];
+  labelX: number;
+  valueX: number;
+  rowRuleX2: number;
+  divider: { x: number; y1: number; y2: number } | null;
   qr: { path: string; x: number; y: number; size: number; moduleMm: number };
-  customerName: string;
+  qrCaption: { glyphs: TrackedGlyph[]; y: number; size: number; centerX: number };
+  /** QR okunmazsa geri dönüş yolu: kod ve insan-okunur adres. */
+  fallback: { code: string; url: string; x: number; codeY: number; urlY: number; codeSize: number; urlSize: number };
+  serialBox: { x: number; y: number; width: number; height: number; labelY: number; valueY: number; labelSize: number; valueSize: number; centerX: number; label: string; value: string } | null;
+  legal: {
+    y: number;
+    height: number;
+    rule: { y: number };
+    ce: { x: number; y: number; height: number; path: string; width: number } | null;
+    lines: Array<{ text: string; y: number; size: number }>;
+    x: number;
+  };
+  holes: Array<{ cx: number; cy: number; r: number }>;
   customerLogoDataUrl: string | null;
 }
 
-const BASE_WIDTH = 240;
-const BASE_HEIGHT = 160;
-const TITLE_MAX_WIDTH = 137;
-const VALUE_MAX_WIDTH = 78;
+/**
+ * TABAN ÖLÇÜLER OKUNABİLİRLİK SINIRINDAN KÜÇÜK OLAMAZ.
+ *
+ * İlk sürümde taban 1,7 mm'ye iniyordu ama denetim 2 mm istiyordu; sonuç,
+ * 200×140 ve 160×110'da HER ZAMAN görünen ve düzeltilemeyen bir uyarıydı.
+ * Susturulamayan uyarı okunmaz hâle gelir. Taban artık eşikle aynıdır: yazı
+ * küçülmez, onun yerine "satırlar sığmıyor" der — asıl söylenmesi gereken bu.
+ */
+/** Kazımada ve 30 cm mesafeden okunabilirliğin pratik alt sınırı. */
+export const READABLE_MIN_MM = 2.0;
+const MIN_LABEL_SIZE = READABLE_MIN_MM;
+const MIN_VALUE_SIZE = 2.2;
+const MIN_TITLE_SIZE = 3.2;
+const MIN_LEGAL_SIZE = READABLE_MIN_MM;
+/** QR modülü bunun altına inerse ucuz okuyucular kodu tanımaz. */
+export const QR_MODULE_MIN_MM = 0.6;
 
-function xml(value: string): string {
+export function xmlEscape(value: string): string {
   return value
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -65,7 +189,7 @@ function xml(value: string): string {
 }
 
 function normalized(value: string): string {
-  return value.trim().replace(/\s+/g, " ");
+  return String(value ?? "").trim().replace(/\s+/g, " ");
 }
 
 /** Archivo/Plex için baskı öncesi muhafazakâr glif genişliği tahmini. */
@@ -82,41 +206,107 @@ export function estimatedTextWidth(value: string, fontSize: number, mono = false
   return units * fontSize;
 }
 
-function balancedTitleLines(value: string, fontSize: number): string[] | null {
+/**
+ * Aralıklı yazıyı karakter karakter konumlar.
+ *
+ * @react-pdf `letterSpacing`i yok sayar; SVG sayar. Aynı görüntüyü iki çizicide
+ * garanti etmenin tek yolu konumu BURADA hesaplamaktır.
+ */
+export function trackedGlyphs(value: string, x: number, size: number, tracking: number): TrackedGlyph[] {
+  const text = normalized(value);
+  const glyphs: TrackedGlyph[] = [];
+  let cursor = x;
+  for (const char of text) {
+    glyphs.push({ char, x: cursor });
+    cursor += estimatedTextWidth(char, size, true) + tracking;
+  }
+  return glyphs;
+}
+
+export function trackedWidth(glyphs: readonly TrackedGlyph[], size: number): number {
+  if (glyphs.length === 0) return 0;
+  const last = glyphs[glyphs.length - 1];
+  return last.x - glyphs[0].x + estimatedTextWidth(last.char, size, true);
+}
+
+/** Metni en fazla `maxLines` satıra, kelime sınırında ve dengeli böler. */
+function wrapToWidth(value: string, size: number, maxWidth: number, maxLines: number): string[] | null {
   const text = trUpper(normalized(value));
   if (!text) return [];
-  if (estimatedTextWidth(text, fontSize) <= TITLE_MAX_WIDTH) return [text];
+  if (estimatedTextWidth(text, size) <= maxWidth) return [text];
+  if (maxLines < 2) return null;
   const words = text.split(" ");
+  if (words.length < 2) return null;
   let best: { lines: string[]; score: number } | null = null;
   for (let index = 1; index < words.length; index += 1) {
     const first = words.slice(0, index).join(" ");
     const second = words.slice(index).join(" ");
-    const firstWidth = estimatedTextWidth(first, fontSize);
-    const secondWidth = estimatedTextWidth(second, fontSize);
-    if (firstWidth > TITLE_MAX_WIDTH || secondWidth > TITLE_MAX_WIDTH) continue;
+    const firstWidth = estimatedTextWidth(first, size);
+    const secondWidth = estimatedTextWidth(second, size);
+    if (firstWidth > maxWidth || secondWidth > maxWidth) continue;
     const score = Math.max(firstWidth, secondWidth) + Math.abs(firstWidth - secondWidth) * 0.35;
     if (!best || score < best.score) best = { lines: [first, second], score };
   }
   return best?.lines ?? null;
 }
 
-export function layoutNameplateTitle(value: string): NameplateLayout["title"] {
-  for (const fontSize of [6.2, 5.8, 5.4, 5.0, 4.7]) {
-    const lines = balancedTitleLines(value, fontSize);
-    if (lines) return { lines, fontSize, overflow: false };
+/**
+ * Başlığı sığdırır; SIĞMIYORSA KIRPMAK YERİNE KÜÇÜLTÜR, en sonda kırpar.
+ *
+ * Önceki sürüm sığmayan başlığı olduğu gibi basıyordu: metin dikey ayracı
+ * geçip QR kutusunun üstüne yazıyordu. Taşan bir başlık bir uyarıdır, bir
+ * çizim hatası değil — ama basılan plakada asla üst üste binmemelidir.
+ */
+function fitTitle(value: string, maxWidth: number, sizes: readonly number[]) {
+  for (const size of sizes) {
+    const lines = wrapToWidth(value, size, maxWidth, 2);
+    if (lines) return { lines, size, clipped: false };
   }
+  const smallest = sizes[sizes.length - 1];
+  const text = trUpper(normalized(value));
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (estimatedTextWidth(candidate, smallest) <= maxWidth) current = candidate;
+    else {
+      if (current) lines.push(current);
+      current = word;
+      if (lines.length === 2) break;
+    }
+  }
+  if (lines.length < 2 && current) lines.push(current);
+  /*
+   * SON ÇARE: KARAKTER DÜZEYİNDE KIRP.
+   *
+   * Tek bir kelime satır genişliğinden uzunsa (kullanıcı boşluksuz bir ad
+   * yazmışsa) kelime sınırında bölünemez ve metin dikey ayracı geçip QR
+   * kutusunun üstüne yazar. Basılmış bir plakada üst üste binen yazı, kırpılmış
+   * yazıdan çok daha kötüdür — kırpma hiç değilse görünür ve `issues` zaten
+   * "adı kısaltın" diyor.
+   */
   return {
-    lines: [trUpper(normalized(value))],
-    fontSize: 4.7,
-    overflow: true,
+    lines: lines.slice(0, 2).map((line) => clampToWidth(line, smallest, maxWidth)),
+    size: smallest,
+    clipped: true,
   };
 }
 
-function fitMonoSize(value: string): number {
-  for (const size of [4.2, 3.9, 3.6, 3.3, 3.0, 2.7]) {
-    if (estimatedTextWidth(value, size, true) <= VALUE_MAX_WIDTH) return size;
+function clampToWidth(text: string, size: number, maxWidth: number): string {
+  if (estimatedTextWidth(text, size) <= maxWidth) return text;
+  let cut = text;
+  while (cut.length > 1 && estimatedTextWidth(`${cut}…`, size) > maxWidth) {
+    cut = cut.slice(0, -1);
   }
-  return 2.7;
+  return `${cut}…`;
+}
+
+function fitMonoSize(value: string, maxWidth: number, sizes: readonly number[]): number {
+  for (const size of sizes) {
+    if (estimatedTextWidth(value, size, true) <= maxWidth) return size;
+  }
+  return sizes[sizes.length - 1];
 }
 
 function qrGeometry(value: string, x: number, y: number, size: number) {
@@ -130,10 +320,43 @@ function qrGeometry(value: string, x: number, y: number, size: number) {
       if (!qr.modules.get(row, col)) continue;
       const px = x + (col + quiet) * cell;
       const py = y + (row + quiet) * cell;
-      path += `M${px.toFixed(3)} ${py.toFixed(3)}h${cell.toFixed(3)}v${cell.toFixed(3)}h-${cell.toFixed(3)}z`;
+      // Bitişik kareler arasında saç çizgisi dikiş kalmaması için modüller
+      // yarım binde bir üst üste biner; kazımada o çizgiler iz bırakıyordu.
+      const w = cell * 1.02;
+      path += `M${px.toFixed(3)} ${py.toFixed(3)}h${w.toFixed(3)}v${w.toFixed(3)}h-${w.toFixed(3)}z`;
     }
   }
   return { path, x, y, size, moduleMm: cell };
+}
+
+/**
+ * CE İŞARETİ — resmî oranlarda vektör.
+ *
+ * 765/2008/AT Ek II'nin biçimi: iki daire yayı, dikey ölçüsü en az 5 mm ve
+ * oranları korunur. Raster bir logo kazımada bozulur; yol olarak çizilir.
+ * Yükseklik `h`, genişlik ≈ 1,4·h.
+ */
+function ceMarkPath(x: number, y: number, height: number): { path: string; width: number } {
+  const s = height / 100;
+  const px = (v: number) => (x + v * s).toFixed(3);
+  const py = (v: number) => (y + v * s).toFixed(3);
+  // "C": dış yay 0–360, iç yay çıkarılır (even-odd yerine iki alt yol).
+  const c =
+    `M${px(72)} ${py(14)}` +
+    `A50 50 0 1 0 ${px(72)} ${py(86)}` +
+    `L${px(72)} ${py(70)}` +
+    `A34 34 0 1 1 ${px(72)} ${py(30)}` +
+    `Z`;
+  // "E": aynı gövde, üç yatay kol.
+  const ex = 78;
+  const e =
+    `M${px(ex + 66)} ${py(14)}` +
+    `A50 50 0 1 0 ${px(ex + 66)} ${py(86)}` +
+    `L${px(ex + 66)} ${py(70)}` +
+    `A34 34 0 1 1 ${px(ex + 66)} ${py(30)}` +
+    `Z` +
+    `M${px(ex + 34)} ${py(42)}h${(40 * s).toFixed(3)}v${(16 * s).toFixed(3)}h-${(40 * s).toFixed(3)}z`;
+  return { path: `${c}${e}`, width: (ex + 66) * s };
 }
 
 function visibleValue(
@@ -141,125 +364,421 @@ function visibleValue(
   hidden: Set<ProductIdentityField>,
   field: ProductIdentityField
 ): string {
+  if (MANDATORY_SET.has(field)) return normalized(identity[field]);
   return hidden.has(field) ? "" : normalized(identity[field]);
 }
 
+const MANDATORY_SET = new Set<ProductIdentityField>(NAMEPLATE_MANDATORY_FIELDS);
+
+const MONO_PALETTE: NameplatePalette = {
+  accent: BRAND.ink,
+  band: BRAND.ink,
+  bandText: BRAND.white,
+  paper: BRAND.white,
+  ink: BRAND.ink,
+  muted: BRAND.ink,
+  hairline: BRAND.ink,
+};
+
+const COLOR_PALETTE: NameplatePalette = {
+  accent: BRAND.red,
+  band: BRAND.ink,
+  bandText: BRAND.paper100,
+  paper: BRAND.paper100,
+  ink: BRAND.ink,
+  muted: BRAND.gray700,
+  hairline: BRAND.line350,
+};
+
 export function createNameplateLayout(input: NameplateInput): NameplateLayout {
-  const widthMm = Math.max(120, input.widthMm);
-  const heightMm = Math.max(80, input.heightMm);
-  const scale = Math.min(widthMm / BASE_WIDTH, heightMm / BASE_HEIGHT);
-  const offsetX = (widthMm - BASE_WIDTH * scale) / 2;
-  const offsetY = (heightMm - BASE_HEIGHT * scale) / 2;
+  const widthMm = clampDimension(input.widthMm, 240, 120, 1000);
+  const heightMm = clampDimension(input.heightMm, 160, 80, 1000);
+  const palette = input.monochrome ? MONO_PALETTE : COLOR_PALETTE;
   const hidden = new Set(input.hiddenFields ?? []);
+  const issues: string[] = [];
+
+  // Ölçek etkeni: 240×160 referansına göre; yazılar bununla küçülür ama
+  // kendi alt sınırlarının altına İNMEZ — okunmayan bir plaka boş plakadır.
+  const k = Math.min(widthMm / 240, heightMm / 160);
+  const size = (base: number, min: number) => Math.max(min, +(base * k).toFixed(2));
+
+  const frameInset = +(Math.max(1.0, 1.4 * k)).toFixed(2);
+  const accentW = +(Math.max(2.5, 8 * k)).toFixed(2);
+  const padX = +(accentW + Math.max(4, 10 * k)).toFixed(2);
+  const rightPad = +(Math.max(4, 10 * k)).toFixed(2);
+
+  // ————————————————————————————————————————————————— marka bandı
+  const headerY = +(Math.max(2.5, 8 * k)).toFixed(2);
+  const headerH = +(Math.max(9, 24 * k)).toFixed(2);
+  const headerRuleH = +(Math.max(0.8, 2 * k)).toFixed(2);
+  const bandX = accentW;
+  const bandW = widthMm - accentW - headerY;
+
+  const logoH = +(headerH * 0.42).toFixed(2);
+  const logoW = +(logoH * 8.2).toFixed(2);
+  const logo = {
+    x: +(bandX + Math.max(3, 7 * k)).toFixed(2),
+    y: +(headerY + (headerH - logoH) / 2).toFixed(2),
+    width: logoW,
+    height: logoH,
+  };
+
+  const customerName = visibleValue(input.identity, hidden, "customer");
+  const customerLogoDataUrl = hidden.has("customer") ? null : input.customerLogoDataUrl ?? null;
+  const customerPlateW = +(Math.min(bandW * 0.28, 57 * k)).toFixed(2);
+  const customerLogo = customerLogoDataUrl
+    ? {
+        x: +(bandX + bandW - customerPlateW - Math.max(2, 4 * k)).toFixed(2),
+        y: +(headerY + headerH * 0.14).toFixed(2),
+        width: customerPlateW,
+        height: +(headerH * 0.72).toFixed(2),
+      }
+    : null;
+
+  // ————————————————————————————————————————————— içerik ve yasal bant
+  const legalH = +(Math.max(8, 20 * k)).toFixed(2);
+  const legalY = +(heightMm - headerY - legalH).toFixed(2);
+  const contentTop = +(headerY + headerH + headerRuleH + Math.max(2.5, 6 * k)).toFixed(2);
+  const contentBottom = +(legalY - Math.max(1.5, 3 * k)).toFixed(2);
+
+  // ————————————————————————————————————————————————— sağ sütun (QR)
+  const qrSize = +(Math.min(widthMm * 0.26, (contentBottom - contentTop) * 0.52, 58 * k)).toFixed(2);
+  const rightColW = +(Math.max(qrSize, 40 * k)).toFixed(2);
+  const rightX = +(widthMm - rightPad - rightColW).toFixed(2);
+  const dividerX = +(rightX - Math.max(3, 8 * k)).toFixed(2);
+  const leftColW = +(dividerX - padX - Math.max(2, 5 * k)).toFixed(2);
+
+  // ————————————————————————————————————————————————— kicker + başlık
+  const kickerSize = size(3.1, 2.0);
+  const kicker = {
+    glyphs: trackedGlyphs("VİNÇ KİMLİK PLAKASI", padX, kickerSize, kickerSize * 0.16),
+    y: +(contentTop + kickerSize).toFixed(2),
+    size: kickerSize,
+  };
+
   const product = visibleValue(input.identity, hidden, "product");
   const craneType = visibleValue(input.identity, hidden, "craneType");
-  const title = layoutNameplateTitle(product || craneType || "VİNÇ");
-  const titleIncludesType = product && craneType
-    ? trUpper(product).includes(trUpper(craneType))
-    : true;
+  const titleSizes = [size(6.2, MIN_TITLE_SIZE), size(5.6, MIN_TITLE_SIZE), size(5.0, MIN_TITLE_SIZE), size(4.5, MIN_TITLE_SIZE), MIN_TITLE_SIZE];
+  const fitted = fitTitle(product || craneType || "VİNÇ", leftColW, titleSizes);
+  if (fitted.clipped) issues.push("Ürün adı iki satırlık baskı alanına sığmıyor; plaka adını kısaltın.");
+  const titleLineHeight = +(fitted.size * 1.18).toFixed(2);
+  const title = {
+    lines: fitted.lines,
+    x: padX,
+    y: +(kicker.y + Math.max(3, 8 * k) + fitted.size).toFixed(2),
+    size: fitted.size,
+    lineHeight: titleLineHeight,
+  };
+
+  // ————————————————————————————— AZAMİ YÜK: md. 4.3.3 "belirgin" ister
+  const capacityValue = normalized(input.identity.capacity);
+  const capacityH = +(Math.max(7, 15 * k)).toFixed(2);
+  const capacityY = +(title.y + (title.lines.length - 1) * titleLineHeight + Math.max(2.5, 6 * k)).toFixed(2);
+  const capacityLabelSize = size(2.4, MIN_LABEL_SIZE);
+  const capacityValueSize = capacityValue
+    ? fitMonoSize(capacityValue, leftColW * 0.62, [size(7.5, 3.4), size(6.5, 3.4), size(5.5, 3.4), size(4.5, 3.4), 3.4])
+    : 0;
+  const capacity = capacityValue
+    ? {
+        x: padX,
+        y: capacityY,
+        width: +(leftColW).toFixed(2),
+        height: capacityH,
+        label: "AZAMİ ÇALIŞMA YÜKÜ",
+        value: capacityValue,
+        labelSize: capacityLabelSize,
+        valueSize: capacityValueSize,
+      }
+    : null;
+  if (!capacityValue) issues.push("Azami çalışma yükü boş; kaldırma makinesinde bu işaret zorunludur (md. 4.3.3).");
+
+  // ————————————————————————————————————————————————— veri satırları
+  const titleIncludesType = product && craneType ? trUpper(product).includes(trUpper(craneType)) : true;
   const supply = [
     visibleValue(input.identity, hidden, "supplyVoltage"),
     visibleValue(input.identity, hidden, "frequency"),
   ].filter(Boolean).join(" · ");
   const candidates: Array<[string, string]> = [
     ["SERİ NUMARASI", normalized(input.serialNo)],
+    ["TİP / MODEL", visibleValue(input.identity, hidden, "machineModel")],
     ...(!titleIncludesType && craneType ? [["VİNÇ TİPİ", craneType] as [string, string]] : []),
     ["PROJE / ÜRÜN KODU", visibleValue(input.identity, hidden, "projectCode")],
-    ["ÜRETİM YILI", visibleValue(input.identity, hidden, "productionYear")],
-    ["KALDIRMA KAPASİTESİ", visibleValue(input.identity, hidden, "capacity")],
     ["AÇIKLIK", visibleValue(input.identity, hidden, "span")],
     ["KALDIRMA YÜKSEKLİĞİ", visibleValue(input.identity, hidden, "liftHeight")],
+    ["KÜTLE", visibleValue(input.identity, hidden, "mass")],
     ["ÇALIŞMA SINIFI", visibleValue(input.identity, hidden, "dutyClass")],
     ["BESLEME", supply],
     ["KUMANDA GERİLİMİ", visibleValue(input.identity, hidden, "controlVoltage")],
   ];
-  const rows = candidates
-    .filter(([, value]) => Boolean(value))
-    .map(([label, value]) => ({ label, value, valueFontSize: fitMonoSize(value) }));
-  const customerName = visibleValue(input.identity, hidden, "customer");
+  const present = candidates.filter(([, value]) => Boolean(value));
+  if (!normalized(input.identity.machineModel)) {
+    issues.push("Tip / model tanımlaması boş; md. 1.7.3 seri veya tip tanımlaması ister.");
+  }
+
+  const rowsTop = +((capacity ? capacityY + capacityH : capacityY) + Math.max(2, 5 * k)).toFixed(2);
+  const rowsSpace = Math.max(0, contentBottom - rowsTop);
+  const rowStep = present.length > 0
+    ? Math.min(+(8.1 * k).toFixed(2), rowsSpace / present.length)
+    : 0;
+  const labelSize = size(2.75, MIN_LABEL_SIZE);
+  const labelX = padX;
+  const valueX = +(padX + Math.min(leftColW * 0.46, 56 * k)).toFixed(2);
+  const valueMaxWidth = +(padX + leftColW - valueX).toFixed(2);
+  const valueSizes = [size(4.2, MIN_VALUE_SIZE), size(3.8, MIN_VALUE_SIZE), size(3.4, MIN_VALUE_SIZE), size(3.0, MIN_VALUE_SIZE), MIN_VALUE_SIZE];
+
+  const rows: NameplateRow[] = present.map(([label, value], index) => ({
+    label,
+    value,
+    y: +(rowsTop + labelSize + index * rowStep).toFixed(2),
+    labelSize,
+    valueSize: fitMonoSize(value, valueMaxWidth, valueSizes),
+  }));
+  if (rowStep > 0 && rowStep < labelSize * 1.35) {
+    issues.push("Veri satırları bu ölçüye sığmıyor; plakayı büyütün veya alan gizleyin.");
+  }
+
+  // ————————————————————————————————————————————————— QR ve yedeği
+  const qrX = +(rightX + (rightColW - qrSize) / 2).toFixed(2);
+  const qrCaptionSize = size(3.0, 1.9);
+  const qrY = +(contentTop + qrCaptionSize + Math.max(2, 5 * k)).toFixed(2);
+  const qr = qrGeometry(input.publicUrl, qrX, qrY, qrSize);
+  if (qr.moduleMm < QR_MODULE_MIN_MM) {
+    issues.push(`QR modülü ${qr.moduleMm.toFixed(2)} mm; ${QR_MODULE_MIN_MM} mm altında ucuz okuyucular kodu tanımayabilir.`);
+  }
+  const centerX = +(rightX + rightColW / 2).toFixed(2);
+  const captionGlyphs = trackedGlyphs("TEKNİK DOKÜMANLAR", 0, qrCaptionSize, qrCaptionSize * 0.11);
+  const captionWidth = trackedWidth(captionGlyphs, qrCaptionSize);
+  const qrCaption = {
+    glyphs: captionGlyphs.map((glyph) => ({ ...glyph, x: +(glyph.x + centerX - captionWidth / 2).toFixed(3) })),
+    y: +(contentTop + qrCaptionSize).toFixed(2),
+    size: qrCaptionSize,
+    centerX,
+  };
+
+  /*
+   * QR'IN YAZILI YEDEĞİ — kod kirlenir, çizilir, boya alır.
+   *
+   * Plaka on yıl sahada durur. Okunmayan bir QR, elinde telefonla duran bir
+   * servisçiyi çıkmaza sokar; kodun ve adresin insan gözüyle okunabilir hâli
+   * tek geri dönüş yoludur.
+   */
+  const codeFromUrl = input.publicUrl.split("/").filter(Boolean).pop() ?? "";
+  const fallbackCodeSize = size(2.6, 1.8);
+  const fallbackUrlSize = size(2.0, MIN_LEGAL_SIZE);
+  const shortUrl = input.publicUrl.replace(/^https?:\/\//i, "");
+  const fallback = {
+    code: codeFromUrl,
+    url: shortUrl,
+    x: centerX,
+    codeY: +(qrY + qrSize + fallbackCodeSize + Math.max(1.2, 3 * k)).toFixed(2),
+    urlY: +(qrY + qrSize + fallbackCodeSize + fallbackUrlSize + Math.max(2.4, 5.5 * k)).toFixed(2),
+    codeSize: fallbackCodeSize,
+    urlSize: fallbackUrlSize,
+  };
+
+  // Seri numarası kutusu yalnız yer kaldıysa basılır; satırlarda zaten vardır.
+  const serialBoxTop = +(fallback.urlY + Math.max(1.5, 4 * k)).toFixed(2);
+  const serialBoxH = +(Math.max(8, 16 * k)).toFixed(2);
+  const serialBox = serialBoxTop + serialBoxH <= contentBottom
+    ? {
+        x: rightX,
+        y: serialBoxTop,
+        width: rightColW,
+        height: serialBoxH,
+        label: "SERİ NUMARASI",
+        value: normalized(input.serialNo),
+        labelY: +(serialBoxTop + serialBoxH * 0.36).toFixed(2),
+        valueY: +(serialBoxTop + serialBoxH * 0.82).toFixed(2),
+        labelSize: size(2.25, MIN_LEGAL_SIZE),
+        valueSize: fitMonoSize(normalized(input.serialNo), rightColW * 0.9, [size(4.1, 2.4), size(3.6, 2.4), size(3.1, 2.4), 2.4]),
+        centerX,
+      }
+    : null;
+
+  // ————————————————————————————————————————————————— yasal bant
+  const legalSize = size(2.2, MIN_LEGAL_SIZE);
+  const ceHeight = +(Math.max(5, legalH * 0.52)).toFixed(2);
+  const ce = input.ceMark === false
+    ? null
+    : (() => {
+        const mark = ceMarkPath(padX, +(legalY + (legalH - ceHeight) / 2).toFixed(2), ceHeight);
+        return { x: padX, y: +(legalY + (legalH - ceHeight) / 2).toFixed(2), height: ceHeight, path: mark.path, width: mark.width };
+      })();
+  if (ceHeight < 5) issues.push("CE işareti 5 mm'nin altına düşüyor; 765/2008/AT asgari yüksekliği 5 mm'dir.");
+
+  const legalX = +(padX + (ce ? ce.width + Math.max(2, 5 * k) : 0)).toFixed(2);
+  const manufacturer = normalized(input.identity.manufacturer);
+  const address = normalized(input.identity.manufacturerAddress);
+  const year = normalized(input.identity.productionYear);
+  if (!address) issues.push("İmalatçı adresi boş; md. 1.7.3 ticari unvan ve TAM ADRES ister.");
+  if (!year) issues.push("Üretim yılı boş; md. 1.7.3 imalatın tamamlandığı yılı ister.");
+
+  const legalMaxWidth = +(widthMm - rightPad - legalX).toFixed(2);
+  const legalLineOne = trUpper([manufacturer, year ? `İMAL YILI ${year}` : ""].filter(Boolean).join(" · "));
+  const legalLines = [
+    { text: legalLineOne, y: +(legalY + legalH * 0.42).toFixed(2), size: legalSize },
+    ...(address ? [{ text: address, y: +(legalY + legalH * 0.82).toFixed(2), size: +(legalSize * 0.92).toFixed(2) }] : []),
+  ].filter((line) => line.text);
+  for (const line of legalLines) {
+    if (estimatedTextWidth(line.text, line.size) > legalMaxWidth) {
+      issues.push("İmalatçı künyesi yasal banda sığmıyor; adresi kısaltın veya plakayı büyütün.");
+      break;
+    }
+  }
+
+  // ————————————————————————————————————————————————— montaj delikleri
+  const diameter = Number(input.holeDiameterMm);
+  const inset = Number(input.holeInsetMm);
+  const holes = Number.isFinite(diameter) && diameter > 0 && Number.isFinite(inset) && inset > diameter / 2
+    ? [
+        { cx: inset, cy: inset, r: diameter / 2 },
+        { cx: widthMm - inset, cy: inset, r: diameter / 2 },
+        { cx: inset, cy: heightMm - inset, r: diameter / 2 },
+        { cx: widthMm - inset, cy: heightMm - inset, r: diameter / 2 },
+      ]
+    : [];
+  // Delik çizimin ÜSTÜNE düşmemelidir: sol delikler kırmızı şeridin içinde
+  // kalmalı, aksi hâlde delme sırasında yazı gider.
+  if (holes.length > 0 && inset + diameter / 2 > padX) {
+    issues.push("Montaj delikleri yazı alanına giriyor; delik payını artırın.");
+  }
+
+  const smallestText = Math.min(
+    labelSize,
+    ...rows.map((row) => row.valueSize),
+    legalSize,
+    fallback.urlSize
+  );
+  // Tabanlar eşikle aynı olduğu için bu normalde ATEŞLENMEZ; biri tabanı
+  // düşürürse diye duran bir değişmez bekçisidir.
+  if (smallestText < READABLE_MIN_MM) {
+    issues.push(`En küçük yazı ${smallestText.toFixed(2)} mm; kazımada ${READABLE_MIN_MM} mm altı okunmaz.`);
+  }
+
   return {
     widthMm,
     heightMm,
-    scale,
-    offsetX,
-    offsetY,
+    palette,
+    fits: issues.length === 0,
+    issues,
+    frameInset,
+    accent: { width: accentW },
+    header: {
+      y: headerY,
+      height: headerH,
+      logo,
+      customerLogo,
+      customerName,
+      customerNameX: +(bandX + bandW - Math.max(2, 4 * k)).toFixed(2),
+      customerNameY: +(headerY + headerH * 0.62).toFixed(2),
+      customerNameSize: size(3.4, 2.2),
+      rule: { y: +(headerY + headerH).toFixed(2), height: headerRuleH },
+    },
+    kicker,
     title,
+    capacity,
     rows,
-    qr: qrGeometry(input.publicUrl, 168, 52, 58),
-    customerName,
-    customerLogoDataUrl: hidden.has("customer") ? null : input.customerLogoDataUrl ?? null,
+    labelX,
+    valueX,
+    rowRuleX2: +(padX + leftColW).toFixed(2),
+    divider: rows.length > 0 || serialBox
+      ? { x: dividerX, y1: contentTop, y2: contentBottom }
+      : null,
+    qr,
+    qrCaption,
+    fallback,
+    serialBox,
+    legal: {
+      y: legalY,
+      height: legalH,
+      rule: { y: legalY },
+      ce,
+      lines: legalLines,
+      x: legalX,
+    },
+    holes,
+    customerLogoDataUrl,
   };
 }
 
-export function productPortalUrl(origin: string, publicCode: string): string {
-  const normalizedOrigin = origin.trim().replace(/\/+$/, "");
-  return `${normalizedOrigin}/paylas/vinc/${encodeURIComponent(publicCode)}`;
+function clampDimension(value: unknown, fallback: number, min: number, max: number): number {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, number));
 }
 
-function holeMarkup(input: NameplateInput, layout: NameplateLayout): string {
-  const diameter = Number(input.holeDiameterMm);
-  const inset = Number(input.holeInsetMm);
-  if (!(diameter > 0 && inset > diameter / 2)) return "";
-  const radius = diameter / 2;
-  const positions = [
-    [inset, inset],
-    [layout.widthMm - inset, inset],
-    [inset, layout.heightMm - inset],
-    [layout.widthMm - inset, layout.heightMm - inset],
-  ];
-  return positions.map(([cx, cy]) =>
-    `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${BRAND.paper100}" stroke="${BRAND.ink}" stroke-width="0.8"/>`
-  ).join("");
+/**
+ * PLAKAYA KAZINAN ADRES — kısa ve KALICI.
+ *
+ * `/qr/<kod>`, `next.config.ts` rewrite'ıyla portala yönlenir. Portalın iç yolu
+ * değişse bile bu adres sabit kalır; plaka sökülemeyeceği için tek doğru
+ * tasarım budur. Kısalığı da bedava değildir: 11 karakter az adres, aynı
+ * fiziksel alanda daha büyük QR modülü demektir.
+ *
+ * Eski `/paylas/vinc/<kod>` adresi ÇALIŞMAYA DEVAM EDER — daha önce basılmış
+ * bir plaka varsa geçerliliğini korur.
+ */
+export function productPortalUrl(origin: string, publicCode: string): string {
+  const normalizedOrigin = origin.trim().replace(/\/+$/, "");
+  return `${normalizedOrigin}/qr/${encodeURIComponent(publicCode)}`;
+}
+
+// ————————————————————————————————————————————————————————— SVG çizici
+
+function glyphRun(glyphs: readonly TrackedGlyph[], y: number, size: number, fill: string, weight = 700): string {
+  return glyphs
+    .map((glyph) => `<text x="${glyph.x.toFixed(3)}" y="${y}" class="mono" fill="${fill}" font-size="${size}" font-weight="${weight}">${xmlEscape(glyph.char)}</text>`)
+    .join("");
 }
 
 export function buildNameplateSvg(input: NameplateInput): string {
-  const layout = createNameplateLayout(input);
-  const rowHeight = Math.min(8.1, 73 / Math.max(layout.rows.length, 1));
-  const startY = 70;
-  const titleStartY = layout.title.lines.length > 1 ? 50 : 54;
-  const customer = layout.customerLogoDataUrl
-    ? `<rect x="169" y="11" width="57" height="18" fill="#FFFFFF"/>
-       <image href="${xml(layout.customerLogoDataUrl)}" x="173" y="14" width="49" height="12" preserveAspectRatio="xMidYMid meet"/>`
-    : layout.customerName
-      ? `<text x="224" y="20.8" text-anchor="end" class="sans" fill="${BRAND.paper100}" font-size="3.4" font-weight="700">${xml(trUpper(layout.customerName))}</text>`
+  const l = createNameplateLayout(input);
+  const p = l.palette;
+  const bandX = l.accent.width;
+  const bandW = l.widthMm - l.accent.width - l.header.y;
+
+  const customer = l.header.customerLogo && l.customerLogoDataUrl
+    ? `<rect x="${l.header.customerLogo.x - 2}" y="${l.header.customerLogo.y - 1.5}" width="${l.header.customerLogo.width + 4}" height="${l.header.customerLogo.height + 3}" fill="${p.paper}"/>
+       <image href="${xmlEscape(l.customerLogoDataUrl)}" x="${l.header.customerLogo.x}" y="${l.header.customerLogo.y}" width="${l.header.customerLogo.width}" height="${l.header.customerLogo.height}" preserveAspectRatio="xMidYMid meet"/>`
+    : l.header.customerName
+      ? `<text x="${l.header.customerNameX}" y="${l.header.customerNameY}" text-anchor="end" class="sans" fill="${p.bandText}" font-size="${l.header.customerNameSize}" font-weight="700">${xmlEscape(trUpper(l.header.customerName))}</text>`
       : "";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${layout.widthMm}mm" height="${layout.heightMm}mm" viewBox="0 0 ${layout.widthMm} ${layout.heightMm}" role="img" aria-label="${xml(input.serialNo)} vinç kimlik plakası">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${l.widthMm}mm" height="${l.heightMm}mm" viewBox="0 0 ${l.widthMm} ${l.heightMm}" role="img" aria-label="${xmlEscape(input.serialNo)} vinç kimlik plakası">
   <style>
     ${input.embeddedFontsCss ?? ""}
     .sans{font-family:Archivo,Arial,sans-serif}.mono{font-family:PlexMono,"IBM Plex Mono",monospace}
   </style>
-  <rect width="${layout.widthMm}" height="${layout.heightMm}" fill="${BRAND.paper100}"/>
-  <rect x="1.4" y="1.4" width="${layout.widthMm - 2.8}" height="${layout.heightMm - 2.8}" fill="none" stroke="${BRAND.ink}" stroke-width="0.7"/>
-  <g transform="translate(${layout.offsetX.toFixed(3)} ${layout.offsetY.toFixed(3)}) scale(${layout.scale.toFixed(6)})">
-    <rect x="0" y="0" width="8" height="160" fill="${BRAND.red}"/>
-    <rect x="8" y="8" width="222" height="24" fill="${BRAND.ink}"/>
-    <image href="${xml(input.logoDataUrl)}" x="15" y="14" width="92" height="10" preserveAspectRatio="xMinYMid meet"/>
-    ${customer}
-    <rect x="8" y="32" width="222" height="2" fill="${BRAND.red}"/>
-    <text x="18" y="42" class="mono" fill="${BRAND.red}" font-size="3.1" font-weight="700" letter-spacing=".16em">VİNÇ KİMLİK PLAKASI</text>
-    ${layout.title.lines.map((line, index) => `<text data-nameplate-title-line="${index + 1}" x="18" y="${(titleStartY + index * 7).toFixed(1)}" class="sans" fill="${BRAND.ink}" font-size="${layout.title.fontSize}" font-weight="800">${xml(line)}</text>`).join("")}
-    <line x1="160" y1="39" x2="160" y2="151" stroke="${BRAND.red}" stroke-width=".65"/>
-    ${layout.rows.map((row, index) => {
-      const y = startY + index * rowHeight;
-      return `<g>
-        <line x1="18" y1="${(y + 3).toFixed(2)}" x2="153" y2="${(y + 3).toFixed(2)}" stroke="${BRAND.line350}" stroke-width=".32"/>
-        <text x="18" y="${y.toFixed(2)}" class="mono" fill="${BRAND.gray700}" font-size="2.75" font-weight="600" letter-spacing=".06em">${xml(row.label)}</text>
-        <text x="74" y="${y.toFixed(2)}" class="mono" fill="${BRAND.ink}" font-size="${row.valueFontSize}" font-weight="700">${xml(row.value)}</text>
-      </g>`;
-    }).join("")}
-    <text x="197" y="44" text-anchor="middle" class="mono" fill="${BRAND.red}" font-size="3" font-weight="700" letter-spacing=".11em">TEKNİK DOKÜMANLAR</text>
-    <rect x="${layout.qr.x}" y="${layout.qr.y}" width="${layout.qr.size}" height="${layout.qr.size}" fill="#FFFFFF" stroke="${BRAND.line350}" stroke-width=".35"/>
-    <path d="${layout.qr.path}" fill="#000000" shape-rendering="crispEdges"/>
-    <text x="197" y="117" text-anchor="middle" class="mono" fill="${BRAND.gray700}" font-size="2.65" font-weight="600">QR KODU TARAYIN</text>
-    <rect x="169" y="122" width="56" height="16" fill="${BRAND.ink}"/>
-    <text x="197" y="127" text-anchor="middle" class="mono" fill="${BRAND.gray400}" font-size="2.25" letter-spacing=".1em">SERİ NUMARASI</text>
-    <text x="197" y="134" text-anchor="middle" class="mono" fill="${BRAND.paper100}" font-size="4.1" font-weight="700">${xml(normalized(input.serialNo))}</text>
-    <text x="197" y="144" text-anchor="middle" class="mono" fill="${BRAND.gray700}" font-size="2.2">ŞİFRELİ MÜŞTERİ ERİŞİMİ</text>
-    <line x1="169" y1="148" x2="225" y2="148" stroke="${BRAND.red}" stroke-width=".45"/>
-    <text x="197" y="152" text-anchor="middle" class="mono" fill="${BRAND.ink}" font-size="2.05">ORION PORTAL</text>
-  </g>
-  ${holeMarkup(input, layout)}
+  <rect width="${l.widthMm}" height="${l.heightMm}" fill="${p.paper}"/>
+  <rect x="${l.frameInset}" y="${l.frameInset}" width="${(l.widthMm - l.frameInset * 2).toFixed(2)}" height="${(l.heightMm - l.frameInset * 2).toFixed(2)}" fill="none" stroke="${p.ink}" stroke-width="${(l.frameInset * 0.5).toFixed(2)}"/>
+  <rect x="0" y="0" width="${l.accent.width}" height="${l.heightMm}" fill="${p.accent}"/>
+  <rect x="${bandX}" y="${l.header.y}" width="${bandW.toFixed(2)}" height="${l.header.height}" fill="${p.band}"/>
+  <image href="${xmlEscape(input.logoDataUrl)}" x="${l.header.logo.x}" y="${l.header.logo.y}" width="${l.header.logo.width}" height="${l.header.logo.height}" preserveAspectRatio="xMinYMid meet"/>
+  ${customer}
+  <rect x="${bandX}" y="${l.header.rule.y}" width="${bandW.toFixed(2)}" height="${l.header.rule.height}" fill="${p.accent}"/>
+  ${glyphRun(l.kicker.glyphs, l.kicker.y, l.kicker.size, p.accent)}
+  ${l.title.lines.map((line, index) => `<text data-nameplate-title-line="${index + 1}" x="${l.title.x}" y="${(l.title.y + index * l.title.lineHeight).toFixed(2)}" class="sans" fill="${p.ink}" font-size="${l.title.size}" font-weight="800">${xmlEscape(line)}</text>`).join("")}
+  ${l.capacity ? `<rect x="${l.capacity.x}" y="${l.capacity.y}" width="${l.capacity.width}" height="${l.capacity.height}" fill="none" stroke="${p.accent}" stroke-width="${(l.frameInset * 0.45).toFixed(2)}"/>
+  <text x="${(l.capacity.x + l.capacity.height * 0.24).toFixed(2)}" y="${(l.capacity.y + l.capacity.height * 0.38).toFixed(2)}" class="mono" fill="${p.accent}" font-size="${l.capacity.labelSize}" font-weight="700">${xmlEscape(l.capacity.label)}</text>
+  <text x="${(l.capacity.x + l.capacity.height * 0.24).toFixed(2)}" y="${(l.capacity.y + l.capacity.height * 0.88).toFixed(2)}" class="mono" fill="${p.ink}" font-size="${l.capacity.valueSize}" font-weight="700">${xmlEscape(l.capacity.value)}</text>` : ""}
+  ${l.divider ? `<line x1="${l.divider.x}" y1="${l.divider.y1}" x2="${l.divider.x}" y2="${l.divider.y2}" stroke="${p.accent}" stroke-width="${(l.frameInset * 0.45).toFixed(2)}"/>` : ""}
+  ${l.rows.map((row) => `<g>
+    <line x1="${l.labelX}" y1="${(row.y + row.labelSize * 0.9).toFixed(2)}" x2="${l.rowRuleX2}" y2="${(row.y + row.labelSize * 0.9).toFixed(2)}" stroke="${p.hairline}" stroke-width="0.32"/>
+    <text x="${l.labelX}" y="${row.y}" class="mono" fill="${p.muted}" font-size="${row.labelSize}" font-weight="600">${xmlEscape(row.label)}</text>
+    <text x="${l.valueX}" y="${row.y}" class="mono" fill="${p.ink}" font-size="${row.valueSize}" font-weight="700">${xmlEscape(row.value)}</text>
+  </g>`).join("")}
+  ${glyphRun(l.qrCaption.glyphs, l.qrCaption.y, l.qrCaption.size, p.accent)}
+  <rect x="${l.qr.x}" y="${l.qr.y}" width="${l.qr.size}" height="${l.qr.size}" fill="#FFFFFF" stroke="${p.hairline}" stroke-width="0.35"/>
+  <path d="${l.qr.path}" fill="#000000" shape-rendering="crispEdges"/>
+  <text x="${l.fallback.x}" y="${l.fallback.codeY}" text-anchor="middle" class="mono" fill="${p.ink}" font-size="${l.fallback.codeSize}" font-weight="700">${xmlEscape(l.fallback.code)}</text>
+  <text x="${l.fallback.x}" y="${l.fallback.urlY}" text-anchor="middle" class="mono" fill="${p.muted}" font-size="${l.fallback.urlSize}">${xmlEscape(l.fallback.url)}</text>
+  ${l.serialBox ? `<rect x="${l.serialBox.x}" y="${l.serialBox.y}" width="${l.serialBox.width}" height="${l.serialBox.height}" fill="${p.band}"/>
+  <text x="${l.serialBox.centerX}" y="${l.serialBox.labelY}" text-anchor="middle" class="mono" fill="${p.paper}" font-size="${l.serialBox.labelSize}">${xmlEscape(l.serialBox.label)}</text>
+  <text x="${l.serialBox.centerX}" y="${l.serialBox.valueY}" text-anchor="middle" class="mono" fill="${p.bandText}" font-size="${l.serialBox.valueSize}" font-weight="700">${xmlEscape(l.serialBox.value)}</text>` : ""}
+  <line x1="${l.accent.width}" y1="${l.legal.rule.y}" x2="${(l.widthMm - l.header.y).toFixed(2)}" y2="${l.legal.rule.y}" stroke="${p.hairline}" stroke-width="0.35"/>
+  ${l.legal.ce ? `<path d="${l.legal.ce.path}" fill="${p.ink}"/>` : ""}
+  ${l.legal.lines.map((line) => `<text x="${l.legal.x}" y="${line.y}" class="sans" fill="${p.ink}" font-size="${line.size}" font-weight="700">${xmlEscape(line.text)}</text>`).join("")}
+  ${l.holes.map((hole) => `<circle cx="${hole.cx}" cy="${hole.cy}" r="${hole.r}" fill="${p.paper}" stroke="${p.ink}" stroke-width="0.8"/>`).join("")}
 </svg>`;
 }

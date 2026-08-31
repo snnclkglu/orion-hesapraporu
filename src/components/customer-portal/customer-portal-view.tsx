@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Download, Eye, FileText, Folder, ShieldCheck } from "lucide-react";
+import { Download, Eye, FileText, Folder, LogOut, ShieldCheck } from "lucide-react";
 import type { CustomerPortalDto, ProductPortalFileDto } from "@/lib/product-portal/types";
 
 function formatBytes(value: number): string {
@@ -41,7 +41,16 @@ export function CustomerPortalView({ dto }: { dto: CustomerPortalDto }) {
       )}
       <header className="border-b-4 border-primary bg-[#262626] text-[#F4F1EF]">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-5 px-4 py-5 sm:px-6 lg:px-8">
-          <div className="min-w-0">
+          {/*
+            * ÇİFT MARKA — plakadaki kompozisyonun aynısı.
+            *
+            * QR'ı okutan kişi KENDİ fabrikasının vincine bakıyor; karşısına
+            * yalnız tedarikçinin markası çıkması yabancı bir yüzdür. Plaka
+            * zaten ORION + müşteri logosunu birlikte taşır (Yönetim →
+            * Müşteriler'deki `logo_path`); portal da aynı ikiliyi gösterir.
+            * Logo kayıtta yoksa müşteri ADI yazılır — boş çerçeve bırakılmaz.
+            */}
+          <div className="flex min-w-0 flex-wrap items-center gap-4 sm:gap-5">
             <Image
               src="/brand/orion-logo-white.svg"
               alt="ORION CRANES"
@@ -49,19 +58,64 @@ export function CustomerPortalView({ dto }: { dto: CustomerPortalDto }) {
               height={96}
               className="h-auto w-[190px] max-w-full"
             />
-            <p className="mt-3 font-mono text-[10px] font-semibold tracking-[0.2em] text-[#F4F1EF]/65">
-              GÜVENLİ MÜŞTERİ DOKÜMAN PORTALI
-            </p>
+            {(dto.customerLogoDataUrl || dto.customerName) && (
+              <>
+                <span aria-hidden className="hidden h-9 w-px bg-white/25 sm:block" />
+                {dto.customerLogoDataUrl ? (
+                  // Müşteri logoları koyu zeminde okunmayabilir; plakadaki gibi
+                  // kâğıt renkli bir levha üzerinde durur.
+                  <span className="inline-flex items-center bg-[#F4F1EF] px-3 py-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- veri adresi; Next optimizasyonu geçersiz. */}
+                    <img
+                      src={dto.customerLogoDataUrl}
+                      alt={dto.customerName || "Müşteri"}
+                      className="h-8 w-auto max-w-[150px] object-contain"
+                    />
+                  </span>
+                ) : (
+                  <span className="truncate text-base font-bold tracking-tight">{dto.customerName}</span>
+                )}
+              </>
+            )}
           </div>
-          <div className="border border-white/25 bg-white/5 px-3 py-2 text-right">
-            <div className="font-mono text-[10px] tracking-[0.14em] text-white/60">SERİ NUMARASI</div>
-            <div className="mt-1 font-mono text-base font-semibold tabular-nums">{dto.serialNo}</div>
+          <p className="w-full font-mono text-[10px] font-semibold tracking-[0.2em] text-[#F4F1EF]/65">
+            GÜVENLİ MÜŞTERİ DOKÜMAN PORTALI
+          </p>
+          <div className="flex items-center gap-3">
+            <div className="border border-white/25 bg-white/5 px-3 py-2 text-right">
+              <div className="font-mono text-[10px] tracking-[0.14em] text-white/60">SERİ NUMARASI</div>
+              <div className="mt-1 font-mono text-base font-semibold tabular-nums">{dto.serialNo}</div>
+            </div>
+            {/*
+              * ÇIKIŞ — portal ortak bir bilgisayardan da açılır.
+              * Oturumu kapatmanın bir yolu yoktu; çerez 12 saat boyunca geçerli
+              * kalıyordu. Düğme POST'tur: oturum sunucuda iptal edilir.
+              * Önizlemede gösterilmez, orada bir oturum yoktur.
+              */}
+            {!dto.preview && (
+              <form method="post" action={`${base}/cikis`}>
+                <button
+                  type="submit"
+                  className="oc-tap inline-flex min-h-11 items-center gap-2 border border-white/25 px-3 text-sm font-medium text-[#F4F1EF] hover:bg-white/10"
+                >
+                  <LogOut className="size-4" /> Çıkış
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </header>
 
+      {/*
+        * MOBİLDE KİMLİK VE DESTEK ÖNCE GELİR.
+        *
+        * Tek sütuna düşen düzende yan sütun bütün klasörlerin ALTINA iniyordu:
+        * QR'ı okutan servisçi, seri numarasını ve destek adresini görmek için
+        * onlarca belgeyi kaydırmak zorunda kalıyordu. `order` yalnız dar ekranda
+        * uygulanır; geniş ekranda iki sütunlu düzen aynen korunur.
+        */}
       <main className="mx-auto grid w-full max-w-6xl gap-5 px-3 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:px-8 lg:py-8">
-        <div className="min-w-0 space-y-5">
+        <div className="order-2 min-w-0 space-y-5 lg:order-1">
           <section className="border bg-card p-4 sm:p-6">
             <div className="oc-kicker text-muted-foreground">{dto.company}</div>
             <div className="mt-2 h-1 w-11 bg-primary" />
@@ -122,12 +176,13 @@ export function CustomerPortalView({ dto }: { dto: CustomerPortalDto }) {
           )}
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-5 lg:self-start">
+        <aside className="order-1 space-y-4 lg:order-2 lg:sticky lg:top-5 lg:self-start">
           <section className="border bg-card p-4">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <ShieldCheck className="size-4 text-primary" /> Vinç Kimliği
             </div>
             <dl className="mt-4 grid gap-3 text-sm">
+              {dto.customerName && <div><dt className="oc-kicker text-muted-foreground">Müşteri</dt><dd className="mt-1 break-words font-semibold">{dto.customerName}</dd></div>}
               <div><dt className="oc-kicker text-muted-foreground">Seri No</dt><dd className="mt-1 break-words font-mono">{dto.serialNo}</dd></div>
               {dto.projectCode && <div><dt className="oc-kicker text-muted-foreground">Proje Kodu</dt><dd className="mt-1 break-words font-mono">{dto.projectCode}</dd></div>}
               {dto.productionYear && <div><dt className="oc-kicker text-muted-foreground">Üretim Yılı</dt><dd className="mt-1 font-mono">{dto.productionYear}</dd></div>}

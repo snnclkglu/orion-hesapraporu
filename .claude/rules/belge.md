@@ -10,8 +10,8 @@ paths:
   - "orion-hesapraporu/src/components/customer-portal/**"
   - "src/app/(app)/projects/[id]/product-portal/**"
   - "orion-hesapraporu/src/app/(app)/projects/[id]/product-portal/**"
-  - "src/app/(public)/paylas/vinc/**"
-  - "orion-hesapraporu/src/app/(public)/paylas/vinc/**"
+  - "src/app/(public)/paylas/resim/**"
+  - "orion-hesapraporu/src/app/(public)/paylas/resim/**"
   - "scripts/check-pdf-layout.py"
   - "orion-hesapraporu/scripts/check-pdf-layout.py"
 ---

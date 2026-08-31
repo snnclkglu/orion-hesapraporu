@@ -211,7 +211,22 @@ export async function materializePortalSelection({
   if (bytes.byteLength === 0) throw new Error(`${selection.title} boş bir dosya üretti.`);
   let pageCount = 0;
   try {
-    pageCount = (await PDFDocument.load(bytes, { updateMetadata: false })).getPageCount();
+    /*
+     * ŞİFRELİ PDF YAYIMI KOMPLE DÜŞÜRÜYORDU.
+     *
+     * Müşteriden ya da taşeronndan gelen bir şartname/elektrik projesi çoğu
+     * zaman "izin korumalı"dır (yazdırma/kopyalama kısıtı; parola YOK). pdf-lib
+     * varsayılan olarak böyle bir belgeyi açmayı reddeder ve `catch` bloğu
+     * "geçerli bir PDF değil" diyerek BÜTÜN yayımı iptal ediyordu — tek bir
+     * belge yüzünden paket hiç çıkmıyordu ve gerekçe de yanlıştı.
+     *
+     * `ignoreEncryption` yalnız SAYFA SAYMAK içindir; baytlar olduğu gibi
+     * depolanır, biz belgeyi yeniden yazmayız ve korumayı kaldırmayız.
+     */
+    pageCount = (await PDFDocument.load(bytes, {
+      updateMetadata: false,
+      ignoreEncryption: true,
+    })).getPageCount();
   } catch {
     throw new Error(`${selection.title} geçerli bir PDF değil.`);
   }

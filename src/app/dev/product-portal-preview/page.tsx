@@ -5,6 +5,7 @@ import { CustomerPortalView } from "@/components/customer-portal/customer-portal
 import type { ProductPortalWorkspace } from "@/lib/product-portal/data-server";
 import { withProductPortalDefaults } from "@/lib/product-portal/identity";
 import { buildNameplateSvg } from "@/lib/product-portal/nameplate";
+import { PLATE_LOGO_URL, SCREEN_FONT_CSS } from "@/lib/product-portal/plate-assets";
 import { ProductPortalCard } from "@/app/(app)/projects/[id]/product-portal/product-portal-card";
 import {
   PRODUCT_IDENTITY_FIELDS,
@@ -15,6 +16,9 @@ import {
 
 const identity: ProductIdentityValues = {
   manufacturer: "ORION CRANES",
+  manufacturerAddress: "Organize Sanayi Bölgesi, Ankara · TÜRKİYE",
+  machineModel: "ORION DGK-100/1485",
+  mass: "48,5 t",
   product: "100 T x 14,85 m kapasiteli çift kirişli gezer köprülü vinç",
   craneType: "Çift Kirişli Gezer Köprülü Vinç",
   projectCode: "0057-01",
@@ -43,6 +47,8 @@ const portal: CustomerPortalDto = {
   revisionLabel: "R01",
   publishedAt: "2026-08-29T12:00:00.000Z",
   publicCode: "23456789ABCDEFGH",
+  customerName: identity.customer,
+  customerLogoDataUrl: null,
   preview: true,
   files: [
     { id: "11111111-1111-4111-8111-111111111111", folderKey: "hesap-raporlari", folderTitle: "Hesap Raporları", folderSort: 10, fileSort: 10, title: "Hesap Raporu · Detaylı · V3", fileName: "hesap-raporu.pdf", revisionLabel: "V3", accessMode: "view_watermarked", sizeBytes: 4_850_000, pageCount: 86 },
@@ -93,20 +99,18 @@ function dataUrl(filePath: string, mime: string): string {
 export default function ProductPortalPreviewPage() {
   if (process.env.NODE_ENV !== "development") notFound();
   const root = process.cwd();
-  const logoDataUrl = dataUrl(path.join(root, "public", "brand", "orion-logo-white.svg"), "image/svg+xml");
-  const logoPaperDataUrl = dataUrl(path.join(root, "public", "brand", "orion-logo-paper.png"), "image/png");
+  // Fontlar ve ORION logosu artık prop DEĞİL: önizleme de gerçek kart gibi
+  // `/fonts/...` ve `/brand/...` adreslerini okur (bkz. `plate-assets.ts`).
+  // Burada yalnız MÜŞTERİ logosu gömülür; o Supabase'ten gelen bir veridir.
   const customerLogoDataUrl = dataUrl(path.join(root, "public", "brand", "orion-symbol-ink.png"), "image/png");
-  const archivoBoldDataUrl = dataUrl(path.join(root, "src", "assets", "fonts", "Archivo-Bold.ttf"), "font/ttf");
-  const archivoExtraBoldDataUrl = dataUrl(path.join(root, "src", "assets", "fonts", "Archivo-ExtraBold.ttf"), "font/ttf");
-  const plexDataUrl = dataUrl(path.join(root, "src", "assets", "fonts", "IBMPlexMono-SemiBold.ttf"), "font/ttf");
-  const embeddedFontsCss = `@font-face{font-family:Archivo;src:url(${archivoBoldDataUrl});font-weight:700}@font-face{font-family:Archivo;src:url(${archivoExtraBoldDataUrl});font-weight:800}@font-face{font-family:PlexMono;src:url(${plexDataUrl});font-weight:600}`;
   const svg = buildNameplateSvg({
+    embeddedFontsCss: SCREEN_FONT_CSS,
     widthMm: 240,
     heightMm: 160,
     serialNo: portal.serialNo,
     publicUrl: "https://portal.orioncranes.com/paylas/vinc/23456789ABCDEFGH",
     identity,
-    logoDataUrl: "/brand/orion-logo-white.svg",
+    logoDataUrl: PLATE_LOGO_URL,
     customerLogoDataUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100"><rect width="400" height="100" fill="#fff"/><text x="200" y="64" text-anchor="middle" font-family="Arial" font-size="42" font-weight="700" fill="#262626">MÜŞTERİ A.Ş.</text></svg>')}`,
   });
   return (
@@ -116,14 +120,11 @@ export default function ProductPortalPreviewPage() {
           projectId={workspace.projectId}
           canEdit
           workspace={workspace}
-          portalOrigin="http://localhost:3001"
-          logoDataUrl={logoDataUrl}
-          logoPaperDataUrl={logoPaperDataUrl}
+          portalOrigin="https://portal.orioncranes.com"
+          // Önizleme KALICI adres taşır: amaç plaka çizimini denemektir,
+          // adres kapısını değil (o kapı gerçek kartta `readiness` ile sınanır).
+          portalOriginPermanent
           customerLogoDataUrl={customerLogoDataUrl}
-          archivoBoldDataUrl={archivoBoldDataUrl}
-          archivoExtraBoldDataUrl={archivoExtraBoldDataUrl}
-          plexDataUrl={plexDataUrl}
-          embeddedFontsCss={embeddedFontsCss}
           draftPreview={portal}
           publishedPreview={portal}
         />

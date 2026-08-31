@@ -5,7 +5,7 @@
 > `.claude/rules/belge.md` ve haritadaki satır ondan ÜRETİLİR
 > (`npx tsx scripts/agent-docs/split.ts --uygula`).
 
-**Kapsam:** `src/lib/pdf/**` · `src/lib/excel/**` · `src/lib/product-portal/**` · `src/components/customer-portal/**` · `src/app/(app)/projects/[id]/product-portal/**` · `src/app/(public)/paylas/vinc/**` · `scripts/check-pdf-layout.py`
+**Kapsam:** `src/lib/pdf/**` · `src/lib/excel/**` · `src/lib/product-portal/**` · `src/components/customer-portal/**` · `src/app/(app)/projects/[id]/product-portal/**` · `src/app/(public)/paylas/resim/**` · `scripts/check-pdf-layout.py`
 
 
 Marka altyapısı `pdf/brand.tsx`tedir ve TÜM belgeler onu paylaşır:
@@ -372,3 +372,105 @@ yazdırma düğmesini kaldırır ama ekran görüntüsünü teknik olarak engell
 Yasal veya teslim gereği indirilebilir belgeler (özellikle el kitabı) açıkça
 `download` kipinde yayımlanır. Erişim kipi dosya bazındadır ve yayım snapshot'ına
 donar.
+
+## Vinç kimlik plakası — yasal içerik ve baskı geometrisi
+
+## BELGE-1 — Plaka yasal bir isim plakasıdır, teknik künye değil.
+
+2006/42/AT Ek I md. 1.7.3 makinenin üzerinde şunları ister: imalatçının ticari
+unvanı ve TAM ADRESİ, CE işareti, makine tanımı, SERİ VEYA TİP TANIMLAMASI,
+seri numarası ve İMALATIN TAMAMLANDIĞI YIL. Kaldırma makinesinde md. 4.3.3
+azami çalışma yükünün "belirgin" işaretlenmesini de ister. İlk sürüm bunların
+hiçbirini taşımıyordu. `manufacturerAddress`, `machineModel` ve `mass` alanları
+bu yüzden eklendi; DB karşılıkları yoktur çünkü payload JSONB'dir ve
+`withProductPortalDefaults` eksik anahtarı boş dizeye indirir.
+
+## BELGE-2 — Yasal alanlar gizlenemez.
+
+`NAMEPLATE_TOGGLE_FIELDS` yalnız
+isteğe bağlı satırları taşır; `NAMEPLATE_MANDATORY_FIELDS` anahtar SUNMAZ ve
+`visibleValue` gizleme isteğini bu alanlarda yok sayar. Anahtarı sunmak, bir gün
+birinin yasal bir satırı kapatması demekti.
+
+## BELGE-3 — CE işareti bir beyandır.
+
+`plate.ceMark` varsayılan AÇIKTIR ama
+kapatılabilir: uygunluk değerlendirmesi tamamlanmamış bir makineye CE basmak,
+eksik bir plakadan çok daha ağır bir hatadır. İşaret 765/2008/AT oranlarında
+VEKTÖR olarak çizilir (raster kazımada bozulur) ve 5 mm altına inerse yerleşim
+uyarı üretir.
+
+## BELGE-4 — Ölçü değiştirmek tasarımı yeniden akıtmaktır.
+
+Yerleşim artık
+gerçek mm kutusundan hesaplanır; eski `scale = min(w/240, h/160)` orantılı
+küçültmesi bütün yazıları birlikte küçültüyor ve 3:2 dışındaki ölçüde çizimi
+mektup kutusuna düşürüyordu. Yazı tabanları okunabilirlik eşiğiyle AYNIDIR
+(`READABLE_MIN_MM`); yazı o sınırın altına inmez, onun yerine "satırlar
+sığmıyor" denir. `NAMEPLATE_SIZE_PRESETS` yalnız zorunlu bloğu okunur taşıyan
+ölçüleri sunar — 120 × 80 mm bilerek listede yoktur.
+
+## BELGE-5 — Harf aralığı konumla verilir.
+
+@react-pdf'in yerleşim motoru
+`letterSpacing`i OKUMAZ, SVG okur; iki çıktı sessizce ayrışıyordu. Aralıklı
+yazılar `trackedGlyphs` ile karakter karakter konumlanır ve iki çizici de aynı
+x dizisini basar.
+
+## BELGE-6 — QR'ın yazılı yedeği zorunludur.
+
+Plaka sahada on yıl durur; kod
+kirlenir, çizilir, boya alır. Kodun ve adresin insan-okunur hâli QR'ın altında
+basılır. QR modülü `QR_MODULE_MIN_MM` altına inerse yerleşim uyarı verir.
+
+## BELGE-7 — Plakaya kazınan adres `/qr/<kod>`tir.
+
+İki sebeple: portalın iç
+yolu (`/paylas/vinc/...`) bir gün değişebilir ama basılmış plaka sökülemez; ve
+11 karakter kısalık, aynı alanda daha büyük QR modülü demektir. Adres KALICI
+olmalıdır — `CUSTOMER_PORTAL_ORIGIN` tanımlı değilse ve adres istek başlığından
+türetilmişse plaka indirmesi KAPALIDIR, yoksa `localhost` adresli bir plaka
+fabrikaya gidebilirdi.
+
+## BELGE-8 — Tarayıcıda PDF üretimi CSP ister.
+
+Plaka uygulamanın tek istemci
+tarafı belgesidir. `worker-src 'self' blob:` (alfa kanallı marka PNG'si →
+pdfkit `splitAlphaChannel` → fflate blob worker) ve `connect-src … data:`
+(yoga-layout WASM) olmadan üretim NE ÇÖZÜLÜR NE REDDEDİLİR: düğme sonsuza kadar
+"Hazırlanıyor"da kalır ve `catch` hiç çalışmaz. `nameplate-pdf.tsx` bu yüzden
+zaman aşımı taşır. Plaka fontları `public/fonts/` altındadır ve `proxy.ts`
+matcher'ı font uzantılarını MUAF TUTAR — muafiyet olmadan `.ttf` isteği giriş
+sayfasının HTML'ini **200** ile döndürüyor, fontkit "Unknown font format" diyor
+ve indirilen SVG'ye font yerine giriş sayfası gömülüyordu.
+
+## Müşteri portalı erişimi
+
+## BELGE-9 — Kilit kendini uzatmaz.
+
+`consume_product_portal_login_attempt`
+kilitliyken sayacı ARTIRMAZ ve `locked_until`e dokunmaz. Eski hâl her denemede
+15 dakika ileri atıyordu: parolasını yanlış hatırlayan müşteri, denemeye devam
+ederek kilidi kendi eliyle sonsuza uzatıyordu. Başarılı girişte hem istemci hem
+PORTAL kovası sıfırlanır — tek bir yabancının denemeleri gerçek müşteriyi
+kilitlemesin.
+
+## BELGE-10 — Kilit ile yanlış parola aynı şey değildir.
+
+Giriş ucu sebebi
+`?hata=parola|kilit|yayin` ile taşır; sayfa üçünü ayrı anlatır. Kilitli olduğunu
+bilmeyen müşteri denemeye devam eder.
+
+## BELGE-11 — Gizlenen alan portalda da görünmez.
+
+`hiddenFields` yalnız plaka
+tarafından okunuyordu; `loadCustomerPortalDto` ve önizleme DTO'su da uygular.
+Gizleme bir karardır ve iki yüzde de geçerlidir.
+
+## BELGE-12 — Filigranlı belge adres çubuğundan açılamaz.
+
+`Sec-Fetch-Dest`
+üst gezinmeyi (`document`) görüntüleyicinin `fetch`inden (`empty`) ayırır; ham
+PDF baytı yalnız görüntüleyiciye gider. Bu bir DRM DEĞİLDİR (kullanıcı kararı,
+30.08.2026: sayfa görüntüsüne çevirme yok) — kapatılan şey kolay yoldur.
+Reddedilen her belge erişimi `document_denied` olarak denetim defterine yazılır.

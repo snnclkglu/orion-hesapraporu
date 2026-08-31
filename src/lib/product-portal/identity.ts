@@ -1,4 +1,5 @@
 import {
+  PORTAL_FOLDER_OPTIONS,
   PORTAL_REPORT_LEVELS,
   PRODUCT_IDENTITY_FIELDS,
   type IdentitySource,
@@ -12,6 +13,29 @@ import {
 const EMPTY_IDENTITY = Object.fromEntries(
   PRODUCT_IDENTITY_FIELDS.map((key) => [key, ""])
 ) as ProductIdentityValues;
+
+/**
+ * ŞEBEKE FREKANSI AYRI BİR ALAN DEĞİLDİR — besleme metninin içindedir.
+ *
+ * Hesap motorunda `frequency` diye bir girdi YOKTUR; `SUPPLY_VOLTAGES`
+ * seçenekleri frekansı da taşır ("380 VAC, 3 Faz, 50 Hz"). Önceki çözücü
+ * el kitabının basılı satırlarında /frekans/i arıyordu ve öyle bir etiket
+ * hiç var olmadığı için alan YAPISAL OLARAK her zaman boş kalıyordu
+ * (kullanıcı ekran görüntüsü, 30.08.2026). Uydurma yapılmaz: metinde bir
+ * Hz değeri varsa okunur, yoksa alan boş kalır ve plakada satır basılmaz.
+ */
+export function frequencyFromSupplyVoltage(supplyVoltage: string): string {
+  const match = String(supplyVoltage ?? "").match(/(\d+(?:[.,]\d+)?)\s*Hz/i);
+  return match ? `${match[1].replace(".", ",")} Hz` : "";
+}
+
+/**
+ * FAZ SAYISI da aynı metnin içindedir; plaka elektrik işaretlemesi bunu ister.
+ */
+export function phasesFromSupplyVoltage(supplyVoltage: string): string {
+  const match = String(supplyVoltage ?? "").match(/(\d+)\s*Faz/i);
+  return match ? `${match[1]} Faz` : "";
+}
 
 export function alphaSuffix(ordinal: number): string {
   if (!Number.isInteger(ordinal) || ordinal < 1) return "";
@@ -62,6 +86,25 @@ export function defaultPortalPayload({
   };
 }
 
+/**
+ * KLASÖRÜ LİSTEYE GERİ ÇEK — listede olmayan anahtar arayüzde BOŞ görünür.
+ *
+ * Kart klasörü `<Select value={folderKey}>` ile gösterir; değerin seçenekler arasında
+ * karşılığı yoksa kutu sessizce boşalır ve kullanıcı belgenin hangi klasöre gideceğini
+ * göremez (kullanıcı bildirimi, 30.08.2026: üç belgenin ikisinde Klasör boştu). Şema
+ * artık yeni kayıtlarda üyeliği zorunlu tutuyor; bu ayıklama ESKİ kayıtlar içindir.
+ * Uydurma yapılmaz: tanınmayan anahtar "Diğer Belgeler"e düşer, çünkü belgenin nereye
+ * ait olduğunu bilmiyoruz ve yanlış bir klasör adı doğru olandan daha kötüdür.
+ */
+function normalizedFolder<T extends { folderKey?: unknown; folderTitle?: unknown; folderSort?: unknown }>(
+  entry: T
+): T {
+  const known = PORTAL_FOLDER_OPTIONS.find((folder) => folder.key === entry.folderKey);
+  const target = known ?? PORTAL_FOLDER_OPTIONS.find((folder) => folder.key === "diger");
+  if (!target) return entry;
+  return { ...entry, folderKey: target.key, folderTitle: target.title, folderSort: target.sort };
+}
+
 function finiteDimension(value: unknown, fallback: number): number {
   const number = Number(value);
   return Number.isFinite(number) && number >= 80 && number <= 1000 ? number : fallback;
@@ -93,7 +136,7 @@ export function withProductPortalDefaults(raw: unknown): ProductPortalPayload {
   const documents = (Array.isArray(value.documents)
     ? value.documents.filter((entry): entry is ProductPortalPayload["documents"][number] =>
         Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
-    : []).map((entry) => {
+    : []).map((entry) => normalizedFolder(entry)).map((entry) => {
       if (entry.sourceKind === "report") {
         const reportLevel = PORTAL_REPORT_LEVELS.find((level) => level === entry.reportLevel)
           ?? "detayli";

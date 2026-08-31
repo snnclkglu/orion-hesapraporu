@@ -10,6 +10,11 @@ export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/paylas" || request.nextUrl.pathname.startsWith("/paylas/")) {
     return NextResponse.next({ request });
   }
+  // `/qr/<kod>` plakaya KAZINAN kalıcı adrestir ve portala rewrite edilir;
+  // muafiyet olmadan QR'ı okutan müşteri giriş sayfasına düşerdi.
+  if (request.nextUrl.pathname.startsWith("/qr/")) {
+    return NextResponse.next({ request });
+  }
 
   let response = NextResponse.next({ request });
 
@@ -98,8 +103,25 @@ export async function proxy(request: NextRequest) {
  * Açılan kapı yok: manifest yalnız uygulama adını, renklerini ve ikon
  * yollarını taşır; ikon dosyaları zaten uzantılarıyla muaftı.
  */
+/*
+ * YAZI TİPİ DOSYALARI DA MUAFTIR — manifestin aynı dersi.
+ *
+ * `public/fonts/*.ttf` vinç kimlik plakasının fontlarıdır; plaka uygulamanın
+ * TEK istemci tarafı belgesidir ve @react-pdf ile SVG önizlemesi bu dosyaları
+ * tarayıcıdan çeker.
+ *
+ * Muafiyet olmadan bedel SESSİZDİ ve tam olarak manifestteki gibiydi: matcher
+ * yalnız görsel uzantılarını dışarıda bırakıyordu, `.ttf` isteği korumalı
+ * sayılıyor ve `/login` sayfasının HTML'i **200** ile dönüyordu. fontkit o
+ * HTML'i ayrıştırmaya çalışıp "Unknown font format" diyor, indirilen SVG'ye de
+ * font yerine giriş sayfası gömülüyordu (30.08.2026 doğrulaması). Bir yönlendirme
+ * değil, YANLIŞ İÇERİKLİ BİR BAŞARI dönüyordu — en zor görülen hata biçimi.
+ *
+ * Açılan kapı yok: yazı tipi dosyası şirket verisi taşımaz, ikon dosyaları da
+ * uzantılarıyla zaten muaftı.
+ */
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ttf|otf|woff|woff2)$).*)",
   ],
 };

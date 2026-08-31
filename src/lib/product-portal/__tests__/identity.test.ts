@@ -68,3 +68,34 @@ describe("otomatik alan + override", () => {
     expect(payload.documents).toEqual([]);
   });
 });
+
+/*
+ * Kartta klasör `<Select value={folderKey}>` ile gösterilir; seçeneklerde
+ * karşılığı olmayan bir değerde kutu SESSİZCE BOŞALIR ve kullanıcı belgenin
+ * hangi klasöre gideceğini göremeden yayımlar (30.08.2026 ekran görüntüsü:
+ * üç belgenin ikisinde Klasör boştu). Yeni kayıtları şema engelliyor; bu
+ * ayıklama ESKİ payload'lar içindir.
+ */
+describe("eski payload · klasör anahtarı ayıklaması", () => {
+  it("tanınmayan klasör anahtarını 'Diğer Belgeler'e düşürür", () => {
+    const payload = withProductPortalDefaults({
+      documents: [
+        { id: "a", sourceKind: "electrical", folderKey: "artik-yok", folderTitle: "Artık Yok", folderSort: 999 },
+      ],
+    });
+    expect(payload.documents[0]?.folderKey).toBe("diger");
+    expect(payload.documents[0]?.folderTitle).toBe("Diğer Belgeler");
+    expect(payload.documents[0]?.folderSort).toBe(90);
+  });
+
+  it("geçerli klasörü olduğu gibi bırakır ve başlık/sıra alanlarını listeyle eşitler", () => {
+    const payload = withProductPortalDefaults({
+      documents: [
+        { id: "b", sourceKind: "report", folderKey: "hesap-raporlari", folderTitle: "ESKİ AD", folderSort: 7 },
+      ],
+    });
+    expect(payload.documents[0]?.folderKey).toBe("hesap-raporlari");
+    expect(payload.documents[0]?.folderTitle).toBe("Hesap Raporları");
+    expect(payload.documents[0]?.folderSort).toBe(10);
+  });
+});

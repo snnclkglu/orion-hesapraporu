@@ -13,6 +13,9 @@ async function dataUrl(relativePath: string, mime: string): Promise<string> {
 
 const identity: ProductIdentityValues = {
   manufacturer: "ORION CRANES",
+  manufacturerAddress: "Organize Sanayi Bölgesi, Ankara · TÜRKİYE",
+  machineModel: "ORION DGK-100/1485",
+  mass: "48,5 t",
   product: "100 T x 14,85 m kapasiteli çift kirişli gezer köprülü vinç",
   craneType: "Çift Kirişli Gezer Köprülü Vinç",
   projectCode: "0057-01",
@@ -46,10 +49,12 @@ describe("baskı plaka PDF'i", () => {
       logoDataUrl: logoPaperDataUrl,
       customerLogoDataUrl,
     }, {
-      logoPaperDataUrl,
-      archivoBoldDataUrl,
-      archivoExtraBoldDataUrl,
-      plexDataUrl,
+      // Node'da göreli adres çözülemez; bu test GEOMETRİYİ sınar. Tarayıcının
+      // statik varlık yolu ancak gerçek tarayıcıda doğrulanır.
+      archivoBold: archivoBoldDataUrl,
+      archivoExtraBold: archivoExtraBoldDataUrl,
+      plexSemiBold: plexDataUrl,
+      logoRaster: logoPaperDataUrl,
     });
     expect(blob.type).toBe("application/pdf");
     const document = await PDFDocument.load(await blob.arrayBuffer());

@@ -2,11 +2,24 @@ import "server-only";
 
 import { createHmac } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadCustomerLogoDataUrl } from "@/lib/customers/logo-data-url-server";
 import { withProductPortalDefaults } from "./identity";
 import { sha256 } from "./secrets";
 import type { CustomerPortalDto, ProductPortalFileDto } from "./types";
 
 export const PUBLIC_CODE_PATTERN = /^[A-Z0-9]{16}$/;
+
+/**
+ * GİRİŞ EKRANINDAKİ DESTEK ADRESİ.
+ *
+ * Paketin kendi destek adresi payload'da durur ama GİRİŞ ekranında oturum
+ * yoktur; oradan okumak, geçerli bir kodun geçersizden ayırt edilmesini
+ * sağlardı (kod numaralandırma). Bu yüzden giriş ekranı KURUMSAL adresi
+ * gösterir — parolasını kaybeden müşteriye "proje dokümanlarında belirtilen
+ * adrese yazın" demek, elinde yalnız plaka olan servisçiye hiçbir şey demektir.
+ */
+export const PORTAL_SUPPORT_EMAIL =
+  process.env.PORTAL_SUPPORT_EMAIL?.trim() || "info@orioncranes.com";
 export const PORTAL_SESSION_HOURS = 12;
 
 export function normalizedPublicCode(value: string): string {
@@ -147,16 +160,42 @@ export async function loadCustomerPortalDto(
     .order("file_sort", { ascending: true });
   const identity = session.revision.payload.issuedIdentity;
   if (!identity) return null;
+  /*
+   * PLAKADAN GİZLENEN ALAN MÜŞTERİ PORTALINDA DA GÖRÜNMEZ.
+   *
+   * `hiddenFields` yalnız `nameplate.ts` tarafından okunuyordu; portal DTO'su
+   * onu hiç sormuyordu. Sonuç, kullanıcının bilerek gizlediği proje kodunun ve
+   * üretim yılının müşteri sayfasında durmasıydı — gizleme anahtarı bir kararı
+   * ifade eder ve o karar iki yüzde de geçerlidir.
+   *
+   * Yasal zorunlu alanlar plakada gizlenemez; portal ise bir belge yüzüdür,
+   * orada kullanıcının kararı bağlayıcıdır.
+   */
+  const hidden = new Set(session.revision.payload.hiddenFields);
+  const shown = (field: keyof typeof identity) => (hidden.has(field) ? "" : identity[field]);
+
+  // Müşteri markası: plakadakiyle AYNI kaynak (Yönetim → Müşteriler).
+  const { data: project } = await admin
+    .from("projects")
+    .select("end_customer_id")
+    .eq("id", session.portal.projectId)
+    .maybeSingle();
+  const customerLogoDataUrl = hidden.has("customer")
+    ? null
+    : await loadCustomerLogoDataUrl(admin, project?.end_customer_id);
+
   return {
+    customerName: shown("customer"),
+    customerLogoDataUrl,
     company: identity.manufacturer || "ORION CRANES",
     portalTitle: session.revision.payload.portal.title,
     note: session.revision.payload.portal.note,
     supportEmail: session.revision.payload.portal.supportEmail,
     product: identity.product,
-    craneType: identity.craneType,
+    craneType: shown("craneType"),
     serialNo: session.unit.serialNo,
-    productionYear: identity.productionYear,
-    projectCode: identity.projectCode,
+    productionYear: shown("productionYear"),
+    projectCode: shown("projectCode"),
     revisionLabel: `R${String(session.revision.revNo).padStart(2, "0")}`,
     publishedAt: session.revision.issuedAt,
     files: ((files ?? []) as Record<string, unknown>[]).map(fileDto),
@@ -200,6 +239,7 @@ export function customerPortalDtoForPreview({
   revisionNo,
   publishedAt,
   files,
+  customerLogoDataUrl,
 }: {
   identity: ProductPortalPayloadIdentity;
   serialNo: string;
@@ -208,17 +248,24 @@ export function customerPortalDtoForPreview({
   revisionNo: number;
   publishedAt?: string;
   files: ProductPortalFileDto[];
+  customerLogoDataUrl?: string | null;
 }): CustomerPortalDto {
+  // Önizleme, müşterinin GERÇEKTEN göreceği yüzdür; gizleme kararı burada da
+  // uygulanmalıdır, yoksa "Müşteri Ne Görüyor?" yalan söyler.
+  const hidden = new Set(payload.hiddenFields);
+  const shown = (field: keyof typeof identity) => (hidden.has(field) ? "" : identity[field]);
   return {
+    customerName: shown("customer"),
+    customerLogoDataUrl: hidden.has("customer") ? null : customerLogoDataUrl ?? null,
     company: identity.manufacturer || "ORION CRANES",
     portalTitle: payload.portal.title,
     note: payload.portal.note,
     supportEmail: payload.portal.supportEmail,
     product: identity.product,
-    craneType: identity.craneType,
+    craneType: shown("craneType"),
     serialNo,
-    productionYear: identity.productionYear,
-    projectCode: identity.projectCode,
+    productionYear: shown("productionYear"),
+    projectCode: shown("projectCode"),
     revisionLabel: `R${String(revisionNo).padStart(2, "0")}`,
     publishedAt: publishedAt ?? new Date().toISOString(),
     files,

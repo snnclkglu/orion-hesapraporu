@@ -47,6 +47,8 @@ import {
 } from "@/lib/calc/fields";
 import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
 import { MODULE_LABELS } from "@/lib/calc/labels";
+// Eşleme vinç kimlik plakasıyla ORTAKTIR; iki kopya bir gün ayrışırdı (md. 8).
+import { FEM_GROUP_BY_ISO_CLASS } from "@/lib/calc/mechanism-class";
 import { travelWheelHardnessText } from "@/lib/calc/modules/travelGroup";
 import {
   cabinInputsForDisplay,
@@ -1298,12 +1300,6 @@ export function altOptionNodes(
 }
 
 // ---------------------------------------------------------------- Kapak
-
-/** Ana kaldırma mekanizması için FEM grubu ve ISO sınıfı eşlemesi. */
-const FEM_GROUP_BY_ISO_CLASS: Record<string, string> = {
-  M1: "1Bm", M2: "1Bm", M3: "1Am", M4: "2m",
-  M5: "2m", M6: "3m", M7: "4m", M8: "5m",
-};
 
 /** Kapak künyesi: vinç tipi → kapasite → açıklık → kaldırma yüksekliği → sınıflar. */
 export interface ReportCoverSpec {

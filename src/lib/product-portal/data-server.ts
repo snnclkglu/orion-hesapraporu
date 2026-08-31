@@ -1,12 +1,14 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildManualSourceData } from "@/app/(app)/projects/[id]/manual/sources-data";
+import { calcInputFromRevision } from "@/lib/revision-load";
+import { mechanismClassText } from "@/lib/calc/mechanism-class";
 import { loadCurrentElectricalDoc } from "@/lib/electrical/data";
 import { loadManual, loadManualRevisions } from "@/lib/manual/data";
 import { loadCurrentSpec } from "@/lib/project-specs";
 import { getReportSettings } from "@/lib/settings";
 import {
+  frequencyFromSupplyVoltage,
   identityValues,
   resolveIdentityFields,
   withProductPortalDefaults,
@@ -50,13 +52,16 @@ export interface ProductPortalWorkspace {
 
 const EMPTY_VALUES: ProductIdentityValues = {
   manufacturer: "",
+  manufacturerAddress: "",
   product: "",
   craneType: "",
+  machineModel: "",
   projectCode: "",
   productionYear: "",
   capacity: "",
   span: "",
   liftHeight: "",
+  mass: "",
   dutyClass: "",
   supplyVoltage: "",
   controlVoltage: "",
@@ -74,11 +79,30 @@ function source(
   return { kind, label, ...(sourceId ? { sourceId } : {}), ...(revisionLabel ? { revisionLabel } : {}) };
 }
 
-function findSpec(
-  rows: readonly { label: string; value: string }[] | undefined,
-  pattern: RegExp
-): string {
-  return rows?.find((row) => pattern.test(row.label))?.value ?? "";
+/** Kapaktaki gibi: gereksiz sıfır basmadan, Türkçe ondalık ayracıyla. */
+function num(value: unknown): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+}
+
+/**
+ * KÜTLE = KÖPRÜ + ARABA(LAR). Kaynak etiketinde bu AÇIKÇA yazar.
+ *
+ * md. 1.7.3 kaldırılan/taşınan parçalar için kütle işaretlemesi ister. Uygulama
+ * tek bir "toplam vinç ağırlığı" tutmaz; `bridgeWeightT` (ana kirişler +
+ * başkirişler) ile araba ağırlıkları toplanır. Bu bir TÜRETMEDİR, uydurma
+ * değildir — ama neyin toplandığı kullanıcıya söylenmeden bırakılamaz, o yüzden
+ * kaynak etiketi "köprü + araba ağırlığı" der ve değer elle düzeltilebilir.
+ */
+function craneMass(specs: { bridgeWeightT?: unknown; mainTrolleyWeightT?: unknown; auxTrolleyWeightT?: unknown } | null): string {
+  if (!specs) return "";
+  const parts = [specs.bridgeWeightT, specs.mainTrolleyWeightT, specs.auxTrolleyWeightT]
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  if (parts.length === 0) return "";
+  const total = parts.reduce((sum, value) => sum + value, 0);
+  return `${num(total)} t`;
 }
 
 /**
@@ -90,7 +114,25 @@ export async function resolveAutomaticProductIdentity(
   projectId: string,
   payload: ProductPortalPayload
 ): Promise<{ fields: ResolvedIdentityField[]; values: ProductIdentityValues }> {
-  const [{ data: project }, { data: items }, { data: revisions }, settings, manualSources] =
+  /*
+   * KİMLİK HESAP GİRDİSİNDEN OKUNUR — EL KİTABININ BASILI SATIRLARINDAN DEĞİL.
+   *
+   * Önceki çözücü `buildManualSourceData` çağırıyor ve dönen tablolarda
+   * /^KAPASİTE$/, /frekans/ gibi ETİKET DESENLERİ arıyordu. İki bedeli vardı:
+   *
+   *   1. KIRILGANDI. Etiket metni el kitabı için değişirse kimlik sessizce
+   *      boşalır — plakaya kazınan bir değer için kabul edilemez bir bağ.
+   *   2. PAHALIYDI. O fonksiyon `runCalc`ı, ekipman gruplarını ve BÜTÜN
+   *      elektrik malzeme tablosunu (1000'er satır sayfalanarak) çalıştırır;
+   *      yedi metin alanı için her proje sayfası açılışında. Üstelik
+   *      `pdf/report.tsx` üzerinden @react-pdf'i de proje sayfası paketine
+   *      taşıyordu — `materialize-server.ts`in başındaki uyarının aynısı.
+   *
+   * Artık revizyonun kendi `inputs`/`selections` JSONB'si okunur ve değerler
+   * doğrudan `calcInput.specs`ten alınır. `runCalc` ÇAĞRILMAZ: motorun türettiği
+   * sınıf ve hız alanları zaten kaydedilirken `specs`e geri işlenmiştir.
+   */
+  const [{ data: project }, { data: items }, { data: revisions }, { data: job }, settings] =
     await Promise.all([
       supabase
         .from("projects")
@@ -99,42 +141,84 @@ export async function resolveAutomaticProductIdentity(
         .maybeSingle(),
       supabase
         .from("job_items")
-        .select("id, item_no, product_name, quantity")
+        .select("id, item_no, product_name, quantity, job_id")
         .eq("project_id", projectId)
         .order("sort", { ascending: true })
         .limit(1),
       supabase
         .from("revisions")
-        .select("id, rev_no, status")
+        .select("id, rev_no, status, inputs, selections")
         .eq("project_id", projectId)
         .order("rev_no", { ascending: false }),
+      supabase
+        .from("job_items")
+        .select("jobs!inner(workshop_exit_date, delivery_date)")
+        .eq("project_id", projectId)
+        .order("sort", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
       getReportSettings(supabase),
-      buildManualSourceData(supabase, projectId),
     ]);
 
   const item = items?.[0] ?? null;
   const report = (revisions ?? []).find((entry) => entry.status === "issued") ?? revisions?.[0] ?? null;
-  const cover = manualSources.coverSpecs ?? [];
-  const characteristics = manualSources.characteristics ?? [];
   const reportLabel = report ? `Hesap Raporu · V${report.rev_no}` : "Hesap Raporu";
 
+  const calc = report
+    ? calcInputFromRevision(
+        report.inputs as Parameters<typeof calcInputFromRevision>[0],
+        report.selections as Parameters<typeof calcInputFromRevision>[1]
+      )
+    : null;
+  const specs = calc?.specs ?? null;
+  const capacity = specs && Number.isFinite(specs.mainCapacityT)
+    ? `${num(specs.mainCapacityT)} t${
+        calc?.auxHoist && Number.isFinite(specs.auxCapacityT) ? ` / ${num(specs.auxCapacityT)} t` : ""
+      }`
+    : "";
+
+  /*
+   * ÜRETİM YILI = İMALATIN TAMAMLANDIĞI YIL (2006/42/AT Ek I md. 1.7.3).
+   *
+   * Önceki değer `new Date().getFullYear()` idi, yani KİMLİĞİN OLUŞTURULDUĞU
+   * yıl — yıl dönümünde sessizce kayar ve plakaya YANLIŞ bir yıl kazınırdı.
+   * Kaynak iş emrinin atölye çıkış tarihidir; yoksa teslim tarihi. İkisi de
+   * yoksa alan BOŞ kalır (değişmez md. 4: uydurma veri girilmez) ve kullanıcı
+   * elle yazar — plakadaki bir yılı tahmin etmek, boş bırakmaktan kötüdür.
+   */
+  const jobDates = (job?.jobs ?? null) as { workshop_exit_date?: string | null; delivery_date?: string | null } | null;
+  const productionDate = jobDates?.workshop_exit_date ?? jobDates?.delivery_date ?? "";
+  const productionYear = /^\d{4}/.test(String(productionDate)) ? String(productionDate).slice(0, 4) : "";
+
+  const supplyVoltage = String(specs?.supplyVoltage ?? "").trim();
   const automatic: ProductIdentityValues = {
     ...EMPTY_VALUES,
     manufacturer: settings.company.trim(),
+    // md. 1.7.3 TAM ADRES ister; şehir/ülke satırı ayrı tutulduğu için birleştirilir.
+    manufacturerAddress: [settings.address, settings.city].map((part) => String(part ?? "").trim()).filter(Boolean).join(" · "),
     product: String(item?.product_name ?? project?.name ?? "").trim(),
     craneType: String(project?.crane_type ?? "").trim(),
+    /*
+     * SERİ / TİP TANIMLAMASININ OTOMATİK KAYNAĞI YOKTUR.
+     *
+     * Uygulamada bir "model kodu" alanı yok ve uydurmak yasak (değişmez md. 4).
+     * Alan boş gelir, kullanıcı yazar; yerleşim boşluğu bir UYARI olarak
+     * bildirir (`layout.issues`), sessizce geçmez.
+     */
+    machineModel: "",
     projectCode: String(item?.item_no ?? project?.doc_no ?? "").trim(),
-    productionYear: String(new Date().getFullYear()),
-    capacity: findSpec(cover, /^KAPASİTE$/i),
-    span: findSpec(cover, /^AÇIKLIK$/i),
-    liftHeight: findSpec(cover, /KALDIRMA YÜKSEKLİĞİ/i),
+    productionYear,
+    capacity,
+    span: specs && Number.isFinite(specs.spanM) ? `${num(specs.spanM)} m` : "",
+    liftHeight: specs && Number.isFinite(specs.mainLiftHeightM) ? `${num(specs.mainLiftHeightM)} m` : "",
+    mass: craneMass(specs),
     dutyClass: [
-      findSpec(cover, /FEM SINIFI/i),
-      findSpec(cover, /ÇELİK KONSTRÜKSİYON SINIFI/i),
+      specs ? mechanismClassText(String(specs.hoistMechanismClass ?? "")) : "",
+      specs ? String(specs.structureClass ?? "").trim() : "",
     ].filter(Boolean).join(" · "),
-    supplyVoltage: findSpec(characteristics, /besleme.*gerilim|çalışma.*gerilim|şebeke.*gerilim/i),
-    controlVoltage: findSpec(characteristics, /kumanda.*gerilim|kontrol.*gerilim/i),
-    frequency: findSpec(characteristics, /frekans/i),
+    supplyVoltage,
+    controlVoltage: String(specs?.controlVoltage ?? "").trim(),
+    frequency: frequencyFromSupplyVoltage(supplyVoltage),
     customer: String(project?.customer ?? "").trim(),
     site: String(project?.crane_location ?? "").trim(),
   };
@@ -149,13 +233,16 @@ export async function resolveAutomaticProductIdentity(
   );
   const sources: Record<ProductIdentityField, IdentitySource> = {
     manufacturer: source("settings", "Rapor / firma ayarları"),
+    manufacturerAddress: source("settings", "Rapor / firma ayarları"),
     product: item ? itemSource : projectSource,
     craneType: projectSource,
+    machineModel: source("system", "Elle girilir · otomatik kaynağı yok"),
     projectCode: item ? itemSource : projectSource,
-    productionYear: source("system", "Kimlik oluşturma yılı"),
+    productionYear: source("job_item", "İş emri atölye çıkış / teslim tarihi", String(item?.id ?? "")),
     capacity: reportSource,
     span: reportSource,
     liftHeight: reportSource,
+    mass: source("report", `${reportLabel} · köprü + araba ağırlığı`, report ? String(report.id) : undefined),
     dutyClass: reportSource,
     supplyVoltage: reportSource,
     controlVoltage: reportSource,
@@ -179,12 +266,33 @@ function documentCandidate(
   };
 }
 
+/**
+ * ATLANAN KAYNAK İZ BIRAKIR — sessizce yok sayılmaz.
+ *
+ * `ready: false` ve `unavailableReason` tipte ve şemada tanımlıydı ama HİÇBİR
+ * YERDE üretilmiyordu: `documentCandidate` her zaman `ready: true` veriyordu,
+ * yani karttaki "Eksik" rozeti erişilemez koddu. Sonuç, kullanıcının bildirdiği
+ * kafa karışıklığıydı: sekmede "İşletme ve Bakım El Kitabı 1" yazarken portal
+ * listesinde el kitabı GÖRÜNMÜYORDU ve neden görünmediği hiçbir yerde yazmıyordu
+ * (sekme rozeti TASLAKLARI da sayar, portal yalnız YAYIMLANMIŞ sürümü alır).
+ *
+ * Artık kaynak var ama yayıma uygun değilse aday yine listelenir: dahil edilmez,
+ * "Eksik" rozetiyle görünür ve gerekçesini taşır. Kaynak hiç yoksa satır da
+ * yoktur — olmayan bir belgeye yer açmak, boş çerçeve göstermek olurdu.
+ */
+function unavailableCandidate(
+  input: Parameters<typeof documentCandidate>[0],
+  reason: string
+): PortalDocumentSelection {
+  return documentCandidate({ ...input, included: false, ready: false, unavailableReason: reason });
+}
+
 /** İç bölümlerden bulunan teslim edilebilir PDF'ler; henüz müşteri yayını değildir. */
 export async function discoverPortalDocuments(
   supabase: SupabaseClient,
   projectId: string
 ): Promise<PortalDocumentSelection[]> {
-  const [{ data: project }, { data: revisions }, manual, electrical, spec, { data: itemRows }] =
+  const [{ data: project }, { data: revisions }, { data: allRevisions }, manual, electrical, spec, { data: itemRows }] =
     await Promise.all([
       supabase.from("projects").select("doc_no, name").eq("id", projectId).maybeSingle(),
       supabase
@@ -193,6 +301,14 @@ export async function discoverPortalDocuments(
         .eq("project_id", projectId)
         .eq("status", "issued")
         .order("rev_no", { ascending: false }),
+      // Yayımlanmamış revizyonları da SAYARIZ: hiç rapor yoksa satır basmayız,
+      // varsa ama yayımlanmamışsa gerekçeyi yazarız.
+      supabase
+        .from("revisions")
+        .select("id, rev_no")
+        .eq("project_id", projectId)
+        .order("rev_no", { ascending: false })
+        .limit(1),
       loadManual(supabase, projectId),
       loadCurrentElectricalDoc(supabase, projectId),
       loadCurrentSpec(supabase, projectId),
@@ -226,22 +342,59 @@ export async function discoverPortalDocuments(
       fileSort: 10,
       accessMode: "view_watermarked",
     }));
+  } else if ((allRevisions ?? []).length > 0) {
+    // Rapor VAR ama hiçbiri yayımlanmamış. Sessizce atlamak, kullanıcının
+    // "hesap raporum var, neden listede yok?" sorusunu cevapsız bırakıyordu.
+    const reason = "Hesap raporunun yayımlanmış revizyonu yok; müşteri paketi taslak revizyondan üretilmez.";
+    output.push(unavailableCandidate({
+      id: "auto:report",
+      sourceKind: "report",
+      sourceId: String(allRevisions![0].id),
+      sourceLabel: "Yayımlanmış hesap raporu arşivi",
+      sourceRevisionLabel: "",
+      reportLevel: "detayli",
+      title: "Hesap Raporu · Detaylı",
+      ...portalFolder("hesap-raporlari"),
+      fileSort: 10,
+      accessMode: "view_watermarked",
+    }, reason));
+    output.push(unavailableCandidate({
+      id: "auto:equipment",
+      sourceKind: "equipment",
+      sourceId: String(allRevisions![0].id),
+      sourceLabel: "Hesap raporu revizyonundan otomatik üretilir",
+      sourceRevisionLabel: "",
+      equipmentDetail: "standart",
+      title: "Ekipman Listesi · Standart",
+      ...portalFolder("ekipman-listeleri"),
+      fileSort: 10,
+      accessMode: "view_watermarked",
+    }, reason));
   }
 
   if (manual) {
-    const issued = (await loadManualRevisions(supabase, manual.id)).find((entry) => entry.status === "issued");
-    if (issued) output.push(documentCandidate({
+    const manualRevisions = await loadManualRevisions(supabase, manual.id);
+    const issued = manualRevisions.find((entry) => entry.status === "issued");
+    const base = {
       id: "auto:manual",
-      sourceKind: "manual",
-      sourceId: issued.id,
+      sourceKind: "manual" as const,
+      sourceId: issued?.id ?? manual.id,
       sourceLabel: "Yayımlanmış işletme ve bakım el kitabı",
-      sourceRevisionLabel: `V${issued.revNo}`,
-      title: `İşletme ve Bakım El Kitabı · V${issued.revNo}`,
+      sourceRevisionLabel: issued ? `V${issued.revNo}` : "",
+      title: `İşletme ve Bakım El Kitabı${issued ? ` · V${issued.revNo}` : ""}`,
       ...portalFolder("isletme-bakim"),
       fileSort: 20,
       // Dijital kullanım talimatı müşterinin kaydedip yazdırabilmesi için indirilir.
-      accessMode: "download",
-    }));
+      accessMode: "download" as const,
+    };
+    output.push(issued
+      ? documentCandidate(base)
+      : unavailableCandidate(
+          base,
+          manualRevisions.length > 0
+            ? "El kitabının yayımlanmış sürümü yok; taslak müşteriye açılamaz. Önce el kitabını yayımlayın."
+            : "El kitabı henüz oluşturulmuş ama hiç sürümü yok."
+        ));
   }
 
   if (electrical) output.push(documentCandidate({
@@ -256,17 +409,26 @@ export async function discoverPortalDocuments(
     accessMode: "view_watermarked",
   }));
 
-  if (spec && spec.contentType === "application/pdf") output.push(documentCandidate({
-    id: "auto:specification",
-    sourceKind: "specification",
-    sourceId: spec.id,
-    sourceLabel: "Güncel teknik şartname",
-    sourceRevisionLabel: spec.revision,
-    title: `Teknik Şartname${spec.revision ? ` · ${spec.revision}` : ""}`,
-    ...portalFolder("proje-belgeleri"),
-    fileSort: 30,
-    accessMode: "download",
-  }));
+  if (spec) {
+    const specBase = {
+      id: "auto:specification",
+      sourceKind: "specification" as const,
+      sourceId: spec.id,
+      sourceLabel: "Güncel teknik şartname",
+      sourceRevisionLabel: spec.revision,
+      title: `Teknik Şartname${spec.revision ? ` · ${spec.revision}` : ""}`,
+      ...portalFolder("proje-belgeleri"),
+      fileSort: 30,
+      accessMode: "download" as const,
+    };
+    output.push(spec.contentType === "application/pdf"
+      ? documentCandidate(specBase)
+      : unavailableCandidate(
+          specBase,
+          // Word/Excel şartname müşteri paketine giremez: paket yalnız PDF taşır.
+          `Şartname PDF değil (${spec.contentType || "bilinmeyen tür"}); müşteri paketi yalnız PDF taşır.`
+        ));
+  }
 
   const itemIds = (itemRows ?? []).map((entry) => String(entry.id));
   const itemNos = (itemRows ?? []).map((entry) => String(entry.item_no ?? "")).filter(Boolean);
@@ -369,7 +531,15 @@ export function mergeDiscoveredDocuments(
       folderSort: entry.folderSort,
       fileSort: entry.fileSort,
       accessMode: entry.accessMode,
-      included: entry.included,
+      /*
+       * KAYNAK YAYIMA UYGUN DEĞİLSE KULLANICININ ESKİ "DAHİL" SEÇİMİ TAŞINMAZ.
+       *
+       * Aksi hâlde bir belge (ör. el kitabı yeni bir taslağa döndüğünde)
+       * yayıma uygunluğunu kaybeder ama işaretli kalır; yayım o belgeyi
+       * atlar ve müşteriye eksik paket gider. Uygunluk geri geldiğinde
+       * kullanıcı yeniden işaretler — sessiz bir eksik teslimden iyidir.
+       */
+      included: fresh.ready ? entry.included : false,
       ...(reportLevel ? { reportLevel } : {}),
       ...(equipmentDetail ? { equipmentDetail } : {}),
     };

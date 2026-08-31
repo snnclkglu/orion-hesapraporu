@@ -317,7 +317,11 @@ export const ALANLAR: Alan[] = [
       "src/lib/product-portal/**",
       "src/components/customer-portal/**",
       "src/app/(app)/projects/[id]/product-portal/**",
-      "src/app/(public)/paylas/vinc/**",
+      // `paylas/vinc/**` DİYE BİR DİZİN YOKTUR — bu işaretçi ölü bir yolu
+      // gösteriyordu ve gerçek portal kodu hiçbir kural dosyasının kapsamında
+      // değildi. Vinç portalının HTML ve işlem yüzleri Vercel fonksiyon bütçesi
+      // yüzünden mevcut teknik-resim paylaşım fonksiyonunda çalışır (rewrite).
+      "src/app/(public)/paylas/resim/**",
       "scripts/check-pdf-layout.py",
     ],
     al: ["Belge kimliği ve dosya adı"],

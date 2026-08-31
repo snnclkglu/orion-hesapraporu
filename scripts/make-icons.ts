@@ -209,6 +209,33 @@ async function main() {
     await markaPng(boya(readFileSync(join(MARKA, "orion-symbol.svg"), "utf8"), ZEMIN), 400)
   );
 
+  /*
+   * PLAKA FONTLARI `public/fonts`A KOPYALANIR — TARAYICI ONLARI KENDİ ÇEKER.
+   *
+   * Uygulamanın bütün PDF'leri sunucuda üretilir ve fontları `src/assets/fonts`
+   * altından `process.cwd()` ile okur. VİNÇ KİMLİK PLAKASI tek istisnadır:
+   * Vercel fonksiyon bütçesi yüzünden istemcide üretilir, yani fontlara
+   * TARAYICIDAN erişmek gerekir.
+   *
+   * Önce üç font base64'lenip proje sayfasının RSC yüküne prop olarak
+   * konuyordu — üstelik İKİ KEZ (`*DataUrl` ve `embeddedFontsCss`): sekmeyi hiç
+   * açmayan kullanıcı dahil HER proje sayfası ~0,94 MB fazladan taşıyordu.
+   * Statik dosya olarak sunulduklarında sayfa 0 bayt taşır, tarayıcı da
+   * dosyayı bir kez indirip önbelleğe alır.
+   *
+   * Kaynak yine `src/assets/fonts`tır; buradaki kopya ÜRETİLMİŞ çıktıdır ve
+   * elle düzenlenmez (ikonlarla aynı kural).
+   */
+  const FONT_KAYNAK = join(process.cwd(), "src", "assets", "fonts");
+  const FONT_HEDEF = join(process.cwd(), "public", "fonts");
+  mkdirSync(FONT_HEDEF, { recursive: true });
+  const PLAKA_FONTLARI = ["Archivo-Bold.ttf", "Archivo-ExtraBold.ttf", "IBMPlexMono-SemiBold.ttf"];
+  for (const ad of PLAKA_FONTLARI) {
+    writeFileSync(join(FONT_HEDEF, ad), readFileSync(join(FONT_KAYNAK, ad)));
+  }
+
+  console.log("Plaka fontları kopyalandı:");
+  console.log(`  public/fonts/ · ${PLAKA_FONTLARI.join(" · ")}`);
   console.log("İkonlar üretildi:");
   console.log("  src/app/icon.svg · favicon.ico (16·32·48) · apple-icon.png (180)");
   console.log("  public/brand/icon-192.png · icon-512.png · icon-maskable-512.png");

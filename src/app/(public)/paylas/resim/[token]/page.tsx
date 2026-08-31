@@ -7,7 +7,9 @@ import { ArrowLeft, KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
 import { resolvePublicDrawingShare } from "@/lib/drawing-public-share";
 import { ProtectedPdfViewer } from "@/app/(app)/drawing-viewer/[packageId]/[fileId]/protected-pdf-viewer";
 import { CustomerPortalView } from "@/components/customer-portal/customer-portal-view";
+import { PortalLoginButton } from "@/components/customer-portal/portal-login-button";
 import {
+  PORTAL_SUPPORT_EMAIL,
   loadCustomerPortalDto,
   normalizedPublicCode,
   portalCookieName,
@@ -82,9 +84,22 @@ async function customerPortal(codeValue: string, query: PageQuery) {
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             Vinçle birlikte paylaşılan müşteri parolasını girin. QR kodu yalnız vinç kimliğini taşır; parola kodun içinde değildir.
           </p>
+          {/*
+            * SEBEP AYRI SÖYLENİR.
+            *
+            * Tek bir "erişim sağlanamadı" cümlesi vardı: kilitlenen müşteri de,
+            * parolayı yanlış yazan da, paketi henüz yayımlanmamış olan da aynı
+            * şeyi okuyordu. Kilitli olduğunu bilmeyen müşteri denemeye devam
+            * ediyordu — bu, eski sayaç hatasıyla birleşince kilidi kalıcı yapan
+            * döngünün ta kendisiydi (bkz. migration 20260830000002).
+            */}
           {query.hata && (
             <div role="alert" className="mt-4 border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              Erişim sağlanamadı. Parolayı kontrol edin veya kısa bir süre sonra yeniden deneyin.
+              {query.hata === "kilit"
+                ? "Çok fazla hatalı deneme yapıldı. Güvenlik için erişim kısa süreyle durduruldu; yaklaşık 15 dakika sonra yeniden deneyin. Bu süre içinde yapılan denemeler süreyi uzatmaz."
+                : query.hata === "yayin"
+                  ? "Bu vinç için yayımlanmış bir doküman paketi bulunamadı. Parolanız doğru olsa bile paket yayına alınana kadar erişim açılmaz; aşağıdaki adrese yazın."
+                  : "Parola doğrulanamadı. Vinçle birlikte paylaşılan müşteri parolasını kontrol edin."}
             </div>
           )}
           <form action={`/paylas/vinc/${encodeURIComponent(code)}/giris`} method="post" className="mt-5 grid gap-3">
@@ -93,12 +108,14 @@ async function customerPortal(codeValue: string, query: PageQuery) {
               <KeyRound className="size-4 shrink-0 text-muted-foreground" />
               <input id="portal-password" name="password" type="password" autoComplete="current-password" required maxLength={128} className="min-w-0 flex-1 bg-transparent py-2 text-base outline-none" />
             </div>
-            <button type="submit" className="oc-tap mt-1 inline-flex min-h-11 items-center justify-center bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
-              Dokümanları Aç
-            </button>
+            <PortalLoginButton />
           </form>
           <p className="mt-5 border-t pt-4 text-xs leading-5 text-muted-foreground">
-            Şifrenizi unuttuysanız, proje dokümanlarında belirtilen ORION iletişim adresine yazın. Güvenlik nedeniyle mevcut parola gösterilmez; yeni parola üretilir.
+            Parolanızı unuttuysanız{" "}
+            <a href={`mailto:${PORTAL_SUPPORT_EMAIL}?subject=${encodeURIComponent(`Vinç doküman erişimi · ${code}`)}`} className="font-semibold text-primary underline underline-offset-2">
+              {PORTAL_SUPPORT_EMAIL}
+            </a>{" "}
+            adresine yazın ve <span className="font-mono">{code}</span> kodunu belirtin. Güvenlik nedeniyle mevcut parola gösterilmez; yenisi üretilir.
           </p>
         </div>
       </section>

@@ -46,9 +46,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  NAMEPLATE_SIZE_PRESETS,
+  NAMEPLATE_TOGGLE_FIELDS,
   buildNameplateSvg,
   createNameplateLayout,
-  NAMEPLATE_TOGGLE_FIELDS,
   productPortalUrl,
   type NameplateInput,
 } from "@/lib/product-portal/nameplate";
@@ -62,6 +63,11 @@ import {
   type ProductIdentityField,
 } from "@/lib/product-portal/types";
 import type { ProductPortalWorkspace } from "@/lib/product-portal/data-server";
+import {
+  PLATE_LOGO_URL,
+  SCREEN_FONT_CSS,
+  embeddedPlateAssets,
+} from "@/lib/product-portal/plate-assets";
 import {
   activateProductPortalRevision,
   createNextProductPortalRevision,
@@ -78,13 +84,16 @@ import {
 
 const FIELD_LABELS: Record<ProductIdentityField, string> = {
   manufacturer: "Üretici",
+  manufacturerAddress: "Üretici Adresi",
   product: "Ürün Adı",
   craneType: "Vinç Tipi",
+  machineModel: "Tip / Model",
   projectCode: "Proje / Ürün Kodu",
   productionYear: "Üretim Yılı",
   capacity: "Kaldırma Kapasitesi",
   span: "Açıklık",
   liftHeight: "Kaldırma Yüksekliği",
+  mass: "Kütle",
   dutyClass: "Çalışma Sınıfı",
   supplyVoltage: "Besleme Gerilimi",
   controlVoltage: "Kumanda Gerilimi",
@@ -155,13 +164,8 @@ export function ProductPortalCard({
   canEdit,
   workspace,
   portalOrigin,
-  logoDataUrl,
-  logoPaperDataUrl,
+  portalOriginPermanent,
   customerLogoDataUrl,
-  archivoBoldDataUrl,
-  archivoExtraBoldDataUrl,
-  plexDataUrl,
-  embeddedFontsCss,
   draftPreview,
   publishedPreview,
 }: {
@@ -169,26 +173,52 @@ export function ProductPortalCard({
   canEdit: boolean;
   workspace: ProductPortalWorkspace | null;
   portalOrigin: string;
-  logoDataUrl: string;
-  logoPaperDataUrl: string;
+  /** QR'a kazınacak adres KALICI mı; değilse plaka indirilemez. */
+  portalOriginPermanent: boolean;
   customerLogoDataUrl: string | null;
-  archivoBoldDataUrl: string;
-  archivoExtraBoldDataUrl: string;
-  plexDataUrl: string;
-  embeddedFontsCss: string;
   draftPreview: CustomerPortalDto | null;
   publishedPreview: CustomerPortalDto | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [pdfPending, setPdfPending] = useState(false);
+  const [svgPending, setSvgPending] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const displayRevision = workspace?.editableRevision
     ?? workspace?.revisions.find((revision) => revision.id === workspace.currentRevisionId)
     ?? workspace?.revisions[0]
     ?? null;
-  const [payload, setPayload] = useState(displayRevision?.payload ?? null);
-  const [units, setUnits] = useState<CraneUnitRow[]>(workspace?.units ?? []);
+  const serverPayload = displayRevision?.payload ?? null;
+  const serverUnits = useMemo(() => workspace?.units ?? [], [workspace]);
+  const [payload, setPayload] = useState(serverPayload);
+  const [units, setUnits] = useState<CraneUnitRow[]>(serverUnits);
   const [selectedUnitId, setSelectedUnitId] = useState(workspace?.units[0]?.id ?? "");
+
+  /*
+   * SUNUCU TAZELEMESİNİ İÇERİ AL — AMA KAYDEDİLMEMİŞ DÜZENLEMEYİ EZME.
+   *
+   * Bölüm bileşeni kartı artık payload'a göre yeniden monte ETMİYOR (bkz.
+   * `product-portal-section.tsx`: anahtar yalnız sürüm kimliğidir), çünkü yeniden
+   * montaj "Parolayı Yenile"nin bir kez gösterilen ham parolasını yok ediyordu.
+   * Bunun karşılığında taze veriyi burada uzlaştırmak gerekir: "Kaynakları Yenile"
+   * veya "PDF Ekle" sunucuda payload'ı değiştirdiğinde kart bunu görmelidir.
+   *
+   * Kural basittir: kullanıcının kaydedilmemiş bir düzenlemesi YOKSA taze sunucu
+   * hâli alınır; VARSA dokunulmaz ve kart kirli işaretlenir. Karşılaştırma referansla
+   * değil İÇERİKLE yapılır — sunucu bileşeni her render'da yeni nesne üretir, referans
+   * karşılaştırması her seferinde "değişti" derdi.
+   */
+  const serverSignature = JSON.stringify({ p: serverPayload, u: serverUnits });
+  const localSignature = JSON.stringify({ p: payload, u: units });
+  const [baseSignature, setBaseSignature] = useState(serverSignature);
+  if (serverSignature !== baseSignature) {
+    const hadLocalEdits = localSignature !== baseSignature;
+    setBaseSignature(serverSignature);
+    if (!hadLocalEdits) {
+      setPayload(serverPayload);
+      setUnits(serverUnits);
+    }
+  }
+  const dirty = localSignature !== baseSignature;
   const [previewMode, setPreviewMode] = useState<"draft" | "published">(
     workspace?.editableRevision ? "draft" : "published"
   );
@@ -220,13 +250,15 @@ export function ProductPortalCard({
       publicUrl: productPortalUrl(portalOrigin, selectedUnit.publicCode),
       identity: effectiveIdentity,
       hiddenFields: payload.hiddenFields,
-      logoDataUrl,
+      logoDataUrl: PLATE_LOGO_URL,
       customerLogoDataUrl,
-      embeddedFontsCss,
+      embeddedFontsCss: SCREEN_FONT_CSS,
       holeDiameterMm: payload.plate.holeDiameterMm,
       holeInsetMm: payload.plate.holeInsetMm,
+      ceMark: payload.plate.ceMark,
+      monochrome: payload.plate.monochrome,
     };
-  }, [customerLogoDataUrl, effectiveIdentity, embeddedFontsCss, logoDataUrl, payload, portalOrigin, selectedUnit]);
+  }, [customerLogoDataUrl, effectiveIdentity, payload, portalOrigin, selectedUnit]);
   const nameplateSvg = useMemo(() => nameplateInput ? buildNameplateSvg(nameplateInput) : "", [nameplateInput]);
   const nameplateLayout = useMemo(() => nameplateInput ? createNameplateLayout(nameplateInput) : null, [nameplateInput]);
 
@@ -324,6 +356,31 @@ export function ProductPortalCard({
     });
   }
 
+  /**
+   * SAYIYA ÇEVRİLEMEYEN GİRİŞ YAZILMAZ.
+   *
+   * Önceki hâl `Number(event.target.value)` idi; alan boşaltıldığında ya da
+   * virgüllü yazıldığında `NaN` payload'a giriyor, `createNameplateLayout`
+   * NaN ile hesaplamaya başlıyor ve önizleme komple kayboluyordu. Boş giriş
+   * ALANI SİLER (delik ölçüleri isteğe bağlıdır), geçerli sayı sınırına çekilir.
+   */
+  function setPlate(key: "widthMm" | "heightMm" | "holeDiameterMm" | "holeInsetMm", raw: string, min: number, max: number) {
+    setPayload((current) => {
+      if (!current) return current;
+      const text = raw.trim().replace(",", ".");
+      const plate = { ...current.plate };
+      if (!text) {
+        if (key === "widthMm" || key === "heightMm") return current;
+        delete plate[key];
+        return { ...current, plate };
+      }
+      const value = Number(text);
+      if (!Number.isFinite(value)) return current;
+      plate[key] = Math.min(max, Math.max(min, value));
+      return { ...current, plate };
+    });
+  }
+
   function setDocument(id: string, patch: Partial<PortalDocumentSelection>) {
     setPayload((current) => current ? ({
       ...current,
@@ -346,52 +403,124 @@ export function ProductPortalCard({
     return `${base} · ${optionLabel}${document.sourceRevisionLabel ? ` · ${document.sourceRevisionLabel}` : ""}`;
   }
 
-  function save() {
-    if (!activeWorkspace.editableRevision) return;
-    run(() => saveProductPortalDraft({
+  function saveDraft() {
+    if (!activeWorkspace.editableRevision) {
+      return Promise.resolve({ error: "Düzenlenebilir bir taslak yok; yeni sürüm açın." });
+    }
+    return saveProductPortalDraft({
       projectId,
-      revisionId: activeWorkspace.editableRevision!.id,
+      revisionId: activeWorkspace.editableRevision.id,
       serialBase: activePayload.serialBase,
       plate: activePayload.plate,
-      overrides: activePayload.overrides as Record<ProductIdentityField, string>,
+      overrides: activePayload.overrides,
       hiddenFields: activePayload.hiddenFields,
       portal: activePayload.portal,
       documents: activePayload.documents,
       units: units.map((unit) => ({ id: unit.id, serialNo: unit.serialNo })),
-    }), "Taslak kaydedildi.");
+    });
   }
 
-  function downloadNameplateSvg() {
-    if (!nameplateSvg || !selectedUnit) return;
-    downloadBlob(
-      new Blob([nameplateSvg], { type: "image/svg+xml;charset=utf-8" }),
-      safePlateName(selectedUnit.serialNo, activeRevision.revNo, "svg")
-    );
+  function save() {
+    run(saveDraft, "Taslak kaydedildi.");
   }
+
+  /*
+   * İNDİRİLEN SVG KENDİ KENDİNE YETER — EKRANDAKİ YETMEZ.
+   *
+   * Ekrandaki önizleme fontu ve logoyu `/fonts/...`, `/brand/...` adreslerinden
+   * okur; bu doğrudur ve proje sayfasına tek bayt bindirmez. Ama indirilen dosya
+   * MATBAAYA gider: orada bizim sunucumuz yoktur. Bu yüzden yalnız indirme
+   * anında fontlar ve logo çekilip base64 olarak GÖMÜLÜR.
+   */
+  /*
+   * PLAKA ANCAK KALICI ADRESLE BASILIR.
+   *
+   * QR baskı anında gömülür ve plaka metale kazınır; `localhost` ya da bir
+   * önizleme dağıtımının geçici adresi kazındığında geri dönüş YOKTUR. Kapı
+   * burada durur: kart uyarıyı gösterir, düğmeler kapanır.
+   */
+  const plateBlocked = !portalOriginPermanent;
+
+  async function downloadNameplateSvg() {
+    if (!nameplateInput || !selectedUnit || plateBlocked) return;
+    setSvgPending(true);
+    try {
+      const assets = await embeddedPlateAssets();
+      const svg = buildNameplateSvg({
+        ...nameplateInput,
+        logoDataUrl: assets.logoDataUrl,
+        embeddedFontsCss: assets.fontsCss,
+      });
+      downloadBlob(
+        new Blob([svg], { type: "image/svg+xml;charset=utf-8" }),
+        safePlateName(selectedUnit.serialNo, activeRevision.revNo, "svg")
+      );
+      toast.success("Baskı SVG'si hazırlandı; fontlar dosyaya gömüldü.");
+    } catch (error) {
+      console.error("[vinç kimliği] baskı SVG'si üretilemedi", error);
+      toast.error("Baskı SVG'si oluşturulamadı — plaka varlıkları okunamadı.");
+    } finally {
+      setSvgPending(false);
+    }
+  }
+
+  /*
+   * ZAMAN AŞIMI ŞART — BU ÜRETİM ASILI KALABİLİR, REDDEDİLMEZ.
+   *
+   * @react-pdf tarayıcıda hem WASM (yoga) hem blob worker (fflate) kullanır. Bunlardan
+   * biri Content-Security-Policy tarafından engellenirse promise NE ÇÖZÜLÜR NE
+   * REDDEDİLİR: `catch` hiç çalışmaz, `finally` hiç çalışmaz ve düğme sonsuza kadar
+   * "Hazırlanıyor"da kalır — kullanıcının 30.08.2026'da bildirdiği hata tam olarak
+   * budur. `next.config.ts` o iki direktifi artık veriyor, ama bir sonraki politika
+   * değişikliğinde aynı sessizliğe düşmemek için süre sınırı burada durur.
+   */
+  const PDF_TIMEOUT_MS = 20_000;
 
   async function downloadNameplatePdf() {
-    if (!nameplateInput || !selectedUnit) return;
+    if (!nameplateInput || !selectedUnit || plateBlocked) return;
     setPdfPending(true);
+    let timer: number | undefined;
     try {
       const { renderNameplatePdf } = await import("@/lib/product-portal/nameplate-pdf");
-      const blob = await renderNameplatePdf(nameplateInput, {
-        logoPaperDataUrl,
-        archivoBoldDataUrl,
-        archivoExtraBoldDataUrl,
-        plexDataUrl,
-      });
+      const blob = await Promise.race([
+        renderNameplatePdf(nameplateInput),
+        new Promise<never>((_, reject) => {
+          timer = window.setTimeout(
+            () => reject(new Error("PDF üretimi zaman aşımına uğradı; tarayıcı konsolunu kontrol edin.")),
+            PDF_TIMEOUT_MS
+          );
+        }),
+      ]);
       downloadBlob(blob, safePlateName(selectedUnit.serialNo, activeRevision.revNo, "pdf"));
       toast.success("Baskı PDF'i hazırlandı.");
-    } catch {
-      toast.error("Baskı PDF'i oluşturulamadı.");
+    } catch (error) {
+      // Gerçek sebep konsola ETİKETLİ yazılır; toast tek satırda okunur kalır.
+      console.error("[vinç kimliği] baskı PDF'i üretilemedi", error);
+      toast.error(
+        error instanceof Error && error.message
+          ? `Baskı PDF'i oluşturulamadı — ${error.message}`
+          : "Baskı PDF'i oluşturulamadı."
+      );
     } finally {
+      if (timer !== undefined) window.clearTimeout(timer);
       setPdfPending(false);
     }
   }
 
   const preview = previewMode === "published" ? publishedPreview : liveDraftPreview;
   const readiness = [
-    { label: "Portal adresi", ok: /^https:\/\//i.test(portalOrigin) || portalOrigin.startsWith("http://localhost") },
+    /*
+     * LOCALHOST "HAZIR" DEĞİLDİR.
+     *
+     * Önceki kontrol `http://localhost` adresini geçerli sayıyordu ve plaka
+     * indirmesi bu kontrole HİÇ bağlı değildi: geliştirme makinesinden basılan
+     * bir plaka, QR'ında `localhost:3000` ile fabrikaya gidebilirdi. Adres
+     * kalıcı değilse plaka basılamaz.
+     */
+    {
+      label: portalOriginPermanent ? "Kalıcı portal adresi" : "Kalıcı portal adresi tanımlı değil",
+      ok: portalOriginPermanent && /^https:\/\//i.test(portalOrigin),
+    },
     { label: "Paket yayında", ok: Boolean(workspace.currentRevisionId) },
     { label: "Parola hazır", ok: Boolean(selectedUnit?.hasPassword) },
     { label: "Erişim açık", ok: Boolean(selectedUnit?.portalEnabled) },
@@ -412,8 +541,36 @@ export function ProductPortalCard({
             {workspace.editableRevision && canEdit ? (
               <>
                 <Button variant="outline" className="min-h-11" disabled={pending} onClick={() => run(() => refreshProductPortalSources(projectId, displayRevision.id), "Kaynak önerileri yenilendi.")}><RefreshCw className="size-4" /> Kaynakları Yenile</Button>
-                <Button variant="outline" className="min-h-11" disabled={pending} onClick={save}><Save className="size-4" /> Taslağı Kaydet</Button>
-                <Button className="min-h-11" disabled={pending} onClick={() => run(() => issueProductPortalRevision(projectId, displayRevision.id), "Paket yayımlandı; QR erişimi için parola ve erişim durumunu kontrol edin.")}><Send className="size-4" /> Yayımla</Button>
+                {dirty && <Badge variant="outline" className="self-center border-primary/40 text-primary">Kaydedilmemiş değişiklik</Badge>}
+                <Button variant={dirty ? "default" : "outline"} className="min-h-11" disabled={pending} onClick={save}><Save className="size-4" /> Taslağı Kaydet</Button>
+                {/*
+                  * YAYIM VERİTABANINDAKİ TASLAĞI ALIR, EKRANDAKİNİ DEĞİL.
+                  *
+                  * `issueProductPortalRevision` payload'ı sunucudan okur. Kaydedilmemiş
+                  * bir düzenlemeyle "Yayımla"ya basmak, kullanıcının ekranda GÖRDÜĞÜNDEN
+                  * başka bir paketi müşteriye açar — ve yayımlanan sürüm değişmezdir,
+                  * geri alınamaz. O yüzden önce kaydedilir; kullanıcı onaylar.
+                  */}
+                <Button className="min-h-11" disabled={pending} onClick={() => {
+                  if (dirty) {
+                    if (!window.confirm("Kaydedilmemiş değişiklikleriniz var. Önce kaydedilip sonra yayımlansın mı?")) return;
+                    startTransition(async () => {
+                      const saved = await saveDraft();
+                      if (saved.error) {
+                        toast.error(saved.error);
+                        return;
+                      }
+                      const issued = await issueProductPortalRevision(projectId, displayRevision.id);
+                      if (issued.error) {
+                        toast.error(issued.error);
+                        return;
+                      }
+                      toast.success("Taslak kaydedildi ve paket yayımlandı; parola ve erişim durumunu kontrol edin.");
+                    });
+                    return;
+                  }
+                  run(() => issueProductPortalRevision(projectId, displayRevision.id), "Paket yayımlandı; QR erişimi için parola ve erişim durumunu kontrol edin.");
+                }}><Send className="size-4" /> Yayımla</Button>
               </>
             ) : canEdit ? (
               <Button className="min-h-11" disabled={pending} onClick={() => run(() => createNextProductPortalRevision(projectId), "Yeni portal sürümü açıldı.")}><Plus className="size-4" /> Yeni Sürüm</Button>
@@ -434,14 +591,22 @@ export function ProductPortalCard({
                   ))}
                 </div>
                 {selectedUnit && (
-                  <div className="grid items-end gap-3 border-t pt-3 lg:grid-cols-[100px_minmax(180px,1fr)_auto]">
-                    <div><Label>Ünite</Label><div className="mt-2 font-mono font-semibold">{selectedUnit.suffix || "Tek"}</div></div>
+                  /*
+                   * `items-end` DEĞİL `items-start`: hücreler farklı yükseklikte.
+                   * Seri numarası hücresi etiket + alan + açıklama satırı taşır, "Ünite"
+                   * hücresi yalnız etiket + değer. Alt hizalamada "Ünite" etiketi "Seri
+                   * Numarası"ndan 31 px AŞAĞIDA duruyordu (ölçüldü) ve iki etiket ayrı
+                   * satırlarmış gibi okunuyordu. Üstten hizalanınca etiket satırı ortaktır.
+                   */
+                  <div className="grid items-start gap-3 border-t pt-3 lg:grid-cols-[100px_minmax(180px,1fr)_auto]">
+                    <div><Label>Ünite</Label><div className="mt-1 flex h-11 items-center font-mono font-semibold">{selectedUnit.suffix || "Tek"}</div></div>
                     <div>
                       <Label htmlFor={`serial-${selectedUnit.id}`}>Seri Numarası</Label>
                       <Input id={`serial-${selectedUnit.id}`} className="mt-1 font-mono" value={selectedUnit.serialNo} disabled={!workspace.editableRevision || !canEdit || hasIssuedRevision} onChange={(event) => setUnits((current) => current.map((row) => row.id === selectedUnit.id ? { ...row, serialNo: event.target.value } : row))} />
                       {hasIssuedRevision && <p className="mt-1 text-[10px] text-muted-foreground">İlk yayından sonra fiziksel seri numarası kilitlenir.</p>}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    {/* Etiket satırı kadar boşluk: düğmeler seri numarası ALANIYLA hizalanır. */}
+                    <div className="flex flex-wrap gap-2 lg:mt-6">
                       <Button type="button" variant="outline" className="min-h-11" disabled={!canEdit || pending} onClick={() => startTransition(async () => {
                         const result = await rotateCraneUnitPassword(projectId, selectedUnit.id);
                         if (result.error) {
@@ -504,16 +669,70 @@ export function ProductPortalCard({
               <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-3 py-3">
                 <div><div className="oc-kicker text-muted-foreground">Baskı Önizlemesi</div><div className="mt-1 font-mono text-xs">{payload.plate.widthMm} × {payload.plate.heightMm} mm · SVG / PDF</div></div>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" className="min-h-11 border-primary text-primary hover:text-primary" disabled={!selectedUnit} onClick={downloadNameplateSvg}><Download className="size-4" /> SVG</Button>
-                  <Button type="button" variant="outline" className="min-h-11 border-primary text-primary hover:text-primary" disabled={!selectedUnit || pdfPending} onClick={downloadNameplatePdf}><FileDown className="size-4" /> {pdfPending ? "Hazırlanıyor" : "Baskı PDF"}</Button>
+                  <Button type="button" variant="outline" className="min-h-11 border-primary text-primary hover:text-primary" disabled={!selectedUnit || svgPending || plateBlocked} onClick={downloadNameplateSvg}><Download className="size-4" /> {svgPending ? "Hazırlanıyor" : "SVG"}</Button>
+                  <Button type="button" variant="outline" className="min-h-11 border-primary text-primary hover:text-primary" disabled={!selectedUnit || pdfPending || plateBlocked} onClick={downloadNameplatePdf}><FileDown className="size-4" /> {pdfPending ? "Hazırlanıyor" : "Baskı PDF"}</Button>
                 </div>
               </header>
+              {plateBlocked && (
+                <div className="border-b border-destructive/30 bg-destructive/5 px-3 py-2.5 text-xs leading-5 text-destructive">
+                  <span className="font-semibold">Plaka indirilemez.</span> QR'a gömülecek adres bu ortamda
+                  geçici: <span className="font-mono">{portalOrigin}</span>. Adres plakaya kazınır ve bir daha
+                  değiştirilemez. Kalıcı adresi <span className="font-mono">CUSTOMER_PORTAL_ORIGIN</span>
+                  ortam değişkeniyle tanımlayın.
+                </div>
+              )}
               <div className="bg-white p-2 sm:p-3">
                 <div className="overflow-hidden border bg-white [&>svg]:block [&>svg]:h-auto [&>svg]:max-w-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: nameplateSvg }} />
               </div>
-              <div className="grid gap-3 border-t p-3 sm:grid-cols-2">
-                <div><Label>Genişlik (mm)</Label><Input type="number" min={120} value={payload.plate.widthMm} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setPayload({ ...payload, plate: { ...payload.plate, widthMm: Number(event.target.value) } })} /></div>
-                <div><Label>Yükseklik (mm)</Label><Input type="number" min={80} value={payload.plate.heightMm} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setPayload({ ...payload, plate: { ...payload.plate, heightMm: Number(event.target.value) } })} /></div>
+              <div className="grid gap-3 border-t p-3">
+                <div>
+                  <Label>Hazır Ölçü</Label>
+                  <div className="mt-1.5 flex flex-wrap gap-2">
+                    {NAMEPLATE_SIZE_PRESETS.map((preset) => {
+                      const active = payload.plate.widthMm === preset.widthMm && payload.plate.heightMm === preset.heightMm;
+                      return (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          disabled={!workspace.editableRevision || !canEdit}
+                          onClick={() => setPayload({ ...payload, plate: { ...payload.plate, widthMm: preset.widthMm, heightMm: preset.heightMm } })}
+                          className={`oc-tap min-h-11 border px-3 text-xs disabled:cursor-not-allowed disabled:opacity-50 ${active ? "border-primary bg-primary/[0.08] text-primary" : "bg-background"}`}
+                        >
+                          {preset.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {/*
+                  * Boş veya virgüllü giriş `Number("")` ile NaN üretip bütün
+                  * çizimi düşürüyordu; `plateNumber` sayıya çevrilemeyen değeri
+                  * hiç yazmaz, geçerli olanı ise sınırlarına çeker.
+                  */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div><Label>Genişlik (mm)</Label><Input type="number" min={120} max={1000} className="mt-1" value={payload.plate.widthMm} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setPlate("widthMm", event.target.value, 120, 1000)} /></div>
+                  <div><Label>Yükseklik (mm)</Label><Input type="number" min={80} max={1000} className="mt-1" value={payload.plate.heightMm} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setPlate("heightMm", event.target.value, 80, 1000)} /></div>
+                  <div><Label>Delik Çapı (mm)</Label><Input type="number" min={0} max={50} step="0.5" className="mt-1" placeholder="" value={payload.plate.holeDiameterMm ?? ""} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setPlate("holeDiameterMm", event.target.value, 0, 50)} /></div>
+                  <div><Label>Delik Payı (mm)</Label><Input type="number" min={0} max={100} step="0.5" className="mt-1" value={payload.plate.holeInsetMm ?? ""} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setPlate("holeInsetMm", event.target.value, 0, 100)} /></div>
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  {/*
+                    * CE bir BEYANDIR: yalnız uygunluk değerlendirmesi tamamlanmış
+                    * ve AT Uygunluk Beyanı düzenlenmiş makineye iliştirilir.
+                    */}
+                  <DraftToggle
+                    checked={payload.plate.ceMark !== false}
+                    disabled={!workspace.editableRevision || !canEdit}
+                    label="CE işareti bas"
+                    onChange={(checked) => setPayload({ ...payload, plate: { ...payload.plate, ceMark: checked } })}
+                  />
+                  <DraftToggle
+                    checked={payload.plate.monochrome === true}
+                    disabled={!workspace.editableRevision || !canEdit}
+                    label="Tek renk (kazıma)"
+                    onChange={(checked) => setPayload({ ...payload, plate: { ...payload.plate, monochrome: checked } })}
+                  />
+                </div>
               </div>
               <div className="border-t p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -528,7 +747,22 @@ export function ProductPortalCard({
                   <span>{nameplateLayout?.title.lines.length === 2 ? "ÜRÜN ADI · İKİ SATIRA YERLEŞTİRİLDİ" : "ÜRÜN ADI · TEK SATIR"}</span>
                   <span>QR MODÜLÜ · {nameplateLayout ? `${nameplateLayout.qr.moduleMm.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} mm` : "—"}</span>
                 </div>
-                {nameplateLayout?.title.overflow && <p className="mt-3 border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">Ürün adı iki satırlık baskı alanına sığmıyor; daha kısa bir plaka adı girin.</p>}
+                {/*
+                  * BASKI DENETİMİ — yerleşim ne bulduysa onu söyler.
+                  *
+                  * Eksik CE yüksekliği, boş imalatçı adresi, sığmayan başlık,
+                  * okunmayacak kadar küçük yazı ve yazı alanına giren delik
+                  * aynı listede toplanır. Plakanın kendisi bunu bilir; kartın
+                  * işi yalnız göstermektir (`nameplate.ts:issues`).
+                  */}
+                {nameplateLayout && nameplateLayout.issues.length > 0 && (
+                  <div className="mt-3 border border-destructive/30 bg-destructive/5 p-2.5">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive"><TriangleAlert className="size-3.5" /> Baskı denetimi · {nameplateLayout.issues.length} uyarı</div>
+                    <ul className="mt-1.5 grid gap-1 text-[11px] leading-4 text-destructive">
+                      {nameplateLayout.issues.map((issue) => <li key={issue}>· {issue}</li>)}
+                    </ul>
+                  </div>
+                )}
                 {selectedUnit && (
                   <div className="mt-3 flex min-w-0 items-center gap-2 border-t pt-3">
                     <span className="min-w-0 flex-1 break-all font-mono text-[10px] text-muted-foreground">{portalUrl}</span>
@@ -549,8 +783,19 @@ export function ProductPortalCard({
         <div className="divide-y">
           {payload.documents.map((document) => (
             <div key={document.id} className="grid min-w-0 gap-3 px-4 py-4 lg:grid-cols-[auto_minmax(220px,1fr)_minmax(430px,1.35fr)_auto] lg:items-center">
-              <DraftToggle checked={document.included} disabled={!workspace.editableRevision || !canEdit} label="Dahil" onChange={(included) => setDocument(document.id, { included })} />
-              <div className="min-w-0"><Label>Belge Adı</Label><Input className="mt-1 min-w-0" value={document.title} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setDocument(document.id, { title: event.target.value })} /><div className="mt-1 break-words font-mono text-[10px] text-muted-foreground">{document.sourceLabel}{document.sourceRevisionLabel ? ` · ${document.sourceRevisionLabel}` : ""}</div></div>
+              {/* Hazır olmayan kaynak İŞARETLENEMEZ: yayım onu zaten atlar, işaretli
+                  bırakmak müşteriye eksik paket gideceğini gizlerdi. */}
+              <DraftToggle checked={document.included} disabled={!workspace.editableRevision || !canEdit || !document.ready} label="Dahil" onChange={(included) => setDocument(document.id, { included })} />
+              <div className="min-w-0">
+                <Label>Belge Adı</Label>
+                <Input className="mt-1 min-w-0" value={document.title} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setDocument(document.id, { title: event.target.value })} />
+                <div className="mt-1 break-words font-mono text-[10px] text-muted-foreground">{document.sourceLabel}{document.sourceRevisionLabel ? ` · ${document.sourceRevisionLabel}` : ""}</div>
+                {/* Neden yayımlanamadığı SATIRIN KENDİSİNDE yazar; kullanıcı
+                    "belgem var ama listede yok" sorusuyla baş başa kalmaz. */}
+                {!document.ready && document.unavailableReason && (
+                  <p className="mt-1.5 border-l-2 border-destructive/50 pl-2 text-[11px] leading-4 text-destructive">{document.unavailableReason}</p>
+                )}
+              </div>
               <div className="grid min-w-0 gap-3 sm:grid-cols-3">
                 <div className="min-w-0">
                   <Label>Belge Türü</Label>

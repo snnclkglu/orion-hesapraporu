@@ -29,9 +29,19 @@ function safeFileName(value: string, fallback = "dokuman.pdf"): string {
   return value.replace(/[\r\n"]/g, " ").trim() || fallback;
 }
 
-function failure(request: Request, code: string, status = 303) {
+/**
+ * KİLİT İLE YANLIŞ PAROLA MÜŞTERİYE AYNI ŞEYİ SÖYLEMEZ.
+ *
+ * Tek bir `hata=1` vardı: parolasını yanlış yazan da, deneme hakkını doldurup
+ * kilitlenen de aynı cümleyi görüyordu. Kilitli olduğunu bilmeyen müşteri
+ * denemeye devam ediyor ve (eski sayaç hatasıyla birlikte) kilidi kendi eliyle
+ * uzatıyordu. Sebep artık adreste taşınır; sayfa ona göre konuşur.
+ */
+type PortalFailure = "parola" | "kilit" | "yayin";
+
+function failure(request: Request, code: string, reason: PortalFailure = "parola", status = 303) {
   const url = new URL(`/paylas/vinc/${encodeURIComponent(code)}`, request.url);
-  url.searchParams.set("hata", "1");
+  url.searchParams.set("hata", reason);
   return NextResponse.redirect(url, status);
 }
 
@@ -56,7 +66,7 @@ function externalPortalPath(request: Request): string[] | null {
 
 async function loginPortal(request: Request, rawCode: string): Promise<Response> {
   const code = normalizedPublicCode(rawCode);
-  if (!PUBLIC_CODE_PATTERN.test(code)) return failure(request, code);
+  if (!PUBLIC_CODE_PATTERN.test(code)) return failure(request, code, "parola");
   const fingerprints = portalRequestFingerprints(request, code);
   const admin = createAdminClient();
   const { data: rateRows, error: rateError } = await admin.rpc(
@@ -71,7 +81,10 @@ async function loginPortal(request: Request, rawCode: string): Promise<Response>
       user_agent_hash: fingerprints.userAgentHash,
       result: "rate_limited",
     });
-    const response = failure(request, code);
+    // `Retry-After` bir 303 yönlendirmesinde tarayıcıya hiçbir şey ifade etmez;
+    // asıl bilgi sayfaya adresle taşınır. Başlık yine de yazılır: otomatik
+    // istemciler ve günlükler için anlamlıdır.
+    const response = failure(request, code, "kilit");
     response.headers.set("Retry-After", String(Math.max(1, Number(rate?.retry_after ?? 900))));
     return response;
   }
@@ -89,9 +102,15 @@ async function loginPortal(request: Request, rawCode: string): Promise<Response>
   if (unit?.password_salt && unit.password_hash) {
     valid = await verifyPortalPassword(password, unit.password_salt, unit.password_hash);
   } else {
-    await hashPortalPassword(password.length >= 8 && Buffer.byteLength(password, "utf8") <= 128
-      ? password
-      : "gecersiz-portal-parolasi");
+    /*
+     * SAHTE HESAPLAMA — zamanlama sızıntısını kapatır, ama KENDİ DÜŞMEMELİDİR.
+     *
+     * `hashPortalPassword` 8–128 BAYT dışındaki girdide fırlatır ve buradaki
+     * ön kontrol KARAKTER sayısına bakıyordu; NFKC normalizasyonu uzunluğu
+     * değiştirebildiği için sınır durumunda giriş ucu 500 veriyordu. Sahte
+     * hesabın amacı yalnız süre yakmaktır; hatası hiçbir şeyi değiştirmez.
+     */
+    await hashPortalPassword("gecersiz-portal-parolasi").catch(() => undefined);
   }
   if (!unit || !valid) {
     await admin.from("product_portal_access_events").insert({
@@ -101,7 +120,7 @@ async function loginPortal(request: Request, rawCode: string): Promise<Response>
       user_agent_hash: fingerprints.userAgentHash,
       result: "invalid",
     });
-    return failure(request, code);
+    return failure(request, code, "parola");
   }
 
   // Yayım işaretçisi veya dosya paketi yoksa oturum üretme. Aksi hâlde giriş
@@ -138,7 +157,7 @@ async function loginPortal(request: Request, rawCode: string): Promise<Response>
       user_agent_hash: fingerprints.userAgentHash,
       result: "inactive_release",
     });
-    return failure(request, code);
+    return failure(request, code, "yayin");
   }
 
   await admin.rpc("reset_product_portal_login_attempt", {
@@ -153,7 +172,7 @@ async function loginPortal(request: Request, rawCode: string): Promise<Response>
     password_version: unit.password_version,
     expires_at: expiresAt.toISOString(),
   });
-  if (sessionError) return failure(request, code);
+  if (sessionError) return failure(request, code, "yayin");
 
   await admin.from("product_portal_access_events").insert({
     unit_id: unit.id,
@@ -175,6 +194,51 @@ async function loginPortal(request: Request, rawCode: string): Promise<Response>
   return response;
 }
 
+/**
+ * ÇIKIŞ — oturum SUNUCUDA iptal edilir, sonra çerez silinir.
+ *
+ * Portal ortak bir bilgisayardan da açılır (şantiye ofisi, müşteri bakım
+ * odası). Yalnız çerezi silmek, kopyalanmış bir çerezi 12 saat daha geçerli
+ * bırakırdı; oturum satırı `revoked_at` ile kapatılır.
+ */
+async function logoutPortal(request: Request, rawCode: string): Promise<Response> {
+  const code = normalizedPublicCode(rawCode);
+  const token = cookieValue(request, portalCookieName(code));
+  const admin = createAdminClient();
+  if (token) {
+    const { data: session } = await admin
+      .from("product_portal_sessions")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("token_hash", sha256(token))
+      .is("revoked_at", null)
+      .select("unit_id")
+      .maybeSingle();
+    if (session?.unit_id) {
+      const fingerprints = portalRequestFingerprints(request, code);
+      await admin.from("product_portal_access_events").insert({
+        unit_id: session.unit_id,
+        code_hash: fingerprints.codeHash,
+        ip_hash: fingerprints.ipHash,
+        user_agent_hash: fingerprints.userAgentHash,
+        result: "logout",
+      });
+    }
+  }
+  const response = NextResponse.redirect(
+    new URL(`/paylas/vinc/${encodeURIComponent(code)}`, request.url),
+    303
+  );
+  response.cookies.set(portalCookieName(code), "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: `/paylas/vinc/${code}`,
+    maxAge: 0,
+  });
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
+}
+
 async function servePortalDocument(
   request: Request,
   rawCode: string,
@@ -182,6 +246,33 @@ async function servePortalDocument(
   mode: "content" | "indir"
 ): Promise<Response> {
   const code = normalizedPublicCode(rawCode);
+
+  /*
+   * FİLİGRANLI BELGE ADRES ÇUBUĞUNDAN AÇILAMAZ.
+   *
+   * "Filigranlı görüntüle" bir indirme engeli olarak sunuluyor ama uç HAM PDF
+   * baytı döndürüyor: müşteri ağ sekmesinden adresi kopyalayıp yeni sekmede
+   * açtığında tarayıcının kendi görüntüleyicisi açılıyor ve Kaydet çalışıyordu.
+   *
+   * Tam koruma sayfayı görüntüye çevirmeden mümkün değildir (kullanıcı kararı,
+   * 30.08.2026: görüntüye çevirme YOK). Kapatılabilecek olan KOLAY yoldur:
+   * `Sec-Fetch-Dest` üst gezinme isteğini (`document`) belge alımından (`empty`)
+   * ayırır. Görüntüleyici `fetch` ile çeker → `empty`; adres çubuğu → `document`.
+   * Başlığı göndermeyen eski tarayıcılarda kısıtlama uygulanmaz; amaç sızıntıyı
+   * kapatmaktır, DRM iddia etmek değil.
+   *
+   * `indir` kipi BİLEREK muaftır: orada niyet zaten dosyayı vermektir.
+   */
+  if (mode === "content") {
+    const dest = request.headers.get("sec-fetch-dest");
+    if (dest === "document" || dest === "iframe" || dest === "object" || dest === "embed") {
+      return new Response("Bu belge yalnız müşteri portalı görüntüleyicisinde açılır.", {
+        status: 403,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    }
+  }
+
   const resolved = await resolvePortalDocument(
     code,
     cookieValue(request, portalCookieName(code)),
@@ -189,6 +280,22 @@ async function servePortalDocument(
   ).catch(() => null);
   const requiredAccess = mode === "indir" ? "download" : "view_watermarked";
   if (!resolved || resolved.file.accessMode !== requiredAccess) {
+    /*
+     * REDDEDİLEN ERİŞİM DE BİR OLAYDIR.
+     *
+     * Yalnız başarılı görüntüleme ve indirme yazılıyordu; oturumu düşmüş ya da
+     * başkasının belgesini deneyen bir istek denetim defterinde HİÇ iz
+     * bırakmıyordu. Bir sızıntı şüphesinde bakılacak ilk kayıt tam olarak budur.
+     */
+    const fingerprints = portalRequestFingerprints(request, code);
+    await createAdminClient().from("product_portal_access_events").insert({
+      unit_id: null,
+      code_hash: fingerprints.codeHash,
+      ip_hash: fingerprints.ipHash,
+      user_agent_hash: fingerprints.userAgentHash,
+      result: "document_denied",
+      document_id: /^[0-9a-f-]{36}$/i.test(documentId) ? documentId : null,
+    });
     return new Response("Belge bulunamadı", { status: 404 });
   }
 
@@ -275,10 +382,11 @@ export async function POST(
   const { token } = await params;
   const query = request.nextUrl.searchParams;
   const path = externalPortalPath(request);
-  const rewrittenLogin = path?.length === 4 && path[3] === "giris";
-  if (!rewrittenLogin && (query.get("portal") !== "vinc" || query.get("action") !== "giris")) {
-    return new Response("Bulunamadı", { status: 404 });
-  }
+  const rewrittenAction = path?.length === 4 ? path[3] : null;
+  const action = rewrittenAction
+    ?? (query.get("portal") === "vinc" ? query.get("action") : null);
+  if (action === "cikis") return logoutPortal(request, token);
+  if (action !== "giris") return new Response("Bulunamadı", { status: 404 });
   return loginPortal(request, token);
 }
 

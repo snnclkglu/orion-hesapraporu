@@ -1,6 +1,3 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { cache } from "react";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { loadCustomerLogoDataUrl } from "@/lib/customers/logo-data-url-server";
@@ -9,29 +6,6 @@ import { loadProductPortalWorkspace } from "@/lib/product-portal/data-server";
 import { withProductPortalDefaults } from "@/lib/product-portal/identity";
 import type { ProductPortalFileDto } from "@/lib/product-portal/types";
 import { ProductPortalCard } from "./product-portal-card";
-
-const loadNameplateAssets = cache(async () => {
-  const root = process.cwd();
-  const [logo, logoPaper, archivoBold, archivoExtraBold, plex] = await Promise.all([
-    fs.readFile(path.join(root, "public", "brand", "orion-logo-white.svg")),
-    fs.readFile(path.join(root, "public", "brand", "orion-logo-paper.png")),
-    fs.readFile(path.join(root, "src", "assets", "fonts", "Archivo-Bold.ttf")),
-    fs.readFile(path.join(root, "src", "assets", "fonts", "Archivo-ExtraBold.ttf")),
-    fs.readFile(path.join(root, "src", "assets", "fonts", "IBMPlexMono-SemiBold.ttf")),
-  ]);
-  return {
-    logoDataUrl: `data:image/svg+xml;base64,${logo.toString("base64")}`,
-    logoPaperDataUrl: `data:image/png;base64,${logoPaper.toString("base64")}`,
-    archivoBoldDataUrl: `data:font/ttf;base64,${archivoBold.toString("base64")}`,
-    archivoExtraBoldDataUrl: `data:font/ttf;base64,${archivoExtraBold.toString("base64")}`,
-    plexDataUrl: `data:font/ttf;base64,${plex.toString("base64")}`,
-    embeddedFontsCss: `
-      @font-face{font-family:Archivo;src:url(data:font/ttf;base64,${archivoBold.toString("base64")}) format('truetype');font-weight:700}
-      @font-face{font-family:Archivo;src:url(data:font/ttf;base64,${archivoExtraBold.toString("base64")}) format('truetype');font-weight:800}
-      @font-face{font-family:PlexMono;src:url(data:font/ttf;base64,${plex.toString("base64")}) format('truetype');font-weight:500 700}
-    `,
-  };
-});
 
 function validPortalOrigin(raw: string | null | undefined): string | null {
   const value = String(raw ?? "").trim();
@@ -46,13 +20,35 @@ function validPortalOrigin(raw: string | null | undefined): string | null {
   }
 }
 
-async function portalOrigin(): Promise<string> {
+/*
+ * QR'A GÖMÜLEN ADRES BİR DAHA DEĞİŞTİRİLEMEZ.
+ *
+ * Plaka metale kazınır ve vincin üzerinde on yıl durur. Adres BASKI ANINDA
+ * gömülür; uygulama bir gün başka bir alan adına taşınırsa ya da bu plaka bir
+ * önizleme ortamından basılmışsa, sahadaki QR sonsuza kadar ölü bir adrese
+ * bakar. Bunu geri almanın yolu YOKTUR — plakayı sökmek gerekir.
+ *
+ * Bu yüzden kaynak sırası ters çevrildi: ÖNCE açıkça yapılandırılmış kalıcı
+ * adres (`CUSTOMER_PORTAL_ORIGIN`), sonra dağıtımın üretim adresi. İstek
+ * başlığından türetme yalnız GELİŞTİRMEDE kalır ve o durumda plaka indirmesi
+ * kartta ENGELLENİR (`readiness`), yani localhost adresli bir plaka basılamaz.
+ *
+ * Yönlendirme katmanı: adres `/qr/<kod>` ucuna bakar, o da portala yönlendirir.
+ * Portal yolu bir gün değişirse yalnız o uç güncellenir; basılmış plakalar
+ * çalışmaya devam eder.
+ */
+export const PORTAL_ORIGIN_ENV = "CUSTOMER_PORTAL_ORIGIN";
+
+async function portalOrigin(): Promise<{ origin: string; permanent: boolean }> {
   const configured = validPortalOrigin(
     process.env.CUSTOMER_PORTAL_ORIGIN
       ?? process.env.NEXT_PUBLIC_CUSTOMER_PORTAL_ORIGIN
-      ?? process.env.VERCEL_PROJECT_PRODUCTION_URL
   );
-  if (configured) return configured;
+  if (configured) return { origin: configured, permanent: true };
+
+  const production = validPortalOrigin(process.env.VERCEL_PROJECT_PRODUCTION_URL);
+  if (production) return { origin: production, permanent: true };
+
   const requestHeaders = await headers();
   const host = (requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000")
     .split(",")[0]
@@ -60,7 +56,12 @@ async function portalOrigin(): Promise<string> {
   const proto = (requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https"))
     .split(",")[0]
     .trim();
-  return validPortalOrigin(`${proto}://${host}`) ?? "http://localhost:3000";
+  return {
+    origin: validPortalOrigin(`${proto}://${host}`) ?? "http://localhost:3000",
+    // İstekten türetilmiş adres KALICI SAYILMAZ: önizleme dağıtımı, geçici
+    // alan adı ya da localhost olabilir.
+    permanent: false,
+  };
 }
 export async function ProductPortalSection({
   projectId,
@@ -70,9 +71,8 @@ export async function ProductPortalSection({
   canEdit: boolean;
 }) {
   const supabase = await createClient();
-  const [workspace, nameplateAssets, portalOriginValue, { data: logoProject }] = await Promise.all([
+  const [workspace, portalOriginInfo, { data: logoProject }] = await Promise.all([
     loadProductPortalWorkspace(supabase, projectId),
-    loadNameplateAssets(),
     portalOrigin(),
     supabase
       .from("projects")
@@ -90,14 +90,9 @@ export async function ProductPortalSection({
         projectId={projectId}
         canEdit={canEdit}
         workspace={null}
-        portalOrigin={portalOriginValue}
-        logoDataUrl={nameplateAssets.logoDataUrl}
-        logoPaperDataUrl={nameplateAssets.logoPaperDataUrl}
+        portalOrigin={portalOriginInfo.origin}
+        portalOriginPermanent={portalOriginInfo.permanent}
         customerLogoDataUrl={customerLogoDataUrl}
-        archivoBoldDataUrl={nameplateAssets.archivoBoldDataUrl}
-        archivoExtraBoldDataUrl={nameplateAssets.archivoExtraBoldDataUrl}
-        plexDataUrl={nameplateAssets.plexDataUrl}
-        embeddedFontsCss={nameplateAssets.embeddedFontsCss}
         draftPreview={null}
         publishedPreview={null}
       />
@@ -132,6 +127,7 @@ export async function ProductPortalSection({
         payload,
         revisionNo: displayRevision.revNo,
         files: draftFiles,
+        customerLogoDataUrl,
       })
     : null;
 
@@ -150,23 +146,36 @@ export async function ProductPortalSection({
         revisionNo: publishedRevision.revNo,
         publishedAt: publishedRevision.issuedAt ?? publishedRevision.createdAt,
         files: workspace.publishedFiles,
+        customerLogoDataUrl,
       })
     : null;
 
   return (
     <ProductPortalCard
-      key={`${displayRevision.id}:${JSON.stringify(payload)}:${JSON.stringify(workspace.units)}`}
+      /*
+       * ANAHTAR YALNIZ SÜRÜM KİMLİĞİDİR — payload'ı anahtara KATMA.
+       *
+       * Önceki hâli `${id}:${JSON.stringify(payload)}:${JSON.stringify(units)}` idi.
+       * Her server action `revalidatePath` çağırır, payload değişir, anahtar değişir
+       * ve kart KOMPLE YENİDEN MONTE OLUR. İki bedeli vardı ve ikisi de sessizdi:
+       *
+       *   - "Parolayı Yenile"nin ürettiği HAM PAROLA yalnız bir kez gösterilir;
+       *     `shownPassword` yeniden montajda sıfırlandığı için kullanıcı parolayı
+       *     hiç göremeden kaybediyordu. Açık parola saklanmaz — yani gerçekten kayıp.
+       *   - "Erişimi Aç", "Kaynakları Yenile", "PDF Ekle" gibi her eylem, kaydedilmemiş
+       *     bütün düzenlemeleri geri alıyordu.
+       *
+       * Sürüm değiştiğinde (yeni revizyon açıldığında) yeniden montaj DOĞRUDUR;
+       * o yüzden anahtarda sürüm kimliği kalır. Aynı sürümün taze verisi ise
+       * kartın kendi uzlaştırmasıyla içeri alınır.
+       */
+      key={displayRevision.id}
       projectId={projectId}
       canEdit={canEdit}
       workspace={workspace}
-      portalOrigin={portalOriginValue}
-      logoDataUrl={nameplateAssets.logoDataUrl}
-      logoPaperDataUrl={nameplateAssets.logoPaperDataUrl}
+      portalOrigin={portalOriginInfo.origin}
+      portalOriginPermanent={portalOriginInfo.permanent}
       customerLogoDataUrl={customerLogoDataUrl}
-      archivoBoldDataUrl={nameplateAssets.archivoBoldDataUrl}
-      archivoExtraBoldDataUrl={nameplateAssets.archivoExtraBoldDataUrl}
-      plexDataUrl={nameplateAssets.plexDataUrl}
-      embeddedFontsCss={nameplateAssets.embeddedFontsCss}
       draftPreview={draftPreview}
       publishedPreview={publishedPreview}
     />

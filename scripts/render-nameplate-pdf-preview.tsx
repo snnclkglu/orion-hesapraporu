@@ -15,6 +15,9 @@ async function dataUrl(relativePath: string, mime: string): Promise<string> {
 
 const identity: ProductIdentityValues = {
   manufacturer: "ORION CRANES",
+  manufacturerAddress: "Organize Sanayi Bölgesi, Ankara · TÜRKİYE",
+  machineModel: "ORION DGK-100/1485",
+  mass: "48,5 t",
   product: "100 T x 14,85 m kapasiteli çift kirişli gezer köprülü vinç",
   craneType: "Çift Kirişli Gezer Köprülü Vinç",
   projectCode: "0057-01",
@@ -50,10 +53,10 @@ async function main() {
       customerLogoDataUrl,
     },
     {
-      logoPaperDataUrl,
-      archivoBoldDataUrl,
-      archivoExtraBoldDataUrl,
-      plexDataUrl,
+      archivoBold: archivoBoldDataUrl,
+      archivoExtraBold: archivoExtraBoldDataUrl,
+      plexSemiBold: plexDataUrl,
+      logoRaster: logoPaperDataUrl,
     }
   );
 

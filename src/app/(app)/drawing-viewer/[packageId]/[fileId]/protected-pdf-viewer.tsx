@@ -67,8 +67,21 @@ export function ProtectedPdfViewer({
           signal: controller.signal,
         });
         if (!response.ok) {
-          const detail = await response.text();
-          throw new Error(detail || "PDF açılamadı.");
+          /*
+           * SUNUCUNUN HAM GÖVDESİ EKRANA BASILMAZ.
+           *
+           * Önceki hâl `response.text()` sonucunu doğrudan hata mesajı yapıyordu:
+           * müşteri "Belge bulunamadı" gibi bir iç metni ya da bir yığın izini
+           * görüyor, ne olduğunu ve ne yapacağını anlamıyordu. En sık sebep
+           * oturumun DÜŞMESİDİR (12 saat) — ve orada söylenmesi gereken şey
+           * "yeniden giriş yapın"dır.
+           */
+          await response.text().catch(() => "");
+          throw new Error(
+            response.status === 401 || response.status === 403 || response.status === 404
+              ? "Oturumunuz sona ermiş olabilir. Bu belgeyi görmek için yeniden giriş yapın."
+              : "Belge şu anda açılamıyor. Birkaç saniye sonra yeniden deneyin."
+          );
         }
         const bytes = new Uint8Array(await response.arrayBuffer());
         const { getDocument } = await import("unpdf/pdfjs");
@@ -152,6 +165,16 @@ export function ProtectedPdfViewer({
     }
   }
 
+  /*
+   * SAYFALAR TALEBE GÖRE ÇİZİLİR — HEPSİ BİRDEN DEĞİL.
+   *
+   * Önceki hâl `document.numPages` kadar tuvali AYNI ANDA basıyordu ve her
+   * yakınlaştırmada hepsini yeniden çiziyordu. 140 sayfalık işletme-bakım
+   * kılavuzu telefonda yüzlerce megabaytlık tuval demektir; sekme sessizce
+   * çöküyordu. Artık yalnız görünen pencere ve komşuları çizilir; kaydırdıkça
+   * pencere ilerler. Kapsayıcı yüksekliği korunur, o yüzden kaydırma çubuğu
+   * ve sayfa konumu doğru kalır.
+   */
   const pages = document
     ? Array.from({ length: document.numPages }, (_, index) => index + 1)
     : [];
@@ -243,7 +266,7 @@ export function ProtectedPdfViewer({
           {document && width > 0 && (
             <div className="grid min-w-max justify-center gap-4">
               {pages.map((pageNumber) => (
-                <PdfCanvas
+                <LazyPdfPage
                   key={pageNumber}
                   document={document}
                   pageNumber={pageNumber}
@@ -259,6 +282,83 @@ export function ProtectedPdfViewer({
         </div>
       </section>
     </>
+  );
+}
+
+/**
+ * Sayfayı yalnız görünür alana YAKLAŞTIĞINDA çizer.
+ *
+ * `IntersectionObserver` 600 px'lik bir payla bakar: kullanıcı kaydırmadan önce
+ * bir sonraki sayfa hazır olur, ama uzaktaki 130 sayfa hiç çizilmez. Çizilmeden
+ * önce sayfa, PDF'in kendi en-boy oranıyla YER TUTAR — yoksa kaydırma çubuğu
+ * her sayfa geldiğinde zıplardı.
+ */
+function LazyPdfPage({
+  document: pdfDocument,
+  pageNumber,
+  availableWidth,
+  zoom,
+}: {
+  document: PDFDocumentProxy;
+  pageNumber: number;
+  availableWidth: number;
+  zoom: number;
+}) {
+  const holderRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  const [ratio, setRatio] = useState(1.414);
+
+  useEffect(() => {
+    let active = true;
+    void pdfDocument.getPage(pageNumber).then((page) => {
+      if (!active) return;
+      const viewport = page.getViewport({ scale: 1 });
+      if (viewport.width > 0) setRatio(viewport.height / viewport.width);
+    }).catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [pdfDocument, pageNumber]);
+
+  useEffect(() => {
+    const node = holderRef.current;
+    if (!node) return;
+    // Ortam gözlemciyi desteklemiyorsa (çok eski tarayıcı) hepsini çiz:
+    // yavaş olması, hiç görünmemesinden iyidir.
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) setVisible(entry.isIntersecting);
+      },
+      { rootMargin: "600px 0px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const placeholderHeight = Math.round(availableWidth * zoom * ratio);
+
+  return (
+    <div ref={holderRef} style={visible ? undefined : { height: placeholderHeight }}>
+      {visible ? (
+        <PdfCanvas
+          document={pdfDocument}
+          pageNumber={pageNumber}
+          availableWidth={availableWidth}
+          zoom={zoom}
+        />
+      ) : (
+        <div
+          aria-hidden
+          className="grid h-full place-items-center border bg-muted/30 text-xs text-muted-foreground"
+        >
+          {pageNumber}
+        </div>
+      )}
+    </div>
   );
 }
 

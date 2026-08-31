@@ -31,7 +31,36 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
-      ["connect-src 'self'", supabaseOrigin, supabaseOrigin.replace(/^https:/, "wss:")]
+      /*
+       * TARAYICIDA PDF ÜRETİMİ İÇİN İKİ DİREKTİF — İSİM PLAKASI BUNSUZ ASILI KALIR.
+       *
+       * Uygulamanın bütün PDF'leri SUNUCUDA üretilir; vinç kimlik plakası
+       * (`lib/product-portal/nameplate-pdf.tsx`) TEK İSTİSNADIR — Vercel fonksiyon
+       * bütçesi yüzünden bilerek istemciye taşındı. @react-pdf tarayıcıda iki şey
+       * ister ve ikisi de taban politikamızca engelleniyordu:
+       *
+       *   1. `connect-src … data:` — `yoga-layout` yerleşim motorunu WASM olarak
+       *      taşır ve ikiliyi `data:application/octet-stream;base64,…` adresinden
+       *      `fetch` ile çeker. `connect-src`te `data:` olmayınca istek düşer.
+       *   2. `worker-src 'self' blob:` — marka logolarımız ALFA KANALLI PNG'dir
+       *      (`orion-logo-paper.png`, colorType 6). pdfkit alfa görünce
+       *      `splitAlphaChannel()`e sapar, o `png-js` → `fflate` zincirine iner ve
+       *      fflate çözmeyi `new Worker(URL.createObjectURL(...))` ile bir blob
+       *      worker'a atar. `worker-src` tanımsızken tarayıcı `script-src`e düşer,
+       *      orada da `blob:` yoktur.
+       *
+       * BEDELİ SESSİZDİ: promise ne çözülür ne reddedilir, `catch` hiç çalışmaz ve
+       * düğme sonsuza kadar "Hazırlanıyor"da kalır (kullanıcı bildirimi, 30.08.2026).
+       * Aynı belge Node'da aynı ilkellerle 350 ms'de üretiliyordu — yani kusur
+       * çizimde değil, burada.
+       *
+       * AÇILAN KAPI DAR: `data:`/`blob:` yalnız AYNI BELGENİN kendi baytlarına
+       * bağlanmasına izin verir, dışarıya bir hedef eklemez; `worker-src` de zaten
+       * `script-src 'unsafe-eval'` taşıyan bir politikaya kayda değer bir yetenek
+       * katmaz. Uzak köken listesi (`connect-src`) değişmedi.
+       */
+      "worker-src 'self' blob:",
+      ["connect-src 'self' data: blob:", supabaseOrigin, supabaseOrigin.replace(/^https:/, "wss:")]
         .filter(Boolean)
         .join(" "),
       "frame-ancestors 'none'",
@@ -116,8 +145,29 @@ const nextConfig: NextConfig = {
         source: "/paylas/vinc/:code/giris",
         destination: "/paylas/resim/:code/content?portal=vinc&action=giris",
       },
+      // Çıkış: oturumu SUNUCUDA iptal eder. Yalnız çerezi silmek yetmez —
+      // kopyalanmış bir çerez ortak bilgisayarda hâlâ geçerli olurdu.
+      {
+        source: "/paylas/vinc/:code/cikis",
+        destination: "/paylas/resim/:code/content?portal=vinc&action=cikis",
+      },
       {
         source: "/paylas/vinc/:code",
+        destination: "/paylas/resim/:code?portal=vinc",
+      },
+      /*
+       * KALICI QR ADRESİ — plakaya KAZINAN yol budur.
+       *
+       * İki sebep:
+       *   1. DEĞİŞMEZLİK. Portalın iç yolu (`/paylas/vinc/...`) bir gün
+       *      değişebilir; `/qr/<kod>` değişmez ve yalnız bu satır güncellenir.
+       *      Basılmış plakalar çalışmaya devam eder — plaka sökülemez.
+       *   2. KISALIK. 11 karakter daha kısa adres, aynı fiziksel alanda daha
+       *      BÜYÜK QR modülü demektir; küçük pano plakasında okunurluğun
+       *      eşiğe takılmasını bu fark belirliyor.
+       */
+      {
+        source: "/qr/:code",
         destination: "/paylas/resim/:code?portal=vinc",
       },
     ];

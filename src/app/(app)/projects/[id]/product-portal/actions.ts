@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { PDFDocument } from "pdf-lib";
-import { z } from "zod";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -26,15 +25,18 @@ import {
 } from "@/lib/product-portal/identity";
 import { materializePortalSelection } from "@/lib/product-portal/materialize-server";
 import {
+  UUID,
+  saveSchema,
+  schemaError,
+  type SaveProductPortalDraftInput,
+} from "@/lib/product-portal/schema";
+import {
   hashPortalPassword,
   newPortalPassword,
   newPublicCode,
 } from "@/lib/product-portal/secrets";
 import {
   PORTAL_FOLDER_OPTIONS,
-  PORTAL_REPORT_LEVELS,
-  PORTAL_SOURCE_KINDS,
-  PRODUCT_IDENTITY_FIELDS,
   type PortalDocumentSelection,
 } from "@/lib/product-portal/types";
 
@@ -45,53 +47,6 @@ export type ProductPortalActionResult = {
   password?: string;
   revisionId?: string;
 };
-
-const UUID = z.string().uuid();
-const accessMode = z.enum(["view_watermarked", "download"]);
-const sourceKind = z.enum(PORTAL_SOURCE_KINDS);
-const identityField = z.enum(PRODUCT_IDENTITY_FIELDS);
-const reportLevel = z.enum(PORTAL_REPORT_LEVELS);
-
-const documentSchema = z.object({
-  id: z.string().min(1).max(120),
-  sourceKind,
-  sourceId: z.string().min(1).max(500),
-  sourceLabel: z.string().max(240),
-  sourceRevisionLabel: z.string().max(80),
-  reportLevel: reportLevel.optional(),
-  equipmentDetail: z.enum(["standart", "detayli"]).optional(),
-  title: z.string().trim().min(1).max(180),
-  folderKey: z.string().regex(/^[a-z0-9-]{1,40}$/),
-  folderTitle: z.string().trim().min(1).max(100),
-  folderSort: z.number().int().min(0).max(10000),
-  fileSort: z.number().int().min(0).max(10000),
-  accessMode,
-  included: z.boolean(),
-  automatic: z.boolean(),
-  ready: z.boolean(),
-  unavailableReason: z.string().max(240).optional(),
-});
-
-const saveSchema = z.object({
-  projectId: UUID,
-  revisionId: UUID,
-  serialBase: z.string().trim().min(1).max(80),
-  plate: z.object({
-    widthMm: z.number().min(120).max(1000),
-    heightMm: z.number().min(80).max(1000),
-    holeDiameterMm: z.number().positive().max(50).optional(),
-    holeInsetMm: z.number().positive().max(100).optional(),
-  }),
-  overrides: z.record(identityField, z.string().max(180)),
-  hiddenFields: z.array(identityField),
-  portal: z.object({
-    title: z.string().trim().min(1).max(100),
-    note: z.string().max(600),
-    supportEmail: z.union([z.literal(""), z.string().email().max(160)]),
-  }),
-  documents: z.array(documentSchema).max(500),
-  units: z.array(z.object({ id: UUID, serialNo: z.string().trim().min(1).max(80) })).min(1).max(99),
-});
 
 type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
 type ContextError = { error: string };
@@ -231,10 +186,10 @@ export async function setupProductPortal(projectId: string): Promise<ProductPort
 }
 
 export async function saveProductPortalDraft(
-  input: z.input<typeof saveSchema>
+  input: SaveProductPortalDraftInput
 ): Promise<ProductPortalActionResult> {
   const parsed = saveSchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Alanlar geçersiz." };
+  if (!parsed.success) return { error: schemaError(parsed.error) };
   const data = parsed.data;
   const context = await portalContext(data.projectId, data.revisionId);
   if ("error" in context) return { error: context.error };
@@ -268,13 +223,44 @@ export async function saveProductPortalDraft(
     .eq("status", "draft");
   if (payloadError) return { error: "Portal taslağı kaydedilemedi." };
 
-  for (const unit of data.units) {
-    const { error } = await context.supabase
+  /*
+   * SERİ NUMARASI İLK YAYINDAN SONRA SUNUCUDA DA KİLİTLİDİR.
+   *
+   * Kart girdiyi `hasIssuedRevision` ile devre dışı bırakıyordu — ama bu YALNIZ
+   * İSTEMCİDEYDİ. Sunucu her kaydetmede seriyi güncelliyordu; eski bir sekme,
+   * yeniden gönderilen bir istek ya da doğrudan çağrı, PLAKAYA KAZINMIŞ seri
+   * numarasını sessizce değiştirebilirdi. O andan sonra sahadaki plaka ile
+   * kayıt ayrışır ve hangisinin doğru olduğunu kimse bilemez.
+   */
+  const { data: issuedRevision } = await context.supabase
+    .from("product_portal_revisions")
+    .select("id")
+    .eq("portal_id", context.portal.id)
+    .eq("status", "issued")
+    .limit(1)
+    .maybeSingle();
+
+  if (issuedRevision) {
+    const { data: storedSerials } = await context.supabase
       .from("crane_units")
-      .update({ serial_no: unit.serialNo, updated_by: context.user.id })
-      .eq("id", unit.id)
+      .select("id, serial_no")
       .eq("portal_id", context.portal.id);
-    if (error) return { error: `Seri numarası kaydedilemedi: ${error.message}` };
+    const bySerial = new Map((storedSerials ?? []).map((row) => [String(row.id), String(row.serial_no)]));
+    const changed = data.units.find((unit) => bySerial.get(unit.id) !== unit.serialNo);
+    if (changed) {
+      return {
+        error: `Seri numarası ilk yayından sonra değiştirilemez (${bySerial.get(changed.id) ?? "?"}). Plakaya kazınan numara ile kayıt ayrışamaz.`,
+      };
+    }
+  } else {
+    for (const unit of data.units) {
+      const { error } = await context.supabase
+        .from("crane_units")
+        .update({ serial_no: unit.serialNo, updated_by: context.user.id })
+        .eq("id", unit.id)
+        .eq("portal_id", context.portal.id);
+      if (error) return { error: `Seri numarası kaydedilemedi: ${error.message}` };
+    }
   }
 
   await context.supabase.from("audit_log").insert({
@@ -537,7 +523,18 @@ export async function issueProductPortalRevision(
   const selected = payload.documents.filter((document) => document.included && document.ready);
   if (selected.length < 1) return { error: "Yayımlamak için en az bir hazır PDF seçin." };
 
+  /*
+   * KİMLİK SNAPSHOT'I MATERYALİZASYONDAN ÖNCE YAZILIR — HATA HÂLİNDE GERİ ALINIR.
+   *
+   * Snapshot yayımın parçasıdır: müşteri, yayım anındaki kimliği görmelidir.
+   * Ama önce yazılıp hata hâlinde geri ALINMIYORDU: başarısız bir deneme
+   * taslağın kimliğini KALICI OLARAK donduruyor, `resolveAutomaticProductIdentity`
+   * bir daha etkisini gösteremiyor ve kaynak raporda yapılan düzeltme kimliğe
+   * hiç yansımıyordu. Kullanıcı bunu ancak plakada yanlış bir değer görüp
+   * "neden güncellenmiyor" diye sorarak fark ederdi.
+   */
   const automatic = await resolveAutomaticProductIdentity(context.supabase, projectId, payload);
+  const payloadBeforeIssue = withProductPortalDefaults(context.revision.payload);
   payload.issuedIdentity = identityValues(automatic.fields);
   const { error: snapshotError } = await context.supabase
     .from("product_portal_revisions")
@@ -545,6 +542,15 @@ export async function issueProductPortalRevision(
     .eq("id", revisionId)
     .eq("status", "draft");
   if (snapshotError) return { error: "Kimlik snapshotı dondurulamadı." };
+
+  const restoreDraftIdentity = async () => {
+    delete payloadBeforeIssue.issuedIdentity;
+    await context.supabase
+      .from("product_portal_revisions")
+      .update({ payload: payloadBeforeIssue })
+      .eq("id", revisionId)
+      .eq("status", "draft");
+  };
 
   // Önceki başarısız denemeden kalmış TASLAK satırlar güvenle temizlenir.
   const { data: staleRows } = await context.supabase
@@ -600,6 +606,7 @@ export async function issueProductPortalRevision(
     const paths = materialized.map((file) => file.storage_path);
     if (paths.length > 0) await context.supabase.storage.from(CUSTOMER_PORTAL_BUCKET).remove(paths);
     await context.supabase.from("product_portal_files").delete().eq("revision_id", revisionId);
+    await restoreDraftIdentity();
     return { error: error instanceof Error ? error.message : "Portal paketi oluşturulamadı." };
   }
 

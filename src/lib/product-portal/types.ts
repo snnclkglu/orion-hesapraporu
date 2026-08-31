@@ -5,15 +5,32 @@
 // hesap raporunda değişince taslak kendiliğinden tazelenir, insanın özellikle
 // yazdığı değer ise ezilmez. Yayımda `issuedIdentity` donmuş kopyadır.
 
+/*
+ * ALAN LİSTESİ YASAL BİR ZORUNLULUĞU TAŞIR — sıra ve kapsam keyfi değildir.
+ *
+ * 2006/42/AT (Makine Emniyeti) Ek I md. 1.7.3, makinenin üzerinde OKUNAKLI ve
+ * SİLİNMEZ biçimde şunları ister: imalatçının ticari unvanı ve TAM ADRESİ, CE
+ * işareti, makinenin tanımı, SERİ VEYA TİP TANIMLAMASI, varsa seri numarası ve
+ * İMALATIN TAMAMLANDIĞI YIL. Kaldırma makinelerinde md. 4.3.3 ayrıca AZAMİ
+ * ÇALIŞMA YÜKÜNÜN "belirgin" işaretlenmesini ister.
+ *
+ * `manufacturerAddress`, `machineModel` ve `mass` bu yüzden eklendi; öncesinde
+ * plaka teknik bir künyeydi, yasal bir isim plakası değildi. Alanların DB
+ * karşılığı yoktur — payload JSONB'dir ve `withProductPortalDefaults` eksik
+ * anahtarı boş dizeye indirir, o yüzden migration GEREKMEZ.
+ */
 export const PRODUCT_IDENTITY_FIELDS = [
   "manufacturer",
+  "manufacturerAddress",
   "product",
   "craneType",
+  "machineModel",
   "projectCode",
   "productionYear",
   "capacity",
   "span",
   "liftHeight",
+  "mass",
   "dutyClass",
   "supplyVoltage",
   "controlVoltage",
@@ -107,6 +124,21 @@ export interface ProductPortalPayload {
     /** Üretim kararıdır; bilinmiyorsa çizimde delik basılmaz. */
     holeDiameterMm?: number;
     holeInsetMm?: number;
+    /**
+     * CE İŞARETİ BİR BEYANDIR, SÜS DEĞİLDİR.
+     *
+     * İşaret yalnız makine uygunsa ve AT Uygunluk Beyanı düzenlenmişse
+     * iliştirilir. Varsayılan AÇIKTIR (ORION CE kapsamında üretir), ama
+     * kapatılabilir olması şart: uygunluk değerlendirmesi tamamlanmamış bir
+     * makineye CE basmak, eksik bir plakadan çok daha ağır bir hatadır.
+     */
+    ceMark?: boolean;
+    /**
+     * TEK RENK KAZIMA. Metal plakada lazer/pantograf tek renk iz bırakır;
+     * kömür–kâğıt–kırmızı marka kompozisyonu orada okunmaz. Bu kip bütün
+     * dolguları mürekkep/kâğıda indirger ve zeminleri boşaltır.
+     */
+    monochrome?: boolean;
   };
   overrides: Partial<Record<ProductIdentityField, string>>;
   hiddenFields: ProductIdentityField[];
@@ -169,5 +201,15 @@ export interface CustomerPortalDto {
   publishedAt: string;
   files: ProductPortalFileDto[];
   publicCode: string;
+  /*
+   * MÜŞTERİNİN KENDİ MARKASI — portal ona ait hissettirmelidir.
+   *
+   * Plaka zaten çift markalıdır (ORION + müşteri logosu, Yönetim → Müşteriler'den).
+   * QR'ı okutan kişi kendi fabrikasının vincine bakıyor; karşısına yalnız
+   * tedarikçinin markası çıkması yabancı bir yüzdür. Logo `customers.logo_path`ten
+   * gelir; müşteri alanı plakada gizlenmişse portalda da gösterilmez.
+   */
+  customerName: string;
+  customerLogoDataUrl: string | null;
   preview?: boolean;
 }
