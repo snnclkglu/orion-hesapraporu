@@ -1695,3 +1695,42 @@ köprü yürütme, teker yükleri ve köprü taşıyıcı yapı bölümleri hesa
 kapsamına girmez. AI dosyasından oluşturma da proje tipini ayrıştırdıktan sonra
 aynı V0 topoloji tohumunu hesap yeniden çalışmadan önce uygular. Ayrıntılı
 hesap değişmezi HESAP-8g'dedir.
+
+## TEKLIF-74 — Teknik sayfa KISA GÖVDEDE tek sütuna, sayfa genişliğince döner.
+
+Kullanıcı bildirimi (01.09.2026, TETR-20260901-1): *"vinç teknik özellikleri
+sayfanın yarısını kapladı, diğer yarısı boş kaldı … Genelde teknik özellikler
+uzun oluyor ve sayfayı ikiye bölmek istiyorum, o özellik kalsın. Ama
+özellikler az olduğunda sayfa genişliğinin tamamını kullansın."*
+
+Bir yer vincinin gövdesi dört öbek ve otuz küsur satırdır: iki sütunlu düzende
+sol sütunu baştan sona doldurur, **sağ yarı bomboş kalır**. Yaprağın yarısını
+beyaz bırakan bir belge, TEKLIF-33'ün çözdüğü sorunun tam tersini üretir.
+
+**KARAR TEK SORUDUR: gövde bir yaprağa TEK SÜTUNLA sığıyor mu?** Sığıyorsa
+sayfa `tam` işaretlenir ve satırlar içerik alanının tamamını (`TAM_GENISLIK`
+= 487,56 pt) kullanır; sığmıyorsa iki sütun kuralı olduğu gibi durur. Karar
+yine `pdf-layout.ts`tedir, çizimde değil (TEKLIF-33) — `OfferPdfSayfa.tam` bir
+çizim tercihi değil ÖLÇÜNÜN SONUCUDUR.
+
+**SORU GENİŞ SÜTUNUN ÖLÇÜSÜYLE SORULUR.** `satirYuksekligi` artık genişliği
+parametre alır: aynı satır 234,78 pt'de iki, 487,56 pt'de tek satır çizer
+(fikstürdeki kaldırma freni: 23,2 → 13,2 pt). Dar sütunun ölçüsüyle karar
+verilseydi tek yaprağa rahat sığan bir gövde "taşıyor" sanılır, kural hiç
+devreye girmezdi. Blokların `h` değeri de tam genişliğe göre ölçülür — çizim
+başka bir genişlik kullanırsa ölçü ile kâğıt ayrışır.
+
+**TEK SÜTUN İKİNCİ YAPRAK AÇMAZ.** Tek sütunun dikey bütçesi sütununkiyle
+aynıdır (ikisi de yaprağın aynı boşluğu), dolayısıyla sığmayan gövde zaten
+iki sütuna döner; kural yaprak sayısını hiçbir belgede artıramaz. Tam vinç
+gövdesi (6 öbek / 67 satır) iki sütunda kalır ve testi bunu dondurur.
+
+**ETİKET SÜTUNU TAM YERLEŞİMDE %40'TIR** (dar sütunda %34). Sorun aynı değil:
+dar sütunda sarma DEĞERİN sorunudur, geniş sütunda değer neredeyse hiç sarmaz
+ve sarma ETİKETE kalır — %34 bırakılsaydı "KUMANDA PANELİNDE ACİL DURDURMA
+BUTONU" geniş sayfada da ikiye bölünürdü. Sayı iki yerde yazılmaz: ölçü de
+çizim de `etiketGenisligi()` fonksiyonundan okur.
+
+**TUZAK — `rows.map(satirYuksekligi)` YAZILMAZ.** `map` geri çağrıya dizini de
+geçer ve dizin ikinci parametreye, yani sütun genişliğine düşer (0, 1, 2
+pt'lik sütunlar → 52 yapraklık bir belge). Genişlik her zaman açıkça verilir.

@@ -24,7 +24,9 @@ import {
   KAPASITE_PAYI,
   SUTUN_BOSLUK,
   SUTUN_GENISLIK,
+  TAM_GENISLIK,
   blokBasligi,
+  etiketGenisligi,
   grupYuksekligi,
   offerPdfSayfalari,
   satirYuksekligi,
@@ -505,14 +507,126 @@ describe("offerPdfSayfalari — bölünme", () => {
     // satırı yerleştirir ve geriye TEK satır kalır. Kural devredeyse bir satır
     // aşağı itilir ve devam dilimi iki satırla açılır.
     const g = uzunGrup(30);
-    const yukler = g.rows.map(satirYuksekligi);
+    // `map(satirYuksekligi)` DEĞİL: `map` dizini de geçer ve dizin ikinci
+    // parametreye — sütun genişliğine — düşerdi.
+    const yukler = g.rows.map((r) => satirYuksekligi(r));
     const tam = BASLIK_YUK + yukler.reduce((t, h) => t + h, 0);
     const hedef = (tam - yukler[yukler.length - 1] / 2) / KAPASITE_PAYI;
 
-    const bloklar = duzBloklar(offerPdfSayfalari([g], hedef));
-    expect(bloklar).toHaveLength(2);
-    expect(bloklar[0].rows).toHaveLength(28);
-    expect(bloklar[1].rows).toHaveLength(2);
+    // İKİNCİ ÖBEK KARARI İKİ SÜTUNDA TUTAR. Bütçe grubun kendi boyundan
+    // türetildiği için tek öbeklik bir gövde TAM GENİŞLİĞE sığar (satırlar
+    // geniş sütunda daha az sarar) ve hiç bölünmezdi; bölünme kuralı ancak
+    // gövde bir yaprağa sığmadığında sorulur.
+    const bloklar = duzBloklar(offerPdfSayfalari([g, elektrikGrubu()], hedef));
+    const dilimler = bloklar.filter((b) => b.group.id === g.id);
+    expect(dilimler).toHaveLength(2);
+    expect(dilimler[0].rows).toHaveLength(28);
+    expect(dilimler[1].rows).toHaveLength(2);
+  });
+});
+
+// ————————————————————————————————————————————————————————— tek sütun
+
+/**
+ * KISA GÖVDE — TEK SÜTUN, SAYFA GENİŞLİĞİNCE.
+ *
+ * Kullanıcı bildirimi (01.09.2026): *"vinç teknik özellikleri sayfanın
+ * yarısını kapladı, diğer yarısı boş kaldı… az olduğunda sayfa genişliğinin
+ * tamamını kullansın"*. Bir yer vincinin gövdesi otuz küsur satırdır: sol
+ * sütunu baştan sona doldurur, sağ sütun BOMBOŞ kalır.
+ *
+ * Sınanan şey iki karardır ve ikisi de sessizce bozulabilir:
+ *   · EŞİK — gövde bir yaprağa TEK SÜTUNLA sığıyor mu? Soru geniş sütunun
+ *     ölçüsüyle sorulmalıdır; dar sütunun ölçüsü aynı gövdeyi daha uzun görür.
+ *   · GERİ DÖNÜŞ — sığmayan gövdede iki sütun kuralı yerinde durmalıdır
+ *     (kullanıcı: *"o özellik kalsın"*), yoksa tam vinç teklifi iki yaprağa
+ *     çıkardı.
+ */
+describe("offerPdfSayfalari — tek sütun", () => {
+  /** Kullanıcının yer vinci teklifi gibi kısa bir gövde: aynı defter, aynı
+   *  değerler, yalnız üç öbek (araba/köprü/elektrik yok). */
+  function kisaGovde(): OfferGroup[] {
+    const secili = new Set(["general", "mainHoist", "steel"]);
+    return vincGruplari().filter((g) => secili.has(g.key));
+  }
+
+  it("KISA GÖVDE tek yaprağa TEK SÜTUNLA yerleşir", () => {
+    const gruplar = kisaGovde();
+    const sayfalar = offerPdfSayfalari(gruplar, SUTUN_KAPASITE);
+
+    expect(sayfalar).toHaveLength(1);
+    expect(sayfalar[0].tam).toBe(true);
+    // Sağ sütun tam yerleşimde HEP boştur: çizim tarafı yalnız `sol`u basar.
+    expect(sayfalar[0].sag).toEqual([]);
+    expect(sayfalar[0].sol).toHaveLength(gruplar.length);
+    expect(sayfalar[0].basliklar).toEqual(
+      gruplar.map((g) => offerGroupShort(g.key, g.title))
+    );
+  });
+
+  it("tek sütunda da tek satır kaybolmaz, sıra da bozulmaz", () => {
+    const gruplar = kisaGovde();
+    const basilan = duzBloklar(offerPdfSayfalari(gruplar, SUTUN_KAPASITE)).flatMap((b) =>
+      b.rows.map((r) => satirKimligi(b.group, r))
+    );
+    expect(basilan).toEqual(gruplar.flatMap((g) => g.rows.map((r) => satirKimligi(g, r))));
+  });
+
+  it("BLOKLAR TAM GENİŞLİĞE GÖRE ÖLÇÜLÜR — dar sütunun ölçüsüyle değil", () => {
+    // `h` çizime verilen sözdür: sayfa tam genişlikte çiziliyorsa ölçü de tam
+    // genişlikte yapılmış olmalıdır. Dar ölçü burada FAZLA sayardı ve bütçe
+    // aşılmış görünüp gövde boşuna iki sütuna düşerdi.
+    const gruplar = kisaGovde();
+    const sayfa = offerPdfSayfalari(gruplar, SUTUN_KAPASITE)[0];
+    for (const [i, blok] of sayfa.sol.entries()) {
+      expect(blok.h).toBeCloseTo(grupYuksekligi(gruplar[i], TAM_GENISLIK), 6);
+      expect(blok.h).toBeLessThan(grupYuksekligi(gruplar[i]));
+    }
+    expect(sutunYuku(sayfa.sol)).toBeLessThanOrEqual(KELEPCELI);
+  });
+
+  it("TAM VİNÇ GÖVDESİ iki sütunda kalır: kural kaldırılmadı", () => {
+    const sayfalar = offerPdfSayfalari(vincGruplari(), SUTUN_KAPASITE);
+    expect(sayfalar).toHaveLength(1);
+    expect(sayfalar[0].tam).toBe(false);
+    expect(sayfalar[0].sag.length).toBeGreaterThan(0);
+  });
+
+  it("SIĞMAYAN GÖVDE tek sütuna zorlanıp ikinci yaprak açmaz", () => {
+    // 60 satırlık öbek tam genişlikte de bir yaprağa sığmaz; karar iki sütuna
+    // döner ve belge TEK yaprak kalır.
+    const sayfalar = offerPdfSayfalari([uzunGrup(60)], SUTUN_KAPASITE);
+    expect(sayfalar).toHaveLength(1);
+    expect(sayfalar[0].tam).toBe(false);
+  });
+
+  it("GENİŞ SÜTUN daha az sardırır — eşiğin dayandığı ölçü budur", () => {
+    const kaldirma = vincGruplari().find((g) => g.key === "mainHoist");
+    const fren = kaldirma?.rows.find((r) => r.key === "brake");
+    if (!fren) throw new Error("fikstürde kaldırma freni satırı yok");
+    // Dar sütunda iki satır (23,2), tam genişlikte tek satır (13,2).
+    expect(satirYuksekligi(fren)).toBeCloseTo(23.2, 6);
+    expect(satirYuksekligi(fren, TAM_GENISLIK)).toBeCloseTo(13.2, 6);
+  });
+
+  /**
+   * ETİKET GENİŞLİĞİ TEK KAYNAKTAN OKUNUR.
+   *
+   * `pdf/offer.tsx` `width` için, bu modül sarma hesabı için aynı fonksiyonu
+   * çağırır. Sayı iki yerde ayrı yazılsaydı ayrışma SESSİZ olurdu: ölçü satırı
+   * bir, kâğıt iki satır çizerdi.
+   */
+  it("etiket sütunu dar yerleşimde %34, tam yerleşimde %40'tır", () => {
+    expect(etiketGenisligi(SUTUN_GENISLIK)).toBeCloseTo(SUTUN_GENISLIK * 0.34, 6);
+    expect(etiketGenisligi(TAM_GENISLIK)).toBeCloseTo(TAM_GENISLIK * 0.4, 6);
+    expect(etiketGenisligi(TAM_GENISLIK)).toBeCloseTo(195.03, 2);
+    // Kırk karakterlik en uzun defter etiketi tam genişlikte TEK satırdır.
+    const uzunEtiket: OfferRow = {
+      key: "estop",
+      label: "Kumanda Panelinde Acil Durdurma Butonu",
+      value: "Var",
+    };
+    expect(satirYuksekligi(uzunEtiket, TAM_GENISLIK)).toBeCloseTo(13.2, 6);
   });
 });
 

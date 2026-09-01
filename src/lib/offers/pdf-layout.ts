@@ -42,6 +42,21 @@ export const SUTUN_BOSLUK = 18;
 
 export const SUTUN_GENISLIK = (ICERIK_GENISLIK - SUTUN_BOSLUK) / 2;
 
+/**
+ * TEK SÜTUN — İÇERİK ALANININ TAMAMI.
+ *
+ * Kullanıcı bildirimi (01.09.2026): kısa bir teknik gövde (bir yer vincinin
+ * otuz küsur satırı) sol sütunu baştan sona doldurur, sağ yarı BOMBOŞ kalır.
+ * Yaprağın yarısını beyaz bırakan bir belge, iki sütunun çözdüğü sorunun tam
+ * tersini üretir. Gövde bir yaprağa TEK SÜTUNLA sığıyorsa sayfa genişliğinin
+ * tamamı kullanılır; sığmıyorsa iki sütun kuralı yerinde durur (`offerPdfSayfalari`).
+ *
+ * ÖLÇÜ AYNI ÇEKİRDEKTEN OKUNUR: `satirYuksekligi` genişliği parametre alır,
+ * çünkü geniş sütunda daha az satır sarar — dar sütunun ölçüsüyle karar
+ * vermek tek yapraklık bir gövdeyi iki yaprak sanmaya yol açardı.
+ */
+export const TAM_GENISLIK = ICERIK_GENISLIK;
+
 /** Teknik satırın ETİKET puntosu (`S.ozellikEtiket`). */
 export const SATIR_PUNTO = 7.8;
 
@@ -112,6 +127,30 @@ export const ETIKET_ARA = 10;
 export const ETIKET_ORAN = 0.34;
 
 /**
+ * TAM GENİŞLİKTE ETİKET ORANI — %40.
+ *
+ * Oran DAR sütunun oranı değildir çünkü sorun da aynı değildir. 234,78 pt'lik
+ * sütunda darlık DEĞERİ sardırır, o yüzden etikete az yer verilir; 487,56
+ * pt'lik tek sütunda değer neredeyse hiç sarmaz ve sarma tek başına ETİKETE
+ * kalır. %34 (166 pt) bırakılsaydı "KUMANDA PANELİNDE ACİL DURDURMA BUTONU"
+ * gibi kırk karakterlik etiketler geniş sayfada da ikiye bölünür, satır
+ * boşuna büyürdü. %40 (195 pt) o etiketleri tek satıra indirir ve değere
+ * hâlâ 282 pt bırakır — defterdeki en uzun değerin iki katı.
+ */
+export const TAM_ETIKET_ORAN = 0.4;
+
+/**
+ * ETİKET SÜTUNUNUN GENİŞLİĞİ — ÖLÇÜ İLE ÇİZİMİN TEK KAYNAĞI.
+ *
+ * `pdf/offer.tsx` bu fonksiyonu `width` için, bu dosya sarma hesabı için
+ * çağırır. Sayı iki yerde ayrı yazılsaydı biri değişip öteki kalabilirdi ve
+ * ayrışmanın bedeli sessizdir: ölçü satırı bir, kâğıt iki satır çizer.
+ */
+export function etiketGenisligi(genislik: number): number {
+  return genislik * (genislik >= TAM_GENISLIK ? TAM_ETIKET_ORAN : ETIKET_ORAN);
+}
+
+/**
  * SÜTUN BÜTÇESİ %94'E KELEPÇELENİR ve katsayılar BİLEREK FAZLA ölçer.
  *
  * Ortalama karakter genişliğiyle yapılan her ölçüm yaklaşıktır; soru
@@ -163,6 +202,15 @@ export interface OfferPdfSayfa {
   sag: OfferPdfBlok[];
   /** Sayfadaki grupların adları — sırayla ve yinelenmeden. */
   basliklar: string[];
+  /**
+   * TEK SÜTUN, SAYFA GENİŞLİĞİNCE (`TAM_GENISLIK`).
+   *
+   * Yalnız bütün gövdenin bir yaprağa tek sütunla sığdığı belgelerde açılır ve
+   * o belge TEK SAYFADIR; `sag` bu durumda hep boştur. Bayrak bir çizim tercihi
+   * değil ÖLÇÜNÜN SONUCUDUR: blokların `h` değerleri de tam genişliğe göre
+   * ölçülmüştür, çizim başka bir genişlik kullanırsa ölçü ile kâğıt ayrışır.
+   */
+  tam: boolean;
 }
 
 // ————————————————————————————————————————————————————————————— ölçme
@@ -188,12 +236,12 @@ function gorunurSatirlar(group: OfferGroup): OfferRow[] {
  * basılır ama ölçüde küçültülmez — fazla ölçmek seçilmiş yöndür (bkz.
  * `KAPASITE_PAYI`).
  */
-export function satirYuksekligi(row: OfferRow): number {
+export function satirYuksekligi(row: OfferRow, genislik: number = SUTUN_GENISLIK): number {
   const etiketTam = (row.label ?? "").length * ETIKET_KATSAYI * SATIR_PUNTO;
-  const etiketEn = SUTUN_GENISLIK * ETIKET_ORAN;
+  const etiketEn = etiketGenisligi(genislik);
   const etiketSatir = etiketEn > 0 ? Math.max(1, Math.ceil(etiketTam / etiketEn)) : 1;
 
-  const alan = Math.max(1, SUTUN_GENISLIK - etiketEn - ETIKET_ARA);
+  const alan = Math.max(1, genislik - etiketEn - ETIKET_ARA);
   const deger = ((row.value ?? "") + offerScopeSuffix(row.scope)).length * DEGER_KATSAYI * DEGER_PUNTO;
   const degerSatir = Math.max(1, Math.ceil(deger / alan));
 
@@ -204,11 +252,11 @@ export function satirYuksekligi(row: OfferRow): number {
  * Grubun tam yüksekliği. BASILMAYAN GRUP SIFIRDIR: gizli ya da satırsız bir
  * öbek belgede başlığını da bırakmaz, dolayısıyla bütçeden de yer yemez.
  */
-export function grupYuksekligi(g: OfferGroup): number {
+export function grupYuksekligi(g: OfferGroup, genislik: number = SUTUN_GENISLIK): number {
   if (g.hidden) return 0;
   const satirlar = gorunurSatirlar(g);
   if (satirlar.length === 0) return 0;
-  return BASLIK_YUK + satirlar.reduce((t, r) => t + satirYuksekligi(r), 0);
+  return BASLIK_YUK + satirlar.reduce((t, r) => t + satirYuksekligi(r, genislik), 0);
 }
 
 /** Bloğun BASILAN başlığı — devam dilimi kendini böyle tanıtır. */
@@ -239,7 +287,10 @@ function blokBol(
   alan: number,
   zorla: boolean
 ): Dilim | null {
-  const yuk = rows.map(satirYuksekligi);
+  // GENİŞLİK AÇIKÇA VERİLİR. `rows.map(satirYuksekligi)` yazılamaz: `map`
+  // geri çağrıya DİZİNİ de geçer ve dizin ikinci parametreye, yani sütun
+  // genişliğine düşerdi (0, 1, 2 pt'lik sütunlar → yüzlerce yaprak).
+  const yuk = rows.map((r) => satirYuksekligi(r, SUTUN_GENISLIK));
   const tam = BASLIK_YUK + yuk.reduce((t, h) => t + h, 0);
   if (tam <= alan) {
     return { blok: { group, rows: [...rows], devam, h: tam }, kalan: [] };
@@ -276,6 +327,45 @@ function blokBol(
 // ————————————————————————————————————————————————————————————— dağıtım
 
 /**
+ * KISA GÖVDENİN TEK SÜTUNLU YAPRAĞI — sığmıyorsa `null`.
+ *
+ * Kullanıcı bildirimi (01.09.2026): teknik özellikler az olduğunda iki sütun
+ * yaprağın sağ yarısını boş bırakıyor. Karar burada verilir ve tek bir soruya
+ * bakar: BÜTÜN gövde, sayfa genişliğince tek sütunla BİR yaprağa sığıyor mu?
+ *
+ * SORU TAM GENİŞLİKTE SORULUR. Dar sütunun ölçüsüyle sorulsaydı yanlış cevap
+ * verirdi: aynı satır 234,78 pt'de iki, 487,56 pt'de tek satır çizer, yani
+ * gövde geniş sütunda DAHA KISADIR. "Sol sütun dolduysa vazgeç" gibi bir eşik
+ * de aynı sebeple yanlış olurdu — tam sayfaya sığan bir gövde dar sütunda
+ * taşmış görünür.
+ *
+ * SIĞMIYORSA İKİ SÜTUN KURALI YERİNDE DURUR (kullanıcı: *"sayfayı ikiye
+ * bölmek istiyorum, o özellik kalsın"*). Tek sütun kapasitesi sütununkiyle
+ * AYNIDIR — ikisi de yaprağın aynı dikey boşluğudur — dolayısıyla tek sütuna
+ * sığmayan gövde zaten iki sütuna gider, ikinci bir yaprak açılmaz.
+ */
+function tamSayfa(groups: readonly OfferGroup[], kapasite: number): OfferPdfSayfa | null {
+  const sayfa: OfferPdfSayfa = { sol: [], sag: [], basliklar: [], tam: true };
+  let toplam = 0;
+
+  for (const group of groups) {
+    if (!group || group.hidden) continue;
+    const rows = gorunurSatirlar(group);
+    if (rows.length === 0) continue;
+
+    const h = BASLIK_YUK + rows.reduce((t, r) => t + satirYuksekligi(r, TAM_GENISLIK), 0);
+    toplam += h;
+    if (toplam > kapasite) return null;
+
+    sayfa.sol.push({ group, rows, devam: false, h });
+    const kisa = offerGroupShort(group.key, group.title);
+    if (!sayfa.basliklar.includes(kisa)) sayfa.basliklar.push(kisa);
+  }
+
+  return sayfa.sol.length > 0 ? sayfa : null;
+}
+
+/**
  * Grupları sütunlara ve sayfalara dağıtır.
  *
  * `sutunKapasite` bir sütunun HAM dikey bütçesidir (teknik sayfada: içerik
@@ -298,6 +388,10 @@ export function offerPdfSayfalari(
   const kapasite = Number.isFinite(sutunKapasite) ? sutunKapasite * KAPASITE_PAYI : 0;
   if (kapasite <= 0) return [];
 
+  // ÖNCE TEK SÜTUN DENENİR: kısa gövde yaprağın yarısını boş bırakmaz.
+  const tek = tamSayfa(groups, kapasite);
+  if (tek) return [tek];
+
   const sayfalar: OfferPdfSayfa[] = [];
   let sagda = false;
   let kalan = kapasite;
@@ -305,14 +399,14 @@ export function offerPdfSayfalari(
   const sonSayfa = (): OfferPdfSayfa => {
     const s = sayfalar[sayfalar.length - 1];
     if (s) return s;
-    const yeni: OfferPdfSayfa = { sol: [], sag: [], basliklar: [] };
+    const yeni: OfferPdfSayfa = { sol: [], sag: [], basliklar: [], tam: false };
     sayfalar.push(yeni);
     return yeni;
   };
 
   const sutunuKapat = () => {
     if (sayfalar.length === 0 || sagda) {
-      sayfalar.push({ sol: [], sag: [], basliklar: [] });
+      sayfalar.push({ sol: [], sag: [], basliklar: [], tam: false });
       sagda = false;
     } else {
       sagda = true;

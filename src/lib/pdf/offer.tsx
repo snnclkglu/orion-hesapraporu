@@ -60,10 +60,11 @@ import {
 import { offerDocLine, offerRevLabel } from "@/lib/offers/no";
 import {
   ETIKET_ARA,
-  ETIKET_ORAN,
   SUTUN_BOSLUK,
   SUTUN_GENISLIK,
+  TAM_GENISLIK,
   blokBasligi,
+  etiketGenisligi,
   offerPdfSayfalari,
   type OfferPdfBlok,
 } from "@/lib/offers/pdf-layout";
@@ -490,8 +491,13 @@ const S = StyleSheet.create({
     color: BRAND.gray600,
     flexGrow: 0,
     flexShrink: 0,
-    width: SUTUN_GENISLIK * ETIKET_ORAN,
+    width: etiketGenisligi(SUTUN_GENISLIK),
   },
+  // TAM GENİŞLİKTE ETİKET DAHA GENİŞTİR (%34 değil %40) — gerekçesi
+  // `pdf-layout.ts` `TAM_ETIKET_ORAN`da: geniş sayfada sarma sorunu değerin
+  // değil ETİKETİN sorunudur. Sayı buraya yazılmaz, ölçüyle aynı fonksiyondan
+  // okunur; iki yerde ayrı yazılan bir genişlik sessizce ayrışırdı.
+  ozellikEtiketTam: { width: etiketGenisligi(TAM_GENISLIK) },
   // DEĞER MONO DİZİLİR: teknik değerlerin çoğu koddur ("SCHNEIDER ATV-340",
   // "Ø20 6x36", "A65") ve mono onları bir metin parçası değil VERİ gibi
   // okutur — marka kılavuzunun "her sayı, kod, etiket" kuralı.
@@ -522,6 +528,15 @@ const S = StyleSheet.create({
   // taşar, öteki boş kalır.
   sutunlar: { flexDirection: "row", gap: SUTUN_BOSLUK },
   sutun: { width: SUTUN_GENISLIK },
+  /**
+   * TEK SÜTUN — SAYFA GENİŞLİĞİNCE (kullanıcı bildirimi, 01.09.2026).
+   *
+   * Teknik özellikler az olduğunda iki sütun yaprağın sağ yarısını bomboş
+   * bırakıyordu. Gövde bir yaprağa tek sütunla sığıyorsa `pdf-layout.ts`
+   * sayfayı `tam` işaretler ve satırlar içerik alanının tamamını kullanır.
+   * Genişlik yine SABİTTİR: ölçü de bu sayıya göre yapıldı.
+   */
+  sutunTam: { width: TAM_GENISLIK },
   /**
    * SAYFA BAŞLIĞI KAPAK BANDININ KAĞIT ÜZERİNDEKİ KARŞILIĞIDIR.
    *
@@ -1071,7 +1086,7 @@ function BolumBasligi({ text, vurgu }: { text: string; vurgu?: boolean }) {
  *
  * `wrap={false}`: iki satırlık bir değer sütun dibinde ikiye BÖLÜNMEZ.
  */
-function OzellikSatiri({ row, buyuk }: { row: OfferRow; buyuk?: boolean }) {
+function OzellikSatiri({ row, buyuk, tam }: { row: OfferRow; buyuk?: boolean; tam?: boolean }) {
   const kapsam = offerScopeSuffix(row.scope);
   /* BÜYÜK HARF SUNUM KATMANINDADIR, VERİDE DEĞİL (kullanıcı isteği 19.08.2026,
      md. 18). `row.value` kullanıcının yazdığı metindir; teklif ekranında,
@@ -1091,7 +1106,7 @@ function OzellikSatiri({ row, buyuk }: { row: OfferRow; buyuk?: boolean }) {
     : row.value;
   return (
     <View style={S.ozellikSatiri} wrap={false}>
-      <Text style={S.ozellikEtiket}>{etiket}</Text>
+      <Text style={tam ? [S.ozellikEtiket, S.ozellikEtiketTam] : S.ozellikEtiket}>{etiket}</Text>
       <Text style={kapasite ? [S.ozellikDeger, S.ozellikDegerGuclu] : S.ozellikDeger}>
         {deger}
         {kapsam ? <Text style={S.kapsamEki}>{buyuk ? trUpper(kapsam) : kapsam}</Text> : null}
@@ -1107,12 +1122,49 @@ function OzellikSatiri({ row, buyuk }: { row: OfferRow; buyuk?: boolean }) {
  * başına tek vurgu — bütün başlıklar kırmızı olsaydı vurgu vurgu olmaktan
  * çıkar, altı kırmızı satır sayfayı kendi başına bir listeye çevirirdi.
  */
-function SutunBloku({ blok, vurgu }: { blok: OfferPdfBlok; vurgu?: boolean }) {
+function SutunBloku({
+  blok,
+  vurgu,
+  tam,
+}: {
+  blok: OfferPdfBlok;
+  vurgu?: boolean;
+  tam?: boolean;
+}) {
   return (
     <View>
       <BolumBasligi text={blokBasligi(blok)} vurgu={vurgu} />
       {blok.rows.map((row, i) => (
-        <OzellikSatiri key={row.key || i} row={row} buyuk />
+        <OzellikSatiri key={row.key || i} row={row} buyuk tam={tam} />
+      ))}
+    </View>
+  );
+}
+
+/**
+ * BİR SÜTUN — dar (`SUTUN_GENISLIK`) ya da sayfa genişliğince (`tam`).
+ *
+ * İki yerleşim aynı bileşenden çıkar: tek sütunlu yaprakta değişen yalnız
+ * GENİŞLİKTİR, blokların anatomisi değil. Ayrı bir "tam sayfa" çizimi
+ * yazılsaydı bölüm başlığı, vurgu ve blok arası boşluk iki yerde yaşar,
+ * birinde yapılan düzeltme ötekine geçmezdi.
+ */
+function Sutun({
+  bloklar,
+  tam,
+  ilkVurgu,
+}: {
+  bloklar: OfferPdfBlok[];
+  tam?: boolean;
+  /** Sayfanın İLK öbeği kırmızı açılır — yalnız sol/tek sütuna verilir. */
+  ilkVurgu?: boolean;
+}) {
+  return (
+    <View style={tam ? S.sutunTam : S.sutun}>
+      {bloklar.map((b, i) => (
+        <View key={`${b.group.id}-${i}`} style={{ marginBottom: BLOK_ARA }}>
+          <SutunBloku blok={b} vurgu={ilkVurgu && i === 0} tam={tam} />
+        </View>
       ))}
     </View>
   );
@@ -1132,6 +1184,7 @@ function TeknikSayfa({
   kunye,
   sol,
   sag,
+  tam,
   altBilgi,
   ustSonda,
   altSonda,
@@ -1146,6 +1199,8 @@ function TeknikSayfa({
   kunye: SayfaKunyesi;
   sol: OfferPdfBlok[];
   sag: OfferPdfBlok[];
+  /** Gövde tek sütuna sığdı: satırlar sayfa genişliğini kullanır. */
+  tam?: boolean;
   altBilgi?: React.ReactNode;
   /** İçindekiler sondaları — yalnız bölümün İLK ve SON yaprağında verilir. */
   ustSonda?: React.ReactNode;
@@ -1174,23 +1229,20 @@ function TeknikSayfa({
         technicalLogo={technicalLogo}
       />
 
-      <View style={S.sutunlar}>
-        <View style={S.sutun}>
-          {sol.map((b, i) => (
-            <View key={`${b.group.id}-${i}`} style={{ marginBottom: BLOK_ARA }}>
-              {/* Sayfanın ilk öbeği (sol sütunun başı) kırmızı açılır. */}
-              <SutunBloku blok={b} vurgu={i === 0} />
-            </View>
-          ))}
+      {/* TEK SÜTUN ya da İKİ SÜTUN — kararı `pdf-layout.ts` verir, burada
+          yalnız çizilir. Kısa bir teknik gövde (kullanıcı bildirimi,
+          01.09.2026) iki sütunda yaprağın sağ yarısını boş bırakıyordu; bir
+          yaprağa tek sütunla sığıyorsa sayfa genişliğinin tamamı kullanılır.
+          `sag` o durumda hep boştur. */}
+      {tam ? (
+        <Sutun bloklar={sol} tam ilkVurgu />
+      ) : (
+        <View style={S.sutunlar}>
+          {/* Sayfanın ilk öbeği (sol sütunun başı) kırmızı açılır. */}
+          <Sutun bloklar={sol} ilkVurgu />
+          <Sutun bloklar={sag} />
         </View>
-        <View style={S.sutun}>
-          {sag.map((b, i) => (
-            <View key={`${b.group.id}-${i}`} style={{ marginBottom: BLOK_ARA }}>
-              <SutunBloku blok={b} />
-            </View>
-          ))}
-        </View>
-      </View>
+      )}
       {altBilgi}
       {altSonda}
     </BrandPage>
@@ -2518,6 +2570,7 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
             }
             sol={sayfa.sol}
             sag={sayfa.sag}
+            tam={sayfa.tam}
             ustSonda={
               i === 0 && s === 0 ? <Sonda anchor="bas:teknik" collect={collect} /> : null
             }
