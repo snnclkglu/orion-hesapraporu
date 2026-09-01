@@ -169,6 +169,18 @@
    * kendi zeminiyle ezer.
    */
   .oc-scrollx {
+    /*
+     * KAPSAYICI BLOK OLMAK SINIFIN KENDİ İŞİDİR (MOBIL-18/28).
+     *
+     * `overflow` veren bir kap, konumlanmış bir çocuğu ancak o çocuğun
+     * KAPSAYICI BLOĞU ise kırpar. `.oc-scrollx` yalnız gölge çizerken bunu
+     * çağrı yerine bırakıyordu: `Table` kabı `relative` yazıyordu ama elle
+     * kurulan şeritler (blok editörünün düzenlenebilir matrisi gibi)
+     * yazmıyordu — orada `sr-only` bir metin ya da bir rozet kırpmadan kaçıp
+     * sayfayı uzatabilirdi. HESAP-28 zaten "bu iç kaplar `relative`dir"
+     * diyor; garanti sınıfın içinde olmalı, dileğe kalmamalı.
+     */
+    position: relative;
     --oc-scroll-bg: var(--card);
     background-image:
       linear-gradient(to right, var(--oc-scroll-bg), transparent),

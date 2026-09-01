@@ -137,7 +137,7 @@ export async function RevisionPageView({
           {revision.is_template && (
             <Badge variant="outline" className="hidden shrink-0 border-primary/40 text-primary lg:inline-flex">ŞABLON</Badge>
           )}
-          <Badge variant={revisionStatusVariant(revision.status)} className="min-w-0 shrink-0 justify-center truncate px-1.5 text-[10px] lg:px-2.5 lg:text-xs">
+          <Badge variant={revisionStatusVariant(revision.status)} className="min-w-0 shrink-0 justify-center truncate px-1.5 text-[11px] lg:px-2.5 lg:text-xs">
             {revisionStatusLabel(revision.status)}
           </Badge>
           {isAdmin && revision.status === "issued" && (

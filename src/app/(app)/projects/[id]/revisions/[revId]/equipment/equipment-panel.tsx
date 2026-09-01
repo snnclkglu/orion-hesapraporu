@@ -432,7 +432,7 @@ export function EquipmentPanel({
           <span
             key={a.id}
             title={`${a.fileName} · ${a.pageCount} sayfa`}
-            className="inline-flex w-fit items-center gap-1 rounded-md border bg-background px-1.5 py-1 text-[10px] text-muted-foreground"
+            className="inline-flex w-fit items-center gap-1 rounded-md border bg-background px-1.5 py-1 text-[11px] text-muted-foreground"
           >
             <Paperclip className="size-3 shrink-0 text-primary" />
             <span className="whitespace-nowrap">{a.pageCount} sf</span>
@@ -453,7 +453,7 @@ export function EquipmentPanel({
             uygulamanın diline getirir. */}
         <label
           title="PDF ekle"
-          className="oc-tap inline-flex size-8 cursor-pointer items-center justify-center rounded-md border border-dashed text-primary hover:bg-primary/5 pointer-coarse:size-10"
+          className="oc-tap-square inline-flex size-8 cursor-pointer items-center justify-center rounded-md border border-dashed text-primary hover:bg-primary/5"
         >
           {busy ? (
             <Loader2 className="size-3 animate-spin" />
@@ -520,7 +520,7 @@ export function EquipmentPanel({
         title="Katalog sayfasını yeni sekmede aç"
         // Dokunmatikte 36px: bağlantı satır yüksekliğini fareyle kullanan
         // kullanıcıda büyütmez, parmakla kullananda hedefi tutulabilir yapar.
-        className="inline-flex items-center gap-1 hover:text-primary hover:underline pointer-coarse:min-h-9"
+        className="oc-tap inline-flex items-center gap-1 hover:text-primary hover:underline"
       >
         {row.component}
         <BookOpen className="size-3 shrink-0 text-primary/70" />
@@ -558,20 +558,20 @@ export function EquipmentPanel({
             <button
               type="button"
               onClick={() => setScope("customer")}
-              className={`inline-flex min-h-9 items-center px-3 py-1.5 text-xs pointer-coarse:min-h-10 ${scope === "customer" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+              className={`oc-tap inline-flex min-h-9 items-center px-3 py-1.5 text-xs ${scope === "customer" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
             >
               Müşteri
             </button>
             <button
               type="button"
               onClick={() => setScope("full")}
-              className={`inline-flex min-h-9 items-center px-3 py-1.5 text-xs pointer-coarse:min-h-10 ${scope === "full" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+              className={`oc-tap inline-flex min-h-9 items-center px-3 py-1.5 text-xs ${scope === "full" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
             >
               + Teknik Özet
             </button>
           </div>
         )}
-        <a href={dl("xlsx")} className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted pointer-coarse:h-10">
+        <a href={dl("xlsx")} className="oc-tap inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted">
           <FileSpreadsheet className="size-3.5 text-emerald-600" />
           Excel indir
         </a>
@@ -589,7 +589,7 @@ export function EquipmentPanel({
               ? "Teknik özellikler yaprağı + ekipman listesi + teknik ressam özeti (şemalar ve notlarla)"
               : "Ekipman listesi; ekipman adı katalog sayfasına bağlanır"
           }
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted pointer-coarse:h-10"
+          className="oc-tap inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
         >
           <FileDown className="size-3.5 text-red-600" />
           Standart Ekipman Listesi
@@ -604,7 +604,7 @@ export function EquipmentPanel({
               ? "Standart paketin tamamı + ürünlerin katalog sayfaları + satırlara yüklenen PDF ekleri"
               : "Ekipman listesi + ürünlerin katalog sayfaları + satırlara yüklenen PDF ekleri; ad tıklanınca ilgili sayfaya gider"
           }
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted pointer-coarse:h-10"
+          className="oc-tap inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
         >
           <BookOpen className="size-3.5 text-red-600" />
           Detaylı Ekipman Listesi
@@ -638,7 +638,7 @@ export function EquipmentPanel({
             value={customerDrawingPath}
             onChange={(event) => setCustomerDrawingPath(event.target.value)}
             aria-label="Proje ana paftası müşteri bağlantısı"
-            className="h-8 font-mono text-xs pointer-coarse:h-10"
+            className="h-8 font-mono text-base pointer-fine:text-xs pointer-coarse:h-10"
           />
           <Button
             type="button"
@@ -655,7 +655,7 @@ export function EquipmentPanel({
               href={customerDrawingPreviewPath}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-8 items-center gap-1 text-xs text-primary hover:underline pointer-coarse:min-h-10"
+              className="oc-tap inline-flex min-h-8 items-center gap-1 text-xs text-primary hover:underline"
             >
               Kontrol et <ExternalLink className="size-3" />
             </a>
@@ -754,7 +754,7 @@ export function EquipmentPanel({
                           data-mobile-span="full"
                           className="font-medium break-words whitespace-normal"
                         >
-                          <span className="mr-1 inline-flex rounded bg-primary/10 px-1 py-0.5 text-[10px] tabular-nums text-primary md:hidden">
+                          <span className="mr-1 inline-flex rounded bg-primary/10 px-1 py-0.5 text-[11px] tabular-nums text-primary md:hidden">
                             #{number}
                           </span>
                           <ComponentCell row={r} />

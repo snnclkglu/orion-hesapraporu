@@ -62,14 +62,14 @@ export interface TomarEylemleri {
 function BlokRozeti({ blok }: { blok: ManualBlock }) {
   if (blok.derived) {
     return (
-      <Badge variant="secondary" className="h-5 text-[0.65rem]">
+      <Badge variant="secondary" className="h-5 text-[11px]">
         {blok.edited ? "Kaynaktan · düzenlendi" : "Kaynaktan üretildi"}
       </Badge>
     );
   }
   if (blok.fromTemplate) {
     return (
-      <Badge variant="outline" className="h-5 text-[0.65rem]">
+      <Badge variant="outline" className="h-5 text-[11px]">
         {blok.edited ? "Standarttan ayrıldı" : "Standart metin"}
       </Badge>
     );
@@ -183,7 +183,7 @@ export function Tomar({
                     <div className="mb-1 flex items-center gap-1">
                       <BlokRozeti blok={b} />
                       {b.hidden ? (
-                        <Badge variant="outline" className="h-5 text-[0.65rem]">
+                        <Badge variant="outline" className="h-5 text-[11px]">
                           Gizli
                         </Badge>
                       ) : null}

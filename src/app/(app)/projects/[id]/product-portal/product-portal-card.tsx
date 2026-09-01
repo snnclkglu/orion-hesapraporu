@@ -533,7 +533,7 @@ export function ProductPortalCard({
         <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-4 py-3">
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold"><Tag className="size-4 text-primary" /> Vinç Kimliği</div>
-            <div className="mt-1 font-mono text-[10px] text-muted-foreground">ORTAK PAKET {`R${String(displayRevision.revNo).padStart(2, "0")}`} · {units.length} FİZİKSEL ÜNİTE</div>
+            <div className="mt-1 font-mono text-[11px] text-muted-foreground">ORTAK PAKET {`R${String(displayRevision.revNo).padStart(2, "0")}`} · {units.length} FİZİKSEL ÜNİTE</div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" className="min-h-11" onClick={() => setHistoryOpen(true)}><History className="size-4" /> Sürümler</Button>
@@ -603,7 +603,7 @@ export function ProductPortalCard({
                     <div>
                       <Label htmlFor={`serial-${selectedUnit.id}`}>Seri Numarası</Label>
                       <Input id={`serial-${selectedUnit.id}`} className="mt-1 font-mono" value={selectedUnit.serialNo} disabled={!workspace.editableRevision || !canEdit || hasIssuedRevision} onChange={(event) => setUnits((current) => current.map((row) => row.id === selectedUnit.id ? { ...row, serialNo: event.target.value } : row))} />
-                      {hasIssuedRevision && <p className="mt-1 text-[10px] text-muted-foreground">İlk yayından sonra fiziksel seri numarası kilitlenir.</p>}
+                      {hasIssuedRevision && <p className="mt-1 text-[11px] text-muted-foreground">İlk yayından sonra fiziksel seri numarası kilitlenir.</p>}
                     </div>
                     {/* Etiket satırı kadar boşluk: düğmeler seri numarası ALANIYLA hizalanır. */}
                     <div className="flex flex-wrap gap-2 lg:mt-6">
@@ -643,10 +643,10 @@ export function ProductPortalCard({
                     <div key={field.key} className="grid min-w-0 items-center gap-2 px-3 py-2 lg:grid-cols-[160px_minmax(180px,1fr)_170px_100px]">
                       <div className="min-w-0">
                         <Label htmlFor={`field-${field.key}`}>{FIELD_LABELS[field.key]}</Label>
-                        <div className="mt-0.5 truncate font-mono text-[9px] text-muted-foreground" title={overridden ? "Elle düzenlendi" : field.source.label}>{overridden ? "ELLE DÜZENLENDİ" : field.source.label}</div>
+                        <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground" title={overridden ? "Elle düzenlendi" : field.source.label}>{overridden ? "ELLE DÜZENLENDİ" : field.source.label}</div>
                       </div>
                       <Input id={`field-${field.key}`} className="h-9 min-w-0" value={value} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setOverride(field.key, event.target.value)} />
-                      <div>{overridden ? <Button type="button" variant="ghost" size="sm" className="min-h-11 text-primary" onClick={() => resetOverride(field.key)}><RotateCcw className="size-3.5" /> Otomatiğe Dön</Button> : <span className="font-mono text-[10px] text-muted-foreground">OTOMATİK</span>}</div>
+                      <div>{overridden ? <Button type="button" variant="ghost" size="sm" className="min-h-11 text-primary" onClick={() => resetOverride(field.key)}><RotateCcw className="size-3.5" /> Otomatiğe Dön</Button> : <span className="font-mono text-[11px] text-muted-foreground">OTOMATİK</span>}</div>
                       <div>{plateToggle ? <DraftToggle checked={!payload.hiddenFields.includes(field.key)} disabled={!workspace.editableRevision || !canEdit} label="Plakada" onChange={(visible) => setPayload((current) => current ? ({ ...current, hiddenFields: visible ? current.hiddenFields.filter((key) => key !== field.key) : [...new Set([...current.hiddenFields, field.key])] }) : current)} /> : <span className="text-xs text-muted-foreground">Künye</span>}</div>
                     </div>
                   );
@@ -742,7 +742,7 @@ export function ProductPortalCard({
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {readiness.map((entry) => <div key={entry.label} className="flex items-center gap-2 text-xs">{entry.ok ? <CheckCircle2 className="size-3.5 text-emerald-600" /> : <TriangleAlert className="size-3.5 text-destructive" />} {entry.label}</div>)}
                 </div>
-                <div className="mt-3 grid gap-1 font-mono text-[10px] text-muted-foreground">
+                <div className="mt-3 grid gap-1 font-mono text-[11px] text-muted-foreground">
                   <span>{customerLogoDataUrl ? "MÜŞTERİ LOGOSU · HAZIR" : "MÜŞTERİ LOGOSU · KAYITTA YOK"}</span>
                   <span>{nameplateLayout?.title.lines.length === 2 ? "ÜRÜN ADI · İKİ SATIRA YERLEŞTİRİLDİ" : "ÜRÜN ADI · TEK SATIR"}</span>
                   <span>QR MODÜLÜ · {nameplateLayout ? `${nameplateLayout.qr.moduleMm.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} mm` : "—"}</span>
@@ -765,7 +765,7 @@ export function ProductPortalCard({
                 )}
                 {selectedUnit && (
                   <div className="mt-3 flex min-w-0 items-center gap-2 border-t pt-3">
-                    <span className="min-w-0 flex-1 break-all font-mono text-[10px] text-muted-foreground">{portalUrl}</span>
+                    <span className="min-w-0 flex-1 break-all font-mono text-[11px] text-muted-foreground">{portalUrl}</span>
                     <Button asChild size="icon" variant="outline" className="size-11 shrink-0"><a href={portalUrl} target="_blank" rel="noreferrer" aria-label="Müşteri bağlantısını test et"><ExternalLink className="size-4" /></a></Button>
                   </div>
                 )}
@@ -789,7 +789,7 @@ export function ProductPortalCard({
               <div className="min-w-0">
                 <Label>Belge Adı</Label>
                 <Input className="mt-1 min-w-0" value={document.title} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setDocument(document.id, { title: event.target.value })} />
-                <div className="mt-1 break-words font-mono text-[10px] text-muted-foreground">{document.sourceLabel}{document.sourceRevisionLabel ? ` · ${document.sourceRevisionLabel}` : ""}</div>
+                <div className="mt-1 break-words font-mono text-[11px] text-muted-foreground">{document.sourceLabel}{document.sourceRevisionLabel ? ` · ${document.sourceRevisionLabel}` : ""}</div>
                 {/* Neden yayımlanamadığı SATIRIN KENDİSİNDE yazar; kullanıcı
                     "belgem var ama listede yok" sorusuyla baş başa kalmaz. */}
                 {!document.ready && document.unavailableReason && (

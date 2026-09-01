@@ -96,7 +96,7 @@ export function Inspector({
         <div className="flex flex-col gap-3 border-t pt-3">
           <div className="flex items-center gap-2">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Blok</p>
-            <Badge variant="outline" className="h-5 text-[0.65rem]">
+            <Badge variant="outline" className="h-5 text-[11px]">
               {blok.kind}
             </Badge>
           </div>

@@ -76,7 +76,7 @@ async function customerPortal(codeValue: string, query: PageQuery) {
       <section className="w-full max-w-md border bg-card">
         <header className="border-b-4 border-primary bg-[#262626] px-6 py-6 text-[#F4F1EF]">
           <Image src="/brand/orion-logo-white.svg" alt="ORION CRANES" width={788} height={96} className="h-auto w-[210px] max-w-full" />
-          <p className="mt-4 font-mono text-[10px] font-semibold tracking-[0.2em] text-white/60">GÜVENLİ MÜŞTERİ DOKÜMAN PORTALI</p>
+          <p className="mt-4 font-mono text-[11px] font-semibold tracking-[0.2em] text-white/60">GÜVENLİ MÜŞTERİ DOKÜMAN PORTALI</p>
         </header>
         <div className="p-5 sm:p-6">
           <div className="grid size-11 place-items-center border bg-muted text-primary"><LockKeyhole className="size-5" /></div>

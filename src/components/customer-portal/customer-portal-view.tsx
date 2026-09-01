@@ -78,12 +78,12 @@ export function CustomerPortalView({ dto }: { dto: CustomerPortalDto }) {
               </>
             )}
           </div>
-          <p className="w-full font-mono text-[10px] font-semibold tracking-[0.2em] text-[#F4F1EF]/65">
+          <p className="w-full font-mono text-[11px] font-semibold tracking-[0.2em] text-[#F4F1EF]/65">
             GÜVENLİ MÜŞTERİ DOKÜMAN PORTALI
           </p>
           <div className="flex items-center gap-3">
             <div className="border border-white/25 bg-white/5 px-3 py-2 text-right">
-              <div className="font-mono text-[10px] tracking-[0.14em] text-white/60">SERİ NUMARASI</div>
+              <div className="font-mono text-[11px] tracking-[0.14em] text-white/60">SERİ NUMARASI</div>
               <div className="mt-1 font-mono text-base font-semibold tabular-nums">{dto.serialNo}</div>
             </div>
             {/*
@@ -151,7 +151,7 @@ export function CustomerPortalView({ dto }: { dto: CustomerPortalDto }) {
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block break-words text-sm font-semibold">{file.title}</span>
-                          <span className="mt-1 block break-words font-mono text-[10px] leading-5 text-muted-foreground">
+                          <span className="mt-1 block break-words font-mono text-[11px] leading-5 text-muted-foreground">
                             {fileMeta(file)}
                           </span>
                         </span>

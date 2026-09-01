@@ -543,7 +543,7 @@ function Field({
                     onChange({ ...value, [def.key]: next });
                   }
                 }}
-                className="absolute inset-y-0 right-0 px-2 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                className="absolute inset-y-0 right-0 px-2 font-mono text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
               >
                 LİSTEDEN SEÇ
               </button>
@@ -2087,7 +2087,7 @@ export function RevisionEditor({
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b pb-1.5">
                   <h3 className="oc-kicker leading-tight text-foreground/80">{group.title}</h3>
                   {group.description && (
-                    <span className="text-[10px] text-muted-foreground max-sm:line-clamp-1 sm:text-[11px]">
+                    <span className="text-[11px] text-muted-foreground max-sm:line-clamp-1 sm:text-[11px]">
                       {group.description}
                     </span>
                   )}
@@ -2603,7 +2603,7 @@ export function RevisionEditor({
               belgede basılmayacağı buradan görülür (PDF gizlemesi report.tsx'te).*/}
           <div className={cn("relative grid gap-2", isDiagramHidden && "opacity-60")}>
             {isDiagramHidden && (
-              <span className="pointer-events-none absolute right-2 top-2 z-10 inline-flex items-center bg-muted px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="pointer-events-none absolute right-2 top-2 z-10 inline-flex items-center bg-muted px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {"PDF'e girmiyor"}
               </span>
             )}
@@ -3804,7 +3804,7 @@ export function RevisionEditor({
                 aria-expanded={navOpenMobile}
                 aria-controls={NAV_PANEL_ID}
                 title={`${activeStepIndex + 1}/${STEPS.length} · ${step.title}`}
-                className="oc-tap flex w-full min-w-0 items-center gap-1 rounded-md px-1 text-left font-mono text-[10px] tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:w-auto sm:max-w-[60%] sm:shrink sm:gap-1.5 sm:px-0 sm:text-[11px] lg:pointer-events-none lg:hover:bg-transparent"
+                className="oc-tap flex w-full min-w-0 items-center gap-1 rounded-md px-1 text-left font-mono text-[11px] tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:w-auto sm:max-w-[60%] sm:shrink sm:gap-1.5 sm:px-0 sm:text-[11px] lg:pointer-events-none lg:hover:bg-transparent"
               >
                 <span aria-hidden className="shrink-0 leading-none lg:hidden">
                   ☰
@@ -3838,7 +3838,7 @@ export function RevisionEditor({
                 size="sm"
                 onClick={handleSave}
                 disabled={pending}
-                className="px-1.5 text-[10px] sm:px-3 sm:text-sm lg:hidden"
+                className="px-1.5 text-[11px] sm:px-3 sm:text-sm lg:hidden"
               >
                 {pending ? "Kaydediliyor..." : "Kaydet"}
               </Button>

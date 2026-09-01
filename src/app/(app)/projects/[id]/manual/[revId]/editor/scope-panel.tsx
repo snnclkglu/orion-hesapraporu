@@ -148,7 +148,7 @@ export function ScopePanel({
           <ul className="flex flex-col gap-1">
             {sapma.sections.map((s) => (
               <li key={s.key} className="flex items-center gap-2 border px-2 py-1 text-xs">
-                <Badge variant={s.belge ? "default" : "outline"} className="h-5 text-[0.65rem]">
+                <Badge variant={s.belge ? "default" : "outline"} className="h-5 text-[11px]">
                   {s.belge ? "Belgede" : "Gizli"}
                 </Badge>
                 <span className="truncate">{s.title}</span>
@@ -184,12 +184,12 @@ export function ScopePanel({
             return (
               <li key={kind} className={cn("border p-2", !basiliyor && "opacity-55")}>
                 <div className="flex items-center gap-2">
-                  <Badge variant={basiliyor ? "default" : "outline"} className="h-5 text-[0.65rem]">
+                  <Badge variant={basiliyor ? "default" : "outline"} className="h-5 text-[11px]">
                     {basiliyor ? "Belgede" : "Gizli"}
                   </Badge>
                   <span className="text-sm">{MANUAL_APPENDIX_LABELS[kind]}</span>
                   {o?.edited ? (
-                    <Badge variant="secondary" className="ml-auto h-5 text-[0.65rem]">
+                    <Badge variant="secondary" className="ml-auto h-5 text-[11px]">
                       Elle
                     </Badge>
                   ) : null}
