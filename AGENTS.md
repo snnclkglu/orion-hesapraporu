@@ -100,7 +100,7 @@ Bunlar alan dosyası okunmadan da geçerlidir. Gerekçeleri atıf verilen dosyad
 6. **Renk HEX değil AÇIdır** (OKLCH ton). Doygunluk/parlaklık `globals.css`te ve tema
    başına verilir; grafikte, çipte, satır zemininde elle hex yazılmaz (`IS-14`).
 7. **Çekirdekler SAFTIR.** `lib/calc`, `lib/purchasing`, `lib/personnel`, `lib/drawings`,
-   `lib/panel` DB/HTTP/React içe aktarmaz.
+   `lib/panel`, `lib/weights` DB/HTTP/React içe aktarmaz.
 8. **Bir kural iki yerde yaşıyorsa** (TS + SQL) ayrışmayı bir test KAYNAK DOSYAYI
    okuyarak engeller (`terms.test.ts` deseni).
 9. **Migration'ı ajan uygular.** Yeni migration eklerken `ls supabase/migrations` ile

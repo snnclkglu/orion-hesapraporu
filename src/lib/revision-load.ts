@@ -81,6 +81,39 @@ export interface RevisionInputsJson {
    * yalnız "PDF'e girmiyor" rozetiyle işaretlenir.
    */
   hiddenDiagrams?: string[] | null;
+  /**
+   * AĞIRLIK DÖKÜMÜNDE İNSANIN VERDİĞİ KARARLAR.
+   *
+   * Dökümün KENDİSİ saklanmaz — her açılışta girdilerden, seçimlerden ve
+   * sonuçlardan yeniden türetilir (HESAP-35). Saklansaydı mühendis bir motoru
+   * değiştirdikten sonra pencere eski ağırlığı göstermeye devam eder ve
+   * DOĞRULAMA ARACI YANLIŞ DOĞRULARDI. Burada duran şey yalnız insanın
+   * müdahalesidir ve o türetilemez.
+   */
+  weightBreakdown?: RevisionWeightBreakdown | null;
+}
+
+/** Ağırlık dökümünün revizyonda saklanan parçası. */
+export interface RevisionWeightBreakdown {
+  /** kalem/grup anahtarı → elle yazılan kg */
+  overrides?: Record<string, number>;
+  /** kalem/grup anahtarı → mühendisin notu (neden ezildi) */
+  notes?: Record<string, string>;
+  /**
+   * "Teknik özelliğe yaz" İZİ: teknik özellik anahtarı → o anki toplam ve
+   * KAYNAK KARIŞIMI. Kutunun yanındaki "Dökümden yazıldı · %27 tahmin" rozeti
+   * bunu okur — mühendis raporu YAYINLARKEN FEM hesabına giren sayının hâlâ ne
+   * kadar tahmin olduğunu görmelidir.
+   */
+  applied?: Record<string, RevisionWeightApplied>;
+}
+
+export interface RevisionWeightApplied {
+  /** ISO tarih — yazma anı. */
+  at: string;
+  kg: number;
+  /** kaynak → pay (toplamı 1). */
+  mix?: Record<string, number>;
 }
 
 export interface RevisionSelectionsJson {
@@ -187,6 +220,71 @@ export function hiddenDiagramsFromRevision(
   return sectionKeyList(
     (inputs as { hiddenDiagrams?: unknown } | null | undefined)?.hiddenDiagrams
   );
+}
+
+/**
+ * JSONB snapshot'tan AĞIRLIK DÖKÜMÜ kararlarını güvenle okur.
+ *
+ * `altsFromRevision` ile aynı ilke: JSONB serbest biçimlidir ve bozuk bir kayıt
+ * raporu DÜŞÜRMEMELİDİR. Sayı olmayan ezme, sonlu olmayan değer ve boş not
+ * atlanır; alan hiç yoksa boş nesne döner ve eski revizyonlar bugünkü hâllerini
+ * birebir korur.
+ */
+export function weightBreakdownFromRevision(
+  inputs: RevisionInputsJson | null | undefined
+): RevisionWeightBreakdown {
+  const raw = (inputs as { weightBreakdown?: unknown } | null | undefined)?.weightBreakdown;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const kaynak = raw as Record<string, unknown>;
+  const out: RevisionWeightBreakdown = {};
+
+  const overrides = sayiHaritasi(kaynak.overrides);
+  if (Object.keys(overrides).length > 0) out.overrides = overrides;
+
+  const notes = metinHaritasi(kaynak.notes);
+  if (Object.keys(notes).length > 0) out.notes = notes;
+
+  const applied = uygulananHaritasi(kaynak.applied);
+  if (Object.keys(applied).length > 0) out.applied = applied;
+
+  return out;
+}
+
+/** Sonlu POZİTİF sayılar — ağırlıkta `0` bir ölçüm değil, boş bir kutudur. */
+function sayiHaritasi(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) continue;
+    out[key] = value;
+  }
+  return out;
+}
+
+function metinHaritasi(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value !== "string") continue;
+    const metin = value.trim();
+    if (metin) out[key] = metin;
+  }
+  return out;
+}
+
+function uygulananHaritasi(raw: unknown): Record<string, RevisionWeightApplied> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, RevisionWeightApplied> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const kayit = value as Record<string, unknown>;
+    const kg = kayit.kg;
+    if (typeof kg !== "number" || !Number.isFinite(kg) || kg <= 0) continue;
+    const at = typeof kayit.at === "string" ? kayit.at : "";
+    const mix = sayiHaritasi(kayit.mix);
+    out[key] = { at, kg, ...(Object.keys(mix).length > 0 ? { mix } : {}) };
+  }
+  return out;
 }
 
 /** JSONB snapshot'tan güvenli not haritası okur; boş/bozuk girdileri atlar. */

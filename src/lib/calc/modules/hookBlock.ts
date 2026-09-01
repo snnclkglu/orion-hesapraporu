@@ -324,6 +324,23 @@ export interface HookBlockSelections {
   hookBearingCode: string;
   /** Kanca rulmanı statik yük katsayısı C0 [kN] */
   hookBearingStatC0Kn: number;
+
+  // ————————————————————————————— KATALOG AĞIRLIKLARI (hesaba GİRMEZ)
+  //
+  // Seçilen ürünün katalogdaki ağırlığı, seçimle BİRLİKTE revizyona yazılır
+  // (`catalog-mapping.ts`). Görünür bir form alanı YOKTUR — `gearboxCatalogInputRpm`
+  // deseninin aynısı: değer seçimin bir parçasıdır, mühendisin cevaplayacağı bir
+  // soru değil. Tek okuyucusu AĞIRLIK DÖKÜMÜ penceresidir; hesap motoru bu
+  // alanları HİÇ okumaz ve hiçbir kontrol onlardan beslenmez.
+  //
+  // Alanlar OPSİYONELDİR: eski revizyonlarda yoktur, uydurulmaz (değişmez md. 4)
+  // ve döküm o satırda "—" basıp ürünün yeniden seçilmesini önerir. Katalogda
+  // ağırlık ARALIK verilen ürünlerde (Jaure kaplinleri) alt sınır `*WeightKg`,
+  // üst sınır `*WeightMaxKg` alanındadır — uydurma tek bir sayı üretilmez.
+  hookWeightKg?: number;
+  sheaveWeightKg?: number;
+  sheaveBearingWeightKg?: number;
+  hookBearingWeightKg?: number;
 }
 
 export interface HookBlockValues {

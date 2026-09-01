@@ -42,6 +42,15 @@ export interface SafetyBrakeModel {
    * Flanş, tambur çapından en az bu kadar büyük olmalıdır.
    */
   discOverDrumMm: number;
+  /**
+   * Kaliperin ağırlığı [kg] — HESABA GİRMEZ.
+   *
+   * Tek okuyucusu ekipman listesi ve AĞIRLIK DÖKÜMÜdür (HESAP-35). Sayılar
+   * üretici kataloğunun tohum SQL'iyle (`cat_equipment`, kind `brake`,
+   * SIBRE SHI) BİREBİRdir; `safety-brake.test.ts` tohumu OKUYARAK ayrışmayı
+   * engeller (değişmez md. 8, `drum-brake.test.ts` deseni).
+   */
+  weightKg: number;
   /** En küçük disk kalınlığı b [mm] */
   minDiscThicknessMm: number;
   /** Açma basıncı PL [bar] — hidrolik ünite seçimi için */
@@ -64,33 +73,33 @@ export const SAFETY_BRAKE_FRICTION = 0.4;
  */
 export const SAFETY_BRAKES: SafetyBrakeModel[] = [
   // --- SHI 75 serisi: x = 42,5 · d ≥ 400 · d1 = d − 230 · b ≥ 20
-  { code: "SHI 75-1", clampKn: { 1: 18.3, 2: 17.9, 3: 17.6 }, leverXMm: 42.5, minDiscDiaMm: 400, discOverDrumMm: 230, minDiscThicknessMm: 20, releasePressureBar: 45, maxPressureBar: 85, volumeLitre: 0.032 },
-  { code: "SHI 75-2", clampKn: { 1: 22.4, 2: 20.7, 3: 19.0 }, leverXMm: 42.5, minDiscDiaMm: 400, discOverDrumMm: 230, minDiscThicknessMm: 20, releasePressureBar: 55, maxPressureBar: 85, volumeLitre: 0.032 },
-  { code: "SHI 75-3", clampKn: { 1: 25.4, 2: 23.9, 3: 22.4 }, leverXMm: 42.5, minDiscDiaMm: 400, discOverDrumMm: 230, minDiscThicknessMm: 20, releasePressureBar: 65, maxPressureBar: 110, volumeLitre: 0.032 },
-  { code: "SHI 75-4", clampKn: { 1: 30.6, 2: 27.6, 3: 24.6 }, leverXMm: 42.5, minDiscDiaMm: 400, discOverDrumMm: 230, minDiscThicknessMm: 20, releasePressureBar: 80, maxPressureBar: 110, volumeLitre: 0.032 },
-  { code: "SHI 75-5", clampKn: { 1: 44.5, 2: 41.0, 3: 37.0 }, leverXMm: 42.5, minDiscDiaMm: 400, discOverDrumMm: 230, minDiscThicknessMm: 20, releasePressureBar: 120, maxPressureBar: 150, volumeLitre: 0.032 },
-  { code: "SHI 75-6", clampKn: { 1: 49.8, 2: 47.3, 3: 44.4 }, leverXMm: 42.5, minDiscDiaMm: 400, discOverDrumMm: 230, minDiscThicknessMm: 20, releasePressureBar: 135, maxPressureBar: 175, volumeLitre: 0.032 },
+  { code: "SHI 75-1", weightKg: 80, clampKn: { 1: 18.3, 2: 17.9, 3: 17.6 }, leverXMm: 42.5, minDiscDiaMm: 400, discOverDrumMm: 230, minDiscThicknessMm: 20, releasePressureBar: 45, maxPressureBar: 85, volumeLitre: 0.032 },
+  { code: "SHI 75-2", weightKg: 80, clampKn: { 1: 22.4, 2: 20.7, 3: 19.0 }, leverXMm: 42.5, minDiscDiaMm: 400, discOverDrumMm: 230, minDiscThicknessMm: 20, releasePressureBar: 55, maxPressureBar: 85, volumeLitre: 0.032 },
+  { code: "SHI 75-3", weightKg: 80, clampKn: { 1: 25.4, 2: 23.9, 3: 22.4 }, leverXMm: 42.5, minDiscDiaMm: 400, discOverDrumMm: 230, minDiscThicknessMm: 20, releasePressureBar: 65, maxPressureBar: 110, volumeLitre: 0.032 },
+  { code: "SHI 75-4", weightKg: 80, clampKn: { 1: 30.6, 2: 27.6, 3: 24.6 }, leverXMm: 42.5, minDiscDiaMm: 400, discOverDrumMm: 230, minDiscThicknessMm: 20, releasePressureBar: 80, maxPressureBar: 110, volumeLitre: 0.032 },
+  { code: "SHI 75-5", weightKg: 80, clampKn: { 1: 44.5, 2: 41.0, 3: 37.0 }, leverXMm: 42.5, minDiscDiaMm: 400, discOverDrumMm: 230, minDiscThicknessMm: 20, releasePressureBar: 120, maxPressureBar: 150, volumeLitre: 0.032 },
+  { code: "SHI 75-6", weightKg: 80, clampKn: { 1: 49.8, 2: 47.3, 3: 44.4 }, leverXMm: 42.5, minDiscDiaMm: 400, discOverDrumMm: 230, minDiscThicknessMm: 20, releasePressureBar: 135, maxPressureBar: 175, volumeLitre: 0.032 },
   // --- SHI 100 serisi: x = 60 · d ≥ 650 · d1 = d − 280 · b ≥ 20
-  { code: "SHI 103", clampKn: { 1: 55.4, 2: 52.2, 3: 48.8 }, leverXMm: 60, minDiscDiaMm: 650, discOverDrumMm: 280, minDiscThicknessMm: 20, releasePressureBar: 60, maxPressureBar: 110, volumeLitre: 0.046 },
-  { code: "SHI 104", clampKn: { 1: 74.1, 2: 68.7, 3: 62.7 }, leverXMm: 60, minDiscDiaMm: 650, discOverDrumMm: 280, minDiscThicknessMm: 20, releasePressureBar: 80, maxPressureBar: 110, volumeLitre: 0.046 },
-  { code: "SHI 105", clampKn: { 1: 83.2, 2: 77.0, 3: 74.4 }, leverXMm: 60, minDiscDiaMm: 650, discOverDrumMm: 280, minDiscThicknessMm: 20, releasePressureBar: 95, maxPressureBar: 150, volumeLitre: 0.046 },
-  { code: "SHI 106", clampKn: { 1: 110, 2: 98, 3: 88 }, leverXMm: 60, minDiscDiaMm: 650, discOverDrumMm: 280, minDiscThicknessMm: 20, releasePressureBar: 145, maxPressureBar: 175, volumeLitre: 0.046 },
-  { code: "SHI 107", clampKn: { 1: 140, 2: 115, 3: 94 }, leverXMm: 60, minDiscDiaMm: 650, discOverDrumMm: 280, minDiscThicknessMm: 20, releasePressureBar: 175, maxPressureBar: 205, volumeLitre: 0.046 },
+  { code: "SHI 103", weightKg: 130, clampKn: { 1: 55.4, 2: 52.2, 3: 48.8 }, leverXMm: 60, minDiscDiaMm: 650, discOverDrumMm: 280, minDiscThicknessMm: 20, releasePressureBar: 60, maxPressureBar: 110, volumeLitre: 0.046 },
+  { code: "SHI 104", weightKg: 130, clampKn: { 1: 74.1, 2: 68.7, 3: 62.7 }, leverXMm: 60, minDiscDiaMm: 650, discOverDrumMm: 280, minDiscThicknessMm: 20, releasePressureBar: 80, maxPressureBar: 110, volumeLitre: 0.046 },
+  { code: "SHI 105", weightKg: 130, clampKn: { 1: 83.2, 2: 77.0, 3: 74.4 }, leverXMm: 60, minDiscDiaMm: 650, discOverDrumMm: 280, minDiscThicknessMm: 20, releasePressureBar: 95, maxPressureBar: 150, volumeLitre: 0.046 },
+  { code: "SHI 106", weightKg: 130, clampKn: { 1: 110, 2: 98, 3: 88 }, leverXMm: 60, minDiscDiaMm: 650, discOverDrumMm: 280, minDiscThicknessMm: 20, releasePressureBar: 145, maxPressureBar: 175, volumeLitre: 0.046 },
+  { code: "SHI 107", weightKg: 130, clampKn: { 1: 140, 2: 115, 3: 94 }, leverXMm: 60, minDiscDiaMm: 650, discOverDrumMm: 280, minDiscThicknessMm: 20, releasePressureBar: 175, maxPressureBar: 205, volumeLitre: 0.046 },
   // --- SHI 160 serisi: x = 62,5 · d ≥ 900 · d1 = d − 325 · b ≥ 20
-  { code: "SHI 161", clampKn: { 1: 108, 2: 98, 3: 88 }, leverXMm: 62.5, minDiscDiaMm: 900, discOverDrumMm: 325, minDiscThicknessMm: 20, releasePressureBar: 90, maxPressureBar: 150, volumeLitre: 0.046 },
-  { code: "SHI 162", clampKn: { 1: 190, 2: 160, 3: 128 }, leverXMm: 62.5, minDiscDiaMm: 900, discOverDrumMm: 325, minDiscThicknessMm: 20, releasePressureBar: 170, maxPressureBar: 205, volumeLitre: 0.046 },
+  { code: "SHI 161", weightKg: 230, clampKn: { 1: 108, 2: 98, 3: 88 }, leverXMm: 62.5, minDiscDiaMm: 900, discOverDrumMm: 325, minDiscThicknessMm: 20, releasePressureBar: 90, maxPressureBar: 150, volumeLitre: 0.046 },
+  { code: "SHI 162", weightKg: 230, clampKn: { 1: 190, 2: 160, 3: 128 }, leverXMm: 62.5, minDiscDiaMm: 900, discOverDrumMm: 325, minDiscThicknessMm: 20, releasePressureBar: 170, maxPressureBar: 205, volumeLitre: 0.046 },
   // --- SHI 200 serisi: x = 60 · d ≥ 1100 · d1 = d − 360 · b ≥ 20
-  { code: "SHI 201", clampKn: { 1: 170, 2: 160, 3: 150 }, leverXMm: 60, minDiscDiaMm: 1100, discOverDrumMm: 360, minDiscThicknessMm: 20, releasePressureBar: 115, maxPressureBar: 150, volumeLitre: 0.071 },
-  { code: "SHI 202", clampKn: { 1: 240, 2: 220, 3: 200 }, leverXMm: 60, minDiscDiaMm: 1100, discOverDrumMm: 360, minDiscThicknessMm: 20, releasePressureBar: 160, maxPressureBar: 205, volumeLitre: 0.071 },
+  { code: "SHI 201", weightKg: 300, clampKn: { 1: 170, 2: 160, 3: 150 }, leverXMm: 60, minDiscDiaMm: 1100, discOverDrumMm: 360, minDiscThicknessMm: 20, releasePressureBar: 115, maxPressureBar: 150, volumeLitre: 0.071 },
+  { code: "SHI 202", weightKg: 300, clampKn: { 1: 240, 2: 220, 3: 200 }, leverXMm: 60, minDiscDiaMm: 1100, discOverDrumMm: 360, minDiscThicknessMm: 20, releasePressureBar: 160, maxPressureBar: 205, volumeLitre: 0.071 },
   // --- SHI 230 serisi: x = 95 · d ≥ 1100 · d1 = d − 440 · b ≥ 20 · YALNIZ c = 2…3 mm
-  { code: "SHI 231", clampKn: { 2: 240, 3: 225 }, leverXMm: 95, minDiscDiaMm: 1100, discOverDrumMm: 440, minDiscThicknessMm: 20, releasePressureBar: 130, maxPressureBar: 175, volumeLitre: 0.071 },
-  { code: "SHI 232", clampKn: { 2: 300, 3: 270 }, leverXMm: 95, minDiscDiaMm: 1100, discOverDrumMm: 440, minDiscThicknessMm: 20, releasePressureBar: 170, maxPressureBar: 205, volumeLitre: 0.071 },
+  { code: "SHI 231", weightKg: 415, clampKn: { 2: 240, 3: 225 }, leverXMm: 95, minDiscDiaMm: 1100, discOverDrumMm: 440, minDiscThicknessMm: 20, releasePressureBar: 130, maxPressureBar: 175, volumeLitre: 0.071 },
+  { code: "SHI 232", weightKg: 415, clampKn: { 2: 300, 3: 270 }, leverXMm: 95, minDiscDiaMm: 1100, discOverDrumMm: 440, minDiscThicknessMm: 20, releasePressureBar: 170, maxPressureBar: 205, volumeLitre: 0.071 },
   // --- SHI 250 serisi: x = 100 · d ≥ 1200 · d1 = d − 490 · b ≥ 20
-  { code: "SHI 251", clampKn: { 1: 335, 2: 302, 3: 270 }, leverXMm: 100, minDiscDiaMm: 1200, discOverDrumMm: 490, minDiscThicknessMm: 20, releasePressureBar: 105, maxPressureBar: 150, volumeLitre: 0.142 },
-  { code: "SHI 252", clampKn: { 1: 440, 2: 400, 3: 360 }, leverXMm: 100, minDiscDiaMm: 1200, discOverDrumMm: 490, minDiscThicknessMm: 20, releasePressureBar: 140, maxPressureBar: 175, volumeLitre: 0.142 },
+  { code: "SHI 251", weightKg: 610, clampKn: { 1: 335, 2: 302, 3: 270 }, leverXMm: 100, minDiscDiaMm: 1200, discOverDrumMm: 490, minDiscThicknessMm: 20, releasePressureBar: 105, maxPressureBar: 150, volumeLitre: 0.142 },
+  { code: "SHI 252", weightKg: 610, clampKn: { 1: 440, 2: 400, 3: 360 }, leverXMm: 100, minDiscDiaMm: 1200, discOverDrumMm: 490, minDiscThicknessMm: 20, releasePressureBar: 140, maxPressureBar: 175, volumeLitre: 0.142 },
   // --- SHI 280 serisi: x = 112,5 · d ≥ 1600 · d1 = d − 545 · b ≥ 30
-  { code: "SHI 281", clampKn: { 1: 455, 2: 425, 3: 395 }, leverXMm: 112.5, minDiscDiaMm: 1600, discOverDrumMm: 545, minDiscThicknessMm: 30, releasePressureBar: 135, maxPressureBar: 175, volumeLitre: 0.142 },
-  { code: "SHI 282", clampKn: { 1: 555, 2: 510, 3: 465 }, leverXMm: 112.5, minDiscDiaMm: 1600, discOverDrumMm: 545, minDiscThicknessMm: 30, releasePressureBar: 165, maxPressureBar: 205, volumeLitre: 0.142 },
+  { code: "SHI 281", weightKg: 900, clampKn: { 1: 455, 2: 425, 3: 395 }, leverXMm: 112.5, minDiscDiaMm: 1600, discOverDrumMm: 545, minDiscThicknessMm: 30, releasePressureBar: 135, maxPressureBar: 175, volumeLitre: 0.142 },
+  { code: "SHI 282", weightKg: 900, clampKn: { 1: 555, 2: 510, 3: 465 }, leverXMm: 112.5, minDiscDiaMm: 1600, discOverDrumMm: 545, minDiscThicknessMm: 30, releasePressureBar: 165, maxPressureBar: 205, volumeLitre: 0.142 },
 ];
 
 export const SAFETY_BRAKE_CODES = SAFETY_BRAKES.map((b) => b.code);

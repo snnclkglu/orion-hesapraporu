@@ -1333,3 +1333,101 @@ sınıfını, tek sürücü ve grup atık ısısını listeler. Ardından invert
 satırlardır. Böylece otomatik pano kayıp gücü yalnız sonuç değil, izlenebilir bir
 seçim zinciridir; motor gücü katalog üst sınırını aşarsa son sınıf oransal
 ölçeklenir ve bu durum seçim kaydında işaretlenir.
+
+## HESAP-35 — Ağırlık dökümü bir DOĞRULAMADIR, bir hesap değildir.
+
+Kullanıcı kararı (01.09.2026): teknik özelliklerdeki **Ağırlıklar** kutularının
+yanında bir **Σ** düğmesi; açılan tek pencere vincin ağırlığını **bant → grup →
+kalem** ağacında listeler ve TASARIMDAN ÖNCE girilen tahmini ağırlığı, rapor
+ilerledikçe ortaya çıkan gerçek parçalarla karşılaştırır. Kullanıcının cümlesi:
+*"bu ağırlıklar vincin tasarımında hesaplarda kullanılıyor… ana hedefim bu
+pop-up'ta vincin tahmini girdiğim ağırlıklarını doğrulamak."*
+
+**MOTOR DÖKÜMÜ HİÇ GÖRMEZ.** `runCalc` onu çağırmaz, hiçbir `AnyCheck` ondan
+beslenir, hiçbir kesit onunla onaylanır. Çekirdek `src/lib/weights/` altındadır
+ve SAFTIR; `lib/calc` onu tanımaz (koruma: `dokum.guard.test.ts`).
+
+**MOTORA GİDEN TEK KAPI MÜHENDİSİN KENDİ EYLEMİDİR.** "Teknik özelliğe yaz"
+düğmesi bant toplamını `specs.bridgeWeightT`e (ya da ilgili araba kutusuna)
+yazar — bu, kutuya ELLE yazmakla aynı şeydir ve revizyon farkında görünür.
+Otomatik yazma YOKTUR: **`AUTO_FLAGS`e yeni bir anahtar EKLENMEZ**, çünkü
+`*Auto` deseni sürekli ve sessiz yazar; burada istenen tek, açık ve onaylı bir
+karardır.
+
+**MALIYET-3 ÇİĞNENMEZ.** O madde teklif maliyet MODELİNİ işaret eder ve ondan
+çıkan bir sayının hesap raporuna girmesini yasaklar. Burada paylaşılan şey
+model değil **DEFTER**dir: firma imalat geçmişinden gelen ağırlık tabloları
+`offers/cost/params.ts`te KALIR ve `lib/weights/firma-tablolari.ts` TEK DİKİŞ
+YERİNDEN yeniden dışa verir (kopyalanmaz — değişmez md. 8). `lib/weights`
+hiçbir dosyası `offers/cost/model` içe aktarmaz.
+
+**DÖRT KAYNAK, HER SATIRDA ROZETLİ.** `hesap` (kesitin kendi geometrisi) ·
+`katalog` (üreticinin yayımladığı kilo) · `tahmin` (firma kabulü) · `elle`
+(mühendisin o işe özel bilgisi). Güven soldan sağa azalır ve bir satır KARIŞIK
+kaynaklıysa **EN ZAYIF HALKAYI** yazar: başkirişte kesit hesaptan gelse de boy
+tahmin olduğu için rozet `Tahmin`tir.
+
+**EKSİK KALEM SIFIR SAYILMAZ** (değişmez md. 4). Ağırlığı bilinmeyen satır
+`null` gelir, GEREKÇESİNİ yazar ve toplamlar `≥` ile basılır. Katalogda ağırlık
+yayımlanmayan üç tür (SKF rulman yatağı · TMS klima · Conductix/Vasel feston)
+bilinçli boştur; uydurulmaz.
+
+**DÖKÜMÜN KENDİSİ SAKLANMAZ**, her açılışta girdilerden, seçimlerden ve
+sonuçlardan yeniden türetilir. Saklansaydı mühendis bir motoru değiştirdikten
+sonra pencere eski ağırlığı göstermeye devam eder ve doğrulama aracı YANLIŞ
+DOĞRULARDI. Revizyona giden tek şey türetilemeyen kısımdır:
+`inputs.weightBreakdown` = `overrides` (elle verilen kilolar) · `notes` (neden
+verildi) · `applied` ("teknik özelliğe yazıldı" izi ve kaynak karışımı).
+Migration GEREKMEZ. `revision-diff` bunu sahte bir MODÜL sanmasın diye kendi
+satırıyla ele alınır ("Ağırlık Dökümü — Elle Verilen Kalemler").
+
+**ADET EZİLEMEZ.** Düzenlenebilen yalnız kilodur; adetin tek kaynağı ekipman
+listesidir (HESAP-21). Grup TOPLAMI ezilebilir — o zaman kalemler listede
+solgun kalır ama toplama girmez; silmek bilgi kaybı olurdu.
+
+**KATALOG KALEMLERİ EKİPMAN SATIRLARINDAN OKUNUR**, ikinci bir liste yazılmaz:
+`buildEquipmentGroups` kapalı bölümü, gizlenen alt bölümü, alternatifleri ve
+adetleri zaten doğru üretir. Satır ağırlığı `EqRow.weightKg`tedir ve MERKEZÎ bir
+çözücü doldurur (`agirlikCozucu`) — yirmi beş satır nesnesine ağırlık
+serpiştirilmedi. İki yönlü kapsam koruması hem üretilen her slug'ın bir grubu
+olduğunu hem defterdeki her slug'ın gerçekten üretildiğini ölçer.
+
+**GİZLENEN ALT BÖLÜM VARSAYILAN OLARAK DÜŞER**, ekipman listesiyle aynı
+davranış; grup dipnotu kaç satırın düştüğünü yazar. Pencerenin üstündeki
+**"Gizli bölümleri de say"** anahtarı onları SOLGUN geri getirir — gizlemenin
+iki gerekçesi vardır (HESAP-7) ve ikincisinde parça gerçekten vardır. Anahtar
+bir GÖRÜNÜM tercihidir, revizyona yazılmaz; katlama durumu da öyle.
+
+**SAPMA EŞİĞİ %10'DUR** (`AGIRLIK_SAPMA_SINIRI`) ve maliyet tarafındaki
+`COST_DEVIATION_LIMIT` (%5) yeniden kullanılmaz: orada soru "teklifte söz
+verilen ekipman hesaptan çıkanla aynı mı", burada "tasarım öncesi tahmin tuttu
+mu"dur.
+
+**KABİN VE ELEKTRİK ODASI KÖPRÜ BANDININ İÇİNDEDİR.** Köprünün üzerinde
+dururlar; `bridgeWeightT`e yazılan sayı onları İÇERMEK ZORUNDADIR, çünkü ana
+kirişin ölü yükü ve teker yükleri onları taşır. Her ARABA kendi bandını kurar
+ve kendi kutusuyla karşılaştırılır; paylaşımlı yardımcı kaldırma ANA arabanın
+bandındadır (`hoistTrolleyKey` — `HOIST_OF_TRAVEL`ün TERSİ, karıştırılmaz).
+
+**BAŞKİRİŞ BOYU MOTORA GİRDİ OLARAK EKLENMEDİ.** `EndCarriageInputs`e bir
+`lengthMm` koymak her eski revizyona şablon varsayılanını sessizce verirdi ve
+hiçbir kontrolün okumadığı bir sayı yapısal bir girdi gibi görünürdü. Boy
+DEFTERDE türetilir: `L = teker aralığı + 2 · (katsayı × teker çapı)`.
+
+**BÖLÜM 2.8 ARTIK EKİPMAN SATIRI ÜRETİR.** Tambur emniyet freni (SIBRE SHI)
+uzun süre ne ekipman listesinde ne satın almada görünüyordu; kaliper ağırlığı
+`safety-brake.ts` defterine eklendi ve `safety-brake.test.ts` tohum SQL'ini
+okuyarak katalogla ayrışmayı engeller.
+
+**ÇEKİRDEK ASLA FIRLATMAZ.** `runCalc` editörde bir `useMemo` içinde ve SSR
+sırasında SUNUCUDA koşar; oradan erişilebilen tek bir tip hatası revizyon
+sayfasını 500'e düşürür (KATALOG-13'ün ölçülmüş arızası). `agirlikDokumu` her
+dalda `null` + gerekçe döner ve pencere yalnız AÇIKKEN hesaplanır.
+
+**ÇIKTI YALNIZ UYGULAMA İÇİDİR** (kullanıcı kararı): PDF hesap raporu, ekipman
+listesi ve Excel çıktıları DEĞİŞMEZ.
+
+**Bilinçli kapsam dışı:** kaldırma kirişinin (çift tamburun kiriş seçeneği)
+ağırlığı hesaplanmaz. Kesitin iki bölgesi (açıklık ortası ve mesnet) farklı
+kalınlıktadır ve hangi bölgenin ne kadar sürdüğü sorulmuyor; bilerek düşük
+çıkan bir tahmin, dürüst bir boşluktan kötüdür. Satır gerekçesiyle boş kalır.

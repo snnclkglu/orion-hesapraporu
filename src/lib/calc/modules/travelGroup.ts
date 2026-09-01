@@ -417,6 +417,29 @@ export interface TravelSelections {
   bufferEnergyCurve?: CurvePoint[];
   /** Kauçuk: kuvvet–sıkışma eğrisi [[sıkışma %, kuvvet kN], …] */
   bufferForceCurve?: CurvePoint[];
+
+  // ————————————————————————————— KATALOG AĞIRLIKLARI (hesaba GİRMEZ)
+  //
+  // Seçilen ürünün katalogdaki ağırlığı, seçimle BİRLİKTE revizyona yazılır
+  // (`catalog-mapping.ts`). Görünür bir form alanı YOKTUR — `gearboxCatalogInputRpm`
+  // deseninin aynısı: değer seçimin bir parçasıdır, mühendisin cevaplayacağı bir
+  // soru değil. Tek okuyucusu AĞIRLIK DÖKÜMÜ penceresidir; hesap motoru bu
+  // alanları HİÇ okumaz ve hiçbir kontrol onlardan beslenmez.
+  //
+  // Alanlar OPSİYONELDİR: eski revizyonlarda yoktur, uydurulmaz (değişmez md. 4)
+  // ve döküm o satırda "—" basıp ürünün yeniden seçilmesini önerir. Katalogda
+  // ağırlık ARALIK verilen ürünlerde (Jaure kaplinleri) alt sınır `*WeightKg`,
+  // üst sınır `*WeightMaxKg` alanındadır — uydurma tek bir sayı üretilmez.
+  wheelWeightKg?: number;
+  bearingWeightKg?: number;
+  motorWeightKg?: number;
+  gearboxWeightKg?: number;
+  brakeWeightKg?: number;
+  motorCouplingWeightKg?: number;
+  motorCouplingWeightMaxKg?: number;
+  wheelCouplingWeightKg?: number;
+  wheelCouplingWeightMaxKg?: number;
+  bufferWeightKg?: number;
 }
 
 export interface TravelValues {

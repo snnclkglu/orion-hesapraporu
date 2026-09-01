@@ -35,6 +35,16 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/** Elle ezilmiş ağırlık kalemlerinin anahtarları — sıralı ve tekil. */
+function weightOverrideKeys(raw: unknown): string[] {
+  if (!isPlainObject(raw)) return [];
+  const overrides = raw.overrides;
+  if (!isPlainObject(overrides)) return [];
+  return Object.keys(overrides)
+    .filter((k) => typeof overrides[k] === "number")
+    .sort();
+}
+
 function diffModuleObjects(
   moduleKey: string,
   kind: "input" | "selection",
@@ -76,6 +86,11 @@ export function diffRevisions(a: Snapshot, b: Snapshot): RevisionDiff {
     // Kapalı bölüm ve gizli alt bölüm listeleri modül nesnesi değil, dizidir —
     // ayrı ele alınırlar.
     if (mk === "disabledModules" || mk === "hiddenSections" || mk === "hiddenDiagrams") continue;
+    // AĞIRLIK DÖKÜMÜ kararları da ayrı ele alınır: `diffModuleObjects` onu bir
+    // MODÜL nesnesi sayıp bir seviye açar ve `overrides.bridge.girder` gibi HAM
+    // anahtarlar basardı — `MODULE_LABELS`ta karşılığı olmayan sahte bir bölüm
+    // (MALIYET-18'in "tanımsız anahtar ham basılır" tuzağı).
+    if (mk === "weightBreakdown") continue;
     diffModuleObjects(mk, "input", aInputs[mk], bInputs[mk], fields);
   }
 
@@ -118,6 +133,25 @@ export function diffRevisions(a: Snapshot, b: Snapshot): RevisionDiff {
       key: "hiddenDiagrams",
       a: aDia.length ? aDia.join(", ") : "—",
       b: bDia.length ? bDia.join(", ") : "—",
+    });
+  }
+
+  // AĞIRLIK DÖKÜMÜ EZMELERİ — kendi satırıyla görünür.
+  //
+  // Ezme bir sayı düzeltmesi değil bir MÜHENDİSLİK KARARIDIR: "bu kirişin
+  // gerçek ağırlığı 12.340 kg" demek, sonraki revizyonu açan kişinin bilmesi
+  // gereken bir bilgidir. Satır kaç kalemin elle verildiğini söyler; ayrıntı
+  // pencerede durur, karşılaştırma tablosu yüz satırlık bir ezme dökümüne
+  // dönüşmemelidir.
+  const aEzme = weightOverrideKeys(aInputs.weightBreakdown);
+  const bEzme = weightOverrideKeys(bInputs.weightBreakdown);
+  if (JSON.stringify(aEzme) !== JSON.stringify(bEzme)) {
+    fields.push({
+      module: "specs",
+      kind: "input",
+      key: "weightBreakdownOverrides",
+      a: aEzme.length ? aEzme.join(", ") : "—",
+      b: bEzme.length ? bEzme.join(", ") : "—",
     });
   }
 

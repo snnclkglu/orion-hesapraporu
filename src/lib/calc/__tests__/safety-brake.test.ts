@@ -5,6 +5,8 @@
 // yalnız BİR NOKTADA (bilinen sayısal örnek) karşılaştırma için kullanılır —
 // şartname değildir.
 
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   BRAKE_ARRANGEMENTS,
@@ -208,5 +210,38 @@ describe("hidrolik güç ünitesi seçimi", () => {
 
   it("model seçilmediyse ünite önerilmez", () => {
     expect(recommendHydraulicUnit(undefined, 2)).toBeUndefined();
+  });
+});
+
+// —————————————————————————————————— ağırlık defteri katalogla ayrışmaz
+
+describe("kaliper AĞIRLIĞI katalogla ayrışmaz", () => {
+  // Ağırlık hesaba GİRMEZ (HESAP-35): ekipman listesi ve ağırlık dökümü okur.
+  // Sayı iki yerde yaşıyor — defterde ve üretici katalog tohumunda — bu yüzden
+  // ayrışmayı tohumu OKUYAN bir test engeller (değişmez md. 8,
+  // `drum-brake.test.ts` deseni). Beklenen değerleri buraya yazmak üçüncü bir
+  // kopya üretmekten başka bir şey yapmazdı.
+  const katalog = new Map<string, number>();
+  const dizin = path.join(process.cwd(), "supabase/migrations");
+  for (const dosya of readdirSync(dizin).filter((f) => f.endsWith(".sql"))) {
+    const sql = readFileSync(path.join(dizin, dosya), "utf8");
+    for (const m of sql.matchAll(
+      /\('brake',\s*'SIBRE',\s*'(SHI [^']*)',\s*'(\{.*?\})'::jsonb/g
+    )) {
+      const attrs = JSON.parse(m[2]) as Record<string, unknown>;
+      if (typeof attrs.weight_kg === "number") katalog.set(m[1], attrs.weight_kg);
+    }
+  }
+
+  it("tohumda gerçekten SHI serisi var (fikstür bozulmamış)", () => {
+    expect(katalog.size).toBe(SAFETY_BRAKES.length);
+  });
+
+  it("defterin HER satırı katalogla AYNI kiloyu taşır", () => {
+    for (const b of SAFETY_BRAKES) {
+      expect(katalog.get(b.code), `${b.code} katalogda yok`).toBeDefined();
+      expect(b.weightKg, `${b.code} ağırlık`).toBe(katalog.get(b.code));
+      expect(b.weightKg, `${b.code} pozitif olmalı`).toBeGreaterThan(0);
+    }
   });
 });

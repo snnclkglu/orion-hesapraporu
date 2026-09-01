@@ -71,7 +71,7 @@ describe("denge rulmanı katalog eşlemesi", () => {
     expect(seeded.some((s) => s.startsWith("NNF 50"))).toBe(true);
   });
 
-  it("eşleme rulmanın tipini, kodunu ve iki yük sayısını doldurur", () => {
+  it("eşleme rulmanın tipini, kodunu, iki yük sayısını ve ağırlığını doldurur", () => {
     const fields = getCatalogMapping("main", "2.10")?.fields ?? [];
     const targets = fields.map((f) => f.sel);
     expect(targets).toEqual([
@@ -79,6 +79,11 @@ describe("denge rulmanı katalog eşlemesi", () => {
       "balanceBearingCode",
       "balanceBearingDynCKn",
       "balanceBearingStatC0Kn",
+      // AĞIRLIK hesabın değil AĞIRLIK DÖKÜMÜNÜN girdisidir (HESAP-35): hiçbir
+      // kontrolü beslemez, yalnız vincin kaç kilo geldiğini toplar. Ağırlık
+      // taşıyan her katalog türünde bulunması `catalog-weight-mapping.guard`
+      // tarafından ayrıca zorunlu tutulur.
+      "balanceBearingWeightKg",
     ]);
   });
 });

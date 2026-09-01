@@ -904,6 +904,9 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   {
     id: "2.8",
     title: "Emniyet Freni",
+    // Kaliper artık bir EKİPMAN SATIRIDIR; gizleme süzgeci ve iki yönlü kapsam
+    // koruması onu bu bildirimden tanır.
+    equipmentSlugs: ["safetyBrake"],
     description:
       "Emniyet freni tamburun flanşını disk olarak kullanan kaliper frendir. " +
       "Motor mili üzerindeki servis freni ile tambur arasındaki aktarma organları " +

@@ -939,6 +939,8 @@ const BALANCE_BEARING_MAP: SectionCatalogMapping = {
     { sel: "balanceBearingCode", from: "model" },
     { sel: "balanceBearingDynCKn", from: { attr: "dynamic_load_kn" } },
     { sel: "balanceBearingStatC0Kn", from: { attr: "static_load_kn" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "balanceBearingWeightKg", from: { attr: "weight_kg" } },
   ],
 };
 
@@ -972,6 +974,8 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "bearingBoreMm", from: { attr: "bore_mm" } },
       { sel: "bearingDynCKn", from: { attr: "dynamic_load_kn" } },
       { sel: "bearingStatC0Kn", from: { attr: "static_load_kn" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "bearingWeightKg", from: { attr: "weight_kg" } },
     ],
   },
   // 2.2.7 Tambur rulman yatağı — `compatible_bearing` filtresi editörde
@@ -1028,6 +1032,8 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
       // kontrolü). Katalogda karşılığı olmayan bir alan applyCatalogPick
       // tarafından SESSİZCE atlandığı için eşlemesi zorunludur.
       { sel: "motorShaftMm", from: { attr: "shaft_mm" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "motorWeightKg", from: { attr: "weight_kg" } },
     ],
   },
   // 2.5 Fren
@@ -1038,6 +1044,9 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "brakeModel", from: "model" },
       { sel: "brakeTorqueNm", from: { attr: "brake_torque_nm" } },
       { sel: "brakeWheelDiaMm", from: { attr: "wheel_dia_mm" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur. Kasnak freninde İTİCİ HARİÇTİR (HESAP-27);
+      // döküm toplamı `calc/drum-brake.ts` defterinden okur.
+      { sel: "brakeWeightKg", from: { attr: "weight_kg" } },
     ],
   },
   // 2.6 Motor — redüktör kaplini
@@ -1050,6 +1059,12 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "motorCouplingWheelDiaMm", from: { attr: "brake_drum_diameter_mm" } },
       { sel: "motorCouplingTorqueNm", from: { attr: "nominal_torque_nm" } },
       { sel: "motorCouplingDmaxMm", from: { attr: "max_shaft_dia_mm" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      // KAPLİN AĞIRLIĞI KATALOGDA ARALIK OLABİLİR (Jaure): tek satır önce
+      // `weight_kg`i dener, yoksa alt sınıra düşer — ikisi aynı üründe bulunmaz.
+      { sel: "motorCouplingWeightKg", from: { attr: "weight_kg" } },
+      { sel: "motorCouplingWeightKg", from: { attr: "weight_min_kg" } },   // aralık: alt sınır
+      { sel: "motorCouplingWeightMaxKg", from: { attr: "weight_max_kg" } },   // aralık: üst sınır
     ],
   },
   // 2.9 / 2.10 Halat dengeleme rulmanı — denge TRAVERSİ ve denge MAKARASI
@@ -1073,6 +1088,12 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "drumCouplingTorqueNm", from: { attr: "nominal_torque_nm" } },
       { sel: "drumCouplingRadialN", from: { attr: "max_radial_load_n" } },
       { sel: "drumCouplingDmaxMm", from: { attr: "max_shaft_dia_mm" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      // KAPLİN AĞIRLIĞI KATALOGDA ARALIK OLABİLİR (Jaure): tek satır önce
+      // `weight_kg`i dener, yoksa alt sınıra düşer — ikisi aynı üründe bulunmaz.
+      { sel: "drumCouplingWeightKg", from: { attr: "weight_kg" } },
+      { sel: "drumCouplingWeightKg", from: { attr: "weight_min_kg" } },   // aralık: alt sınır
+      { sel: "drumCouplingWeightMaxKg", from: { attr: "weight_max_kg" } },   // aralık: üst sınır
     ],
   },
 };
@@ -1113,12 +1134,20 @@ const HOOKBLOCK_MAP: Record<string, SectionCatalogMapping> = {
   // eziliyordu — çalışmayan bir eşleme, çalışıyor gibi durur.
   "4.1": {
     kind: "hook",
-    fields: [{ sel: "hookNumber", from: { attr: "hook_nr" } }],
+    fields: [
+      { sel: "hookNumber", from: { attr: "hook_nr" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "hookWeightKg", from: { attr: "weight_kg" } },
+    ],
   },
   // 4.2 Makaralar
   "4.2": {
     kind: "sheave",
-    fields: [{ sel: "sheaveDiaMm", from: { attr: "dia_mm" } }],
+    fields: [
+      { sel: "sheaveDiaMm", from: { attr: "dia_mm" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "sheaveWeightKg", from: { attr: "weight_kg" } },
+    ],
   },
   // 4.3 Makara rulmanları — iç çap mil çapı D1 ile eşleşmelidir
   "4.3": {
@@ -1129,6 +1158,8 @@ const HOOKBLOCK_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "sheaveBearingBoreMm", from: { attr: "bore_mm" } },
       { sel: "sheaveBearingDynCKn", from: { attr: "dynamic_load_kn" } },
       { sel: "sheaveBearingStatC0Kn", from: { attr: "static_load_kn" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "sheaveBearingWeightKg", from: { attr: "weight_kg" } },
     ],
   },
   // 4.5 Kanca rulmanı
@@ -1138,6 +1169,8 @@ const HOOKBLOCK_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "hookBearingType", from: { attr: "type" } },
       { sel: "hookBearingCode", from: "model" },
       { sel: "hookBearingStatC0Kn", from: { attr: "static_load_kn" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "hookBearingWeightKg", from: { attr: "weight_kg" } },
     ],
   },
 };
@@ -1147,7 +1180,11 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
   // 5.1 Tekerlekler
   "5.1": {
     kind: "wheel",
-    fields: [{ sel: "wheelDiaMm", from: { attr: "dia_mm" } }],
+    fields: [
+      { sel: "wheelDiaMm", from: { attr: "dia_mm" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "wheelWeightKg", from: { attr: "weight_kg" } },
+    ],
   },
   // 5.3 Tekerlek rulmanı
   "5.3": {
@@ -1160,6 +1197,8 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "bearingWidthMm", from: { attr: "width_mm" } },
       { sel: "bearingDynCKn", from: { attr: "dynamic_load_kn" } },
       { sel: "bearingStatC0Kn", from: { attr: "static_load_kn" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "bearingWeightKg", from: { attr: "weight_kg" } },
     ],
   },
   // 5.4 Yürütme motoru
@@ -1176,6 +1215,8 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       // Köprüde kaplin mili doğrudan motorShaftMm'den okunur
       // (travelGroup.ts: isTrolley ? couplingMotorShaftMm : motorShaftMm).
       { sel: "motorShaftMm", from: { attr: "shaft_mm" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "motorWeightKg", from: { attr: "weight_kg" } },
     ],
   },
   // 5.5 Yürütme dişli kutusu — yürütme grubu kataloğu
@@ -1190,6 +1231,8 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "gearboxOutputShaftMm", from: { attr: "output_shaft_mm" } },
       { sel: "gearboxInputShaftText", from: { attr: "input_shaft_mm" }, suffix: " mm" },
       { sel: "gearboxInputShaftMm", from: { attr: "input_shaft_mm" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "gearboxWeightKg", from: { attr: "weight_kg" } },
     ],
   },
   // 5.5b Yürütme freni (araba ve köprü)
@@ -1199,6 +1242,8 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "brakeBrand", from: "brand_model" },
       { sel: "brakeTorqueNm", from: { attr: "brake_torque_nm" } },
       { sel: "brakeWheelDiaMm", from: { attr: "wheel_dia_mm" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "brakeWeightKg", from: { attr: "weight_kg" } },
     ],
   },
   // 5.6 Motor — dişli kutusu kaplini
@@ -1210,6 +1255,12 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "motorCouplingModel", from: "model" },
       { sel: "motorCouplingTorqueNm", from: { attr: "nominal_torque_nm" } },
       { sel: "motorCouplingDmaxMm", from: { attr: "max_shaft_dia_mm" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      // KAPLİN AĞIRLIĞI KATALOGDA ARALIK OLABİLİR (Jaure): tek satır önce
+      // `weight_kg`i dener, yoksa alt sınıra düşer — ikisi aynı üründe bulunmaz.
+      { sel: "motorCouplingWeightKg", from: { attr: "weight_kg" } },
+      { sel: "motorCouplingWeightKg", from: { attr: "weight_min_kg" } },   // aralık: alt sınır
+      { sel: "motorCouplingWeightMaxKg", from: { attr: "weight_max_kg" } },   // aralık: üst sınır
     ],
   },
   // 5.7 Teker — dişli kutusu kaplini
@@ -1223,6 +1274,12 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "wheelCouplingModel", from: "model" },
       { sel: "wheelCouplingTorqueNm", from: { attr: "nominal_torque_nm" } },
       { sel: "wheelCouplingDmaxMm", from: { attr: "max_shaft_dia_mm" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      // KAPLİN AĞIRLIĞI KATALOGDA ARALIK OLABİLİR (Jaure): tek satır önce
+      // `weight_kg`i dener, yoksa alt sınıra düşer — ikisi aynı üründe bulunmaz.
+      { sel: "wheelCouplingWeightKg", from: { attr: "weight_kg" } },
+      { sel: "wheelCouplingWeightKg", from: { attr: "weight_min_kg" } },   // aralık: alt sınır
+      { sel: "wheelCouplingWeightMaxKg", from: { attr: "weight_max_kg" } },   // aralık: üst sınır
     ],
   },
   // 5.8 Tampon — (Madde 20, 21) hidrolik / kauçuk / hücresel tek katalogda.
@@ -1246,6 +1303,8 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       // SIBRE SP kısma iğnesi tablosu da seçilen strokla birlikte gelir;
       // kod hesaplanan tampon başına kütleden otomatik türetilir.
       { sel: "bufferMeteringPins", from: { attr: "metering_pins" } },
+      // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
+      { sel: "bufferWeightKg", from: { attr: "weight_kg" } },
     ],
   },
   // 5.9 Feston sistemi — bu hareket ekseninin kablo taşıyıcı sistemi.

@@ -146,6 +146,16 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useOverlay } from "@/lib/use-overlay";
+import { buildEquipmentGroups } from "@/lib/equipment-list";
+import { agirlikDokumu } from "@/lib/weights/topla";
+import { AGIRLIK_BANT_ANAHTARI } from "@/lib/weights/defter";
+import {
+  AGIRLIK_SPEC_ANAHTARLARI,
+  type AgirlikDokumuDurumu,
+  type AgirlikSpecAnahtari,
+} from "@/lib/weights/types";
+import { AgirlikDokumuDialog } from "./agirlik-dokumu-dialog";
+import { DESKTOP_MQ, useIsDesktop } from "@/lib/use-breakpoint";
 import { useStoredFlag } from "@/lib/use-stored-flag";
 import { saveRevision } from "./actions";
 
@@ -287,7 +297,7 @@ function nearestOption(options: string[], current: string, numeric: boolean): st
 }
 
 function Field({
-  def, value, onChange, disabled, auto, context, specs, mobileFull,
+  def, value, onChange, disabled, auto, context, specs, mobileFull, sag,
 }: {
   def: AnyFieldDef;
   value: object;
@@ -300,6 +310,13 @@ function Field({
   specs?: TechnicalSpecs;
   /** Teknik özelliklerde uzun seçimler iki dar sütuna bölünmez. */
   mobileFull?: boolean;
+  /**
+   * Etiketin sağındaki EK EYLEM — bugün yalnız ağırlık kutularının "Ağırlık
+   * Dökümü" düğmesi. `AnyFieldDef`e alan eklenmedi: beş alan için bütün ızgara
+   * tanımını kirletmek yerine çağrı yeri geçirir. Izgaraya AYRI BİR ÖĞE olarak
+   * konsaydı `grid-rows-subgrid` hizasını bozardı.
+   */
+  sag?: React.ReactNode;
 }) {
   const v = (value as Record<string, unknown>)[def.key];
   const id = `f-${def.key}`;
@@ -387,6 +404,7 @@ function Field({
         {def.standardRef && (
           <StandardRefBadge code={def.standardRef} context={context} />
         )}
+        {sag}
         {auto && (
           <button
             type="button"
@@ -408,10 +426,13 @@ function Field({
                 : "Otomatik hesapla"
             }
             className={cn(
-              // Dokunmatikte 16px'lik anahtar parmakla tutulmuyordu; farede
-              // etiket satırı ince kalsın diye yükseklik yalnız kaba
-              // işaretleme aygıtında büyür (sözleşme §2).
-              "ml-auto inline-flex items-center gap-1 border px-1.5 py-px font-mono text-[11px] transition-colors pointer-coarse:min-h-10 pointer-coarse:px-2.5",
+              // Dokunmatikte 16 px'lik anahtar parmakla tutulmuyordu. Hedef
+              // KUTUYU BÜYÜTEREK değil `.oc-tap` ile 44 px'e tamamlanır
+              // (MOBIL-1): kutu farede de dokunmatikte de ince kalır, etiket
+              // satırının ritmi bozulmaz. Yatay pay `pointer-coarse:px-2.5`
+              // olarak KALIR — `.oc-tap` yalnız dikey büyür ve bu anahtar
+              // parmakla yatayda da tutulabilir olmalıdır.
+              "oc-tap ml-auto inline-flex items-center gap-1 border px-1.5 py-px font-mono text-[11px] transition-colors pointer-coarse:px-2.5",
               auto.on
                 ? auto.tone === "danger"
                   ? "border-destructive/50 bg-destructive/10 text-destructive"
@@ -456,7 +477,7 @@ function Field({
                   aria-pressed={on}
                   onClick={() => toggle(o)}
                   className={cn(
-                    "inline-flex items-center gap-1 border px-2 py-1 font-mono text-xs transition-colors pointer-coarse:min-h-10",
+                    "oc-tap inline-flex items-center gap-1 border px-2 py-1 font-mono text-xs transition-colors",
                     on
                       ? "border-primary/50 bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-muted",
@@ -1106,8 +1127,8 @@ function SectionTable({
   return (
     <div className="grid gap-2">
       <h3 className="oc-kicker text-muted-foreground">{table.title}</h3>
-      <div className="oc-mobile-table-wrap rounded-lg border [--oc-scroll-bg:var(--card)]">
-        <table className="oc-mobile-table w-full border-collapse text-sm">
+      <div className="oc-mobile-table-wrap oc-tablet-table-wrap rounded-lg border [--oc-scroll-bg:var(--card)]">
+        <table className="oc-mobile-table oc-tablet-table w-full border-collapse text-sm">
           <thead>
             <tr className="border-b bg-muted/60">
               {table.headers.map((h) => (
@@ -1351,34 +1372,10 @@ function StatusSlot({ children }: { children: React.ReactNode }) {
 }
 
 /** Sabit çerçevenin açıldığı genişlik (app-shell `lg` üstünde çerçeve kurar). */
-const DESKTOP_MQ = "(min-width: 1024px)";
-
-/**
- * Ekran sabit çerçeve genişliğinde mi (≥1024px).
- *
- * Editörün iki davranışı doğrudan buna bağlıdır: bölüm rayının DAR kipi ve
- * bölüm değişiminde neyin başa sarılacağı. lg ALTINDA çerçeve yoktur — ray tam
- * genişliktedir ve sayfa doğal olarak kayar; genişliği bilmeden ikisi de yanlış
- * çalışıyordu. Sunucuda genişlik bilinemez: `false` (mobil düzen) varsayılır,
- * ilk istemci boyaması gerçek değeri okur (hidrasyon uyumlu).
- */
-// Abonelik ve anlık görüntü fonksiyonları modül düzeyindedir: her boyamada
-// yeni bir işlev üretilseydi React aboneliği baştan kurardı.
-function subscribeDesktop(onChange: () => void) {
-  const mq = window.matchMedia(DESKTOP_MQ);
-  mq.addEventListener("change", onChange);
-  return () => mq.removeEventListener("change", onChange);
-}
-const desktopSnapshot = () => window.matchMedia(DESKTOP_MQ).matches;
-const desktopServerSnapshot = () => false;
-
-function useIsDesktop(): boolean {
-  return useSyncExternalStore(subscribeDesktop, desktopSnapshot, desktopServerSnapshot);
-}
 
 export function RevisionEditor({
   projectId, revisionId, readOnly, initial, initialAlts, initialSectionNotes, initialDisabled,
-  initialHidden, initialHiddenDiagrams,
+  initialHidden, initialHiddenDiagrams, initialWeightBreakdown,
 }: {
   projectId: string;
   revisionId: string;
@@ -1401,12 +1398,26 @@ export function RevisionEditor({
    * Bölüm hesaba ve PDF rapora GİRER; yalnız parametrik çizimi belgeye basılmaz.
    */
   initialHiddenDiagrams?: string[];
+  /** Ağırlık dökümünde daha önce elle verilmiş kalemler ve notları. */
+  initialWeightBreakdown?: AgirlikDokumuDurumu;
 }) {
   const [specs, setSpecs] = useState(initial.specs);
   const [mods, setMods] = useState<ModulesState>(() => initModules(initial));
   const [alts, setAlts] = useState<AltsMap>(initialAlts ?? {});
   const [sectionNotes, setSectionNotes] = useState<RevisionSectionNotes>(initialSectionNotes ?? {});
   // Gizlenen alt bölümler — başlıktaki kutucukla açılıp kapanır.
+  /**
+   * AĞIRLIK DÖKÜMÜ — insanın kararları (ezme · not · gizli bölüm anahtarı).
+   *
+   * Dökümün KENDİSİ burada durmaz: her açılışta girdilerden yeniden türetilir
+   * (HESAP-35). "Gizli bölümleri de say" bir GÖRÜNÜM tercihidir ve kayda
+   * girmez; ezme ve not revizyonla birlikte saklanır.
+   */
+  const [agirlikDurum, setAgirlikDurum] = useState<AgirlikDokumuDurumu>(
+    () => initialWeightBreakdown ?? {}
+  );
+  const [agirlikAcik, setAgirlikAcik] = useState(false);
+  const [agirlikBant, setAgirlikBant] = useState<string | undefined>(undefined);
   const [hiddenSections, setHiddenSections] = useState<Set<string>>(
     () => new Set(initialHidden ?? [])
   );
@@ -1609,6 +1620,29 @@ export function RevisionEditor({
   const deps = useMemo(() => buildModuleDeps(calcInput, result), [calcInput, result]);
   /** Kayda giden gizli alt bölüm listesi (sıralı — diff satırı kararlı olsun). */
   const hiddenList = useMemo(() => [...hiddenSections].sort(), [hiddenSections]);
+
+  /**
+   * AĞIRLIK DÖKÜMÜ — YALNIZ PENCERE AÇIKKEN kurulur.
+   *
+   * Ekipman satırlarını kurmak bütün modülleri gezer; mühendisin her tuşuna
+   * basışında koşmasının bir sebebi yok. `agirlikAcik` bağımlılıkta olduğu için
+   * pencere kapalıyken hesap hiç yapılmaz.
+   */
+  const agirlikDokumuSonuc = useMemo(() => {
+    if (!agirlikAcik) return null;
+    return agirlikDokumu({
+      input: calcInput,
+      result,
+      // Gizleme UYGULANMAZ: "gizli bölümleri de say" anahtarı onları geri
+      // getirebilmeli; süzgeci dökümün kendisi işletir.
+      // ALTERNATİF SATIR GEÇİLMEZ: bir aday vincin üzerinde değildir ve döküm
+      // onu zaten eler. `alts` geçirilseydi memo her tuş vuruşunda yeniden
+      // koşardı (fonksiyon her çizimde yeniden doğuyor).
+      satirlar: buildEquipmentGroups(calcInput).flatMap((g) => g.rows),
+      gizliBolumler: hiddenList,
+      durum: agirlikDurum,
+    });
+  }, [agirlikAcik, calcInput, result, hiddenList, agirlikDurum]);
   const hiddenDiagramsList = useMemo(
     () => [...hiddenDiagrams].sort(),
     [hiddenDiagrams]
@@ -1994,7 +2028,9 @@ export function RevisionEditor({
         disabledList,
         sectionNotes,
         hiddenList,
-        hiddenDiagramsList
+        hiddenDiagramsList,
+        // Yalnız İNSANIN kararları gider; döküm türetilir (HESAP-35).
+        { overrides: agirlikDurum.overrides, notes: agirlikDurum.notes }
       );
       if (res.error) toast.error(res.error);
       else {
@@ -2053,6 +2089,33 @@ export function RevisionEditor({
    */
   const cardSpacing = "[--card-spacing:--spacing(3)] sm:[--card-spacing:--spacing(6)]";
 
+  /**
+   * AĞIRLIK KUTUSUNUN YANINDAKİ DÖKÜM DÜĞMESİ.
+   *
+   * Beş ağırlık kutusunun beşi de AYNI pencereyi açar (kullanıcı kararı,
+   * 01.09.2026: tek pencere, tüm vinç); basılan kutu yalnız hangi bandın öne
+   * geleceğini söyler. Ayrı pencereler, toplam vinç ağırlığını hiçbir ekranda
+   * göstermezdi.
+   */
+  function agirlikDokumuDugmesi(fieldKey: string): React.ReactNode {
+    if (!(AGIRLIK_SPEC_ANAHTARLARI as readonly string[]).includes(fieldKey)) return null;
+    const bant = AGIRLIK_BANT_ANAHTARI[fieldKey as AgirlikSpecAnahtari];
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setAgirlikBant(bant);
+          setAgirlikAcik(true);
+        }}
+        title="Ağırlık dökümünü aç — seçilen ekipman ve hesaplanan kesitlerle karşılaştır"
+        aria-label="Ağırlık dökümünü aç"
+        className="oc-tap-square inline-flex size-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px] text-muted-foreground hover:border-primary/50 hover:text-primary"
+      >
+        Σ
+      </button>
+    );
+  }
+
   function renderSpecs() {
     return (
       <Card className={cardSpacing}>
@@ -2103,6 +2166,7 @@ export function RevisionEditor({
                       context={stdContext}
                       specs={specs}
                       mobileFull={f.type !== "number"}
+                      sag={agirlikDokumuDugmesi(f.key)}
                     />
                   ))}
                 </div>
@@ -2207,6 +2271,28 @@ export function RevisionEditor({
           </section>
         </CardContent>
       </Card>
+    );
+  }
+
+  /** Pencere BİR KEZ çizilir; beş düğme de onu açar. */
+  function renderAgirlikDokumu() {
+    if (!agirlikDokumuSonuc) return null;
+    return (
+      <AgirlikDokumuDialog
+        acik={agirlikAcik}
+        onOpenChange={setAgirlikAcik}
+        dokum={agirlikDokumuSonuc}
+        acilanBant={agirlikBant}
+        durum={agirlikDurum}
+        onDurum={setAgirlikDurum}
+        readOnly={readOnly}
+        onSpecYaz={(specKey, kgDegeri) => {
+          // MOTORA GİDEN TEK KAPI BUDUR ve mühendisin AÇIK eylemidir; kutuya
+          // elle yazmakla aynı şeydir (HESAP-35). Teknik özellik TON tutar.
+          updateSpecs({ ...specs, [specKey]: Number((kgDegeri / 1000).toFixed(2)) });
+          toast.success("Ağırlık teknik özelliğe yazıldı.");
+        }}
+      />
     );
   }
 
@@ -3013,7 +3099,7 @@ export function RevisionEditor({
                           type="button"
                           onClick={() => switchAlt(key, section, i)}
                           className={cn(
-                            "inline-flex min-h-9 items-center gap-1.5 border px-2.5 py-1 text-xs transition-colors pointer-coarse:min-h-10",
+                            "oc-tap inline-flex min-h-9 items-center gap-1.5 border px-2.5 py-1 text-xs transition-colors",
                             isActive
                               ? "border-primary bg-primary/10 font-medium text-primary"
                               : "hover:bg-muted"
@@ -3035,7 +3121,7 @@ export function RevisionEditor({
                       <button
                         type="button"
                         onClick={() => addAlt(key, section)}
-                        className="inline-flex min-h-9 items-center border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted pointer-coarse:min-h-10"
+                        className="oc-tap inline-flex min-h-9 items-center border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted"
                         title="Bu ekipman için alternatif seçim ekle (en fazla 3)"
                       >
                         + Alternatif
@@ -3045,7 +3131,7 @@ export function RevisionEditor({
                       <button
                         type="button"
                         onClick={() => removeAlt(key, section)}
-                        className="inline-flex min-h-9 min-w-9 items-center justify-center border px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive pointer-coarse:min-h-10 pointer-coarse:min-w-10"
+                        className="oc-tap-square inline-flex min-h-9 min-w-9 items-center justify-center border px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive pointer-coarse:min-h-10 pointer-coarse:min-w-10"
                         title="Aktif alternatifi sil"
                         aria-label="Alternatifi sil"
                       >
@@ -3361,7 +3447,7 @@ export function RevisionEditor({
           title={`${stepChip(s)} · ${stepLabel(s)}${hidden ? " (gizli)" : ""}`}
           aria-current={i === activeStepIndex ? "step" : undefined}
           className={cn(
-            "relative flex w-full items-center justify-center rounded-md py-1.5 font-mono text-[11px] tabular-nums transition-colors pointer-coarse:min-h-10",
+            "oc-tap relative flex w-full items-center justify-center rounded-md py-1.5 font-mono text-[11px] tabular-nums transition-colors",
             i === activeStepIndex
               ? "bg-primary/15 font-medium text-primary"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -3396,7 +3482,7 @@ export function RevisionEditor({
           aria-current={i === activeStepIndex ? "step" : undefined}
           className={cn(
             // Telefonda bölüm listesi ana dokunma hedefidir (~29px'ti)
-            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors pointer-coarse:min-h-10",
+            "oc-tap flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
             i === activeStepIndex
               ? "bg-primary/10 font-medium text-primary"
               : "text-foreground/80 hover:bg-muted hover:text-foreground"
@@ -3574,7 +3660,7 @@ export function RevisionEditor({
             aria-pressed={navCollapsed}
             title={navCollapsed ? "Bölüm listesini genişlet" : "Bölüm listesini daralt"}
             aria-label={navCollapsed ? "Bölüm listesini genişlet" : "Bölüm listesini daralt"}
-            className="hidden size-6 shrink-0 place-items-center rounded font-mono text-[11px] leading-none text-muted-foreground transition-colors hover:bg-muted hover:text-foreground pointer-coarse:size-10 lg:grid"
+            className="oc-tap-square hidden size-6 shrink-0 place-items-center rounded font-mono text-[11px] leading-none text-muted-foreground transition-colors hover:bg-muted hover:text-foreground pointer-coarse:size-10 lg:grid"
           >
             {navCollapsed ? "»" : "«"}
           </button>
@@ -3655,7 +3741,7 @@ export function RevisionEditor({
                     onClick={() =>
                       setOpenGroups((g) => ({ ...g, [group.key]: !isOpen }))
                     }
-                    className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground pointer-coarse:min-h-10 disabled:cursor-default"
+                    className="oc-tap flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground pointer-coarse:min-h-10 disabled:cursor-default"
                   >
                     <span
                       aria-hidden="true"
@@ -3713,7 +3799,7 @@ export function RevisionEditor({
                       }
                       aria-pressed={!isDisabled}
                       className={cn(
-                        "grid size-6 shrink-0 place-items-center rounded font-mono text-[11px] transition-colors pointer-coarse:size-10",
+                        "oc-tap-square grid size-6 shrink-0 place-items-center rounded font-mono text-[11px] transition-colors",
                         isDisabled
                           ? "text-muted-foreground hover:bg-primary/10 hover:text-primary"
                           : "text-primary/70 hover:bg-muted hover:text-foreground",
@@ -3743,6 +3829,8 @@ export function RevisionEditor({
         {/* Kayan gövde — bölüm değişince başa sarılır (bkz. scrollRef) */}
         <div ref={bodyRef} className="relative min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
           {step.kind === "specs" && renderSpecs()}
+          {/* Pencere adım değişse de yaşar: bölüm gezinirken kapanmamalı. */}
+          {renderAgirlikDokumu()}
           {step.kind === "module" && renderModuleSection(step.moduleKey, step.section)}
           {step.kind === "summary" && renderSummary()}
         </div>

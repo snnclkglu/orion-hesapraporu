@@ -13,6 +13,7 @@ import {
   type RevisionInputsJson,
   type RevisionSelectionsJson,
   type RevisionSectionNotes,
+  type RevisionWeightBreakdown,
 } from "@/lib/revision-load";
 import { MODULE_ORDER } from "@/lib/calc/presentation/module-family";
 import { renderReportPdf } from "@/lib/pdf/report";
@@ -215,7 +216,13 @@ export async function saveRevision(
    * ŞEMASI gizlenen alt bölümler (`sectionDiagramHideKeyFor` anahtarları).
    * Bölüm rapora girmeye devam eder; yalnız parametrik çizimi basılmaz.
    */
-  hiddenDiagrams?: string[]
+  hiddenDiagrams?: string[],
+  /**
+   * AĞIRLIK DÖKÜMÜNDE İNSANIN VERDİĞİ KARARLAR (ezme · not · "teknik özelliğe
+   * yazıldı" izi). Dökümün KENDİSİ yazılmaz — her açılışta yeniden türetilir
+   * (HESAP-35); burada saklanan şey yalnız türetilemeyen kısımdır.
+   */
+  weightBreakdown?: RevisionWeightBreakdown
 ): Promise<SaveResult> {
   const supabase = await createClient();
   const {
@@ -257,6 +264,11 @@ export async function saveRevision(
         disabledModules: disabledModules ?? [],
         hiddenSections: hiddenSections ?? [],
         hiddenDiagrams: hiddenDiagrams ?? [],
+        // BOŞ KARAR YAZILMAZ: hiç ezme yoksa anahtar da yoktur ve eski
+        // revizyonlar bugünkü hâllerini birebir korur.
+        ...(weightBreakdown && Object.keys(weightBreakdown).length > 0
+          ? { weightBreakdown }
+          : {}),
         ...(fileImport ? { fileImport } : {}),
       },
       selections: {

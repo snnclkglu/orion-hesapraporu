@@ -13,6 +13,7 @@ import { TemplateToggle } from "./template-toggle";
 import {
   hiddenDiagramsFromRevision,
   hiddenSectionsFromRevision,
+  weightBreakdownFromRevision,
   loadRevision,
   sectionNotesFromRevision,
   type RevisionInputsJson,
@@ -78,6 +79,7 @@ export async function RevisionPageView({
   // Şeması gizlenen bölümler: editör soluk göstermez (bölüm rapora girer),
   // yalnız çizimini "PDF'e girmiyor" rozetiyle işaretler.
   const hiddenDiagrams = hiddenDiagramsFromRevision(inputs);
+  const weightBreakdown = weightBreakdownFromRevision(inputs);
 
   return (
     // Başlık şeridi sabit yükseklikte; editör kalan alanı doldurur ve
@@ -174,6 +176,7 @@ export async function RevisionPageView({
         initialDisabled={loaded.disabled}
         initialHidden={hiddenSections}
         initialHiddenDiagrams={hiddenDiagrams}
+        initialWeightBreakdown={weightBreakdown}
       />
     </div>
   );

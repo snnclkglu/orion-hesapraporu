@@ -17,6 +17,21 @@
 - `src/lib/calc/drive-losses.ts` — ABB ACS880 sürücü atık ısısı tablosu
 - `src/lib/calc/presentation/` — sunum tanımları: bölümler, alan metadata'sı,
   kontrol bağlantıları, modül erişimi
+- `src/lib/weights/` — AĞIRLIK DÖKÜMÜ ÇEKİRDEĞİ, **saf** (DB/HTTP/React yok):
+  `types.ts` (dört kaynak · kalem/grup/bant · sapma sınırı) · `defter.ts`
+  (bant → grup taksonomisi, ekipman slug'ı → grup, kaldırma hangi arabaya biner)
+  · `topla.ts` (`agirlikDokumu` — ASLA FIRLATMAZ) · `ledger.ts` (TAHMİN defteri:
+  platform · feston · köprü elektriği · kabin/oda zarfı · şasi · üst makara ·
+  başkiriş boyu) · `firma-tablolari.ts` (TEK DİKİŞ YERİ — firma ağırlık tabloları
+  `offers/cost/params`ten yeniden dışa verilir, KOPYALANMAZ). Bir HESAP DEĞİL
+  bir DOĞRULAMADIR: bkz. HESAP-35
+- `src/lib/equipment-list.ts` — ekipman listesinin SAF çekirdeği (satırlar,
+  gruplar, katalog bağları, teknik ressam özeti). `lib/excel/equipment.ts`ten
+  AYRILDI ve oradan yeniden dışa verilir; sebep `exceljs`tir — satırları okumak
+  isteyen İSTEMCİ ekranları koca bir Excel kütüphanesini yüklememeli
+- `src/components/katlanir-bolum.tsx` — katlanabilir bölüm (`Bolum` ·
+  `KatlaDugmesi` · `MiniDugme` · `Katlama`); maliyet editöründen çıkarıldı,
+  ağırlık dökümü penceresi de aynı şekli kullanır
 - `src/lib/standards/` — standart kayıt defteri (tablolar + bağıntılar)
 - `src/lib/roles.ts` — SEKİZ kullanıcı rolü ve yetki soruları
   (`canSeeSales` · `canSeePurchasing` vb.), `DRAWING_AUTHOR_ROLES` (Teknik
