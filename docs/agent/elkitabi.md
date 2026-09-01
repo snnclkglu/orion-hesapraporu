@@ -713,3 +713,142 @@ snapshot'la birlikte KOPYALANIR.
 öteki üçü `manual_images` kaydı + `manual-images` kovasında. KITAP-12'nin
 `assetKey`/`imageId` ayrımı bozulmaz; şema onlara rakip değil, ayrı bir blok
 türüdür.
+
+## KITAP-23 — KÜNYE KAYNAKLARDAN DOLAR; FİRMA SEÇİLİR, LOGO YÜKLENMEZ.
+
+Kullanıcı isteği (01.09.2026): *"Künye kısmı olabildiğince her şey otomatik
+gelsin. Bu bilgiler diğer bölümlerde var. Vinç Kimliği bölümünden de gereken
+bilgileri al."* — ve *"Künye'de logoları seçmeyi değiştirelim. Firma seçeyim.
+Firmalarım zaten Müşteriler kısmında kayıtlı ve logoları mevcut."*
+
+**İKİNCİ BİR ÇÖZÜCÜ YAZILMADI.** `lib/manual/identity-server.ts` Vinç
+Kimliği'nin `resolveAutomaticProductIdentity` fonksiyonunu çağırır; ikisinin
+farkı yalnız ALAN ADLARIDIR. İki çözücü olsaydı plakada "2026", kılavuzda
+"2025" yazan bir gün gelirdi — ve ikisi de aynı vincin belgesidir. Eskiden
+künyenin on üç alanından yalnız ÜÇÜ (müşteri, ürün, vinç tipi) projeden
+geliyordu; saha (`projects.crane_location`), üretim yılı (iş emrinin atölye
+çıkış tarihi), seri/ürün kodu (iş emri kalemi) ve üretici künyesi uygulamada
+ZATEN vardı, künye onları hiç sormuyordu.
+
+**ÜRETİCİ MÜŞTERİ DEFTERİNDEDİR** (`customers.is_self`). ORION'un kaydı deftere
+devir aktarımıyla zaten girmişti; eksik olan onu "biz" diye işaretleyen alandı.
+Ada göre aramak KIRILGANDIR: unvan bir kez küçük "i" ile yazılıp sonra "İ"ye
+çevrildi ve `/ORION/i` deseni Türkçe ı/I tuzağına düşer. Bayrak tektir (kısmi
+ünik indeks). Defter yoksa uygulama ayarlarına düşülür.
+
+**DEĞER SNAPSHOT'TIR, CANLI DEĞİL** (KITAP-2). Firma seçildiğinde ad ve adres
+künyeye KOPYALANIR; defterde sonradan yapılan bir düzeltme teslim edilmiş bir
+kılavuzu değiştirmez. `manufacturerCustomerId` yalnız "hangi firmadan alındı"
+sorusunu cevaplar ve seçicinin hangi satırda duracağını söyler. Teklifin
+`payload.issuer` deseninin aynısıdır.
+
+**TAZELEME VERİTABANINA YAZMAZ.** `refreshManualIdentity` yalnız öneriyi çözer
+ve editöre döndürür; gövdeye işlemek ve kaydetmek kullanıcının kararıdır
+(KITAP-10: `Kaydet` tek yazma eylemidir). "Kaynaktan Doldur" yalnız BOŞ alanları
+çeker, "Hepsini Tazele" elle yazılmışları da kaynağa döndürür (KITAP-21'in
+künye karşılığı). Yeni revizyonda yalnız `customerDocNo`, `customerRevision` ve
+`revisedOn` ZORLA tazelenir — bunlar revizyonla birlikte kesin olarak değişir ve
+elle güncellenmediği için V2 hâlâ "R01" yazıyordu.
+
+**LOGO YUVASI ÜÇ BASAMAKTAN ÇÖZÜLÜR:** künyede seçilen firma >
+proje Rapor Firması > elle yüklenmiş görsel. Ortadaki basamak KITAP-18'in
+kuralıdır ve BOZULMADI; seçim yoksa hiçbir şey değişmez ve eski kılavuzlar
+birebir aynı basılır. **KÂĞIT ÖNİZLEMESİ AYNI ÖNCELİĞİ OKUR**: eskiden yalnız
+elle yüklenmiş görsellere bakıyordu, PDF ise proje Rapor Firmasını tercih
+ediyordu — kullanıcı ekranda boş yuva görüp elle logo yüklüyor, PDF başka bir
+logo basıyordu (KITAP-6'nın "süzgeç tektir" dersinin logo hâli).
+
+**DEFTER AD TAŞIR, BAYT TAŞIMAZ.** Seçicinin listesi yalnız ad/kısaltma
+okur; logo veri adresi YALNIZ seçili firmalar için (en çok üç kayıt) çözülür.
+Yirmi müşterinin logosunu birlikte yüklemek her editör açılışına megabaytlar
+eklerdi. Oran BEYAN EDİLMEZ, PNG başlığından ÖLÇÜLÜR (KITAP-9'un kuralı);
+`sharp` çağırmak proje sayfasının Vercel trace'ine ağır bağımlılığı geri
+sokardı.
+
+## KITAP-24 — İÇİNDEKİLER TEK YAPRAKTIR; SATIR YÜKSEKLİĞİ ÖLÇÜLEREK SEÇİLİR.
+
+Kullanıcı isteği (01.09.2026): *"İçindekiler sayfası tek sayfaya sığdıralım."*
+
+Eski hâl sabit bir kapasiteydi (`MANUAL_DIZIN_SAYFA_KAPASITESI = 64`) ve 96
+bölümlük standart kılavuzu İKİ yaprağa bölüyordu; üstelik ikisi de yarım
+kalıyordu. Ölçüldü: satırlar y=196'da başlayıp y=536'da bitiyor, altta 255 pt —
+sütun başına on altı satırlık — boşluk duruyordu. Sebep dağıtımın
+DENGELEMESİydi: iki yaprak gerektiğine karar verildikten sonra 96 satır 48+48
+diye eşitleniyor, yani kimse dolmuyordu.
+
+`manualDizinYerlesimi(satırSayısı)` artık bir yaprakta ne kadar dikey yer varsa
+satır yüksekliğini ona böler ve OKUNURLUK TABANINDA durur (11,4 pt ≈ 6,3
+punto). Taban da yetmiyorsa dizin yine yapraklara bölünür ve yapraklar
+dengelenir. PDF ve kâğıt önizlemesi bu TEK fonksiyonu çağırır; sayfa numarası
+ofseti iki yerde ayrı tahmin edilirse editörde görülen numara teslim PDF'inden
+bir yaprak sapar. Başlık bloğu de kompakttır ve bu bir zevk değil bir
+BÜTÇEDİR: dizin başlığına harcanan her punto satırlardan çalınır.
+
+**BANT AKIŞTA DURUR, `repeatedHeader`DA DEĞİL.** `BrandPage`in `repeatedHeader`
+kipi sayfanın ÜST PAYINI SIFIRLAR (hesap raporunun mutlak konumlanan anteti
+için) ve el kitabının akan bandı orada kâğıdın en tepesine yapışıyordu:
+ölçüldü, logo y=6,6'da başlıyordu, oysa belgenin bütün diğer yapraklarında
+y=51,9 — kullanıcının bildirdiği "üst banner sorunu" buydu. Dizin yaprakları
+zaten tek tek sayıldığı için tekrarlanan bir antete ihtiyaç yoktur.
+
+## KITAP-25 — KAPSAM SEKMESİ BÖLÜM BÖLÜM AÇILIP KAPATILIR; EKLER DE.
+
+Kullanıcı isteği (01.09.2026): *"Kapsam kısmında teslim paketini seçtikten
+sonra yine altta elle açıp kapatabileyim… ya da tam teknikten projeleri
+çıkarabilirim gibi."*
+
+ÇEKİRDEK ZATEN HAZIRDI (KITAP-20): `manualToggleSection` sapmayı
+(`scope.keptSections`) kendi yazar ve paket yeniden uygulandığında o bölüme
+dokunulmaz. Eksik olan tek şey ARAYÜZDÜ — sapma listesi SALT OKUNURDU ve
+kullanıcı bir bölümü kapatmak için Harita sekmesine gidip ağaçta aramak
+zorundaydı. Kapsam paneli artık paket kartlarının altında iki düzeyli bir
+bölüm listesi basar; her satırda göz düğmesi, paketin sözü ve sapma rozeti
+vardır. Düğme `doc.bolumGizle` üzerinden TEK giriş noktasına gider; ağacı
+çeviren ikinci bir yol sapmayı kaydetmeyen bir kaçak açardı.
+
+**EK BÖLÜMÜ DE GİZLENEBİLİR.** Üç yerdeki (`document-map` · `tomar` ·
+`inspector`) `!appendix` kapısı kaldırıldı ve Kapsam panelindeki ek listesine
+göz düğmesi kondu. Panelin eski metni "haritadan gizleyin" diyordu ama haritada
+öyle bir düğme YOKTU — uygulanamaz bir talimattı. Sözleşme bozulmaz:
+`manualAppendixOrder` zaten `printedManual`ı okur, yani ek bölümünü gizlemek
+eki PDF'ten de düşürür (KITAP-6 · KITAP-8).
+
+**DETAYLI PAKET MEKANİK KATALOG EKİNİ DE AÇAR.** Önceki defterde elektriğin
+katalog sayfaları basılıyor, mekaniğinki basılmıyordu; simetrisiz bir kapsamdı.
+Gövdedeki iki liste (`yedek.ekipman` mekanik ekipman, `yedek.elektrik` elektrik
+malzeme özeti) bu pakette zaten görünürdü ve paketin özet metni bunu
+söylemiyordu.
+
+## KITAP-26 — EDİTÖRÜN KIRILIM MERDİVENİ VE YAPIŞKAN KUMANDASI.
+
+Üç panel (Harita · Tomar · Müfettiş) yalnız `xl`den itibaren yan yana durur;
+gerekçe ve ölçüm MOBIL-26'dadır.
+
+| genişlik | görünen | denetim |
+|---|---|---|
+| <1024 px | tek panel | alt kumandadaki Harita · Belge · Kâğıt kutuları |
+| 1024–1279 | Harita + Tomar | Müfettiş sağdan TABAKA (`useOverlay`) |
+| ≥1280 | üç panel | bugünkü davranış |
+
+**KÂĞIT DÜĞMESİ TEK ŞEY SORAR: "kâğıdı göster".** `xl`de sağ sütunun içeriğini
+Müfettiş ↔ Kâğıt arasında değiştirir; altında sağ sütun YOKTUR, o yüzden ORTA
+sütunu belge ↔ kâğıt arasında değiştirir. İki ayrı düğme kullanıcıya aynı şeyi
+iki kez sordururdu. Kâğıt tek yerde monte edilir — hangi sütuna gireceğini
+`useIsWide()` söyler, ikizleme yoktur.
+
+**MÜFETTİŞ TABAKASI RADIX `Dialog` DEĞİLDİR.** Aynı düğüm `xl` üstünde
+ızgaranın normal bir sütunudur; portal onu kökten koparır ve masaüstü düzenini
+bozardı. Davranış (gövde kilidi · Esc · odak tuzağı · odağı geri verme)
+`lib/use-overlay.ts`ten gelir, yerleşim yerinde kalır.
+
+**KAYDET `lg` ALTINDA ÜST ŞERİTTE DEĞİL ALT KUMANDADADIR** (MOBIL-24'ün
+ikizi): belge yüzlerce satırdır, her kayıt için başa sarmak gerekiyordu.
+Yayımla ve PDF bağlantıları üst şeritte KALIR — yayım geri alınamaz bir
+eylemdir, başparmağın altında durmaz. Panel seçici çoğaltılmadı, yukarıdan
+kumandaya TAŞINDI.
+
+**Belgenin ana yazma yüzeyi 16 px'ten küçük olamaz** (MOBIL-2): bütün paragraf,
+madde ve uyarı metni `OtoMetin`den geçer ve 15,2 px'lik eski değer iOS'ta her
+odakta sayfayı yakınlaştırıyordu. Yükseklik `field-sizing: content` ile CSS'in
+işidir; elle ölçen efekt yalnız `value` değişince çalışıyor, ekran döndürünce
+bayat kalıyordu.

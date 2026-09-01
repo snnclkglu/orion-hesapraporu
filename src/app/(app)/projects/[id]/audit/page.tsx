@@ -89,8 +89,8 @@ export default async function AuditPage({
           tutar. `.oc-scrollx` tablet ara genişlikleri için kalır (kural 8). */}
       <div className="relative overflow-hidden rounded-lg border bg-card">
         <Table
-          containerClassName="oc-mobile-table-wrap oc-table-clamp [--oc-scroll-bg:var(--card)]"
-          className="oc-mobile-table"
+          containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap oc-table-clamp [--oc-scroll-bg:var(--card)]"
+          className="oc-mobile-table oc-tablet-table"
         >
           <TableHeader className="oc-sticky-head">
             {/* "Kullanıcı" mobilde işlem rozetinin altına iner; dört sütun

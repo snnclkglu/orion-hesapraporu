@@ -30,6 +30,7 @@ import { applyAutofill } from "@/lib/manual/autofill";
 import { applyManualPackage } from "@/lib/manual/packages";
 import { isManualPackageKey } from "@/lib/manual/packages";
 import type { ManualEquipmentRow, ManualSourceData } from "@/lib/manual/sources";
+import type { ReportCoverSpec } from "@/lib/pdf/report";
 
 /**
  * TÜRETİM FİKSTÜRÜ — gerçek bir vincin ekipman listesi mertebesinde.
@@ -64,6 +65,23 @@ const TURETIM_EKIPMANI: ManualEquipmentRow[] = [
   { component: "Tampon", brand: "", model: "", qty: "4", group: "Köprü" },
   { component: "Operatör kabini", brand: "", model: "", qty: "1", group: "Operatör Kabini" },
   { component: "Elektrik panosu", brand: "", model: "", qty: "2", group: "Elektrik Odası" },
+];
+
+/**
+ * KAPAK KÜNYESİ FİKSTÜRÜ — kullanıcının teslim ettiği 0026-01 vincinin gerçek
+ * satırları. Kapak spec tablosu duman testinde HİÇ basılmıyordu ve en uzun
+ * satırın ("ÇİFT KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ") değer sütununu taşırdığı ancak
+ * kâğıda bakınca görülüyor.
+ */
+const KAPAK_OZELLIKLERI: ReportCoverSpec[] = [
+  { label: "VİNÇ TİPİ", value: "ÇİFT KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ" },
+  { label: "KAPASİTE", value: "100 t" },
+  { label: "AÇIKLIK", value: "14,85 m" },
+  { label: "KALDIRMA YÜKSEKLİĞİ", value: "8,8 m" },
+  { label: "FEM SINIFI", value: "FEM 2M / ISO M5" },
+  { label: "YÜK GRUBU", value: "H2/B3" },
+  { label: "ÇELİK KONSTRÜKSİYON SINIFI", value: "A5" },
+  { label: "KANCA TİPİ", value: "DIN 15402 ÇİFT AĞIZ KANCA" },
 ];
 
 async function main() {
@@ -188,6 +206,8 @@ async function main() {
       docLine: `ORION CRANES · ${MANUAL_DOC_TITLE} · V1 · 2026`,
       company: { company: "ORION CRANES", address: "ANKARA · TÜRKİYE", web: "orioncranes.com" },
       bandLines: ["V1", "19.08.2026"],
+      coverSpecs: KAPAK_OZELLIKLERI,
+      craneLocation: "FIRIN HOLÜ",
       includedAppendices: [],
     })
   );
@@ -235,6 +255,8 @@ async function main() {
         docLine: `ORION CRANES · ${MANUAL_DOC_TITLE} · V1 · 2026`,
         company: { company: "ORION CRANES", address: "ANKARA · TÜRKİYE", web: "orioncranes.com" },
         bandLines: ["V1", "19.08.2026"],
+        coverSpecs: KAPAK_OZELLIKLERI,
+        craneLocation: "FIRIN HOLÜ",
         includedAppendices: ["elektrikProje"],
         deferFolio: true,
       })

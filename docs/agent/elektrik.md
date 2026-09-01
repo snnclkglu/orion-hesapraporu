@@ -152,6 +152,19 @@ değer taşımıyor, göz zaten tek sütunda ilerliyor.
 kabıyla aynı genişlikte, bütün satırlar 37 px, kesilen her hücrenin `title`ı
 metnin tamamı.
 
+**KATLAMA TABLETİ DE KAPSAR VE AYRI BİR MARKUP KULLANMAZ** (01.09.2026,
+MOBIL-19). İlk sürüm telefon kartını `md:hidden` altında AYRI bir `Kart`
+bileşeniyle ikinci kez basıyordu — MOBIL-7/15'in yasakladığı ikizleme; üstelik
+768–1023 px aralığında sekiz sütunlu matris olduğu gibi kalıyordu. Aynı tablo
+artık `oc-tablet-table` + `data-label` ile ≤1023 px'te karta katlanır; `Kart`
+silindi. Kartta `truncate` yine YOKTUR — `.oc-tablet-table td` zaten
+`white-space: normal` verir, yani bu şart CSS'ten gelir.
+
+**SIRALAMA SEÇİMİ KATLAMA EŞİĞİYLE BİRLİKTE HAREKET EDER.** Başlık satırı
+sıralama düğmesidir ve katlanmış görünümde gizlidir; mobil sıralama seçimi bu
+yüzden `md:hidden` değil **`lg:hidden`**tir. Aksi hâlde 768–1023 px'te ne
+başlık ne seçim kutusu olur ve liste hiç sıralanamazdı.
+
 ## ELEKTRIK-11 — Süzgeç ve sıralama TEK TANIMDIR; Excel de onu çağırır.
 
 `lib/electrical/filter.ts` saf çekirdektir ve İKİ yerden çağrılır: ekrandaki

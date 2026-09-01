@@ -17,12 +17,19 @@ import {
   ChevronUp,
   Eye,
   EyeOff,
+  MoreHorizontal,
   RotateCcw,
   Sigma,
   Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { manualSectionGuide } from "@/lib/manual/guide";
 import type { ManualBlock, ManualSection } from "@/lib/manual/types";
 import type { ManualSourceData } from "@/lib/manual/sources";
@@ -122,7 +129,12 @@ export function Tomar({
               s.hidden && "line-through decoration-muted-foreground/50"
             )}
           />
-          {yazilabilir && !s.appendix ? (
+          {/* EK BÖLÜMÜ DE GİZLENEBİLİR (01.09.2026). Eski `!s.appendix`
+              kapısı kullanıcının "tam teknikten projeleri çıkarayım"
+              isteğini imkânsız kılıyordu; oysa çekirdek hazırdı —
+              `manualAppendixOrder` `printedManual`ı okur, yani ek
+              bölümünü gizlemek eki PDF'ten de düşürür (KITAP-6/8). */}
+          {yazilabilir ? (
             <button
               type="button"
               className="oc-tap mt-0.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
@@ -188,45 +200,26 @@ export function Tomar({
                         </Badge>
                       ) : null}
                       {yazilabilir ? (
-                        <span className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
-                          {b.derived ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="oc-tap size-7"
-                              aria-label="Kaynaktan tazele"
-                              title="Kaynaktan tazele — düzenlemeniz gider, kaynak geri gelir"
-                              onClick={() => eylem.onKaynaktanTazele(s.id, b.id)}
-                            >
-                              <RotateCcw className="size-3.5" />
-                            </Button>
-                          ) : null}
-                          {b.fromTemplate && b.edited ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="oc-tap size-7"
-                              aria-label="Standarda dön"
-                              title="Standarda dön"
-                              onClick={() => eylem.onStandardaDon(s.id, b.id)}
-                            >
-                              <RotateCcw className="size-3.5" />
-                            </Button>
-                          ) : null}
+                        /*
+                         * BLOK EYLEMLERİ — ÜÇ DÜĞME + BİR MENÜ.
+                         *
+                         * Eskiden yedi ikon düğme yan yanaydı ve dokunmatikte
+                         * `pointer-coarse:opacity-100` ile HEP görünüyordu: 360 px'lik
+                         * ekranda blok başlığından geriye yer kalmıyordu. Ölçüyü elle
+                         * yazmak da (`size-7`) MOBIL-1'e aykırıydı — boy varyantın
+                         * kendisinden gelir ve `size="icon-sm"` hedefi
+                         * `.oc-tap-square` ile 44 px'e tamamlar.
+                         *
+                         * SEYREK KULLANILAN DÖRDÜ MENÜYE İNDİ. Yan yana duran
+                         * 24–28 px'lik düğmelerde `.oc-tap-square` genişleticileri ÜST
+                         * ÜSTE BİNER ve komşunun dokunuşunu yutar; çözüm düğmeyi
+                         * küçültmek değil SAYISINI azaltmaktır. Silme de menüye taşındı:
+                         * geri alınamayan bir eylem taşıma oklarının bitişiğinde durmaz.
+                         */
+                        <span className="ml-auto flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="oc-tap size-7"
-                            aria-label="Deftere kaydet"
-                            title="Bu bloğu metin parçaları defterine kaydet"
-                            onClick={() => eylem.onDeftereKaydet(s, b)}
-                          >
-                            <Sigma className="size-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="oc-tap size-7"
+                            size="icon-sm"
                             aria-label="Yukarı taşı"
                             disabled={i === 0}
                             onClick={() => eylem.onBlokTasi(s.id, b.id, "yukari")}
@@ -235,8 +228,7 @@ export function Tomar({
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="oc-tap size-7"
+                            size="icon-sm"
                             aria-label="Aşağı taşı"
                             disabled={i === s.blocks.length - 1}
                             onClick={() => eylem.onBlokTasi(s.id, b.id, "asagi")}
@@ -245,22 +237,40 @@ export function Tomar({
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="oc-tap size-7"
+                            size="icon-sm"
                             aria-label={b.hidden ? "Belgeye geri al" : "Belgeden gizle"}
                             onClick={() => eylem.onBlokGizle(s.id, b.id)}
                           >
                             {b.hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="oc-tap size-7 text-destructive"
-                            aria-label="Bloğu sil"
-                            onClick={() => eylem.onBlokSil(s.id, b.id)}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon-sm" aria-label="Blok işlemleri">
+                                <MoreHorizontal className="size-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {b.derived ? (
+                                <DropdownMenuItem onSelect={() => eylem.onKaynaktanTazele(s.id, b.id)}>
+                                  <RotateCcw className="size-3.5" /> Kaynaktan tazele
+                                </DropdownMenuItem>
+                              ) : null}
+                              {b.fromTemplate && b.edited ? (
+                                <DropdownMenuItem onSelect={() => eylem.onStandardaDon(s.id, b.id)}>
+                                  <RotateCcw className="size-3.5" /> Standarda dön
+                                </DropdownMenuItem>
+                              ) : null}
+                              <DropdownMenuItem onSelect={() => eylem.onDeftereKaydet(s, b)}>
+                                <Sigma className="size-3.5" /> Deftere kaydet
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() => eylem.onBlokSil(s.id, b.id)}
+                              >
+                                <Trash2 className="size-3.5" /> Bloğu sil
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </span>
                       ) : null}
                     </div>

@@ -686,8 +686,8 @@ export function EquipmentPanel({
               (tek kaynak, ayrı kart markup'ı yok). */}
           <div className="relative overflow-hidden rounded-lg border">
             <Table
-              containerClassName="oc-mobile-table-wrap"
-              className="oc-mobile-table table-fixed"
+              containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap"
+              className="oc-mobile-table oc-tablet-table oc-compact-mobile-table table-fixed"
             >
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -912,8 +912,8 @@ export function EquipmentPanel({
                     )}
                     {sec.rows.length > 0 && (
                       <Table
-                        containerClassName="oc-mobile-table-wrap"
-                        className="oc-mobile-table table-fixed"
+                        containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap"
+                        className="oc-mobile-table oc-tablet-table oc-compact-mobile-table table-fixed"
                       >
                         <TableHeader>
                           <TableRow className="bg-muted/50">

@@ -124,6 +124,7 @@ function templateToSection(t: TemplateSection, id: () => string): ManualSection 
 
 export const BOS_KIMLIK: ManualIdentity = {
   manufacturer: "",
+  manufacturerCustomerId: "",
   product: "",
   craneType: "",
   serialNo: "",
@@ -252,9 +253,13 @@ function partnerLogolariOku(v: unknown): ManualPartnerLogos {
   const o = v as Record<string, unknown>;
   const centerImageId = metin(o.centerImageId).trim();
   const rightImageId = metin(o.rightImageId).trim();
+  const centerCustomerId = metin(o.centerCustomerId).trim();
+  const rightCustomerId = metin(o.rightCustomerId).trim();
   return {
     ...(centerImageId ? { centerImageId } : {}),
     ...(rightImageId ? { rightImageId } : {}),
+    ...(centerCustomerId ? { centerCustomerId } : {}),
+    ...(rightCustomerId ? { rightCustomerId } : {}),
   };
 }
 

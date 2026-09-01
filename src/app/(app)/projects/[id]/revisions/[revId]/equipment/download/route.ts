@@ -62,7 +62,20 @@ export async function GET(
 ) {
   const { id, revId } = await params;
   const sp = request.nextUrl.searchParams;
-  const format = sp.get("format") === "pdf" ? "pdf" : "xlsx";
+  /*
+   * TANINMAYAN BİÇİM SESSİZCE XLSX'E DÜŞMEZ.
+   *
+   * Eski hâl `sp.get("format") === "pdf" ? "pdf" : "xlsx"` idi; sorgu dizesi
+   * herhangi bir sebeple kaybolduğunda (yönlendirme, yanlış kurulmuş URL) uç
+   * 200 + xlsx içerik türüyle dönüyor, çağıran da "PDF biçiminde üretilemedi"
+   * diyordu ve GERÇEK sebep tamamen görünmez kalıyordu — vinç kimliği yayımını
+   * düşüren ikinci kapı buydu (01.09.2026). Beklenmeyen değer artık 400'dür.
+   */
+  const rawFormat = sp.get("format") ?? "xlsx";
+  if (rawFormat !== "pdf" && rawFormat !== "xlsx") {
+    return new Response(`Geçersiz format: ${rawFormat}`, { status: 400 });
+  }
+  const format = rawFormat;
   const scope = sp.get("scope") === "customer" ? "customer" : "full";
   const part = equipmentPartFromParam(sp.get("part"));
   const detailed = format === "pdf" && sp.get("detay") === "1";

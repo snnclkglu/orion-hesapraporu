@@ -59,16 +59,93 @@ export const MANUAL_UST_BANT_AKIS = MANUAL_UST_BANT_YUKSEKLIK + MANUAL_UST_BANT_
 export const MANUAL_GOVDE_YUKSEKLIK = ICERIK_YUKSEKLIK - MANUAL_UST_BANT_AKIS;
 
 /**
- * İçindekilerde bir yaprağa sığan azami bölüm satırı.
+ * İÇİNDEKİLER TEK YAPRAKTA KALIR — satır yüksekliği SAYIYA GÖRE seçilir.
  *
- * PDF ile tarayıcı önizlemesi aynı ofseti kullanmalıdır; bu sayı iki tarafta
- * ayrı yazılırsa editörde görülen sayfa numarası teslim PDF'inden bir yaprak
- * sapar. 70 satır, gövde dizininde sütun başına 35 kısa satıra karşılık
- * gelir. Yeni dizin satırları 18 pt taban yüksekliğinde ve ana bölümler bantlı
- * olduğundan, uzun başlıkların sarma payı için sütun başına en çok 32 satır
- * kullanılır. Standart kılavuz dizini böylece tek yaprakta kalır.
+ * Kullanıcı isteği (01.09.2026): *"İçindekiler sayfası tek sayfaya
+ * sığdıralım."* Eski hâl sabit bir kapasiteydi (64 satır) ve 96 bölümlük
+ * standart kılavuzu İKİ yaprağa bölüyordu; üstelik ikisi de yarım kalıyordu.
+ * Ölçüldü (ORC-BK-0019-00-R01 fikstürü): satırlar y=196'da başlayıp y=536'da
+ * bitiyor, altta 255 pt — sütun başına on altı satırlık — boşluk duruyordu.
+ * Sebep dağıtımın DENGELEMESİydi: iki yaprak gerektiğine karar verildikten
+ * sonra 96 satır 48+48 diye eşitleniyor, yani kimse dolmuyordu.
+ *
+ * Karar artık ÖLÇÜLÜR: bir yaprakta ne kadar dikey yer varsa satır yüksekliği
+ * ona bölünür ve OKUNURLUK TABANINDA (`MANUAL_DIZIN_SATIR_MIN`) durur. Taban
+ * da yetmiyorsa — çok büyük bir belge — dizin yine yapraklara bölünür ve
+ * yapraklar dengelenir. İki yüz (PDF ve kâğıt önizlemesi) bu TEK fonksiyonu
+ * çağırır; sayfa numarası ofseti iki yerde ayrı tahmin edilirse editörde
+ * görülen numara teslim PDF'inden bir yaprak sapar.
  */
-export const MANUAL_DIZIN_SAYFA_KAPASITESI = 64;
+
+/** Dizin başlığı: kicker + büyük başlık + açıklama şeridi (ölçülmüş). */
+const MANUAL_DIZIN_BASLIK_BLOGU = 43;
+
+/** Sütun başlığı (BÖLÜM · SAYFA) + üst/alt çizgi + altındaki boşluk. */
+const MANUAL_DIZIN_KOLON_BASLIGI = 20;
+
+/** Rahat dizin satırı — 7,4 punto başlık, 2,3 pt dikey pay. */
+const MANUAL_DIZIN_SATIR_TABAN = 15.4;
+
+/**
+ * OKUNURLUK TABANI. Bunun altında satır 6,3 puntonun altına inerdi; basılı bir
+ * dizin küçük punto taşıyabilir ama okunamayan bir dizin hiç dizin değildir.
+ * Aynı ruh `nameplate.ts`teki `READABLE_MIN_MM`de de vardır.
+ */
+const MANUAL_DIZIN_SATIR_MIN = 11.4;
+
+/** Dizin iki sütundur; üçüncü sütun başlıkları 28 karaktere düşürürdü. */
+export const MANUAL_DIZIN_SUTUN_SAYISI = 2;
+
+export interface ManualDizinYerlesimi {
+  /** Kaç yaprak dizin basılacak (ofset bundan çıkar). */
+  sayfaSayisi: number;
+  /** Bir sütuna düşen satır sayısı. */
+  sutunBasina: number;
+  /** Satırın toplam yüksekliği (pay + yazı + çizgi). */
+  satirYuksekligi: number;
+  /** Satır yazısının puntosu. */
+  punto: number;
+  /** Satırın dikey payı — yükseklik ile puntodan türetilir. */
+  dikeyPay: number;
+}
+
+/** Dizin satırlarının kullanabildiği net yükseklik. */
+const MANUAL_DIZIN_ALANI =
+  (ICERIK_YUKSEKLIK - MANUAL_UST_BANT_AKIS - MANUAL_DIZIN_BASLIK_BLOGU - MANUAL_DIZIN_KOLON_BASLIGI) *
+  0.94;
+
+function kelepce(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Satır yüksekliğinden punto ve pay türetir.
+ *
+ * Bağıntı ÖLÇÜLDÜ, tahmin edilmedi: 7,2 punto ve 2,5 pt payla basılan eski
+ * dizinde satır adımı 15,4 pt çıkıyor — yani yazı kutusu puntonun 1,4 katı.
+ */
+function dizinSatirTipografisi(satirYuksekligi: number): { punto: number; dikeyPay: number } {
+  const punto = +kelepce((satirYuksekligi - 2.6 - 0.35) / 1.4, 6.3, 7.4).toFixed(2);
+  const dikeyPay = +kelepce((satirYuksekligi - punto * 1.4 - 0.35) / 2, 0.9, 2.6).toFixed(2);
+  return { punto, dikeyPay };
+}
+
+export function manualDizinYerlesimi(satirSayisi: number): ManualDizinYerlesimi {
+  const satir = Math.max(1, satirSayisi);
+  const sutun = MANUAL_DIZIN_SUTUN_SAYISI;
+  // Bir yaprağın okunurluk tabanındaki azami kapasitesi.
+  const yaprakKapasitesi = Math.max(1, Math.floor(MANUAL_DIZIN_ALANI / MANUAL_DIZIN_SATIR_MIN)) * sutun;
+  const sayfaSayisi = Math.max(1, Math.ceil(satir / yaprakKapasitesi));
+  // Yapraklar DENGELENİR: son yaprağı sekiz satırla yalnız bırakmak, dizini
+  // iki yaprağa bölmenin en kötü hâlidir.
+  const sutunBasina = Math.max(1, Math.ceil(satir / (sayfaSayisi * sutun)));
+  const satirYuksekligi = +kelepce(
+    MANUAL_DIZIN_ALANI / sutunBasina,
+    MANUAL_DIZIN_SATIR_MIN,
+    MANUAL_DIZIN_SATIR_TABAN
+  ).toFixed(2);
+  return { sayfaSayisi, sutunBasina, satirYuksekligi, ...dizinSatirTipografisi(satirYuksekligi) };
+}
 
 /** Sütunlar arası oluk — teklifle aynı gerekçe (bkz. `offers/pdf-layout.ts`). */
 export const SUTUN_BOSLUK = 18;

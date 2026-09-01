@@ -34,8 +34,10 @@ import {
   PanelRightClose,
   Save,
   Send,
+  SlidersHorizontal,
   Sparkles,
   TriangleAlert,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PdfDownloadLink } from "@/components/pdf-download-link";
@@ -53,6 +55,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MobileSectionGrid } from "@/components/mobile-nav-grid";
+import { useIsWide } from "@/lib/use-breakpoint";
+import { useOverlay } from "@/lib/use-overlay";
 import { manualOnizlemeOlcusu } from "@/components/manual/manual-paper";
 import { useManualImages } from "@/components/manual/use-manual-images";
 import { manualPublishReadiness } from "@/lib/manual/guide";
@@ -63,15 +67,19 @@ import type { ManualImageRow } from "@/lib/manual/data";
 import type {
   ManualBlock,
   ManualIdentity,
-  ManualPartnerLogos,
   ManualPayload,
   ManualSection,
 } from "@/lib/manual/types";
 import { saveManualSnippet } from "../../../../admin/manual/actions";
-import { autofillManualRevision, issueManualRevision, saveManualRevision } from "../actions";
+import {
+  autofillManualRevision,
+  issueManualRevision,
+  refreshManualIdentity,
+  saveManualRevision,
+} from "../actions";
 import { DiagramPicker } from "./editor/diagram-picker";
 import { DocumentMap } from "./editor/document-map";
-import { IdentityForm } from "./editor/identity-form";
+import { IdentityForm, type FirmaSecenegi } from "./editor/identity-form";
 import { Inspector } from "./editor/inspector";
 import { MediaPicker, type MediaTuru } from "./editor/media-picker";
 import { PaperPanel } from "./editor/paper-panel";
@@ -87,7 +95,37 @@ const EN_BUYUK_GORSEL = 26_214_400;
 const kurtarmaAnahtari = (revisionId: string) => `orion.manual.draft.${revisionId}`;
 
 type Sekme = "icerik" | "kapsam" | "kunye" | "kalite" | "kaynak";
+
+/**
+ * `xl` ALTINDA GÖRÜNEN TEK ÇALIŞMA YÜZÜ.
+ *
+ * Üç panel ancak 1280 px'ten itibaren yan yana durur (MOBIL-26); altında
+ * kullanıcı bunlar arasında açık bir geçişle dolaşır. `lg`de (1024–1279)
+ * Harita kendi sütununda KALICI olarak durduğu için orada bu değer yalnız
+ * ortadaki sütunu seçer: `harita` seçiliyken orta yine belgedir.
+ */
 type DarPanel = "harita" | "tomar" | "kagit";
+
+/** Müfettiş tabakasının kimliği — `aria-controls` için. */
+const MUFETTIS_ID = "elkitabi-mufettis";
+
+/*
+ * SEKME RAYI DAR EKRANDA GÖRÜNÜR KUTU IZGARASIDIR (MOBIL-21).
+ *
+ * Taban `TabsList` `overflow-x-auto` ile yatay KAYAN bir şerittir: beş sekmenin
+ * son ikisi 375 px'te görünmüyor ve kullanıcı orada bir şey olduğunu bilmiyordu.
+ * Kural gezinme hedeflerinin AYNI ANDA görünmesini ister. Şerit bu yüzden `md`
+ * altında iki/üç sütunlu bir ızgaraya döner; `md` üstünde bugünkü hap rayı
+ * OLDUĞU GİBİ kalır — masaüstü yoğunluğu bu turun konusu değil.
+ *
+ * Ezmeler taban ile AYNI belirteçle yazılır (`group-data-horizontal/tabs:`),
+ * yoksa düz bir `h-auto` aynı özgüllükteki taban kuralını yenemez.
+ */
+const SEKME_RAYI =
+  "grid h-auto w-full grid-cols-2 items-stretch gap-1.5 overflow-visible rounded-none bg-transparent p-0 group-data-horizontal/tabs:h-auto group-data-horizontal/tabs:pointer-coarse:h-auto min-[360px]:grid-cols-3 md:inline-flex md:h-9 md:w-fit md:gap-0 md:rounded-lg md:bg-muted md:p-[3px] md:group-data-horizontal/tabs:h-9 md:group-data-horizontal/tabs:pointer-coarse:h-11";
+
+const SEKME =
+  "h-auto min-h-11 w-full min-w-0 rounded-none border-border bg-card text-[13px] leading-tight whitespace-normal data-active:border-primary data-active:bg-primary/[0.08] data-active:shadow-[inset_0_-3px_0_var(--primary)] md:h-[calc(100%-1px)] md:min-h-0 md:w-auto md:rounded-md md:border-transparent md:bg-transparent md:text-sm md:whitespace-nowrap md:data-active:bg-background md:data-active:shadow-none";
 
 export function ManualEditor({
   projectId,
@@ -102,6 +140,11 @@ export function ManualEditor({
   snippets,
   itemNo,
   canEdit,
+  identitySources,
+  firmalar,
+  firmaLogolari,
+  projectBrandName,
+  projectBrandId,
 }: {
   projectId: string;
   revisionId: string;
@@ -115,6 +158,16 @@ export function ManualEditor({
   snippets: SnippetSecenegi[];
   itemNo: string;
   canEdit: boolean;
+  /** Künye alanı → kaynak adı; sunucuda çözülür, editör yalnız gösterir. */
+  identitySources: Partial<Record<keyof ManualIdentity, string>>;
+  /** Müşteri defteri — üst bant ve üretici seçicilerinin kaynağı. */
+  firmalar: FirmaSecenegi[];
+  /** Yalnız SEÇİLİ firmaların logoları; defterin tamamı bayt taşımaz. */
+  firmaLogolari: Record<string, { url: string; oran: number }>;
+  /** Proje düzeyinde seçili Rapor Firması — orta yuvanın öntanımı. */
+  projectBrandName: string;
+  /** Proje Rapor Firmasının `customers.id`si; kâğıt önizlemesi logoyu ondan çözer. */
+  projectBrandId: string;
 }) {
   const yayimHazirligiIlk = useMemo(
     () => manualPublishReadiness(initialPayload),
@@ -131,6 +184,7 @@ export function ManualEditor({
   const [sekme, setSekme] = useState<Sekme>("icerik");
   const [darPanel, setDarPanel] = useState<DarPanel>("tomar");
   const [kagitAcik, setKagitAcik] = useState(false);
+  const [mufettisAcik, setMufettisAcik] = useState(false);
   const [yayimOnayi, setYayimOnayi] = useState(false);
   const [kurtarma, setKurtarma] = useState<{ payload: ManualPayload; an: string } | null>(null);
   const [parcaKaydi, setParcaKaydi] = useState<{ blok: ManualBlock; bolum: ManualSection } | null>(
@@ -143,6 +197,26 @@ export function ManualEditor({
   const [yayimlaniyor, yayimlaBasla] = useTransition();
   const [turetiliyor, turetBasla] = useTransition();
 
+  /*
+   * ÜÇ PANEL ANCAK `xl`DEN İTİBAREN SIĞAR (MOBIL-26).
+   *
+   * Ölçüldü: kabuğun kenar çubuğu (15 rem) tam 1024 px'te belirir ve içerik
+   * kabını 703 px'e indirir (MOBIL-16'nın ölçüm tablosu). Eski düzen orada
+   * 280 px harita + 320 px müfettiş + 32 px boşluk = 632 px'i SABİT olarak
+   * ayırıyordu; belgenin kendisine ~71 px kalıyordu. Kırılımı `xl`e almak
+   * tek düzeltmedir; sütunları daraltmak 1024'te yine dar bir belge bırakırdı.
+   *
+   * Soru CSS'le sorulamaz çünkü cevabı YERLEŞİM DEĞİL MONTAJ değiştirir:
+   * `xl` altında Müfettiş bir TABAKADIR ve Kâğıt ORTA sütundadır; ikisini de
+   * ikinci kez basıp `hidden` ile saklamak A4 önizlemesinin bedelini iki
+   * katına çıkarırdı.
+   */
+  const genis = useIsWide();
+  const mufettisKabi = useRef<HTMLElement | null>(null);
+  // Tabaka açıkken: gövde kaymaz · Esc kapatır · Tab içeride döner · kapanınca
+  // odak tetikleyiciye döner. `xl`de tabaka yok, kanca da devrede değil.
+  useOverlay(mufettisAcik && !genis, () => setMufettisAcik(false), mufettisKabi);
+
   // YAYIMLANMIŞ REVİZYON SALT OKUNURDUR — asıl engel DB tetikleyicisidir
   // (`guard_issued_manual_revision`); buradaki yalnız ekranı dürüst tutar.
   const yazilabilir = canEdit && status === "draft";
@@ -154,6 +228,40 @@ export function ManualEditor({
   }, [imageRows]);
 
   const kagitGorselleri = useManualImages(imageRows);
+  const firmaLogoHaritasi = useMemo(
+    () => new Map(Object.entries(firmaLogolari)),
+    [firmaLogolari]
+  );
+  /** Proje Rapor Firmasının logosu — orta yuvanın öntanımı (KITAP-18). */
+  const projectBrandLogo = projectBrandId ? firmaLogoHaritasi.get(projectBrandId) : undefined;
+
+  /*
+   * KÜNYEYİ KAYNAKTAN TAZELE — SUNUCU ÇÖZER, GÖVDEYE İSTEMCİ İŞLER.
+   *
+   * Eylem veritabanına hiçbir şey yazmaz; `Kaydet` tek yazma eylemi olarak
+   * kalır (KITAP-10). Kullanıcı önce sonucu görür, beğenmezse kaydetmez.
+   */
+  const kunyeyiTazele = useCallback(
+    async (hepsiniTazele: boolean) => {
+      const r = await refreshManualIdentity(projectId, {
+        revisionId,
+        revNo,
+        identity: doc.payload.identity,
+        hepsiniTazele,
+      });
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      doc.govdeyiBenimse({ ...doc.payload, identity: r.identity });
+      toast.success(
+        r.doldurulan === 0
+          ? "Künyede kaynaktan gelecek yeni bir değer yok."
+          : `${r.doldurulan} alan kaynaktan dolduruldu${r.korunan > 0 ? `, ${r.korunan} alan sizin yazdığınız hâliyle korundu` : ""}.`
+      );
+    },
+    [doc, projectId, revisionId, revNo]
+  );
   const oranlar = useMemo(() => {
     const m = new Map<string, number>();
     for (const [k, g] of kagitGorselleri) m.set(k, g.oran);
@@ -464,7 +572,10 @@ export function ManualEditor({
     <p className="text-sm text-muted-foreground">Bölüm yok.</p>
   );
 
-  const sagPanel = kagitAcik ? (
+  // KÂĞIT TEK YERDE MONTE EDİLİR. `ManualPaper` yirmi yaprağı çizer; iki yere
+  // birden basıp birini `hidden` ile saklamak bedeli iki katına çıkarırdı.
+  // Hangi sütuna gireceğini `genis` söyler, ikizleme yoktur.
+  const kagitPaneli = (ek: string) => (
     <PaperPanel
       payload={doc.payload}
       projectTitle={projectTitle}
@@ -475,9 +586,13 @@ export function ManualEditor({
       vurguId={doc.seciliBolumId}
       sayfa={seciliSayfa}
       yaprakSayisi={yaprakSayisi}
-      className="h-full"
+      className={ek}
+      firmaLogolari={firmaLogoHaritasi}
+      projeFirmaLogosu={projectBrandLogo}
     />
-  ) : (
+  );
+
+  const mufettis = (
     <Inspector
       bolum={gosterilen}
       blok={seciliBlok}
@@ -492,6 +607,25 @@ export function ManualEditor({
     />
   );
 
+  // `xl`de sağ sütun: Kâğıt açıksa kâğıt, değilse Müfettiş (bugünkü davranış).
+  const sagSutun = kagitAcik ? (
+    kagitPaneli("min-h-0 flex-1")
+  ) : (
+    <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">{mufettis}</div>
+  );
+
+  // KÂĞIT DÜĞMESİ İKİ ŞEY DEĞİL TEK ŞEY SORAR: "kâğıdı göster".
+  // `xl`de sağ sütunun içeriğini değiştirir; altında ise ORTA sütunu
+  // değiştirir, çünkü orada sağ sütun yoktur. İki durumun uzlaştığı tek nokta
+  // burasıdır; ayrı iki düğme kullanıcıya aynı şeyi iki kez sordururdu.
+  const kagitGorunur = genis ? kagitAcik : darPanel === "kagit";
+  /** Kâğıt ORTA sütunda mı — yalnız `xl` altında olur. */
+  const kagitOrtada = !genis && darPanel === "kagit";
+  const kagidiCevir = () => {
+    if (genis) setKagitAcik((v) => !v);
+    else setDarPanel((p) => (p === "kagit" ? "tomar" : "kagit"));
+  };
+
   return (
     <div className="flex flex-col gap-3">
       {/* ————————————————————————————————————————————— üst şerit */}
@@ -503,7 +637,8 @@ export function ManualEditor({
           {manualDocCode(itemNo, revNo)}
         </span>
         <span className="text-sm text-muted-foreground">
-          · gövde {yaprakSayisi} yaprak
+          <span className="max-sm:hidden">· gövde {yaprakSayisi} yaprak</span>
+          <span className="sm:hidden">{yaprakSayisi} yaprak</span>
           {kalanIs > 0 ? ` · ${kalanIs} eksik` : " · yayıma hazır"}
         </span>
         {doc.kirli && (
@@ -515,17 +650,29 @@ export function ManualEditor({
         <div className="ml-auto flex flex-wrap gap-2">
           <Button
             size="sm"
-            variant={kagitAcik ? "secondary" : "outline"}
+            variant={kagitGorunur ? "secondary" : "outline"}
             className="oc-tap"
-            aria-pressed={kagitAcik}
-            onClick={() => setKagitAcik((v) => !v)}
+            aria-pressed={kagitGorunur}
+            onClick={kagidiCevir}
           >
-            {kagitAcik ? (
+            {kagitGorunur ? (
               <PanelRightClose className="size-3.5" />
             ) : (
               <Columns2 className="size-3.5" />
             )}
             Kâğıt
+          </Button>
+          {/* MÜFETTİŞ `xl` ALTINDA BİR TABAKADIR — girişi de burada olmalıdır.
+              `xl` üstünde sağ sütunda zaten açık, düğme gösterilmez. */}
+          <Button
+            size="sm"
+            variant={mufettisAcik ? "secondary" : "outline"}
+            className="oc-tap xl:hidden"
+            aria-expanded={mufettisAcik}
+            aria-controls={MUFETTIS_ID}
+            onClick={() => setMufettisAcik((v) => !v)}
+          >
+            <SlidersHorizontal className="size-3.5" /> Müfettiş
           </Button>
           <Button size="sm" variant="outline" className="oc-tap" asChild>
             <PdfDownloadLink
@@ -549,9 +696,11 @@ export function ManualEditor({
           </Button>
           {yazilabilir && (
             <>
+              {/* Kaydet `lg` ALTINDA burada DEĞİL, ekranın altındaki yapışkan
+                  kumandadadır (MOBIL-24): uzun bir belgede başparmak orada. */}
               <Button
                 size="sm"
-                className="oc-tap"
+                className="oc-tap max-lg:hidden"
                 onClick={() => kaydet()}
                 disabled={kaydediliyor || !doc.kirli}
                 title="Ctrl + S"
@@ -579,57 +728,64 @@ export function ManualEditor({
 
       {/* ————————————————————————————————————————————— sekmeler */}
       <Tabs value={sekme} onValueChange={(v) => setSekme(v as Sekme)}>
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="icerik">İçerik</TabsTrigger>
-          <TabsTrigger value="kapsam">Kapsam</TabsTrigger>
-          <TabsTrigger value="kunye">Künye</TabsTrigger>
-          <TabsTrigger value="kalite">Kalite{kalanIs > 0 ? ` (${kalanIs})` : ""}</TabsTrigger>
-          <TabsTrigger value="kaynak">Kaynaklar</TabsTrigger>
+        <TabsList className={SEKME_RAYI}>
+          <TabsTrigger value="icerik" className={SEKME}>
+            İçerik
+          </TabsTrigger>
+          <TabsTrigger value="kapsam" className={SEKME}>
+            Kapsam
+          </TabsTrigger>
+          <TabsTrigger value="kunye" className={SEKME}>
+            Künye
+          </TabsTrigger>
+          <TabsTrigger value="kalite" className={SEKME}>
+            Kalite{kalanIs > 0 ? ` (${kalanIs})` : ""}
+          </TabsTrigger>
+          <TabsTrigger value="kaynak" className={SEKME}>
+            Kaynaklar
+          </TabsTrigger>
         </TabsList>
 
         {/* ————————————————————————————————————————————— içerik */}
         <TabsContent value="icerik">
-          {/* DAR EKRANDA ÜÇ PANEL YIĞILMAZ (değişmez md. 10): kullanıcı açık bir
-              geçişle harita, tomar ve kâğıt arasında dolaşır. */}
-          <div className="lg:hidden">
-            <MobileSectionGrid<DarPanel>
-              value={darPanel}
-              onValueChange={setDarPanel}
-              label="Çalışma yüzü"
-              options={[
-                { value: "harita", label: "Harita" },
-                { value: "tomar", label: "Belge" },
-                { value: "kagit", label: "Kâğıt" },
-              ]}
-            />
-          </div>
-
-          <div className="mt-3 grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
-            <div className={darPanel === "harita" ? "" : "hidden lg:block"}>
+          {/* `lg`de İKİ, `xl`de ÜÇ sütun (MOBIL-26). Harita `lg`den itibaren
+              KALICIDIR; orta sütun belgeyi ya da (xl altında) kâğıdı taşır. */}
+          <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_19rem]">
+            <div className={darPanel === "harita" ? "min-w-0" : "hidden min-w-0 lg:block"}>
               <div className="lg:sticky lg:top-2 lg:max-h-[calc(100dvh-9rem)]">{harita}</div>
             </div>
 
-            <div className={darPanel === "tomar" ? "" : "hidden lg:block"}>{tomar}</div>
-
-            <div className={darPanel === "kagit" ? "" : "hidden lg:block"}>
-              <div className="lg:sticky lg:top-2 lg:flex lg:max-h-[calc(100dvh-9rem)] lg:flex-col">
-                {darPanel === "kagit" && !kagitAcik ? (
-                  <PaperPanel
-                    payload={doc.payload}
-                    projectTitle={projectTitle}
-                    sources={sources}
-                    gorseller={kagitGorselleri}
-                    docLine={docLine}
-                    docCode={manualDocCode(itemNo, revNo)}
-                    vurguId={doc.seciliBolumId}
-                    sayfa={seciliSayfa}
-                    yaprakSayisi={yaprakSayisi}
-                  />
-                ) : (
-                  sagPanel
-                )}
-              </div>
+            {/* ORTA — belge. `harita` seçiliyken de `lg` üstünde burası belgedir:
+                harita zaten kendi sütununda duruyor, ikinci kez göstermek yer
+                harcardı. */}
+            <div
+              className={
+                kagitOrtada
+                  ? "hidden"
+                  : darPanel === "tomar"
+                    ? "min-w-0"
+                    : "hidden min-w-0 lg:block"
+              }
+            >
+              {tomar}
             </div>
+
+            {/* ORTA — kâğıt. Yalnız `xl` ALTINDA buraya girer; yükseklik açıkça
+                kelepçelenir, yoksa `PaperPanel`in kaydırıcısı boy alamaz. */}
+            {kagitOrtada && (
+              <div className="relative flex max-h-[calc(100dvh-15rem)] min-w-0 flex-col sm:max-h-[calc(100dvh-13rem)] lg:max-h-[calc(100dvh-9rem)]">
+                {kagitPaneli("min-h-0 flex-1")}
+              </div>
+            )}
+
+            {/* SAĞ — yalnız `xl`. Altında Müfettiş tabakadadır. */}
+            {genis && (
+              <div className="hidden min-w-0 xl:block">
+                <div className="sticky top-2 flex max-h-[calc(100dvh-9rem)] flex-col">
+                  {sagSutun}
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
 
@@ -648,6 +804,7 @@ export function ManualEditor({
               );
             }}
             onEkSecenegi={doc.ekSecenegi}
+            onBolumGizle={doc.bolumGizle}
           />
         </TabsContent>
 
@@ -655,12 +812,16 @@ export function ManualEditor({
         <TabsContent value="kunye" className="mt-3">
           <IdentityForm
             identity={doc.payload.identity}
+            identitySources={identitySources}
             docTitle={doc.payload.docTitle}
             coverTitle={doc.payload.coverTitle}
             etiket={etiket}
             readOnly={!yazilabilir}
             images={gorselHaritasi}
             gorseller={kagitGorselleri}
+            firmalar={firmalar}
+            firmaLogolari={firmaLogoHaritasi}
+            projectBrandName={projectBrandName}
             coverImageId={doc.payload.coverImageId}
             partnerLogos={doc.payload.partnerLogos}
             onGorselYukle={gorselYukle}
@@ -670,15 +831,45 @@ export function ManualEditor({
                 identity: { ...doc.payload.identity, [alan]: deger },
               })
             }
+            /* FİRMA SEÇİMİ KÜNYEYE SNAPSHOT'LANIR (teklifin `payload.issuer`
+               deseni): ad ve adres belgeye kopyalanır, defter sonradan
+               düzeltilse bile teslim edilmiş kılavuz değişmez (KITAP-2). */
+            onManufacturerCompany={(firma) =>
+              doc.govdeyiBenimse({
+                ...doc.payload,
+                identity: {
+                  ...doc.payload.identity,
+                  manufacturerCustomerId: firma?.id ?? "",
+                  ...(firma
+                    ? {
+                        manufacturer: firma.name,
+                        manufacturerAddress: [
+                          firma.address,
+                          [firma.taxOffice, firma.taxNo].filter(Boolean).join(" \u00b7 "),
+                        ]
+                          .filter(Boolean)
+                          .join("\n"),
+                      }
+                    : {}),
+                },
+              })
+            }
+            onRefreshIdentity={kunyeyiTazele}
             onDoc={(alan, deger) => doc.govdeyiBenimse({ ...doc.payload, [alan]: deger })}
             onEtiket={setEtiket}
             onCoverImage={(imageId) =>
               doc.govdeyiBenimse({ ...doc.payload, coverImageId: imageId })
             }
-            onPartnerLogo={(slot: keyof ManualPartnerLogos, imageId) =>
+            onPartnerLogo={(slot: "centerImageId" | "rightImageId", imageId) =>
               doc.govdeyiBenimse({
                 ...doc.payload,
                 partnerLogos: { ...doc.payload.partnerLogos, [slot]: imageId },
+              })
+            }
+            onPartnerCompany={(slot: "centerCustomerId" | "rightCustomerId", customerId) =>
+              doc.govdeyiBenimse({
+                ...doc.payload,
+                partnerLogos: { ...doc.payload.partnerLogos, [slot]: customerId ?? "" },
               })
             }
           />
@@ -813,6 +1004,95 @@ export function ManualEditor({
           ) : null}
         </TabsContent>
       </Tabs>
+
+      {/*
+       * YAPIŞKAN KUMANDA — `lg` ALTINDA EKRANIN ALTINDA (MOBIL-24).
+       *
+       * Hesap editöründeki adım şeridinin ikizidir ve aynı gerekçeyle vardır:
+       * el kitabı yüzlerce satırlık bir belgedir, kullanıcı ortasındayken
+       * Kaydet ve panel geçişi ekranın en üstünde kalıyordu — her kayıt için
+       * başa sarmak gerekiyordu. Panel seçici ÇOĞALTILMADI, yukarıdan buraya
+       * TAŞINDI; iki yerde durursa biri diğerinden ayrışır.
+       *
+       * Seçici üç sütuna ÇİVİLENİR (`grid-cols-3`): ortak bileşen 360 px altında
+       * iki sütuna iner ve çubuk iki satıra çıkardı — MOBIL-24 tek satır ister.
+       */}
+      {(sekme === "icerik" || yazilabilir) && (
+        <div className="sticky bottom-0 z-20 shrink-0 border bg-card px-2 py-2 lg:hidden">
+          <div className="flex items-center gap-2">
+            {sekme === "icerik" && (
+              <MobileSectionGrid<DarPanel>
+                value={darPanel}
+                onValueChange={setDarPanel}
+                label="Çalışma yüzü"
+                className="min-w-0 flex-1 grid-cols-3"
+                options={[
+                  { value: "harita", label: "Harita" },
+                  { value: "tomar", label: "Belge" },
+                  { value: "kagit", label: "Kâğıt" },
+                ]}
+              />
+            )}
+            {yazilabilir && (
+              <Button
+                size="sm"
+                className="oc-tap shrink-0 max-sm:px-2.5"
+                onClick={() => kaydet()}
+                disabled={kaydediliyor || !doc.kirli}
+                title="Ctrl + S"
+              >
+                {kaydediliyor ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Save className="size-3.5" />
+                )}
+                Kaydet
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/*
+       * MÜFETTİŞ TABAKASI — `xl` altında sağ sütunun yerine geçer.
+       *
+       * Radix `Dialog` DEĞİL: aynı `mufettis` düğümü `xl` üstünde ızgaranın
+       * normal bir sütunudur ve portal onu kökten koparırdı (aynı gerekçe
+       * `use-overlay.ts` başlığında yazılı). Davranışı ayırmak yerleşimi
+       * yerinde bırakır: gövde kilidi, Esc ve odak tuzağı kancadan gelir.
+       */}
+      {mufettisAcik && !genis && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-foreground/40 xl:hidden"
+            aria-hidden
+            onClick={() => setMufettisAcik(false)}
+          />
+          <aside
+            id={MUFETTIS_ID}
+            ref={mufettisKabi}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Müfettiş"
+            className="fixed inset-y-0 right-0 z-50 flex w-[min(22rem,calc(100vw-3rem))] flex-col border-l bg-background shadow-2xl xl:hidden"
+          >
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
+              <span className="oc-kicker">MÜFETTİŞ</span>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Müfettişi kapat"
+                onClick={() => setMufettisAcik(false)}
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+            <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+              {mufettis}
+            </div>
+          </aside>
+        </>
+      )}
 
       <DiagramPicker
         acik={semaSecici}

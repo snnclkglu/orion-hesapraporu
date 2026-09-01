@@ -69,7 +69,12 @@ export function Inspector({
             Serbest bölüm — kapsam paketi buna karışmaz.
           </span>
         )}
-        {yazilabilir && !bolum.appendix ? (
+        {/* EK BÖLÜMÜ DE GİZLENEBİLİR (01.09.2026). Eski `!s.appendix`
+            kapısı kullanıcının "tam teknikten projeleri çıkarayım"
+            isteğini imkânsız kılıyordu; oysa çekirdek hazırdı —
+            `manualAppendixOrder` `printedManual`ı okur, yani ek
+            bölümünü gizlemek eki PDF'ten de düşürür (KITAP-6/8). */}
+        {yazilabilir ? (
           <Button
             variant="outline"
             size="sm"
@@ -143,8 +148,31 @@ export function Inspector({
                   onChange={(e) =>
                     onBlokDegis((b) => ({ ...b, widthPct: Number(e.target.value) }) as ManualBlock)
                   }
-                  className="w-full"
+                  className="h-6 w-full pointer-coarse:h-8"
                 />
+                {/*
+                 * SÜRGÜ TEK BAŞINA DOKUNMATİK BİR DENETİM DEĞİLDİR: on dokuz
+                 * kademeli bir kaydırıcıyı dar bir panelde parmakla isabet
+                 * ettirmek neredeyse imkânsızdır ve `input type=range` yer
+                 * değiştirilmiş bir öğe olduğu için `.oc-tap` genişleticisi de
+                 * ona uygulanmaz. Ön ayarlar kesin ve tek dokunuşluk bir yol
+                 * açar; sürgü ince ayar için yerinde kalır.
+                 */}
+                <div className="flex flex-wrap gap-1">
+                  {[25, 50, 75, 100].map((deger) => (
+                    <Button
+                      key={deger}
+                      type="button"
+                      size="xs"
+                      variant={(blok.widthPct ?? 100) === deger ? "secondary" : "outline"}
+                      disabled={!yazilabilir}
+                      aria-pressed={(blok.widthPct ?? 100) === deger}
+                      onClick={() => onBlokDegis((b) => ({ ...b, widthPct: deger }) as ManualBlock)}
+                    >
+                      %{deger}
+                    </Button>
+                  ))}
+                </div>
               </div>
               <label className="flex items-start gap-2 text-sm">
                 <input

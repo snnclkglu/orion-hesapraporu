@@ -44,6 +44,9 @@ describe("v1 el kitabı bugünün okuyucusundan geçtiğinde", () => {
     expect(payload.templateVersion).toBe(1);
     expect(payload.identity).toEqual({
       manufacturer: "ORION CRANES",
+      // Künye firma seçimi 01.09.2026'da eklendi; ESKİ KAYITTA BOŞ doğar ve
+      // belgeye HİÇBİR ŞEY eklemez — teslim edilmiş kılavuz birebir aynı basar.
+      manufacturerCustomerId: "",
       product: "60/12,5 Ton Gezer Köprü Vinci",
       craneType: "Gezer Köprü Vinci",
       serialNo: "0042.00",

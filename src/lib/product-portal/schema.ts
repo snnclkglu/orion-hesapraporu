@@ -64,11 +64,24 @@ export const saveSchema = z.object({
   projectId: UUID,
   revisionId: UUID,
   serialBase: z.string().trim().min(1).max(80),
+  /*
+   * CE VE TEK RENK ANAHTARLARI DA ŞEMADADIR.
+   *
+   * Zod bilinmeyen anahtarı SESSİZCE ATAR: kart `plate.ceMark`i gönderiyordu
+   * ama şemada karşılığı olmadığı için doğrulamadan sonra yok oluyor ve
+   * `plate: data.plate` eksik nesneyi yazıyordu. Kullanıcı "CE İşareti"
+   * onayını kapatıp kaydetse bile sayfa yenilenince işaret geri geliyordu —
+   * yani BELGE-3'ün "kapatılabilir olması şarttır" kuralı pratikte hiç
+   * çalışmıyordu. Uygunluk değerlendirmesi bitmemiş bir makineye CE basmak
+   * eksik bir plakadan ağır bir hatadır.
+   */
   plate: z.object({
     widthMm: z.number().min(120).max(1000),
     heightMm: z.number().min(80).max(1000),
     holeDiameterMm: z.number().positive().max(50).optional(),
     holeInsetMm: z.number().positive().max(100).optional(),
+    ceMark: z.boolean().optional(),
+    monochrome: z.boolean().optional(),
   }),
   /**
    * KISMİ KAYIT — `z.record` DEĞİL, `z.partialRecord`.

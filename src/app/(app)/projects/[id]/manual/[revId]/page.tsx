@@ -22,6 +22,9 @@ import { MANUAL_LABEL } from "@/lib/manual/naming";
 import { resolveProjectItemNo } from "@/lib/drawing-plan-data";
 import { loadManualSnippets } from "@/lib/manual/books-data";
 import { buildManualSourceData } from "../sources-data";
+import { loadCustomerBook } from "@/lib/customers/company-server";
+import { loadCustomerLogoPreview } from "@/lib/customers/logo-data-url-server";
+import { resolveManualIdentity } from "@/lib/manual/identity-server";
 import { ManualEditor } from "./manual-editor";
 
 export default async function ManualEditorPage({
@@ -34,7 +37,9 @@ export default async function ManualEditorPage({
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, doc_no, name, customer, crane_type, jobs:job_id(id, job_no)")
+    .select(
+      "id, doc_no, name, customer, crane_type, report_brand_customer_id, jobs:job_id(id, job_no)"
+    )
     .eq("id", id)
     .maybeSingle();
   if (!project) notFound();
@@ -51,13 +56,51 @@ export default async function ManualEditorPage({
     : { data: null };
   const canEdit = canEditReports((profil as { role?: string } | null)?.role);
 
-  const [kaynaklar, gorseller, itemNo, parcalar] = await Promise.all([
-    buildManualSourceData(supabase, id),
-    loadManualImages(supabase, revId),
-    resolveProjectItemNo(supabase, id, String(project.doc_no ?? "")),
-    // METİN PARÇALARI DEFTERİ blok ekleme menüsünde görünür (KITAP-21).
-    loadManualSnippets(supabase),
-  ]);
+  const [kaynaklar, gorseller, itemNo, parcalar, firmalar, kimlikOnerisi] =
+    await Promise.all([
+      buildManualSourceData(supabase, id),
+      loadManualImages(supabase, revId),
+      resolveProjectItemNo(supabase, id, String(project.doc_no ?? "")),
+      // METİN PARÇALARI DEFTERİ blok ekleme menüsünde görünür (KITAP-21).
+      loadManualSnippets(supabase),
+      // FİRMA DEFTERİ ADLARI TAŞIR, BAYT TAŞIMAZ. Yirmi müşterinin logosunu
+      // birlikte yüklemek her editör açılışında megabaytlarca veri demekti.
+      loadCustomerBook(supabase),
+      // Kaynak etiketleri künye alanlarının altında görünür; değer YAZILMAZ,
+      // yalnız "bu alan nereden gelir" sorusunu cevaplar.
+      resolveManualIdentity(supabase, id, revizyon.row.revNo).catch(() => null),
+    ]);
+
+  /*
+   * YALNIZ SEÇİLİ FİRMALARIN LOGOSU YÜKLENİR.
+   *
+   * Üst bandın iki yuvası ve proje Rapor Firması — en çok üç kayıt. Defterin
+   * tamamını veri adresine çevirmek editör açılışını gereksiz yere pahalıya
+   * getirirdi; seçici zaten yalnız AD gösterir.
+   */
+  const projectBrandId = String(project.report_brand_customer_id ?? "");
+  const logoIcinKimlikler = [
+    ...new Set(
+      [
+        revizyon.payload.partnerLogos.centerCustomerId ?? "",
+        revizyon.payload.partnerLogos.rightCustomerId ?? "",
+        projectBrandId,
+      ].filter(Boolean)
+    ),
+  ];
+  const logoCiftleri = await Promise.all(
+    logoIcinKimlikler.map(async (customerId) => {
+      const logo = await loadCustomerLogoPreview(supabase, customerId);
+      return logo ? ([customerId, logo] as const) : null;
+    })
+  );
+  const firmaLogolari = Object.fromEntries(
+    logoCiftleri.filter(
+      (pair): pair is readonly [string, { url: string; oran: number }] => pair !== null
+    )
+  );
+  const projectBrandName =
+    firmalar.find((firma) => firma.id === projectBrandId)?.name ?? "";
 
   const job = (project.jobs as unknown as { id: string; job_no: string } | null) ?? null;
 
@@ -70,7 +113,11 @@ export default async function ManualEditorPage({
         hint={project.customer as string}
       />
 
-      <div className="text-sm text-muted-foreground">
+      {/* KIRINTI YOLU BİR KEZ ÇİZİLİR (MOBIL-13): `PageHeader`ın künyesi
+          `xl`den itibaren görünür, bu satır da orada saklanır — ikisi birden
+          basılınca aynı yol üst üste iki kez okunuyordu. `xl` altında geri
+          oku ve bu satır birlikte bağlamı taşır. */}
+      <div className="text-sm text-muted-foreground xl:hidden">
         {job ? (
           <>
             <Link href="/jobs" className="hover:underline">
@@ -107,6 +154,11 @@ export default async function ManualEditorPage({
         snippets={parcalar}
         itemNo={itemNo || String(project.doc_no ?? "")}
         canEdit={canEdit}
+        identitySources={kimlikOnerisi?.sources ?? {}}
+        firmalar={firmalar}
+        firmaLogolari={firmaLogolari}
+        projectBrandName={projectBrandName}
+        projectBrandId={projectBrandId}
       />
     </div>
   );

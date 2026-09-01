@@ -37,7 +37,7 @@ import {
   SUTUN_BOSLUK,
   SUTUN_GENISLIK,
   TAM_GENISLIK,
-  MANUAL_DIZIN_SAYFA_KAPASITESI,
+  manualDizinYerlesimi,
   MANUAL_UST_BANT_ALT_BOSLUK,
   MANUAL_UST_BANT_YUKSEKLIK,
   bolumSayfalari,
@@ -98,6 +98,10 @@ export interface ManualPaperProps {
   docCode: string;
   /** Vurgulanacak bölüm: o bölümün atomları kâğıtta işaretlenir. */
   vurguId?: string;
+  /** `customers.id` → defterden çözülmüş logo (adres + ÖLÇÜLMÜŞ oran). */
+  firmaLogolari?: ReadonlyMap<string, OnizlemeGorsel>;
+  /** Proje düzeyinde seçili Rapor Firmasının logosu — orta yuvanın öntanımı. */
+  projeFirmaLogosu?: OnizlemeGorsel;
 }
 
 /** Önizlemenin dışarıya verdiği bilgi: hangi bölüm hangi yaprakta. */
@@ -126,7 +130,9 @@ export function manualOnizlemeOlcusu(
   const govdeBolumleri = numarali.filter((b) => b !== ekKapsayici);
   const sayfalar = manualAnaBolumSayfalari(govdeBolumleri, sources, oranlar);
   const govdeBolumSayisi = flattenManual(govdeBolumleri).length;
-  const dizinSayfasi = Math.ceil(govdeBolumSayisi / MANUAL_DIZIN_SAYFA_KAPASITESI);
+  // Dizin yaprağı sayısı PDF ile AYNI fonksiyondan gelir; ayrı bir tahmin
+  // editörde görülen sayfa numarasını teslim belgesinden saptırırdı.
+  const dizinSayfasi = manualDizinYerlesimi(govdeBolumSayisi).sayfaSayisi;
   const govdeOfset = 2 + dizinSayfasi;
   return { sayfalar, sayfaNo: bolumSayfalari(sayfalar, govdeOfset), govdeOfset };
 }
@@ -139,6 +145,8 @@ export function ManualPaper({
   docLine,
   docCode,
   vurguId,
+  firmaLogolari,
+  projeFirmaLogosu,
 }: ManualPaperProps) {
   const oranlar = useMemo(() => {
     const m = new Map<string, number>();
@@ -150,8 +158,23 @@ export function ManualPaper({
     () => manualOnizlemeOlcusu(payload, sources, oranlar),
     [payload, sources, oranlar]
   );
-  const ortaLogo = gorseller.get(payload.partnerLogos.centerImageId ?? "");
-  const sagLogo = gorseller.get(payload.partnerLogos.rightImageId ?? "");
+  /*
+   * ÖNİZLEME PDF İLE AYNI ÖNCELİĞİ OKUR (01.09.2026).
+   *
+   * Eskiden yalnız `payload.partnerLogos`taki ELLE YÜKLENMİŞ görsellere
+   * bakıyordu; PDF ise proje Rapor Firmasını tercih ediyordu. Sonuç: rapor
+   * firması seçili bir projede kullanıcı ekranda boş yuva görüp elle logo
+   * yüklüyor, PDF ise onun yerine başka bir logo basıyordu — KITAP-6'nın
+   * "süzgeç tektir" dersinin logo hâli. Öncelik: künyede seçilen firma >
+   * proje rapor firması > elle yüklenmiş görsel.
+   */
+  const ortaLogo =
+    firmaLogolari?.get(payload.partnerLogos.centerCustomerId ?? "") ??
+    (payload.partnerLogos.centerCustomerId ? undefined : projeFirmaLogosu) ??
+    gorseller.get(payload.partnerLogos.centerImageId ?? "");
+  const sagLogo =
+    firmaLogolari?.get(payload.partnerLogos.rightCustomerId ?? "") ??
+    gorseller.get(payload.partnerLogos.rightImageId ?? "");
   const kapakGorseli = gorseller.get(payload.coverImageId ?? "");
 
   return (

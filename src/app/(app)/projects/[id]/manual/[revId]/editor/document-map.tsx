@@ -115,7 +115,7 @@ export function DocumentMap({
               ? "border-l-primary bg-muted"
               : "border-l-transparent hover:bg-muted/60"
           )}
-          style={{ paddingLeft: `${derinlik * 12 + 4}px` }}
+          style={{ paddingLeft: `calc(${derinlik} * var(--oc-harita-adim) + 4px)` }}
         >
           {cocukVar ? (
             <button
@@ -154,7 +154,12 @@ export function DocumentMap({
             {s.title}
           </button>
 
-          {yazilabilir && !s.appendix ? (
+          {/* EK BÖLÜMÜ DE GİZLENEBİLİR (01.09.2026). Eski `!s.appendix`
+              kapısı kullanıcının "tam teknikten projeleri çıkarayım"
+              isteğini imkânsız kılıyordu; oysa çekirdek hazırdı —
+              `manualAppendixOrder` `printedManual`ı okur, yani ek
+              bölümünü gizlemek eki PDF'ten de düşürür (KITAP-6/8). */}
+          {yazilabilir ? (
             <button
               type="button"
               className="oc-tap mt-0.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
@@ -210,7 +215,12 @@ export function DocumentMap({
         Yalnız eksikler{eksikSayisi > 0 ? ` (${eksikSayisi})` : ""}
       </Button>
 
-      <nav aria-label="Belge haritası" className="min-h-0 flex-1 overflow-y-auto">
+      {/* Kaydırma kabı KAPSAYICI BLOKTUR (MOBIL-18) ve taşmayı gövdeye
+          aktarmaz: ağacın dibine gelince sayfa arkadan kaymaz. */}
+      <nav
+        aria-label="Belge haritası"
+        className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [--oc-harita-adim:8px] sm:[--oc-harita-adim:12px]"
+      >
         {agac.length === 0 ? (
           <p className="px-2 py-4 text-sm text-muted-foreground">
             {yalnizEksik ? "Bekleyen vince özel bölüm yok." : "Aramaya uyan bölüm yok."}

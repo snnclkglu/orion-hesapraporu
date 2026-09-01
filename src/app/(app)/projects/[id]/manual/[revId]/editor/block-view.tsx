@@ -15,7 +15,6 @@
 // GİZLİ BLOK SOLGUN AMA DÜZENLENEBİLİR KALIR: gizlemek silmek değildir
 // (KITAP-6).
 
-import { useEffect, useRef } from "react";
 import Image from "next/image";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,8 +31,18 @@ import { cn } from "@/lib/utils";
  * KENDİ BOYUNU ALAN METİN ALANI.
  *
  * Sabit satırlı bir textarea, uzun bir bakım talimatını dört satırlık bir
- * pencereden okutur ve kullanıcı yazdığının tamamını göremez. Yükseklik her
- * değişimde içeriğe göre ayarlanır.
+ * pencereden okutur ve kullanıcı yazdığının tamamını göremez.
+ *
+ * YÜKSEKLİK ARTIK CSS'İN İŞİDİR (`field-sizing: content`). Elle yazılan
+ * ölçüm efekti yalnız `value` değiştiğinde çalışıyordu: telefon yatay/dikey
+ * çevrildiğinde ya da panel genişliği değiştiğinde satır sayısı değişiyor ama
+ * yükseklik BAYAT kalıyordu — metin kırpılıyor ya da altında boşluk kalıyordu.
+ * `ui/Textarea` tabanı aynı özelliği zaten kullanıyor.
+ *
+ * YAZI BOYU 16px'TEN KÜÇÜK OLAMAZ (MOBIL-2) — ve burası kuralın en pahalı
+ * yeridir: belgedeki BÜTÜN paragraf, madde ve uyarı metni bu alandan geçiyor.
+ * 15,2px'lik eski değer iOS Safari'de her odakta sayfayı yakınlaştırıyor ve
+ * geri çıkmıyordu. Fareyle kullanılan ekranda eski ölçü korunur.
  */
 function OtoMetin({
   value,
@@ -50,18 +59,8 @@ function OtoMetin({
   ariaLabel: string;
   placeholder?: string;
 }) {
-  const ref = useRef<HTMLTextAreaElement | null>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [value]);
-
   return (
     <textarea
-      ref={ref}
       value={value}
       readOnly={readOnly}
       aria-label={ariaLabel}
@@ -71,7 +70,7 @@ function OtoMetin({
       onChange={(e) => onChange(e.target.value)}
       rows={1}
       className={cn(
-        "w-full resize-none border-0 bg-transparent p-0 text-[0.95rem] leading-relaxed",
+        "field-sizing-content w-full resize-none border-0 bg-transparent p-0 text-base leading-relaxed pointer-fine:text-[0.95rem]",
         "focus-visible:outline-none focus-visible:ring-0",
         "placeholder:text-muted-foreground/60",
         readOnly && "cursor-default",
@@ -93,7 +92,7 @@ function TabloDuzenleyici({
   const sutun = Math.max(table.head.length, 1);
 
   return (
-    <div className="oc-scrollx">
+    <div className="oc-scrollx overflow-x-auto overscroll-x-contain [--oc-scroll-bg:var(--card)]">
       <table className="w-full border-collapse text-xs">
         <thead>
           <tr>
@@ -103,7 +102,7 @@ function TabloDuzenleyici({
                   value={h}
                   readOnly={readOnly}
                   aria-label={`Sütun ${i + 1} başlığı`}
-                  className="h-8 rounded-none border-0 bg-muted/60 text-xs font-medium"
+                  className="h-8 rounded-none border-0 bg-muted/60 text-base font-medium pointer-fine:text-xs pointer-coarse:h-10"
                   onChange={(e) => {
                     const head = [...table.head];
                     head[i] = e.target.value;
@@ -124,7 +123,7 @@ function TabloDuzenleyici({
                     value={r[ci] ?? ""}
                     readOnly={readOnly}
                     aria-label={`Satır ${ri + 1} sütun ${ci + 1}`}
-                    className="h-8 rounded-none border-0 text-xs"
+                    className="h-8 rounded-none border-0 text-base pointer-fine:text-xs pointer-coarse:h-10"
                     onChange={(e) => {
                       const rows = table.rows.map((x) => [...x]);
                       while (rows[ri].length < sutun) rows[ri].push("");
@@ -211,7 +210,7 @@ function TabloOnizleme({ table }: { table: ManualTable }) {
     );
   }
   return (
-    <div className="oc-scrollx">
+    <div className="oc-scrollx overflow-x-auto overscroll-x-contain [--oc-scroll-bg:var(--card)]">
       <table className="w-full border-collapse text-xs">
         <thead>
           <tr>
@@ -266,7 +265,7 @@ export function BlockView({
               readOnly={readOnly}
               aria-label="Kenar notu"
               placeholder="Kenar notu (isteğe bağlı)"
-              className="h-7 max-w-56 border-dashed text-xs"
+              className="h-7 max-w-56 border-dashed text-base pointer-fine:text-xs pointer-coarse:h-10"
               onChange={(e) =>
                 onDegis((b) => ({ ...b, margin: e.target.value || undefined }) as ManualBlock)
               }
@@ -377,7 +376,7 @@ export function BlockView({
             readOnly={readOnly}
             aria-label="Tablo altyazısı"
             placeholder="Altyazı (isteğe bağlı)"
-            className="h-7 border-dashed text-xs"
+            className="h-7 border-dashed text-base pointer-fine:text-xs pointer-coarse:h-10"
             onChange={(e) =>
               onDegis((b) =>
                 b.kind === "table"
@@ -417,7 +416,7 @@ export function BlockView({
             readOnly={readOnly}
             aria-label="Görsel altyazısı"
             placeholder="Altyazı (isteğe bağlı)"
-            className="h-7 max-w-md border-dashed text-xs"
+            className="h-7 max-w-md border-dashed text-base pointer-fine:text-xs pointer-coarse:h-10"
             onChange={(e) =>
               onDegis((b) => ({ ...b, caption: e.target.value || undefined }) as ManualBlock)
             }
@@ -437,7 +436,7 @@ export function BlockView({
             readOnly={readOnly}
             aria-label="Şema altyazısı"
             placeholder="Altyazı (isteğe bağlı)"
-            className="h-7 max-w-md border-dashed text-xs"
+            className="h-7 max-w-md border-dashed text-base pointer-fine:text-xs pointer-coarse:h-10"
             onChange={(e) =>
               onDegis((b) => ({ ...b, caption: e.target.value || undefined }) as ManualBlock)
             }

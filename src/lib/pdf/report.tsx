@@ -428,19 +428,37 @@ const s = StyleSheet.create({
   // ---- kapak
   coverMetaLabel: { ...T.kickerInk, marginBottom: 2 },
   coverMetaValue: { fontFamily: FONTS.sans, fontSize: 9, fontWeight: 700, color: BRAND.ink },
-  // Künye satırı (spec bloğu): etiket mono kicker, değer büyük mono
+  /* KÜNYE SATIRI (kapak spec bloğu): etiket mono kicker, değer büyük mono.
+     Üç belge de bu satırı basar (hesap raporu · ekipman listesi · el kitabı).
+
+     `alignItems: "baseline"` BURADA KULLANILMAZ ve bu ölçülerek karara
+     bağlandı (01.09.2026, kullanıcı bildirimi "kapakta tabloda sorun var").
+     @react-pdf'in yoga yerleşiminde 7 pt etiket ile 13 pt değeri baseline'da
+     hizalamak satırın ENİNE ÖLÇÜSÜNÜ SIFIRA indiriyordu: satır aralığı
+     12,75 pt'de kalıyor (6 + 6 pay + 0,75 çizgi), 16,9 pt'lik değer yazısı
+     kendi kutusundan 6,75 pt YUKARI taşıyor ve bir ÜSTTEKİ satırın ayırıcı
+     çizgisini kesiyordu. KITAP-14 md. 1'in aynı dersi: baseline yerine
+     kenar hizası.
+
+     DEĞER SÜTUNU KELEPÇELİDİR. İki `Text` de esnemiyordu (yoga'da
+     `flexShrink` öntanımı 0'dır); "ÇİFT KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ" gibi
+     uzun bir değer satırın sağından TAŞIYORDU. Etiket kendi genişliğinde
+     kalır, değer kalanı alır ve gerekirse SARAR — taşıp kırpılmaz. */
   specRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "baseline",
+    alignItems: "flex-end",
     borderBottomWidth: 0.75,
     borderBottomColor: BRAND.line300,
     paddingVertical: 6,
     gap: 10,
   },
-  specLabel: { ...T.kickerInk },
+  /* Etiket 7 pt, değer 13 pt: alt kenardan hizalandıklarında etiketin taban
+     çizgisi değerinkinden ~1,6 pt aşağıda kalırdı. Pay etiketi o kadar
+     yukarı alır; iki yazı aynı taban çizgisinde okunur. */
+  specLabel: { ...T.kickerInk, flexShrink: 0, paddingBottom: 1.6 },
   specGloss: { ...T.micro, marginTop: 1.5 },
   specValue: {
+    flex: 1,
     fontFamily: FONTS.mono,
     fontSize: 13,
     fontWeight: 600,
@@ -1457,8 +1475,16 @@ export function SharedReportCover({
             gap: landscape ? 24 : 0,
           }}
         >
+          {/* `flex: 1` YALNIZ YATAY KAPAKTA DOĞRUDUR ve bu ayrım kapağın
+              künye tablosunu bozan hatanın ta kendisiydi (01.09.2026).
+              Dikey kapakta kapsayıcı SÜTUN yönlüdür; orada `flex: 1`
+              "eşit genişlik" değil, ANA EKSENDE `flexBasis: 0` demektir —
+              yani YÜKSEKLİK sıfırdan başlar. Kapsayıcının belirli bir
+              yüksekliği olmadığı için sütun büyüyemiyor, içindeki satırlar
+              paylarına kadar eziliyor ve 13 pt'lik değer yazısı kendi
+              satırından taşıp bir üstteki ayırıcı çizgiyi kesiyordu. */}
           {specColumns.map((column, columnIndex) => (
-            <View key={columnIndex} style={{ flex: 1 }}>
+            <View key={columnIndex} style={landscape ? { flex: 1 } : { width: "100%" }}>
               {column.map((row) => (
                 <View
                   key={row.label}

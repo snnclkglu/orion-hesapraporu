@@ -45,6 +45,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { MobileSectionGrid } from "@/components/mobile-nav-grid";
+import { cn } from "@/lib/utils";
+
+/*
+ * DAR EKRANDA KART BEŞ BÖLÜMDÜR (BELGE-13).
+ *
+ * Yönetim kartı tek sayfada 17 kimlik alanı, 10 onay kutusu, plaka
+ * önizlemesi, üç portal metni ve belge listesini taşıyor: telefonda bu
+ * metrelerce bir kaydırma demek. Bölümler `MobileSectionGrid` ile
+ * değiştirilir (MOBIL-21: gezinme açılır listenin arkasına saklanmaz).
+ *
+ * MARKUP ÇOĞALTILMAZ (MOBIL-7/15): aynı düğümler `lg` üstünde hepsi birden
+ * görünür, altında yalnız seçili olan. İkinci bir mobil ağaç yazmak, bir gün
+ * yalnız birinde düzeltilen bir etiket demekti.
+ */
+type PortalBolum = "uniteler" | "kimlik" | "plaka" | "dokumanlar" | "portal";
+
+const PORTAL_BOLUMLERI: readonly { value: PortalBolum; label: string }[] = [
+  { value: "uniteler", label: "Üniteler" },
+  { value: "kimlik", label: "Kimlik" },
+  { value: "plaka", label: "Plaka" },
+  { value: "dokumanlar", label: "Belgeler" },
+  { value: "portal", label: "Portal" },
+];
 import {
   NAMEPLATE_SIZE_PRESETS,
   NAMEPLATE_TOGGLE_FIELDS,
@@ -225,6 +249,9 @@ export function ProductPortalCard({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [shownPassword, setShownPassword] = useState<{ unitId: string; value: string } | null>(null);
+  const [bolum, setBolum] = useState<PortalBolum>("uniteler");
+  /** `lg` altında yalnız seçili bölüm görünür; üstünde hepsi. */
+  const bolumSinifi = (deger: PortalBolum) => (bolum === deger ? "" : "hidden lg:block");
   const selectedUnit = units.find((unit) => unit.id === selectedUnitId) ?? units[0];
   const hasIssuedRevision = Boolean(workspace?.revisions.some((revision) => revision.status === "issued"));
 
@@ -311,7 +338,7 @@ export function ProductPortalCard({
 
   if (!workspace || !payload || !displayRevision) {
     return (
-      <section className="overflow-hidden border bg-card">
+      <section className="relative overflow-hidden border bg-card">
         <header className="border-b bg-muted/40 px-4 py-3">
           <div className="flex items-center gap-2 text-sm font-semibold"><Tag className="size-4 text-primary" /> Vinç Kimliği</div>
         </header>
@@ -529,7 +556,7 @@ export function ProductPortalCard({
 
   return (
     <div className="grid gap-4">
-      <section className="overflow-hidden border bg-card">
+      <section className="relative overflow-hidden border bg-card">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-4 py-3">
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold"><Tag className="size-4 text-primary" /> Vinç Kimliği</div>
@@ -578,9 +605,23 @@ export function ProductPortalCard({
           </div>
         </header>
 
-        <div className="grid gap-5 p-3 sm:p-4 2xl:grid-cols-[minmax(0,1fr)_minmax(460px,0.82fr)]">
+        <div className="border-b px-3 py-3 lg:hidden">
+          <MobileSectionGrid<PortalBolum>
+            value={bolum}
+            onValueChange={setBolum}
+            label="Vinç Kimliği bölümleri"
+            options={PORTAL_BOLUMLERI}
+          />
+        </div>
+
+        <div
+          className={cn(
+            "gap-5 p-3 sm:p-4 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.8fr)]",
+            bolum === "dokumanlar" ? "hidden lg:grid" : "grid"
+          )}
+        >
           <div className="min-w-0 space-y-5">
-            <section className="overflow-hidden border">
+            <section className={cn("relative overflow-hidden border", bolumSinifi("uniteler"))}>
               <header className="border-b bg-muted/40 px-4 py-2.5"><span className="oc-kicker text-muted-foreground">Fiziksel Üniteler · A/B/C</span></header>
               <div className="grid gap-3 p-3">
                 <div className="flex flex-wrap gap-2">
@@ -632,29 +673,102 @@ export function ProductPortalCard({
               </div>
             </section>
 
-            <section className="overflow-hidden border">
+            <section className={cn("relative overflow-hidden border", bolumSinifi("kimlik"))}>
               <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-4 py-2.5"><span className="oc-kicker text-muted-foreground">Otomatik Kimlik Alanları</span><Badge variant="outline">Kaynak + Elle Düzenleme</Badge></header>
               <div className="divide-y">
                 {workspace.identityFields.map((field) => {
                   const overridden = Object.prototype.hasOwnProperty.call(payload.overrides, field.key);
                   const value = overridden ? String(payload.overrides[field.key] ?? "") : field.autoValue;
                   const plateToggle = PLATE_TOGGLE_SET.has(field.key);
+                  const yazilabilir = workspace.editableRevision && canEdit;
                   return (
-                    <div key={field.key} className="grid min-w-0 items-center gap-2 px-3 py-2 lg:grid-cols-[160px_minmax(180px,1fr)_170px_100px]">
+                    /*
+                     * SATIR DÖRT SÜTUNDUR VE HİÇBİRİ SABİT GENİŞLİKTE DEĞİLDİR.
+                     *
+                     * Eski şema `160px_minmax(180px,1fr)_170px_100px` idi: en az
+                     * 634 px isterken proje sayfasının sol sütunu 610 px veriyor,
+                     * bölüm de `overflow-hidden` taşıdığı için son sütun ("Plakada"
+                     * anahtarı) SESSİZCE kırpılıyordu — yani kullanıcı bir alanı
+                     * plakadan çıkaramıyordu (ölçüldü: 1152 px içerikte 38 px taşma,
+                     * 976 px'te anahtar tamamen kayboluyor). `lg` şeması ise iki iz
+                     * tanımlarken satırda dört çocuk vardı ve son ikisi örtük bir
+                     * alt satıra düşüp etiketle hizalanıyordu.
+                     *
+                     * Yeni şema: durum ve kapsam hücreleri `auto`dur, girdi kalanı
+                     * alır. Dar ekranda satır tek sütuna iner.
+                     */
+                    <div
+                      key={field.key}
+                      className="grid min-w-0 items-center gap-x-3 gap-y-2 px-3 py-2 lg:grid-cols-[minmax(120px,1fr)_minmax(160px,2fr)_auto] xl:grid-cols-[minmax(140px,1fr)_minmax(180px,2fr)_auto_auto]"
+                    >
                       <div className="min-w-0">
                         <Label htmlFor={`field-${field.key}`}>{FIELD_LABELS[field.key]}</Label>
-                        <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground" title={overridden ? "Elle düzenlendi" : field.source.label}>{overridden ? "ELLE DÜZENLENDİ" : field.source.label}</div>
+                        <div
+                          className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground"
+                          title={overridden ? `Elle düzenlendi · kaynak: ${field.source.label}` : field.source.label}
+                        >
+                          {field.source.label}
+                        </div>
                       </div>
-                      <Input id={`field-${field.key}`} className="h-9 min-w-0" value={value} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setOverride(field.key, event.target.value)} />
-                      <div>{overridden ? <Button type="button" variant="ghost" size="sm" className="min-h-11 text-primary" onClick={() => resetOverride(field.key)}><RotateCcw className="size-3.5" /> Otomatiğe Dön</Button> : <span className="font-mono text-[11px] text-muted-foreground">OTOMATİK</span>}</div>
-                      <div>{plateToggle ? <DraftToggle checked={!payload.hiddenFields.includes(field.key)} disabled={!workspace.editableRevision || !canEdit} label="Plakada" onChange={(visible) => setPayload((current) => current ? ({ ...current, hiddenFields: visible ? current.hiddenFields.filter((key) => key !== field.key) : [...new Set([...current.hiddenFields, field.key])] }) : current)} /> : <span className="text-xs text-muted-foreground">Künye</span>}</div>
+                      <div className="min-w-0">
+                        <Input
+                          id={`field-${field.key}`}
+                          className="min-w-0"
+                          value={value}
+                          disabled={!yazilabilir}
+                          onChange={(event) => setOverride(field.key, event.target.value)}
+                        />
+                        {/* ELLE DÜZENLENEN ALANDA KAYNAĞIN NE DEDİĞİ GÖRÜNÜR KALIR.
+                            Eskiden otomatik değer tamamen kayboluyordu ve kullanıcı
+                            "Otomatiğe Dön"ün ne getireceğini bilmeden basıyordu. */}
+                        {overridden && field.autoValue.trim() && field.autoValue !== value ? (
+                          <div className="mt-1 truncate text-[11px] text-muted-foreground" title={field.autoValue}>
+                            Kaynak: {field.autoValue}
+                          </div>
+                        ) : null}
+                      </div>
+                      {/* OTOMATİK BİR DURUM DEĞİL BİR DÜĞMEDİR (kullanıcı isteği,
+                          01.09.2026: "Otomatik'e basılabilse ve basıldığında
+                          düzelse"). Basmak override'ı siler, yani alan kaynağın
+                          güncel değerine döner; elle yazmak onu yeniden açar. */}
+                      <div className="flex items-center">
+                        <Button
+                          type="button"
+                          variant={overridden ? "outline" : "secondary"}
+                          size="sm"
+                          className="oc-tap min-h-11 w-full justify-center gap-1.5 xl:w-[9.5rem]"
+                          disabled={!yazilabilir || !overridden}
+                          aria-pressed={!overridden}
+                          title={overridden
+                            ? "Elle düzenlendi — kaynağın güncel değerine dön"
+                            : "Alan kaynaktan otomatik doluyor"}
+                          onClick={() => resetOverride(field.key)}
+                        >
+                          <RotateCcw className={cn("size-3.5", overridden ? "text-primary" : "opacity-50")} />
+                          {overridden ? "Otomatiğe Dön" : "Otomatik"}
+                        </Button>
+                      </div>
+                      <div className="flex items-center">
+                        {plateToggle ? (
+                          <DraftToggle
+                            checked={!payload.hiddenFields.includes(field.key)}
+                            disabled={!yazilabilir}
+                            label="Plakada"
+                            onChange={(visible) => setPayload((current) => current ? ({ ...current, hiddenFields: visible ? current.hiddenFields.filter((key) => key !== field.key) : [...new Set([...current.hiddenFields, field.key])] }) : current)}
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground" title="Yasal zorunlu alan; plakadan gizlenemez (BELGE-2)">
+                            Künye
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </section>
 
-            <section className="overflow-hidden border">
+            <section className={cn("relative overflow-hidden border", bolumSinifi("portal"))}>
               <header className="border-b bg-muted/40 px-4 py-2.5"><span className="oc-kicker text-muted-foreground">Müşteri Portalı Metinleri</span></header>
               <div className="grid gap-3 p-3 lg:grid-cols-2">
                 <div><Label htmlFor="portal-title">Başlık</Label><Input id="portal-title" className="mt-1" value={payload.portal.title} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setPayload({ ...payload, portal: { ...payload.portal, title: event.target.value } })} /></div>
@@ -664,8 +778,8 @@ export function ProductPortalCard({
             </section>
           </div>
 
-          <aside className="min-w-0 2xl:sticky 2xl:top-4 2xl:self-start">
-            <section className="overflow-hidden border bg-muted/20">
+          <aside className={cn("min-w-0 xl:sticky xl:top-4 xl:self-start", bolumSinifi("plaka"))}>
+            <section className="relative overflow-hidden border bg-muted/20">
               <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-3 py-3">
                 <div><div className="oc-kicker text-muted-foreground">Baskı Önizlemesi</div><div className="mt-1 font-mono text-xs">{payload.plate.widthMm} × {payload.plate.heightMm} mm · SVG / PDF</div></div>
                 <div className="flex flex-wrap gap-2">
@@ -675,14 +789,14 @@ export function ProductPortalCard({
               </header>
               {plateBlocked && (
                 <div className="border-b border-destructive/30 bg-destructive/5 px-3 py-2.5 text-xs leading-5 text-destructive">
-                  <span className="font-semibold">Plaka indirilemez.</span> QR'a gömülecek adres bu ortamda
+                  <span className="font-semibold">Plaka indirilemez.</span> QR&apos;a gömülecek adres bu ortamda
                   geçici: <span className="font-mono">{portalOrigin}</span>. Adres plakaya kazınır ve bir daha
                   değiştirilemez. Kalıcı adresi <span className="font-mono">CUSTOMER_PORTAL_ORIGIN</span>
                   ortam değişkeniyle tanımlayın.
                 </div>
               )}
               <div className="bg-white p-2 sm:p-3">
-                <div className="overflow-hidden border bg-white [&>svg]:block [&>svg]:h-auto [&>svg]:max-w-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: nameplateSvg }} />
+                <div className="relative overflow-hidden border bg-white [&>svg]:block [&>svg]:h-auto [&>svg]:max-w-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: nameplateSvg }} />
               </div>
               <div className="grid gap-3 border-t p-3">
                 <div>
@@ -775,14 +889,14 @@ export function ProductPortalCard({
         </div>
       </section>
 
-      <section className="overflow-hidden border bg-card">
+      <section className={cn("relative overflow-hidden border bg-card", bolumSinifi("dokumanlar"))}>
         <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-4 py-3">
           <div><div className="flex items-center gap-2 text-sm font-semibold"><FilePlus2 className="size-4 text-primary" /> Müşteriye Açılacak Dokümanlar</div><p className="mt-1 text-xs text-muted-foreground">Kaynaklar otomatik bulunur; çıktı türü, klasör ve erişim biçimi sizin onayınızdır.</p></div>
           {workspace.editableRevision && canEdit && <div><input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; const form = new FormData(); form.set("file", file); run(() => uploadCustomPortalDocument(projectId, displayRevision.id, form), "Özel PDF eklendi."); event.target.value = ""; }} /><Button variant="outline" className="min-h-11" onClick={() => fileRef.current?.click()}><FilePlus2 className="size-4" /> PDF Ekle</Button></div>}
         </header>
         <div className="divide-y">
           {payload.documents.map((document) => (
-            <div key={document.id} className="grid min-w-0 gap-3 px-4 py-4 lg:grid-cols-[auto_minmax(220px,1fr)_minmax(430px,1.35fr)_auto] lg:items-center">
+            <div key={document.id} className="grid min-w-0 gap-3 px-4 py-4 lg:grid-cols-[auto_minmax(140px,1fr)_minmax(210px,1fr)_auto] lg:items-center xl:grid-cols-[auto_minmax(220px,1fr)_minmax(380px,1.35fr)_auto]">
               {/* Hazır olmayan kaynak İŞARETLENEMEZ: yayım onu zaten atlar, işaretli
                   bırakmak müşteriye eksik paket gideceğini gizlerdi. */}
               <DraftToggle checked={document.included} disabled={!workspace.editableRevision || !canEdit || !document.ready} label="Dahil" onChange={(included) => setDocument(document.id, { included })} />
@@ -796,7 +910,7 @@ export function ProductPortalCard({
                   <p className="mt-1.5 border-l-2 border-destructive/50 pl-2 text-[11px] leading-4 text-destructive">{document.unavailableReason}</p>
                 )}
               </div>
-              <div className="grid min-w-0 gap-3 sm:grid-cols-3">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
                 <div className="min-w-0">
                   <Label>Belge Türü</Label>
                   {document.sourceKind === "report" ? (
@@ -816,21 +930,21 @@ export function ProductPortalCard({
       </section>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="h-[92dvh] max-h-[92dvh] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-[min(1480px,calc(100vw-2rem))] sm:gap-0 sm:p-0">
+        <DialogContent className="h-[92dvh] max-h-[92dvh] relative grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-[min(1480px,calc(100vw-2rem))] sm:gap-0 sm:p-0">
           <DialogHeader className="border-b bg-muted/40 px-4 py-3 sm:px-5">
             <div className="flex flex-wrap items-center justify-between gap-3 pr-8">
               <div><DialogTitle>Müşteri Ne Görüyor?</DialogTitle><DialogDescription className="mt-1">Dış portalın gerçek sunum bileşeni; iç uygulama kabuğu bu görünümde yoktur.</DialogDescription></div>
               <div className="flex gap-2"><Button variant={previewMode === "draft" ? "default" : "outline"} onClick={() => setPreviewMode("draft")} disabled={!liveDraftPreview}>Taslak</Button><Button variant={previewMode === "published" ? "default" : "outline"} onClick={() => setPreviewMode("published")} disabled={!publishedPreview}>Yayındaki</Button></div>
             </div>
           </DialogHeader>
-          <div className="min-h-0 overflow-auto">
+          <div className="relative min-h-0 overflow-auto">
             {preview ? <CustomerPortalView dto={{ ...preview, preview: true, serialNo: selectedUnit?.serialNo ?? preview.serialNo, publicCode: selectedUnit?.publicCode ?? preview.publicCode }} /> : <div className="grid h-full place-items-center p-10 text-center text-sm text-muted-foreground"><div><LockKeyhole className="mx-auto mb-3 size-6" /> Henüz bu kipte müşteri önizlemesi yok.</div></div>}
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-[min(42rem,calc(100%-2rem))]">
           <DialogHeader><DialogTitle>Portal Sürümleri</DialogTitle><DialogDescription>Yayımlanmış paketler değişmez. Yanlış yayımı kaldırabilir veya eski bir paketi yeniden aktif edebilirsiniz.</DialogDescription></DialogHeader>
           <div className="divide-y border">
             {workspace.revisions.map((revision) => {

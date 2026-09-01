@@ -169,6 +169,10 @@ export function withProductPortalDefaults(raw: unknown): ProductPortalPayload {
       heightMm: finiteDimension(plate.heightMm, 160),
       ...(Number(plate.holeDiameterMm) > 0 ? { holeDiameterMm: Number(plate.holeDiameterMm) } : {}),
       ...(Number(plate.holeInsetMm) > 0 ? { holeInsetMm: Number(plate.holeInsetMm) } : {}),
+      // Yazma yolu şemadan geçiyordu ama OKUMA yolu bu iki anahtarı
+      // kopyalamıyordu; ikisi birden olmadan ayar kalıcı olmaz (BELGE-3).
+      ...(typeof plate.ceMark === "boolean" ? { ceMark: plate.ceMark } : {}),
+      ...(typeof plate.monochrome === "boolean" ? { monochrome: plate.monochrome } : {}),
     },
     overrides,
     hiddenFields: PRODUCT_IDENTITY_FIELDS.filter((key) => hidden.has(key)),

@@ -458,7 +458,7 @@ export function ElectricalCard({
                 <select
                   value={suzgec.location}
                   onChange={(e) => setSuzgec((f) => ({ ...f, location: e.target.value }))}
-                  className="oc-tap h-9 max-w-44 rounded-md border bg-background px-2 text-sm"
+                  className="oc-tap h-9 max-w-44 rounded-md border bg-background px-2 text-base pointer-fine:text-sm"
                   aria-label="Pano süzgeci"
                 >
                   <option value="">Bütün panolar</option>
@@ -473,7 +473,7 @@ export function ElectricalCard({
                 <select
                   value={suzgec.category}
                   onChange={(e) => setSuzgec((f) => ({ ...f, category: e.target.value }))}
-                  className="oc-tap h-9 max-w-64 rounded-md border bg-background px-2 text-sm"
+                  className="oc-tap h-9 max-w-64 rounded-md border bg-background px-2 text-base pointer-fine:text-sm"
                   aria-label="Kategori süzgeci"
                 >
                   <option value="">Bütün kategoriler</option>
@@ -486,7 +486,7 @@ export function ElectricalCard({
                 <select
                   value={suzgec.supplier}
                   onChange={(e) => setSuzgec((f) => ({ ...f, supplier: e.target.value }))}
-                  className="oc-tap h-9 max-w-52 rounded-md border bg-background px-2 text-sm"
+                  className="oc-tap h-9 max-w-52 rounded-md border bg-background px-2 text-base pointer-fine:text-sm"
                   aria-label="Tedarikçi süzgeci"
                 >
                   <option value="">Bütün tedarikçiler</option>
@@ -505,8 +505,10 @@ export function ElectricalCard({
                   className="w-full sm:w-56"
                 />
                 {/* Masaüstünde sütun başlıkları sıralama düğmesidir; kart
-                    görünümünde başlıklar gizlendiği için aynı işlem telefonda
-                    burada açıkça kalır. */}
+                    görünümünde başlıklar gizlendiği için aynı işlem burada
+                    açıkça kalır. EŞİK `lg`DİR, `md` DEĞİL: tablo MOBIL-19
+                    gereği tablette de katlanıyor ve orada da başlık yok —
+                    `md:hidden` bırakılsaydı 768–1023 px'te hiç sıralanamazdı. */}
                 {gorunum === "malzeme" ? (
                   <>
                     <select
@@ -514,7 +516,7 @@ export function ElectricalCard({
                       onChange={(e) =>
                         setMalzemeSira({ key: e.target.value as MaterialSortKey, desc: false })
                       }
-                      className="oc-tap h-9 max-w-52 rounded-md border bg-background px-2 text-sm md:hidden"
+                      className="oc-tap h-9 max-w-52 rounded-md border bg-background px-2 text-base pointer-fine:text-sm lg:hidden"
                       aria-label="Malzemeleri sırala"
                     >
                       <option value="sort">Belgedeki sıra</option>
@@ -530,7 +532,7 @@ export function ElectricalCard({
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="md:hidden"
+                      className="lg:hidden"
                       aria-label="Malzeme sıralama yönünü değiştir"
                       onClick={() => setMalzemeSira((s) => ({ ...s, desc: !s.desc }))}
                     >
@@ -544,7 +546,7 @@ export function ElectricalCard({
                       onChange={(e) =>
                         setAygitSira({ key: e.target.value as PartSortKey, desc: false })
                       }
-                      className="oc-tap h-9 max-w-52 rounded-md border bg-background px-2 text-sm md:hidden"
+                      className="oc-tap h-9 max-w-52 rounded-md border bg-background px-2 text-base pointer-fine:text-sm lg:hidden"
                       aria-label="Aygıtları sırala"
                     >
                       <option value="sort">Belgedeki sıra</option>
@@ -560,7 +562,7 @@ export function ElectricalCard({
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="md:hidden"
+                      className="lg:hidden"
                       aria-label="Aygıt sıralama yönünü değiştir"
                       onClick={() => setAygitSira((s) => ({ ...s, desc: !s.desc }))}
                     >

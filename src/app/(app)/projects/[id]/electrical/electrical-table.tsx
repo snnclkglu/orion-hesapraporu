@@ -58,62 +58,32 @@ function Hucre({
   mono,
   sag,
   className,
+  etiket,
+  span,
 }: {
   children: string;
   mono?: boolean;
   sag?: boolean;
   className?: string;
+  /** Katlanmış kartta hücrenin başlığı (`.oc-tablet-table td::before`). */
+  etiket: string;
+  /** Kartta tam satırı kaplasın mı. */
+  span?: "full";
 }) {
   return (
     <TableCell
       title={children}
-      className={`truncate ${mono ? "font-mono text-xs" : ""} ${
-        sag ? "text-right tabular-nums" : ""
-      } ${className ?? ""}`}
+      data-label={etiket}
+      data-mobile-span={span}
+      className={`truncate max-lg:overflow-visible max-lg:whitespace-normal ${
+        mono ? "font-mono text-xs" : ""
+      } ${sag ? "text-right tabular-nums" : ""} ${className ?? ""}`}
     >
       {children}
     </TableCell>
   );
 }
 
-/**
- * Telefon kartı — katlanmış satırın gövdesi.
- *
- * Kartta `truncate` YOKTUR: dar ekranda tek satırlık bir tanım okunmaz hâle
- * gelirdi ve burada satır boyu eşitliği bir değer taşımıyor (göz zaten tek
- * sütunda ilerliyor).
- */
-function Kart({
-  baslik,
-  adet,
-  satirlar,
-  actions,
-}: {
-  baslik: string;
-  adet: string;
-  satirlar: [string, string][];
-  actions?: ReactNode;
-}) {
-  return (
-    <div className="border-b p-3 last:border-0">
-      <div className="flex items-start justify-between gap-3">
-        <span className="min-w-0 flex-1 text-sm font-medium break-words">{baslik}</span>
-        <span className="shrink-0 font-mono text-sm tabular-nums">{adet}</span>
-      </div>
-      <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
-        {satirlar
-          .filter(([, v]) => v.trim() && v !== "—")
-          .map(([k, v]) => (
-            <Fragment key={k}>
-              <dt className="text-muted-foreground">{k}</dt>
-              <dd className="min-w-0 font-mono break-all">{v}</dd>
-            </Fragment>
-          ))}
-      </dl>
-      {actions && <div className="mt-2 flex flex-wrap items-center gap-1.5">{actions}</div>}
-    </div>
-  );
-}
 
 function CatalogButtons({ reference }: { reference?: ElectricalCatalogReference }) {
   if (!reference?.technicalDocumentId && !reference?.catalogDocumentId) {
@@ -169,7 +139,8 @@ export function MaterialTable({
           tanım ~40 karakter, kategori ~30, malzeme kodu ~22, tip no ~18,
           tedarikçi ~14, pano listesi ~10. Belge düğmeleri sabit ve küçüktür.
           Toplam 100. */}
-      <Table containerClassName="oc-table-clamp overflow-x-hidden" className="table-fixed">
+      <Table containerClassName="oc-table-clamp oc-tablet-table-wrap overflow-x-hidden"
+        className="oc-tablet-table oc-compact-mobile-table table-fixed">
         <colgroup>
           <col className="w-[5%]" />
           <col className="w-[22%]" />
@@ -180,7 +151,7 @@ export function MaterialTable({
           <col className="w-[8%]" />
           <col className="w-[10%]" />
         </colgroup>
-        <TableHeader className="oc-sticky-head hidden md:table-header-group">
+        <TableHeader className="oc-sticky-head">
           <TableRow className="bg-muted/50 hover:bg-muted/50">
             <SortableHead sortKey="qty" current={sortKey} desc={desc} onSort={onSort} align="right">
               Adet
@@ -206,21 +177,29 @@ export function MaterialTable({
             <TableHeaderCell>Doküman</TableHeaderCell>
           </TableRow>
         </TableHeader>
-        <TableBody className="hidden md:table-row-group">
+        <TableBody>
           {rows.map((m) => {
             const panolar = m.locations.map((l) => `+${l}`).join(" ");
             return (
               <TableRow key={m.key}>
-                <Hucre sag>{say(m.qty)}</Hucre>
-                <Hucre>{yaz(m.designation)}</Hucre>
-                <Hucre>{m.category}</Hucre>
-                <Hucre mono>{yaz(m.typeNo)}</Hucre>
-                <Hucre>{yaz(m.supplier)}</Hucre>
-                <Hucre mono>{yaz(m.partNo)}</Hucre>
-                <Hucre mono className="text-muted-foreground">
+                <Hucre etiket="Adet" sag>
+                  {say(m.qty)}
+                </Hucre>
+                <Hucre etiket="Tanım" span="full">
+                  {yaz(m.designation)}
+                </Hucre>
+                <Hucre etiket="Kategori">{m.category}</Hucre>
+                <Hucre etiket="Tip No" mono>
+                  {yaz(m.typeNo)}
+                </Hucre>
+                <Hucre etiket="Tedarikçi">{yaz(m.supplier)}</Hucre>
+                <Hucre etiket="Malzeme Kodu" mono>
+                  {yaz(m.partNo)}
+                </Hucre>
+                <Hucre etiket="Panolar" mono className="text-muted-foreground">
                   {yaz(panolar)}
                 </Hucre>
-                <TableCell className="text-right">
+                <TableCell data-label="Doküman" data-mobile-actions className="text-right">
                   <CatalogButtons reference={documents.get(m.key)} />
                 </TableCell>
               </TableRow>
@@ -228,25 +207,6 @@ export function MaterialTable({
           })}
         </TableBody>
       </Table>
-
-      {/* Telefonda aynı satırlar kart olarak — yatay kaydırma YOK. */}
-      <div className="md:hidden">
-        {rows.map((m) => (
-          <Kart
-            key={m.key}
-            baslik={yaz(m.designation)}
-            adet={say(m.qty)}
-            satirlar={[
-              ["Kategori", m.category],
-              ["Tip No", yaz(m.typeNo)],
-              ["Tedarikçi", yaz(m.supplier)],
-              ["Kod", yaz(m.partNo)],
-              ["Panolar", yaz(m.locations.map((l) => `+${l}`).join(" "))],
-            ]}
-            actions={<CatalogButtons reference={documents.get(m.key)} />}
-          />
-        ))}
-      </div>
     </>
   );
 }
@@ -271,7 +231,8 @@ export function PartTable({
 }) {
   return (
     <>
-      <Table containerClassName="oc-table-clamp overflow-x-hidden" className="table-fixed">
+      <Table containerClassName="oc-table-clamp oc-tablet-table-wrap overflow-x-hidden"
+        className="oc-tablet-table oc-compact-mobile-table table-fixed">
         <colgroup>
           <col className="w-[17%]" />
           <col className="w-[6%]" />
@@ -281,7 +242,7 @@ export function PartTable({
           <col className="w-[16%]" />
           <col className="w-[6%]" />
         </colgroup>
-        <TableHeader className="oc-sticky-head hidden md:table-header-group">
+        <TableHeader className="oc-sticky-head">
           <TableRow className="bg-muted/50 hover:bg-muted/50">
             <SortableHead sortKey="deviceTag" current={sortKey} desc={desc} onSort={onSort}>
               Aygıt Etiketi
@@ -306,39 +267,32 @@ export function PartTable({
             </SortableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="hidden md:table-row-group">
+        <TableBody>
           {rows.map((p, i) => (
             <TableRow key={`${p.deviceTag}-${p.partNo}-${i}`}>
-              <Hucre mono>{p.deviceTag}</Hucre>
-              <Hucre sag>{say(p.qty)}</Hucre>
-              <Hucre>{yaz(p.designation)}</Hucre>
-              <Hucre mono>{yaz(p.typeNo)}</Hucre>
-              <Hucre>{yaz(p.supplier)}</Hucre>
-              <Hucre mono>{yaz(p.partNo)}</Hucre>
-              <Hucre sag mono className="text-muted-foreground">
+              <Hucre etiket="Aygıt Etiketi" mono>
+                {p.deviceTag}
+              </Hucre>
+              <Hucre etiket="Adet" sag>
+                {say(p.qty)}
+              </Hucre>
+              <Hucre etiket="Tanım" span="full">
+                {yaz(p.designation)}
+              </Hucre>
+              <Hucre etiket="Tip No" mono>
+                {yaz(p.typeNo)}
+              </Hucre>
+              <Hucre etiket="Tedarikçi">{yaz(p.supplier)}</Hucre>
+              <Hucre etiket="Malzeme Kodu" mono>
+                {yaz(p.partNo)}
+              </Hucre>
+              <Hucre etiket="Sayfa" sag mono className="text-muted-foreground">
                 {p.page ? String(p.page) : "—"}
               </Hucre>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-
-      <div className="md:hidden">
-        {rows.map((p, i) => (
-          <Kart
-            key={`${p.deviceTag}-${p.partNo}-${i}`}
-            baslik={yaz(p.designation)}
-            adet={say(p.qty)}
-            satirlar={[
-              ["Aygıt", p.deviceTag],
-              ["Tip No", yaz(p.typeNo)],
-              ["Tedarikçi", yaz(p.supplier)],
-              ["Kod", yaz(p.partNo)],
-              ["Sayfa", p.page ? String(p.page) : "—"],
-            ]}
-          />
-        ))}
-      </div>
     </>
   );
 }

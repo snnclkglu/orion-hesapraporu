@@ -356,6 +356,15 @@ export const MANUAL_APPENDIX_LABELS: Record<ManualAppendixKind, string> = {
  */
 export interface ManualIdentity {
   manufacturer: string;
+  /**
+   * Üretici künyesinin geldiği MÜŞTERİ DEFTERİ kaydı (`customers.id`).
+   *
+   * Ad ve adres yine snapshot olarak yukarıda durur (KITAP-2: defterde
+   * sonradan yapılan bir düzeltme teslim edilmiş bir kılavuzu değiştirmez);
+   * bu alan yalnız "hangi firmadan alındı" sorusunu cevaplar ve editörde
+   * seçicinin hangi satırda duracağını söyler. Boş = elle yazıldı.
+   */
+  manufacturerCustomerId?: string;
   product: string;
   craneType: string;
   serialNo: string;
@@ -383,6 +392,21 @@ export interface ManualIdentity {
 export interface ManualPartnerLogos {
   centerImageId?: string;
   rightImageId?: string;
+  /**
+   * MÜŞTERİ DEFTERİNDEN SEÇİLEN FİRMA — logo baytları defterin kendi
+   * kovasından çözülür (`customers.logo_path`), belgeye kopyalanmaz.
+   *
+   * Kullanıcı kararı (01.09.2026): *"Künye'de logoları seçmeyi değiştirelim.
+   * Firma seçeyim. Firmalarım zaten Müşteriler kısmında kayıtlı ve logoları
+   * mevcut."* Elle yükleme (`*ImageId`) GERİYE DÖNÜK YEDEK olarak kalır:
+   * defterde olmayan bir kurum için hâlâ tek yol odur.
+   *
+   * ÖNCELİK: bu alan > proje rapor firması > elle yüklenmiş görsel. Ortadaki
+   * basamak KITAP-18'in kuralıdır ve bozulmadı; buradaki seçim yalnızca
+   * "bu kılavuzda başka bir firma" demenin yoludur.
+   */
+  centerCustomerId?: string;
+  rightCustomerId?: string;
 }
 
 // ——————————————————————————————————————————————————————————————— kapsam

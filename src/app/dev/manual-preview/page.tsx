@@ -78,6 +78,11 @@ export default function ManualPreviewPage() {
           images={[]}
           snippets={[]}
           itemNo="0019-00"
+          identitySources={{}}
+          firmalar={[]}
+          firmaLogolari={{}}
+          projectBrandName=""
+          projectBrandId=""
           canEdit
         />
       </div>

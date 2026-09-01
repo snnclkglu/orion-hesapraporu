@@ -563,17 +563,48 @@ export async function issueProductPortalRevision(
     await context.supabase.from("product_portal_files").delete().eq("revision_id", revisionId);
   }
 
+  /*
+   * ALT-İSTEK KULLANICININ BULUNDUĞU ADRESE GİDER, DAĞITIM ADRESİNE DEĞİL.
+   *
+   * Yayım, ağır PDF üreticilerini sayfa lambdasına taşımamak için aynı
+   * origin'e auth'lu bir `fetch` atar (BELGE: "yayım action'ı PDF route
+   * modülü import etmez"). Origin eskiden KOŞULSUZ `VERCEL_URL`den
+   * kuruluyordu — oysa o, kullanıcının tarayıcıdaki alan adı değil DAĞITIMA
+   * ÖZEL host'tur (`<proje>-<hash>-<takim>.vercel.app`). Takım hesaplarında
+   * o adres Vercel'in dağıtım korumasının (SSO) arkasındadır: alt-istek
+   * uygulamaya hiç ulaşmaz, 200 ile bir HTML duvarı döner ve kullanıcı
+   * "Ekipman listesi PDF biçiminde üretilemedi." mesajını görür. Çerez de
+   * zaten o host'a ait değildir.
+   *
+   * Sıra bu yüzden terstir: önce isteğin KENDİ host'u (çerezin ait olduğu
+   * adres), yalnız o yoksa üretim adresi. `?.trim()` yerine `|| undefined`:
+   * boş dizge nullish DEĞİLDİR ve `??` zinciri devreye girmeyip
+   * `https://` gibi geçersiz bir origin üretiyordu.
+   *
+   * Protokol de hosttan TAHMİN EDİLMEZ: `next dev` düz HTTP dinler ve
+   * `x-forwarded-proto` göndermez; `127.0.0.1:3000` ya da telefondan
+   * `192.168.x.x:3000` ile girildiğinde "localhost" ile başlamadığı için
+   * https seçiliyor ve el sıkışma reddediliyordu.
+   */
   const headerStore = await headers();
-  const deploymentHost = process.env.VERCEL_URL?.trim();
-  const host = deploymentHost
-    ?? headerStore.get("x-forwarded-host")
-    ?? headerStore.get("host")
-    ?? "localhost:3000";
-  const proto = deploymentHost
-    ? "https"
-    : headerStore.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const uretimHost =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim() || undefined;
+  const host =
+    headerStore.get("x-forwarded-host")?.trim()
+    || headerStore.get("host")?.trim()
+    || uretimHost
+    || "localhost:3000";
+  const proto =
+    headerStore.get("x-forwarded-proto")?.trim()
+    || (process.env.VERCEL ? "https" : "http");
   const requestOrigin = `${proto}://${host}`;
   const requestCookie = headerStore.get("cookie") ?? "";
+  // OTURUM ÇEREZİ TAŞINAMIYORSA ALT-İSTEK OTURUMSUZ SAYILIR ve `proxy.ts`
+  // onu `/login`e yollar; dönen 200 + text/html "PDF üretilemedi" diye
+  // okunurdu. Sebebi burada, kaynağında söylemek gerekir.
+  if (!requestCookie) {
+    return { error: "Oturum çerezi okunamadı; sayfayı yenileyip yeniden deneyin." };
+  }
   const materialized = [];
   try {
     for (const document of selected) {

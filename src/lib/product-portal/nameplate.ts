@@ -105,6 +105,8 @@ export interface NameplateRow {
   y: number;
   labelSize: number;
   valueSize: number;
+  /** Satırın ayırıcı çizgisi — konum YERLEŞİMDEDİR, çizicide değil. */
+  ruleY: number;
 }
 
 export interface NameplatePalette {
@@ -192,9 +194,12 @@ function normalized(value: string): string {
   return String(value ?? "").trim().replace(/\s+/g, " ");
 }
 
+/** Plex Mono'nun sabit ilerlemesi — aralıklı yazı bunu karakter başına sayar. */
+const MONO_ILERLEME = 0.61;
+
 /** Archivo/Plex için baskı öncesi muhafazakâr glif genişliği tahmini. */
 export function estimatedTextWidth(value: string, fontSize: number, mono = false): number {
-  if (mono) return normalized(value).length * fontSize * 0.61;
+  if (mono) return normalized(value).length * fontSize * MONO_ILERLEME;
   let units = 0;
   for (const character of normalized(value)) {
     if (/[MW@%&]/.test(character)) units += 0.94;
@@ -218,7 +223,13 @@ export function trackedGlyphs(value: string, x: number, size: number, tracking: 
   let cursor = x;
   for (const char of text) {
     glyphs.push({ char, x: cursor });
-    cursor += estimatedTextWidth(char, size, true) + tracking;
+    // BOŞLUK DA BİR KARAKTERDİR ve mono yüzde hepsi aynı genişliktedir.
+    // `estimatedTextWidth` burada KULLANILMAZ: içindeki `normalized` boşluğu
+    // `trim()` ile yiyor, tek karakterlik " " için 0 dönüyordu — "TEKNİK
+    // DOKÜMANLAR" kelime arası harf arasından DAR basılıyor, iki kelime
+    // bitişik okunuyordu (ölçüldü: 3 mm puntoda kelime arası 0,66 mm, harf
+    // arası 0,33 mm).
+    cursor += size * MONO_ILERLEME + tracking;
   }
   return glyphs;
 }
@@ -226,7 +237,7 @@ export function trackedGlyphs(value: string, x: number, size: number, tracking: 
 export function trackedWidth(glyphs: readonly TrackedGlyph[], size: number): number {
   if (glyphs.length === 0) return 0;
   const last = glyphs[glyphs.length - 1];
-  return last.x - glyphs[0].x + estimatedTextWidth(last.char, size, true);
+  return last.x - glyphs[0].x + size * MONO_ILERLEME;
 }
 
 /** Metni en fazla `maxLines` satıra, kelime sınırında ve dengeli böler. */
@@ -329,34 +340,78 @@ function qrGeometry(value: string, x: number, y: number, size: number) {
   return { path, x, y, size, moduleMm: cell };
 }
 
-/**
- * CE İŞARETİ — resmî oranlarda vektör.
+/*
+ * CE İŞARETİ — 765/2008/AT Ek II oranlarında VEKTÖR.
  *
- * 765/2008/AT Ek II'nin biçimi: iki daire yayı, dikey ölçüsü en az 5 mm ve
- * oranları korunur. Raster bir logo kazımada bozulur; yol olarak çizilir.
- * Yükseklik `h`, genişlik ≈ 1,4·h.
+ * Ölçüler YÜZ BİRİMLİK bir ızgarada verilir ve `s = height/100` ile mm'ye
+ * indirilir. Harfler EŞ MERKEZLİ birer halkadır: dış yarıçap 50, iç yarıçap
+ * 34 — yani et kalınlığı her yerde 16 birimdir. Ağız (+x yönündeki açıklık)
+ * yarı-açısı `CE_AGIZ`tır ve uç noktalar çemberden TÜRETİLİR.
+ *
+ * ÖNCEKİ SÜRÜMÜN İKİ HATASI (01.09.2026, kullanıcı bildirimi "sol altta CE
+ * işareti koymaya çalışmışız ama olmamış"):
+ *  1. YAY YARIÇAPLARI ÖLÇEKLENMİYORDU (`A50 50 …` ham yazılmıştı). viewBox
+ *     birimi mm olduğu için 10 mm'lik bir işarette 50 mm yarıçap isteniyor,
+ *     SVG yarıçapı küçültmez ve ~356°'lik dev bir yay çizerdi: ekrandaki
+ *     kocaman siyah hilal ve veri tablosunun etiket sütununu ezen "kalın
+ *     çizgi" bundandı.
+ *  2. UÇ NOKTALAR ÇEMBER ÜZERİNDE DEĞİLDİ (x=72 elle yazılmıştı), yani iki
+ *     yay eş merkezli çıkmıyor ve halkanın kalınlığı yer yer 23 birime
+ *     çıkıyordu.
+ *
+ * E'nin orta kolu halkanın İÇ kenarından başlar (gövdeye değer) ve ağız
+ * hattına varmadan biter — gerçek işarette orta kol kollardan kısadır.
  */
+const CE_DIS = 50;
+const CE_IC = 34;
+const CE_AGIZ_DERECE = 40;
+
+/** İki harfin merkezleri arası; mürekkep çakışmayan en küçük mesafe ölçüldü. */
+const CE_HARF_ARALIGI = 127;
+
+/** İşaretin en/boy oranı — `legalX` bu genişliğin sağından başlar. */
+const CE_GENISLIK_ORANI = (CE_HARF_ARALIGI + CE_DIS) / 100;
+
+function ceHalkasi(
+  cx: number,
+  px: (v: number) => string,
+  py: (v: number) => string,
+  s: number
+): string {
+  const rad = (CE_AGIZ_DERECE * Math.PI) / 180;
+  const disX = cx + CE_DIS * Math.cos(rad);
+  const disY = CE_DIS * Math.sin(rad);
+  const icX = cx + CE_IC * Math.cos(rad);
+  const icY = CE_IC * Math.sin(rad);
+  const R = (CE_DIS * s).toFixed(3);
+  const r = (CE_IC * s).toFixed(3);
+  return (
+    `M${px(disX)} ${py(50 - disY)}` +
+    `A${R} ${R} 0 1 0 ${px(disX)} ${py(50 + disY)}` +
+    `L${px(icX)} ${py(50 + icY)}` +
+    `A${r} ${r} 0 1 1 ${px(icX)} ${py(50 - icY)}` +
+    `Z`
+  );
+}
+
 function ceMarkPath(x: number, y: number, height: number): { path: string; width: number } {
   const s = height / 100;
   const px = (v: number) => (x + v * s).toFixed(3);
   const py = (v: number) => (y + v * s).toFixed(3);
-  // "C": dış yay 0–360, iç yay çıkarılır (even-odd yerine iki alt yol).
-  const c =
-    `M${px(72)} ${py(14)}` +
-    `A50 50 0 1 0 ${px(72)} ${py(86)}` +
-    `L${px(72)} ${py(70)}` +
-    `A34 34 0 1 1 ${px(72)} ${py(30)}` +
+  const agizX = CE_DIS * Math.cos((CE_AGIZ_DERECE * Math.PI) / 180);
+  // E'nin orta kolu: iç kenardan başlar, ağız hattının %72'sinde biter.
+  const kolSol = CE_HARF_ARALIGI - CE_IC;
+  const kolSag = CE_HARF_ARALIGI + agizX * 0.72;
+  const kol =
+    `M${px(kolSol)} ${py(42)}` +
+    `H${px(kolSag)}` +
+    `V${py(58)}` +
+    `H${px(kolSol)}` +
     `Z`;
-  // "E": aynı gövde, üç yatay kol.
-  const ex = 78;
-  const e =
-    `M${px(ex + 66)} ${py(14)}` +
-    `A50 50 0 1 0 ${px(ex + 66)} ${py(86)}` +
-    `L${px(ex + 66)} ${py(70)}` +
-    `A34 34 0 1 1 ${px(ex + 66)} ${py(30)}` +
-    `Z` +
-    `M${px(ex + 34)} ${py(42)}h${(40 * s).toFixed(3)}v${(16 * s).toFixed(3)}h-${(40 * s).toFixed(3)}z`;
-  return { path: `${c}${e}`, width: (ex + 66) * s };
+  return {
+    path: `${ceHalkasi(50, px, py, s)}${ceHalkasi(CE_HARF_ARALIGI, px, py, s)}${kol}`,
+    width: +(height * CE_GENISLIK_ORANI).toFixed(2),
+  };
 }
 
 function visibleValue(
@@ -494,9 +549,16 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
 
   // ————————————————————————————————————————————————— veri satırları
   const titleIncludesType = product && craneType ? trUpper(product).includes(trUpper(craneType)) : true;
+  /* BESLEME SATIRI FREKANSI İKİ KEZ YAZMAZ. `frequency` bağımsız bir girdi
+     değil, `supplyVoltage` metninden çekilen bir türevdir
+     (`identity.ts` · `frequencyFromSupplyVoltage`) ve üretimdeki seçenek
+     metinleri frekansı zaten taşır ("380 VAC, 3 Faz, 50 Hz"). Koşulsuz
+     birleştirme plakaya "380 VAC, 3 Faz, 50 Hz · 50 Hz" bastırıyordu. */
+  const supplyVoltage = visibleValue(input.identity, hidden, "supplyVoltage");
+  const frequency = visibleValue(input.identity, hidden, "frequency");
   const supply = [
-    visibleValue(input.identity, hidden, "supplyVoltage"),
-    visibleValue(input.identity, hidden, "frequency"),
+    supplyVoltage,
+    /Hz/i.test(supplyVoltage) ? "" : frequency,
   ].filter(Boolean).join(" · ");
   const candidates: Array<[string, string]> = [
     ["SERİ NUMARASI", normalized(input.serialNo)],
@@ -517,23 +579,68 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
 
   const rowsTop = +((capacity ? capacityY + capacityH : capacityY) + Math.max(2, 5 * k)).toFixed(2);
   const rowsSpace = Math.max(0, contentBottom - rowsTop);
-  const rowStep = present.length > 0
-    ? Math.min(+(8.1 * k).toFixed(2), rowsSpace / present.length)
-    : 0;
   const labelSize = size(2.75, MIN_LABEL_SIZE);
   const labelX = padX;
-  const valueX = +(padX + Math.min(leftColW * 0.46, 56 * k)).toFixed(2);
+
+  /* DEĞER SÜTUNU ETİKETİN GERÇEK GENİŞLİĞİNDEN BAŞLAR, sabit bir orandan
+     değil. Eski `leftColW * 0.46` en uzun etiketi ("KALDIRMA YÜKSEKLİĞİ")
+     ölçmüyordu: kısa etiketli plakalarda ortada 24 mm'lik ölü bir oluk
+     bırakıyor, uzun etiketli olanlarda değerin üstüne binme riski taşıyordu. */
+  const enUzunEtiket = present.reduce(
+    (en, [label]) => Math.max(en, estimatedTextWidth(label, labelSize, true)),
+    0
+  );
+  const valueX = +Math.min(
+    padX + enUzunEtiket + Math.max(2, 4 * k),
+    padX + leftColW * 0.62
+  ).toFixed(2);
   const valueMaxWidth = +(padX + leftColW - valueX).toFixed(2);
   const valueSizes = [size(4.2, MIN_VALUE_SIZE), size(3.8, MIN_VALUE_SIZE), size(3.4, MIN_VALUE_SIZE), size(3.0, MIN_VALUE_SIZE), MIN_VALUE_SIZE];
 
-  const rows: NameplateRow[] = present.map(([label, value], index) => ({
-    label,
-    value,
-    y: +(rowsTop + labelSize + index * rowStep).toFixed(2),
-    labelSize,
-    valueSize: fitMonoSize(value, valueMaxWidth, valueSizes),
-  }));
-  if (rowStep > 0 && rowStep < labelSize * 1.35) {
+  /* PUNTO SÜTUN BOYU SEÇİLİR, SATIR SATIR DEĞİL — VE İKİ KAPIDAN GEÇER.
+     Her satır kendi puntosunu seçseydi kısa değer 4,2 mm, uzun değer 3,0 mm
+     olur ve aynı sütun kendi içinde dalgalanırdı; etiket sütunu zaten tek
+     puntodadır. Birinci kapı GENİŞLİK (en uzun değer sütuna sığmalı), ikinci
+     kapı YÜKSEKLİK (n satır kalan boşluğa sığmalı). İkincisi eksikti: satır
+     bloğu içerik penceresini taşıyor, son satırlar yasal bandın üstüne
+     çıkıyordu (ölçüldü). */
+  const genislikPuntosu = present.length > 0
+    ? Math.min(...present.map(([, value]) => fitMonoSize(value, valueMaxWidth, valueSizes)))
+    : valueSizes[0];
+  const satirYuksekligiIcin = (punto: number) => +(Math.max(labelSize, punto) * 1.45).toFixed(2);
+  const valueSize = present.length > 0
+    ? valueSizes.find(
+        (punto) =>
+          punto <= genislikPuntosu &&
+          satirYuksekligiIcin(punto) * present.length <= rowsSpace
+      ) ?? Math.min(genislikPuntosu, MIN_VALUE_SIZE)
+    : genislikPuntosu;
+
+  /* SATIR ADIMI DEĞER PUNTOSUNU GÖRÜR. Eski hâl adımı yalnız kalan boşluğa
+     bölüyor, çakışmayı ise ETİKET puntosuyla denetliyordu; oysa satırın
+     yüksekliğini büyük olan DEĞER belirler. Ölçülmüştü: adım 3,84 mm iken
+     değer 4,2 mm ve her satırın saç çizgisi bir alttaki rakamın içinden
+     geçiyordu — kullanıcının "tablo bozuk" dediği şey buydu. */
+  const satirYuksekligi = satirYuksekligiIcin(valueSize);
+  const rowStep = present.length > 0
+    ? +Math.max(satirYuksekligi, Math.min(8.1 * k, rowsSpace / present.length)).toFixed(2)
+    : 0;
+
+  const rows: NameplateRow[] = present.map(([label, value], index) => {
+    const y = +(rowsTop + valueSize + index * rowStep).toFixed(2);
+    return {
+      label,
+      value,
+      y,
+      labelSize,
+      valueSize,
+      // Ayırıcı çizgi İKİ TABAN ÇİZGİSİNİN ORTASINDADIR ve yerleşimden gelir;
+      // iki çizici onu ayrı ayrı hesaplarsa biri gün gelip kayar.
+      ruleY: +(y + rowStep / 2).toFixed(2),
+    };
+  });
+  const sonSatirAlti = rows.length > 0 ? rows[rows.length - 1].ruleY : rowsTop;
+  if (sonSatirAlti > contentBottom) {
     issues.push("Veri satırları bu ölçüye sığmıyor; plakayı büyütün veya alan gizleyin.");
   }
 
@@ -597,14 +704,25 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
 
   // ————————————————————————————————————————————————— yasal bant
   const legalSize = size(2.2, MIN_LEGAL_SIZE);
-  const ceHeight = +(Math.max(5, legalH * 0.52)).toFixed(2);
+  /* ASGARİ 5 mm KELEPÇESİ UYARIYI ÖLDÜRÜYORDU: yükseklik `Math.max(5, …)` ile
+     kurulup sonra `< 5` diye sınanıyordu, yani koşul matematiksel olarak
+     imkânsızdı ve BELGE-3'ün "5 mm altına inerse yerleşim uyarı üretir"
+     güvencesi pratikte yoktu. Doğal yükseklik AYRI ölçülür, kelepçe sonra
+     uygulanır ve fark kullanıcıya söylenir. */
+  const ceDogalYukseklik = +(legalH * 0.52).toFixed(2);
+  const ceHeight = Math.max(5, ceDogalYukseklik);
+  const ceY = +(legalY + (legalH - ceHeight) / 2).toFixed(2);
   const ce = input.ceMark === false
     ? null
     : (() => {
-        const mark = ceMarkPath(padX, +(legalY + (legalH - ceHeight) / 2).toFixed(2), ceHeight);
-        return { x: padX, y: +(legalY + (legalH - ceHeight) / 2).toFixed(2), height: ceHeight, path: mark.path, width: mark.width };
+        const mark = ceMarkPath(padX, ceY, ceHeight);
+        return { x: padX, y: ceY, height: ceHeight, path: mark.path, width: mark.width };
       })();
-  if (ceHeight < 5) issues.push("CE işareti 5 mm'nin altına düşüyor; 765/2008/AT asgari yüksekliği 5 mm'dir.");
+  if (ce && ceDogalYukseklik < 5) {
+    issues.push(
+      "Yasal bant CE işareti için dar; işaret 765/2008/AT asgarisi olan 5 mm'ye kelepçelendi ve banttan taşabilir."
+    );
+  }
 
   const legalX = +(padX + (ce ? ce.width + Math.max(2, 5 * k) : 0)).toFixed(2);
   const manufacturer = normalized(input.identity.manufacturer);
@@ -764,7 +882,7 @@ export function buildNameplateSvg(input: NameplateInput): string {
   <text x="${(l.capacity.x + l.capacity.height * 0.24).toFixed(2)}" y="${(l.capacity.y + l.capacity.height * 0.88).toFixed(2)}" class="mono" fill="${p.ink}" font-size="${l.capacity.valueSize}" font-weight="700">${xmlEscape(l.capacity.value)}</text>` : ""}
   ${l.divider ? `<line x1="${l.divider.x}" y1="${l.divider.y1}" x2="${l.divider.x}" y2="${l.divider.y2}" stroke="${p.accent}" stroke-width="${(l.frameInset * 0.45).toFixed(2)}"/>` : ""}
   ${l.rows.map((row) => `<g>
-    <line x1="${l.labelX}" y1="${(row.y + row.labelSize * 0.9).toFixed(2)}" x2="${l.rowRuleX2}" y2="${(row.y + row.labelSize * 0.9).toFixed(2)}" stroke="${p.hairline}" stroke-width="0.32"/>
+    <line x1="${l.labelX}" y1="${row.ruleY}" x2="${l.rowRuleX2}" y2="${row.ruleY}" stroke="${p.hairline}" stroke-width="0.32"/>
     <text x="${l.labelX}" y="${row.y}" class="mono" fill="${p.muted}" font-size="${row.labelSize}" font-weight="600">${xmlEscape(row.label)}</text>
     <text x="${l.valueX}" y="${row.y}" class="mono" fill="${p.ink}" font-size="${row.valueSize}" font-weight="700">${xmlEscape(row.value)}</text>
   </g>`).join("")}

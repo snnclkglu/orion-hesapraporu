@@ -224,9 +224,9 @@ function NameplatePdfDocument({
             <G key={`${row.label}-${index}`}>
               <Line
                 x1={l.labelX}
-                y1={row.y + row.labelSize * 0.9}
+                y1={row.ruleY}
                 x2={l.rowRuleX2}
-                y2={row.y + row.labelSize * 0.9}
+                y2={row.ruleY}
                 stroke={p.hairline}
                 strokeWidth={0.32}
               />

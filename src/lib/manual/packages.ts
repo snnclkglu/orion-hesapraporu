@@ -66,9 +66,21 @@ export const MANUAL_PACKAGE_BOOK: readonly ManualPackageDef[] = [
     key: "detayli",
     title: "Detaylı",
     summary:
-      "Şartnameli sanayi teslimi: hesap raporu ÖZETİ, teknik föylü elektrik kataloğu ve şartname eklenir; ekipman listesi teknik özellik sütunu taşır.",
+      "Şartnameli sanayi teslimi: gövdede mekanik ekipman listesi ve elektrik malzeme özeti (teknik özellik sütunuyla), ekte hesap raporu ÖZETİ, MEKANİK ve elektrik katalog föyleri, elektrik projesi ve şartname.",
     hiddenSections: [],
-    appendices: ["mekanikHesap", "elektrikProje", "elektrikKatalog", "sartname"],
+    /* MEKANİK KATALOG EKİ DE AÇIKTIR (kullanıcı kararı, 01.09.2026:
+       *"Detaylı paketinde elektrik ve mekanik ekipman listeleri olsun"*).
+       Önceki defterde elektriğin katalog sayfaları basılıyor, mekaniğinki
+       basılmıyordu; simetrisiz bir kapsamdı ve kullanıcının tarif ettiği
+       eksik tam olarak buydu. Gövdedeki iki liste (`yedek.ekipman` ·
+       `yedek.elektrik`) bu pakette zaten görünürdü. */
+    appendices: [
+      "mekanikHesap",
+      "mekanikKatalog",
+      "elektrikProje",
+      "elektrikKatalog",
+      "sartname",
+    ],
     appendixOptions: [
       { kind: "mekanikHesap", option: "ozet" },
       { kind: "elektrikKatalog", option: "2" },

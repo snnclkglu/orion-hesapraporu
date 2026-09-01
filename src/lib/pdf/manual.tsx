@@ -48,11 +48,11 @@ import {
   SUTUN_BOSLUK,
   SUTUN_GENISLIK,
   TAM_GENISLIK,
-  MANUAL_DIZIN_SAYFA_KAPASITESI,
   MANUAL_UST_BANT_ALT_BOSLUK,
   MANUAL_UST_BANT_YUKSEKLIK,
   bolumSayfalari,
   manualAnaBolumSayfalari,
+  manualDizinYerlesimi,
   tabloPaylari,
   type ManualAtom,
 } from "@/lib/manual/pdf-layout";
@@ -89,6 +89,13 @@ export interface ManualPdfProps {
   images: readonly ManualImageAsset[];
   /** Proje düzeyinde seçilen; ORION ile birlikte belgeyi hazırlayan partner. */
   partner?: PartnerBrandIdentity | null;
+  /**
+   * Üst bandın SAĞ yuvasına giden firma logosu (müşteri defterinden).
+   *
+   * Kullanıcı kararı (01.09.2026): logo yüklenmez, FİRMA SEÇİLİR. Elle
+   * yüklenmiş görsel (`partnerLogos.rightImageId`) geriye dönük yedektir.
+   */
+  rightPartnerLogo?: Buffer | null;
   /** Güncel proje adı; eski revizyon snapshot'ındaki başlığın yerini alır. */
   projectTitle?: string;
   craneLocation?: string;
@@ -178,10 +185,11 @@ const s = StyleSheet.create({
      italic"). Ayrım punto ve renkle kurulur. */
   altyazi: { fontSize: 7, color: BRAND.gray600, marginTop: 2 },
 
+  /* DİZİN SATIRININ ÖLÇÜSÜ SABİT DEĞİLDİR: yükseklik, punto ve pay
+     `manualDizinYerlesimi`den gelir ve satır sayısına göre daralır
+     (`lib/manual/pdf-layout.ts`). Burada yalnız yön, renk ve çizgi durur. */
   icindekilerSatir: {
     flexDirection: "row",
-    minHeight: 16.5,
-    paddingVertical: 2.5,
     paddingHorizontal: 4,
     borderBottomWidth: 0.35,
     borderBottomColor: BRAND.hairline,
@@ -201,14 +209,24 @@ const s = StyleSheet.create({
     letterSpacing: 1.5,
     color: BRAND.red,
   },
-  icindekilerBaslik: { fontSize: 22, fontWeight: 800, marginTop: 5 },
+  /* BAŞLIK BLOĞU KOMPAKTTIR ve bu bir zevk değil bir BÜTÇEDİR: dizin başlığına
+     harcanan her punto, satırlardan çalınır ve dizini ikinci yaprağa iter.
+     Açıklama artık başlığın SAĞINDA, aynı bantta akar. */
+  icindekilerBaslik: { fontSize: 19, fontWeight: 800 },
   icindekilerAciklama: {
-    fontSize: 8,
-    lineHeight: 1.4,
+    fontSize: 7,
+    lineHeight: 1.35,
     color: BRAND.gray600,
-    marginTop: 5,
-    marginBottom: 12,
-    maxWidth: 350,
+    maxWidth: 250,
+    textAlign: "right",
+  },
+  icindekilerBant: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 16,
+    marginTop: 2,
+    marginBottom: 8,
   },
   dizinKolBaslik: {
     flexDirection: "row",
@@ -227,9 +245,13 @@ const s = StyleSheet.create({
     letterSpacing: 0.9,
     color: BRAND.gray600,
   },
-  dizinNo: { width: 46, fontSize: 7.2, fontFamily: FONTS.mono, color: BRAND.red },
-  dizinBaslik: { flex: 1, fontSize: 7.2, lineHeight: 1.2 },
-  dizinSayfa: { width: 24, fontSize: 7.5, textAlign: "right", fontFamily: FONTS.mono },
+  /* NUMARA SÜTUNU EN DERİN NUMARAYI TAŞIR: "4.10.3.7" sekiz karakterdir ve
+     kademe payıyla birlikte 44 pt'ye sığmıyordu — numara başlığa yapışıyordu
+     (ölçüldü). Genişlik puntodan türetilir ki dizin daraldığında sütun da
+     daralsın. */
+  dizinNo: { fontFamily: FONTS.mono, color: BRAND.red, paddingRight: 3 },
+  dizinBaslik: { flex: 1, lineHeight: 1.2 },
+  dizinSayfa: { width: 22, textAlign: "right", fontFamily: FONTS.mono },
   ekKapakBaslik: { fontSize: 18, fontWeight: 800, marginTop: mm(30) },
 
   /* İKİ SÜTUN — genişlikler yerleşim çekirdeğinin ÖLÇTÜĞÜ sayılardır
@@ -253,6 +275,7 @@ export function ManualPdf({
   sources,
   images,
   partner,
+  rightPartnerLogo,
   projectTitle,
   craneLocation,
   coverSpecs = [],
@@ -338,15 +361,13 @@ export function ManualPdf({
   // DİZİN SAYFA NUMARASI DAĞITIMIN SONUCUNDAN gelir. Gövde belgede 3.
   // yapraktan başlar (kapak + içindekiler), o yüzden ofset 2'dir; dizin
   // yoksa 1. Ekler gövdeden sonra gelir ve kendi numaralarını alır.
-  const dizinSayfaSayisi = Math.ceil(duz.length / MANUAL_DIZIN_SAYFA_KAPASITESI);
-  // Birden çok dizin yaprağı gerekirse son yaprağı sekiz satırla yalnız
-  // bırakma; satırları yapraklara dengeli dağıt. Tek yaprakta gövde dizininin
-  // 70 satırı iki kolona 35+35 iner.
-  const dengeliDizinKapasitesi = dizinSayfaSayisi > 0
-    ? Math.ceil(duz.length / dizinSayfaSayisi)
-    : MANUAL_DIZIN_SAYFA_KAPASITESI;
-  const dizinSayfalari = Array.from({ length: dizinSayfaSayisi }, (_, i) =>
-    duz.slice(i * dengeliDizinKapasitesi, (i + 1) * dengeliDizinKapasitesi)
+  // DİZİN ÖLÇÜLEREK SIĞDIRILIR: satır yüksekliği bölüm sayısına göre daralır
+  // ve okunurluk tabanında durur (`manualDizinYerlesimi`). Kâğıt önizlemesi
+  // aynı fonksiyonu çağırır — sayfa ofseti iki yerde ayrı tahmin edilmez.
+  const dizin = manualDizinYerlesimi(duz.length);
+  const dizinSayfaKapasitesi = dizin.sutunBasina * 2;
+  const dizinSayfalari = Array.from({ length: dizin.sayfaSayisi }, (_, i) =>
+    duz.slice(i * dizinSayfaKapasitesi, (i + 1) * dizinSayfaKapasitesi)
   );
   // Künye, eski revizyonlarda bulunabilen seri numarası ve üretici adresini
   // kaybetmemek için kapaktan sonra ayrı bir ön sayfa olarak her zaman korunur.
@@ -376,7 +397,10 @@ export function ManualPdf({
   ].filter((r): r is [string, string] => Boolean(r[1]?.trim()));
 
   const eskiOrtaLogo = bandLogo(gorseller.get(payload.partnerLogos.centerImageId ?? ""));
-  const sagLogo = bandLogo(gorseller.get(payload.partnerLogos.rightImageId ?? ""));
+  // SAĞ YUVA: önce defterden seçilen firma, sonra elle yüklenmiş görsel.
+  const sagLogo =
+    brandLogoFromBuffer(rightPartnerLogo) ??
+    bandLogo(gorseller.get(payload.partnerLogos.rightImageId ?? ""));
   const projePartnerLogosu = brandLogoFromBuffer(partner?.logo);
   // Projeden seçilen Partner Firma ortak kimliğin birincil kaynağıdır.
   // Eski el kitaplarında elle yüklenmiş orta logo, partner seçilmemişse
@@ -427,7 +451,9 @@ export function ManualPdf({
           ederdi. Dizin ÖNCE SOL sütunu doldurup sonra sağa geçer — okuyan bir
           dizini yukarıdan aşağıya tarar, satır satır zikzak çizmez. */}
       {dizinSayfalari.map((dizinBolumu, dizinSayfaIndisi) => {
-        const dizinYarim = Math.ceil(dizinBolumu.length / 2);
+        // Sütun DOLDURULUR, ortalanmaz: sol sütun kapasitesine kadar gider,
+        // taşan sağa geçer. Okuyan bir dizini yukarıdan aşağıya tarar.
+        const dizinYarim = Math.min(dizin.sutunBasina, Math.ceil(dizinBolumu.length / 2));
         return (
         <BrandPage
           key={dizinSayfaIndisi}
@@ -435,16 +461,28 @@ export function ManualPdf({
           docCode={docCode}
           sectionLabel="İÇ"
           hidePageNumber={deferFolio}
-          repeatedHeader={ustBant(true, true)}
         >
-          <Text style={s.icindekilerKicker}>BELGE NAVİGASYONU</Text>
-          <Text style={s.icindekilerBaslik}>
-            İÇİNDEKİLER{dizinSayfalari.length > 1 ? ` · ${dizinSayfaIndisi + 1}` : ""}
-          </Text>
-          <Text style={s.icindekilerAciklama}>
-            Bölüm adına tıklayarak ilgili sayfaya geçebilirsiniz. Ana bölümler kırmızı çizgiyle,
-            alt başlıklar kademeli numaralandırmayla ayrılmıştır.
-          </Text>
+          {/* BANT AKIŞTA DURUR, `repeatedHeader`DA DEĞİL. `repeatedHeader`
+              sayfanın üst payını SIFIRLAR (`BrandPage`: devam yaprağında
+              anteti mutlak konumlayan hesap raporu deseni için) ve el
+              kitabının akan bandı orada kâğıdın en tepesine yapışıyordu:
+              ölçüldü, logo y=6,6'da başlıyordu, oysa belgenin bütün diğer
+              yapraklarında y=51,9. Kullanıcının gördüğü "üst banner sorunu"
+              buydu. Dizin yaprakları zaten burada tek tek sayılıyor
+              (`dizinSayfalari`), yani tekrarlanan bir antete ihtiyaç yok. */}
+          {ustBant()}
+          <View style={s.icindekilerBant}>
+            <View>
+              <Text style={s.icindekilerKicker}>BELGE NAVİGASYONU</Text>
+              <Text style={s.icindekilerBaslik}>
+                İÇİNDEKİLER{dizinSayfalari.length > 1 ? ` · ${dizinSayfaIndisi + 1}` : ""}
+              </Text>
+            </View>
+            <Text style={s.icindekilerAciklama}>
+              Bölüm adına tıklayarak ilgili sayfaya geçebilirsiniz. Ana bölümler kırmızı
+              çizgiyle, alt başlıklar kademeli numaralandırmayla ayrılmıştır.
+            </Text>
+          </View>
           <IkiSutun>
             {[dizinBolumu.slice(0, dizinYarim), dizinBolumu.slice(dizinYarim)].map((kol, ki) => (
               <View style={s.sutun} key={ki}>
@@ -475,6 +513,7 @@ export function ManualPdf({
                       wrap={false}
                       style={[
                         s.icindekilerSatir,
+                        { minHeight: dizin.satirYuksekligi, paddingVertical: dizin.dikeyPay },
                         b.depth === 1 ? s.icindekilerAnaSatir : {},
                       ]}
                     >
@@ -482,7 +521,9 @@ export function ManualPdf({
                         style={[
                           s.dizinNo,
                           {
-                            paddingLeft: b.depth === 1 ? 0 : (Math.min(b.depth, 3) - 1) * 5,
+                            fontSize: dizin.punto,
+                            width: +(dizin.punto * 6.9).toFixed(2),
+                            paddingLeft: b.depth === 1 ? 0 : (Math.min(b.depth, 3) - 1) * 4,
                             fontWeight: b.depth === 1 ? 700 : 400,
                           },
                         ]}
@@ -490,11 +531,21 @@ export function ManualPdf({
                         {b.number}
                       </Text>
                       <Text
-                        style={[s.dizinBaslik, { fontWeight: b.depth === 1 ? 700 : 400 }]}
+                        style={[
+                          s.dizinBaslik,
+                          { fontSize: dizin.punto, fontWeight: b.depth === 1 ? 700 : 400 },
+                        ]}
                       >
                         {b.title}
                       </Text>
-                      <Text style={[s.dizinSayfa, { color: BRAND.gray600 }]}>{no ?? ""}</Text>
+                      <Text
+                        style={[
+                          s.dizinSayfa,
+                          { fontSize: +(dizin.punto + 0.3).toFixed(2), color: BRAND.gray600 },
+                        ]}
+                      >
+                        {no ?? ""}
+                      </Text>
                     </Link>
                   );
                 })}

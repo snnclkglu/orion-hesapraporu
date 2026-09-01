@@ -11,7 +11,7 @@
 // der ve o zamandan beri elle verilen kararları AYRICA listeler.
 
 import { useMemo } from "react";
-import { Check, RotateCcw } from "lucide-react";
+import { Check, Eye, EyeOff, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -22,9 +22,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MANUAL_PACKAGE_BOOK, manualScopeDrift } from "@/lib/manual/packages";
+import {
+  MANUAL_PACKAGE_BOOK,
+  manualPackageDef,
+  manualScopeDrift,
+  packageWantsHidden,
+} from "@/lib/manual/packages";
 import { usedAppendices } from "@/lib/manual/payload";
-import { printedManual } from "@/lib/manual/payload";
+import { flattenManual, numberManual, printedManual } from "@/lib/manual/payload";
+import type { ManualSection } from "@/lib/manual/types";
 import {
   MANUAL_APPENDIX_LABELS,
   MANUAL_PACKAGE_LABELS,
@@ -58,11 +64,19 @@ export function ScopePanel({
   yazilabilir,
   onPaket,
   onEkSecenegi,
+  onBolumGizle,
 }: {
   payload: ManualPayload;
   yazilabilir: boolean;
   onPaket: (key: ManualPackageKey, bastan: boolean) => void;
   onEkSecenegi: (kind: ManualAppendixKind, option: string) => void;
+  /**
+   * Bölüm görünürlüğünü çevirir. TEK GİRİŞ NOKTASI `manualToggleSection`tır
+   * (`use-manual-doc.ts` → `doc.bolumGizle`): sapmayı (`scope.keptSections`)
+   * o fonksiyon yazar; ağacı çeviren ikinci bir yol, sapmanın bir yerde
+   * kaydedilip bir yerde kaydedilmemesi demekti.
+   */
+  onBolumGizle: (sectionId: string) => void;
 }) {
   const uygulanan = payload.scope.packageKey;
   const sapma = useMemo(() => manualScopeDrift(payload), [payload]);
@@ -72,6 +86,54 @@ export function ScopePanel({
   );
   const secenek = (kind: ManualAppendixKind) =>
     payload.scope.appendixOptions.find((o) => o.kind === kind);
+
+  /*
+   * BÖLÜM LİSTESİ — "paketi seçtikten sonra elle aç/kapa" (kullanıcı isteği,
+   * 01.09.2026). Çekirdek bunu zaten destekliyordu (`manualToggleSection`
+   * sapmayı kendi yazar); eksik olan tek şey ARAYÜZDÜ: kullanıcı bir bölümü
+   * kapatmak için Harita sekmesine gidip ağaçta aramak zorundaydı.
+   *
+   * İKİ DÜZEY basılır. Üçüncü düzeyde 85 satırlık bir liste çıkar ve kapsam
+   * kararı bölüm bölüm değil BAŞLIK başlık verilir; ince ayar zaten
+   * Harita'dadır.
+   */
+  const bolumler = useMemo(() => {
+    const numarali = numberManual(payload.sections);
+    const ekKapsayici = numarali.find((b) => b.children.some((c) => c.appendix)) ?? null;
+    const govde = numarali.filter((b) => b !== ekKapsayici);
+    const satirlar: { id: string; number: string; title: string; hidden: boolean; depth: number }[] =
+      [];
+    const gez = (liste: typeof govde, depth: number) => {
+      for (const bolum of liste) {
+        satirlar.push({
+          id: bolum.id,
+          number: bolum.number,
+          title: bolum.title,
+          hidden: Boolean(bolum.hidden),
+          depth,
+        });
+        if (depth < 2) gez(bolum.children, depth + 1);
+      }
+    };
+    gez(govde, 1);
+    // EK BÖLÜMLERİ AYRI LİSTEDE: kimlikleri ek türüne göre bulunur.
+    const ekBolumleri = new Map<ManualAppendixKind, ManualSection>();
+    for (const bolum of flattenManual(numarali)) {
+      if (bolum.appendix) ekBolumleri.set(bolum.appendix, bolum);
+    }
+    return { satirlar, ekBolumleri };
+  }, [payload.sections]);
+
+  /** Paketin bu bölüm hakkındaki sözü — "paket ne diyordu" rozeti için. */
+  const duzBolumler = useMemo(
+    () => flattenManual(numberManual(payload.sections)),
+    [payload.sections]
+  );
+  const paketSozu = (sectionId: string): boolean | null => {
+    if (!uygulanan) return null;
+    const bolum = duzBolumler.find((b) => b.id === sectionId);
+    return bolum ? packageWantsHidden(manualPackageDef(uygulanan), bolum) : null;
+  };
 
   return (
     <div className="flex flex-col gap-5 text-sm">
@@ -102,10 +164,12 @@ export function ScopePanel({
                 uygulanan === p.key && "border-primary bg-muted/50"
               )}
             >
-              <div className="flex items-center gap-2">
-                {uygulanan === p.key ? <Check className="size-4 text-primary" /> : null}
-                <span className="font-medium">{p.title}</span>
-                <span className="ml-auto flex gap-1">
+              <div className="flex flex-wrap items-center gap-2">
+                {uygulanan === p.key ? (
+                  <Check className="size-4 shrink-0 text-primary" />
+                ) : null}
+                <span className="min-w-0 font-medium">{p.title}</span>
+                <span className="ml-auto flex flex-wrap gap-1">
                   <Button
                     size="sm"
                     variant={uygulanan === p.key ? "outline" : "default"}
@@ -161,17 +225,75 @@ export function ScopePanel({
         </div>
       ) : null}
 
+      {/* ——————————————————————————————————————————— bölüm listesi */}
+      <div className="flex flex-col gap-2">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          Bölümler ({bolumler.satirlar.length})
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Paketi uyguladıktan sonra buradan tek tek açıp kapatabilirsiniz. Gizlemek
+          SİLMEK DEĞİLDİR: bölüm ağaçta kalır, yalnız belgeye basılmaz — ve paketi
+          yeniden uygulamak elle verdiğiniz kararı EZMEZ.
+        </p>
+        <ul className="flex flex-col">
+          {bolumler.satirlar.map((bolum) => {
+            const soz = paketSozu(bolum.id);
+            const sapmaVar = soz !== null && soz !== bolum.hidden;
+            return (
+              <li
+                key={bolum.id}
+                className={cn(
+                  "flex items-center gap-2 border-b py-1 text-xs last:border-b-0",
+                  bolum.hidden && "opacity-55"
+                )}
+                style={{ paddingLeft: (bolum.depth - 1) * 14 }}
+              >
+                <span className="w-10 shrink-0 font-mono text-primary">{bolum.number}</span>
+                <span className={cn("min-w-0 truncate", bolum.depth === 1 && "font-medium")}>
+                  {bolum.title}
+                </span>
+                <span className="ml-auto flex shrink-0 items-center gap-1">
+                  {sapmaVar ? (
+                    <Badge variant="secondary" className="h-5 text-[10px]">
+                      Sizin kararınız
+                    </Badge>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="oc-tap size-8 p-0"
+                    disabled={!yazilabilir}
+                    aria-label={bolum.hidden ? "Belgeye geri al" : "Belgeden gizle"}
+                    title={
+                      soz === null
+                        ? bolum.hidden
+                          ? "Belgeye geri al"
+                          : "Belgeden gizle"
+                        : `Paket: ${soz ? "gizli" : "belgede"}`
+                    }
+                    onClick={() => onBolumGizle(bolum.id)}
+                  >
+                    {bolum.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </Button>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
       {/* ————————————————————————————————————————————— ek ayarları */}
       <div className="flex flex-col gap-2">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Ekler</p>
         <p className="text-xs text-muted-foreground">
-          Bir ekin belgeye girip girmemesi o EK BÖLÜMÜNÜN görünürlüğüdür — haritadan
-          gizleyin. Buradaki ayar, ek GİRECEKSE hangi biçimde gireceğidir.
+          Bir ekin belgeye girip girmemesi o EK BÖLÜMÜNÜN görünürlüğüdür; göz düğmesi
+          onu çevirir. Alttaki ayar, ek GİRECEKSE hangi biçimde gireceğidir.
         </p>
 
         <ul className="flex flex-col gap-2">
           {(Object.keys(MANUAL_APPENDIX_LABELS) as ManualAppendixKind[]).map((kind) => {
             const basiliyor = basilanEkler.includes(kind);
+            const ekBolumu = bolumler.ekBolumleri.get(kind) ?? null;
             const o = secenek(kind);
             const seceneklisi =
               kind === "mekanikHesap"
@@ -183,16 +305,40 @@ export function ScopePanel({
                     : null;
             return (
               <li key={kind} className={cn("border p-2", !basiliyor && "opacity-55")}>
-                <div className="flex items-center gap-2">
-                  <Badge variant={basiliyor ? "default" : "outline"} className="h-5 text-[11px]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    variant={basiliyor ? "default" : "outline"}
+                    className="h-5 shrink-0 text-[11px]"
+                  >
                     {basiliyor ? "Belgede" : "Gizli"}
                   </Badge>
-                  <span className="text-sm">{MANUAL_APPENDIX_LABELS[kind]}</span>
-                  {o?.edited ? (
-                    <Badge variant="secondary" className="ml-auto h-5 text-[11px]">
-                      Elle
-                    </Badge>
-                  ) : null}
+                  <span className="min-w-0 text-sm">{MANUAL_APPENDIX_LABELS[kind]}</span>
+                  <span className="ml-auto flex shrink-0 items-center gap-1">
+                    {o?.edited ? (
+                      <Badge variant="secondary" className="h-5 text-[11px]">
+                        Elle
+                      </Badge>
+                    ) : null}
+                    {/* EK DE GİZLENEBİLİR (kullanıcı isteği, 01.09.2026:
+                        *"tam teknikten projeleri çıkarabileyim"*). Çekirdek
+                        buna hazırdı — `manualAppendixOrder` zaten
+                        `printedManual`ı okur, yani ek bölümünü gizlemek eki
+                        PDF'ten de düşürür (KITAP-6 · KITAP-8). Tıkanan tek
+                        yer arayüzdeki `!appendix` kapısıydı. */}
+                    {ekBolumu ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="oc-tap size-8 p-0"
+                        disabled={!yazilabilir}
+                        aria-label={basiliyor ? "Belgeden çıkar" : "Belgeye geri al"}
+                        title={basiliyor ? "Belgeden çıkar" : "Belgeye geri al"}
+                        onClick={() => onBolumGizle(ekBolumu.id)}
+                      >
+                        {basiliyor ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+                      </Button>
+                    ) : null}
+                  </span>
                 </div>
                 {seceneklisi ? (
                   <div className="mt-2 flex flex-col gap-1">

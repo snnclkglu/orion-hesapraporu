@@ -7,6 +7,7 @@ import { loadCurrentElectricalDoc } from "@/lib/electrical/data";
 import { loadManual, loadManualRevisions } from "@/lib/manual/data";
 import { loadCurrentSpec } from "@/lib/project-specs";
 import { getReportSettings } from "@/lib/settings";
+import { loadSelfCompany } from "@/lib/customers/company-server";
 import {
   frequencyFromSupplyVoltage,
   identityValues,
@@ -132,7 +133,7 @@ export async function resolveAutomaticProductIdentity(
    * doğrudan `calcInput.specs`ten alınır. `runCalc` ÇAĞRILMAZ: motorun türettiği
    * sınıf ve hız alanları zaten kaydedilirken `specs`e geri işlenmiştir.
    */
-  const [{ data: project }, { data: items }, { data: revisions }, { data: job }, settings] =
+  const [{ data: project }, { data: items }, { data: revisions }, { data: job }, settings, kendiFirma] =
     await Promise.all([
       supabase
         .from("projects")
@@ -158,6 +159,18 @@ export async function resolveAutomaticProductIdentity(
         .limit(1)
         .maybeSingle(),
       getReportSettings(supabase),
+      /*
+       * ÜRETİCİ KÜNYESİ MÜŞTERİ DEFTERİNDEN (kullanıcı kararı, 01.09.2026:
+       * *"Müşteriler kısmına ORION Vinç olarak kendimiz varız zaten… kendi
+       * bilgilerimizi de buradan çeksin"*).
+       *
+       * `app_settings.report` yalnız `company` ve `city` taşıyor; `address`
+       * seed'lenmemiş ve md. 1.7.3'ün istediği TAM ADRES orada yok — plaka
+       * "İmalatçı adresi boş" uyarısını bu yüzden kalıcı gösteriyordu.
+       * Defterdeki kayıt sokak adresi, vergi dairesi ve vergi numarasını
+       * birlikte taşır. Kayıt yoksa ayarlara düşülür; uydurulmaz.
+       */
+      loadSelfCompany(supabase).catch(() => null),
     ]);
 
   const item = items?.[0] ?? null;
@@ -193,9 +206,14 @@ export async function resolveAutomaticProductIdentity(
   const supplyVoltage = String(specs?.supplyVoltage ?? "").trim();
   const automatic: ProductIdentityValues = {
     ...EMPTY_VALUES,
-    manufacturer: settings.company.trim(),
-    // md. 1.7.3 TAM ADRES ister; şehir/ülke satırı ayrı tutulduğu için birleştirilir.
-    manufacturerAddress: [settings.address, settings.city].map((part) => String(part ?? "").trim()).filter(Boolean).join(" · "),
+    manufacturer: kendiFirma?.name || settings.company.trim(),
+    // md. 1.7.3 TAM ADRES ister; defterdeki kayıt sokak adresini ve vergi
+    // künyesini taşır, ayarlar yalnız şehir satırını.
+    manufacturerAddress: kendiFirma
+      ? [kendiFirma.address, [kendiFirma.taxOffice, kendiFirma.taxNo].filter(Boolean).join(" · ")]
+          .filter(Boolean)
+          .join(" · ")
+      : [settings.address, settings.city].map((part) => String(part ?? "").trim()).filter(Boolean).join(" · "),
     product: String(item?.product_name ?? project?.name ?? "").trim(),
     craneType: String(project?.crane_type ?? "").trim(),
     /*
@@ -232,8 +250,12 @@ export async function resolveAutomaticProductIdentity(
     report ? `V${report.rev_no}` : undefined
   );
   const sources: Record<ProductIdentityField, IdentitySource> = {
-    manufacturer: source("settings", "Rapor / firma ayarları"),
-    manufacturerAddress: source("settings", "Rapor / firma ayarları"),
+    manufacturer: kendiFirma
+      ? source("customer", "Müşteri defteri · kendi firmamız", kendiFirma.id)
+      : source("settings", "Rapor / firma ayarları"),
+    manufacturerAddress: kendiFirma
+      ? source("customer", "Müşteri defteri · kendi firmamız", kendiFirma.id)
+      : source("settings", "Rapor / firma ayarları"),
     product: item ? itemSource : projectSource,
     craneType: projectSource,
     machineModel: source("system", "Elle girilir · otomatik kaynağı yok"),

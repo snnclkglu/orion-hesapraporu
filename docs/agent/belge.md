@@ -474,3 +474,134 @@ Gizleme bir karardır ve iki yüzde de geçerlidir.
 PDF baytı yalnız görüntüleyiciye gider. Bu bir DRM DEĞİLDİR (kullanıcı kararı,
 30.08.2026: sayfa görüntüsüne çevirme yok) — kapatılan şey kolay yoldur.
 Reddedilen her belge erişimi `document_denied` olarak denetim defterine yazılır.
+
+## BELGE-13 — Kapak künye tablosunun sütunu KELEPÇELİDİR; `flex: 1` yalnız yatay kapakta doğrudur.
+
+Kullanıcı bildirimi (01.09.2026): *"bakım kitapçığı kapağında tabloda sorun
+var."* Kusur `SharedReportCover`daydı, yani ÜÇ belgede birden: hesap raporu,
+ekipman listesi ve işletme-bakım el kitabı aynı satırı basıyor.
+
+İki ayrı hata üst üste binmişti ve ikisi de ÖLÇÜLEREK bulundu:
+
+1. **Sütun kapsayıcısı ana eksende sıfır yükseklikten başlıyordu.** Dikey
+   kapakta kapsayıcı SÜTUN yönlüdür; oradaki `flex: 1` "eşit genişlik" değil
+   `flexBasis: 0` demektir ve kapsayıcının belirli bir yüksekliği olmadığı için
+   sütun büyüyemiyordu. Satırlar paylarına kadar eziliyor (satır aralığı
+   12,75 pt = 6 + 6 pay + 0,75 çizgi, içerik SIFIR), 16,9 pt'lik değer yazısı
+   kendi satırından 6,75 pt yukarı taşıp bir ÜSTTEKİ ayırıcı çizgiyi kesiyordu.
+2. **`alignItems: "baseline"` kullanılmıştı.** 7 pt etiket ile 13 pt değeri
+   baseline'da hizalamak yerleşimin enine ölçüsünü çökertiyor; KITAP-14 md. 1'in
+   aynı dersi. Kenar hizası (`flex-end`) + etikete küçük bir pay.
+
+Ayrıca iki `Text` de esnemiyordu (yoga'da `flexShrink` öntanımı 0'dır): "ÇİFT
+KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ" gibi uzun bir değer satırın sağından TAŞIYORDU.
+Etiket kendi genişliğinde kalır, değer kalanı alır ve gerekirse SARAR.
+
+## BELGE-14 — CE işareti EŞ MERKEZLİ bir halkadır ve yolun içinde HAM SAYI KALMAZ.
+
+Kullanıcı bildirimi (01.09.2026): *"sol altta CE işareti koymaya çalışmışız ama
+olmamış."* `ceMarkPath` bütün koordinatları ölçekliyor ama YAY YARIÇAPLARINI
+ham bırakıyordu (`A50 50 …`). viewBox birimi mm olduğu için 10 mm'lik bir
+işarette 50 mm yarıçap isteniyor; SVG büyük yarıçapı KÜÇÜLTMEZ, `large-arc=1`
+ile ~356°'lik dev bir yay çizer. Ekrandaki kocaman siyah hilal ve veri
+tablosunun etiket sütununu ezen "kalın çizgi" bundandı.
+
+İkinci hata geometrikti: uç noktalar elle yazılmıştı ve çemberin üzerinde
+DEĞİLDİ, yani iki yay eş merkezli çıkmıyor ve halkanın eti yer yer 16 yerine
+23 birime çıkıyordu. Yol artık MERKEZDEN kurulur: dış yarıçap 50, iç yarıçap
+34, ağız yarı-açısı 40° ve uç noktalar `cx + r·cosθ` ile TÜRETİLİR. Koruma
+testtedir: yolun içindeki her sayı plaka kutusunda kalır ve yarıçapların hiçbiri
+işaretin yüksekliğini aşamaz.
+
+## BELGE-15 — Aralıklı yazıda BOŞLUK da bir karakterdir.
+
+`trackedGlyphs` her karakter için `estimatedTextWidth`i çağırıyordu; o
+fonksiyonun mono dalı önce `normalized()` uyguluyor ve tek karakterlik `" "`
+için `trim()` sonucu BOŞ dize dönüyordu — yani boşluğun ilerlemesi SIFIRDI.
+Ölçüldü: 3 mm puntoda harf arası 0,33 mm, kelime arası 0,66 mm; "TEKNİK
+DOKÜMANLAR" bitişik okunuyordu. Mono yüzde bütün karakterler aynı genişliktedir
+ve ilerleme artık doğrudan `size × MONO_ILERLEME`dir. Hata İKİ ÇİZİCİDE DE
+aynıydı — tek kaynak, tutarlı biçimde yanlış.
+
+## BELGE-16 — Plaka satırının yüksekliğini DEĞER puntosu belirler.
+
+Satır adımı yalnız kalan boşluğa bölünüyor, çakışma denetimi ise ETİKET
+puntosuna (2,75 mm) göre yapılıyordu; oysa satırın gerçek yüksekliğini büyük
+olan DEĞER (4,2 mm'ye kadar) belirler. Gerçekçi bir 240×160 plakada adım
+3,84 mm çıkıyor, yani SATIR ADIMI YAZIDAN KÜÇÜK oluyor ve her satırın saç
+çizgisi bir alttaki rakamı 1,57 mm kesiyordu. Kullanıcının "tablo bozuk"
+dediği şey buydu.
+
+Değer puntosu artık İKİ KAPIDAN geçer — genişlik (en uzun değer sütuna sığmalı)
+ve YÜKSEKLİK (n satır kalan boşluğa sığmalı) — ve BİR KEZ seçilir: her satır
+kendi puntosunu seçseydi aynı sütun kendi içinde dalgalanırdı. Ayırıcı çizginin
+konumu (`NameplateRow.ruleY`) YERLEŞİMDEN gelir; iki çizici onu ayrı ayrı
+hesaplarsa biri gün gelip kayar. Etiket sütununun genişliği de sabit oran değil
+EN UZUN ETİKETİN ölçüsüdür.
+
+**`Math.max(5, …)` UYARIYI ÖLDÜRÜYORDU.** CE yüksekliği önce 5 mm'ye
+kelepçelenip sonra `< 5` diye sınanıyordu; koşul matematiksel olarak
+imkânsızdı ve BELGE-3'ün "5 mm altına inerse yerleşim uyarı üretir" güvencesi
+pratikte YOKTU. Doğal yükseklik AYRI ölçülür, kelepçe sonra uygulanır ve fark
+kullanıcıya söylenir.
+
+## BELGE-17 — `plate.ceMark` ve `plate.monochrome` ŞEMADA olmalıdır, yoksa hiç kaydedilmez.
+
+Zod bilinmeyen anahtarı SESSİZCE ATAR. Kart `plate.ceMark`i gönderiyordu ama
+`saveSchema.plate` onu tanımıyordu; doğrulamadan sonra anahtar yok oluyor ve
+`plate: data.plate` eksik nesneyi yazıyordu. İkinci kayıp okuma yolundaydı:
+`withProductPortalDefaults` plate nesnesini sıfırdan kurarken yalnız dört
+anahtarı kopyalıyordu. Sonuç: kullanıcı "CE İşareti" onayını kapatıp kaydetse
+bile sayfa yenilenince işaret geri geliyordu — BELGE-3'ün "kapatılabilir olması
+şarttır" kuralı hiç çalışmıyordu. Bir ayarın kalıcı olması için YAZMA ve OKUMA
+yollarının İKİSİ birden onu tanımalıdır.
+
+## BELGE-18 — Yayım alt-isteği KULLANICININ ADRESİNE gider ve yönlendirmeyi İZLEMEZ.
+
+Kullanıcı bildirimi (01.09.2026): *"Yayımla dediğimde ekipman listesi PDF
+olarak üretilemedi diyor."* Mesaj kök nedeni SİLİYORDU: koşulu "yanıt 2xx ama
+içerik PDF değil"dir ve ekipman ucu böyle bir yanıt ÜRETEMEZ (başarılı yolu her
+zaman `application/pdf`, başarısız yolları 401/404). Yani yanıt route'tan
+GELMEMİŞTİ.
+
+İki kaynak bulundu ve ikisi de kapatıldı:
+
+- **Origin koşulsuz `VERCEL_URL`den kuruluyordu.** O, kullanıcının tarayıcıdaki
+  alan adı değil DAĞITIMA ÖZEL host'tur; takım hesaplarında Vercel'in dağıtım
+  koruması (SSO) arkasındadır ve alt-istek uygulamaya hiç ulaşmadan 200 ile bir
+  HTML duvarı alır. Çerez de o host'a ait değildir. Sıra terse çevrildi: önce
+  isteğin kendi host'u, yalnız o yoksa üretim adresi. `?.trim()` yerine
+  `|| undefined`: boş dizge nullish DEĞİLDİR ve `https://` gibi geçersiz bir
+  origin üretiyordu. Protokol de hosttan tahmin edilmez — `next dev` düz HTTP
+  dinler ve `x-forwarded-proto` göndermez.
+- **`fetch` yönlendirmeyi izliyordu.** `proxy.ts` oturumsuz sayılan isteği
+  `/login`e 307'ler; varsayılan `redirect: "follow"` ile giriş sayfasının HTML'i
+  **200** ile dönüyordu — `.ttf` tuzağının (BELGE-8) aynısı: bir yönlendirme
+  değil, YANLIŞ İÇERİKLİ BİR BAŞARI. Alt-istekler artık `redirect: "manual"`
+  ile atılır, 3xx açık bir "oturum taşınamadı" hatası üretir ve mesaj durumu,
+  içerik türünü ve hedefi taşır. Oturum çerezi hiç okunamıyorsa yayım daha
+  başlamadan durur.
+
+Üçüncü bir "2xx ama PDF değil" kapısı ekipman ucundaydı: `format` tanınmayan
+ya da eksik olduğunda SESSİZCE xlsx'e düşüyordu. Artık 400 döner.
+
+## BELGE-19 — VİNÇ KİMLİĞİ DAR EKRANDA BEŞ BÖLÜMDÜR.
+
+Kullanıcı kararı (01.09.2026): yönetim kartı tek sayfada 17 kimlik alanı, 10
+onay kutusu, plaka önizlemesi, üç portal metni ve belge listesini taşıyor —
+telefonda metrelerce bir kaydırma. `lg` altında bölümler
+**Üniteler · Kimlik · Plaka · Belgeler · Portal** olarak ayrılır ve
+`MobileSectionGrid` ile değiştirilir (MOBIL-21: gezinme açılır listenin
+arkasına saklanmaz). Masaüstünde hepsi birden görünür; **markup
+ÇOĞALTILMAZ** (MOBIL-7/15), aynı düğümler koşullu sınıfla gizlenir.
+
+**DOKÜMAN SATIRI BİR OPERASYON SATIRIDIR ve 1024 px'te SAYFAYI TAŞIRIYORDU.**
+Ölçüldü: iz minimumları 220 + 430 px + "Dahil" çipi + durum/sil kümesi ≈ 890 px,
+gerçek kap 703 px (MOBIL-16) → ~220 px taşma. Dört sütun `xl`e ertelenir;
+`lg`de seçim öbeği daralır ve içindeki üç seçim alt alta iner. Satır `<Table>`
+DEĞİLDİR, bu yüzden `oc-tablet-table` uygulanamaz — kelepçe ızgara izlerinde
+verilir.
+
+Plaka önizlemesi `2xl` yerine `xl`den itibaren yan sütuna geçer: 1024–1535
+aralığında her şey alt alta yığılıyor ve plaka belgenin metrelerce altında
+kalıyordu.

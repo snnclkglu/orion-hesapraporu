@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { canEditReports } from "@/lib/roles";
 import {
+  BOS_KIMLIK,
   manualDraftForNextRevision,
   manualFromProjectTemplate,
   withManualDefaults,
@@ -28,7 +29,11 @@ import { applyManualPackage, suggestManualPackage } from "@/lib/manual/packages"
 import { resolveAutoTable, type ManualSourceData } from "@/lib/manual/sources";
 import { MANUAL_IMAGE_BUCKET } from "@/lib/manual/data";
 import { manualPublishReadiness } from "@/lib/manual/guide";
-import type { ManualPayload, ManualSection } from "@/lib/manual/types";
+import {
+  applyManualIdentitySuggestion,
+  resolveManualIdentity,
+} from "@/lib/manual/identity-server";
+import type { ManualIdentity, ManualPayload, ManualSection } from "@/lib/manual/types";
 import { buildManualSourceData } from "./sources-data";
 
 export type ManualResult = { ok?: boolean; error?: string; revisionId?: string };
@@ -53,8 +58,15 @@ async function yetki(): Promise<{ userId: string } | { error: string }> {
 /**
  * El kitabını açar ve İLK REVİZYONU şablondan kurar.
  *
- * Künye PROJEDEN doldurulur (müşteri, vinç tipi, ürün adı); ÜRETİCİ, SERİ NO
- * ve SAHA uygulamada yoktur ve BOŞ kalır — uydurulmaz (değişmez md. 4).
+ * KÜNYE ARTIK KAYNAKLARDAN DOLAR (kullanıcı isteği, 01.09.2026: *"Künye kısmı
+ * olabildiğince her şey otomatik gelsin"*). Eski yorum "ÜRETİCİ, SERİ NO ve
+ * SAHA uygulamada yoktur" diyordu; bu artık DOĞRU DEĞİL: üretici müşteri
+ * defterindeki kendi kaydımızda (`customers.is_self`), saha
+ * `projects.crane_location`da, seri/ürün kodu iş emri kaleminde ve üretim yılı
+ * iş emrinin atölye çıkış tarihinde duruyor. Çözücü Vinç Kimliği ile ORTAKTIR
+ * (`lib/manual/identity-server.ts`), yani plaka ile kılavuz aynı sayıyı basar.
+ *
+ * Kaynağı gerçekten olmayan alan yine BOŞ kalır — uydurulmaz (değişmez md. 4).
  */
 export async function createManual(projectId: string): Promise<ManualResult> {
   const izin = await yetki();
@@ -82,6 +94,15 @@ export async function createManual(projectId: string): Promise<ManualResult> {
     product: ad,
     craneType: tip,
   });
+
+  // Künye kaynaklardan doldurulur; çözücü hata verirse belge yine açılır —
+  // eksik bir künye, hiç açılmayan bir el kitabından iyidir.
+  try {
+    const oneri = await resolveManualIdentity(supabase, projectId, 1);
+    taslak.identity = applyManualIdentitySuggestion(taslak.identity, oneri.values).identity;
+  } catch {
+    // sessiz: alanlar boş kalır ve kullanıcı Künye sekmesinden doldurur
+  }
 
   // TESLİM PAKETİ VİNÇ TİPİNDEN ÖNERİLİR (KITAP-20). Öneri bir dayatma
   // değildir: kullanıcı Kapsam panelinden paketi değiştirebilir ve tek tek
@@ -364,6 +385,24 @@ export async function newManualRevision(
       coverTitle: String(manual.title ?? ""),
     }
   );
+  /*
+   * DOKÜMAN NO VE REVİZYON ETİKETİ YENİ SÜRÜMDE KESİN OLARAK DEĞİŞİR.
+   *
+   * Önceki hâl önceki snapshot'ı olduğu gibi kopyalıyordu; `customerRevision`
+   * elle güncellenmediği sürece V2 hâlâ "R01" yazıyordu ve belge kodu bir
+   * önceki revizyonu gösteriyordu. Diğer künye alanları KORUNUR — kullanıcının
+   * yazdığı bir değer bir revizyon açmakla silinemez (KITAP-4).
+   */
+  try {
+    const oneri = await resolveManualIdentity(supabase, projectId, taslak.revNo);
+    taslak.payload.identity = applyManualIdentitySuggestion(
+      taslak.payload.identity,
+      oneri.values
+    ).identity;
+  } catch {
+    // sessiz: künye eski hâliyle taşınır
+  }
+
   const { data: yeni, error } = await supabase
     .from("manual_revisions")
     .insert({
@@ -451,4 +490,57 @@ export async function deleteManualRevision(
     targetId: revisionId,
     context: { project_id: projectId },
   });
+}
+
+/**
+ * KÜNYEYİ KAYNAKTAN TAZELE — VERİTABANINA HİÇBİR ŞEY YAZMAZ.
+ *
+ * Kullanıcı isteği (01.09.2026): künye alanları "olabildiğince otomatik"
+ * gelsin. Otomatik doldurma bir KERE değil, İSTENDİĞİNDE çalışır: proje adı
+ * düzeltilir, iş emrine atölye çıkış tarihi girilir ya da firma künyesi
+ * güncellenir — kullanıcı bu düğmeyle onları belgeye çeker.
+ *
+ * KAYDETME AÇIKTIR (KITAP-10): bu eylem yalnız ÖNERİYİ çözer ve editöre
+ * döndürür; gövdeye işlemek ve kaydetmek kullanıcının kararıdır. Arka planda
+ * yazan bir tazeleyici, hangi hâlin kaydedildiğini belirsizleştirirdi.
+ *
+ * `hepsiniTazele` KAPALIYKEN yalnız BOŞ alanlar doldurulur ve dolu olanlar
+ * korunur; açıkken kullanıcının düzenlemesi de kaynağa döner. Bu, Kaynaktan
+ * Doldur / Kaynaktan Tazele ayrımının künye karşılığıdır (KITAP-21).
+ */
+export async function refreshManualIdentity(
+  projectId: string,
+  input: { revisionId: string; identity: unknown; revNo: number; hepsiniTazele?: boolean }
+): Promise<
+  | { error: string }
+  | { identity: ManualIdentity; doldurulan: number; korunan: number }
+> {
+  const izin = await yetki();
+  if ("error" in izin) return izin;
+  const supabase = await createClient();
+
+  const { data: rev } = await supabase
+    .from("manual_revisions")
+    .select("id, rev_no, status, manuals!inner(project_id)")
+    .eq("id", input.revisionId)
+    .maybeSingle();
+  if (!rev) return { error: "Revizyon bulunamadı." };
+  if ((rev.manuals as unknown as { project_id: string }).project_id !== projectId) {
+    return { error: "Revizyon bu projeye ait değil." };
+  }
+  if (rev.status === "issued") return { error: "Yayımlanmış revizyon değiştirilemez." };
+
+  // Gelen künye İSTEMCİDENDİR ve olduğu gibi kullanılmaz: `withManualDefaults`
+  // yalnız gövdeyi tanır, o yüzden künye burada tek tek okunur (KITAP-10).
+  const gelen = (input.identity && typeof input.identity === "object" ? input.identity : {}) as Record<string, unknown>;
+  const mevcut = { ...BOS_KIMLIK };
+  for (const anahtar of Object.keys(BOS_KIMLIK) as (keyof ManualIdentity)[]) {
+    mevcut[anahtar] = String(gelen[anahtar] ?? "");
+  }
+
+  const oneri = await resolveManualIdentity(supabase, projectId, Number(rev.rev_no ?? input.revNo ?? 1));
+  const sonuc = applyManualIdentitySuggestion(mevcut, oneri.values, {
+    hepsiniTazele: input.hepsiniTazele === true,
+  });
+  return { identity: sonuc.identity, doldurulan: sonuc.doldurulan, korunan: sonuc.korunan };
 }

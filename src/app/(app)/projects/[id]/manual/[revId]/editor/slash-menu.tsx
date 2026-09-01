@@ -137,13 +137,18 @@ export function SlashMenu({
           className={cn(
             "oc-tap inline-flex items-center gap-1 text-xs text-muted-foreground",
             "hover:text-foreground disabled:opacity-40",
-            tetikSinifi
+            tetikSinifi,
+            // Çağıran `opacity-0` ile gizlese bile dokunmatikte GÖRÜNÜR:
+            // parmakla kullanılan ekranda `hover` diye bir şey yoktur ve
+            // "blok ekle" bu bileşenin TEK giriş yoludur. Garanti burada
+            // durur, çağrı yerinde değil.
+            "pointer-coarse:opacity-100"
           )}
         >
           <Plus className="size-3.5" /> {etiket}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-0">
+      <PopoverContent align="start" className="w-[min(20rem,calc(100vw-2rem))] p-0">
         <Command>
           <CommandInput placeholder="Blok türü veya defter parçası ara" />
           <CommandList>

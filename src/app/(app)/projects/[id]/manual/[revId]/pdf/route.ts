@@ -42,6 +42,7 @@ import { buildElectricalCatalogAppendix } from "@/lib/electrical/catalog-appendi
 import { SPEC_BUCKET, loadCurrentSpec } from "@/lib/project-specs";
 import { resolveProjectItemNo } from "@/lib/drawing-plan-data";
 import { loadReportCoverIdentity } from "@/lib/report-cover-identity-server";
+import { loadCustomerLogo } from "@/lib/customers/logo-server";
 import { documentMonthLabel, renderReportPdf } from "@/lib/pdf/report";
 import { runCalc } from "@/lib/calc/engine";
 import {
@@ -95,17 +96,30 @@ export async function GET(
   const nameOf = (id: string | null | undefined) =>
     (signatoryProfiles ?? []).find((profile) => profile.id === id)?.full_name || "";
 
-  const [kaynaklar, gorselKayitlari, itemNo, ayarlar, coverIdentity] = await Promise.all([
-    buildManualSourceData(supabase, id),
-    loadManualImages(supabase, revId),
-    resolveProjectItemNo(supabase, id, String(proje.doc_no ?? "")),
-    getReportSettings(supabase),
-    loadReportCoverIdentity(
-      supabase,
-      proje.report_brand_customer_id,
-      proje.end_customer_id
-    ),
-  ]);
+  /*
+   * ÜST BANDIN FİRMALARI ÜÇ BASAMAKTAN ÇÖZÜLÜR (01.09.2026).
+   *
+   * KÜNYEDE SEÇİLEN FİRMA > PROJE RAPOR FİRMASI > ELLE YÜKLENMİŞ GÖRSEL.
+   * Ortadaki basamak KITAP-18'in kuralıdır ve bozulmadı; kullanıcı Künye
+   * sekmesinden başka bir firma seçtiyse o kılavuzda onun sözü geçer. Seçim
+   * yoksa hiçbir şey değişmez — eski kılavuzlar birebir aynı basılır.
+   */
+  const kunyeOrtaFirma = String(revizyon.payload.partnerLogos.centerCustomerId ?? "");
+  const kunyeSagFirma = String(revizyon.payload.partnerLogos.rightCustomerId ?? "");
+
+  const [kaynaklar, gorselKayitlari, itemNo, ayarlar, coverIdentity, sagFirmaLogosu] =
+    await Promise.all([
+      buildManualSourceData(supabase, id),
+      loadManualImages(supabase, revId),
+      resolveProjectItemNo(supabase, id, String(proje.doc_no ?? "")),
+      getReportSettings(supabase),
+      loadReportCoverIdentity(
+        supabase,
+        kunyeOrtaFirma || proje.report_brand_customer_id,
+        proje.end_customer_id
+      ),
+      loadCustomerLogo(supabase, kunyeSagFirma || null),
+    ]);
 
   // GÖRSEL BAYTLARI PDF'E GİRER, imzalı bağlantı değil: react-pdf sunucuda
   // koşar ve dış bir adrese gitmesi hem yavaş hem kırılgan olurdu.
@@ -193,6 +207,7 @@ export async function GET(
       sources: kaynaklar,
       images: gorseller,
       partner: coverIdentity.reportBrand,
+      rightPartnerLogo: sagFirmaLogosu,
       projectTitle: String(proje.name ?? ""),
       craneLocation: String(proje.crane_location ?? ""),
       coverSpecs: kaynaklar.coverSpecs,

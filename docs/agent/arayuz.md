@@ -361,3 +361,59 @@ olarak indirir. Paylaş eylemi yalnız tarayıcı `navigator.canShare({ files })
 ile bu dosyayı açıkça kabul ediyorsa gösterilir ve “PDF Paylaş” diye adlandırılır.
 Yalnız `navigator.share` bulunması dosya desteği sayılmaz; aksi hâlde bazı
 WebView'lar `files` alanını atıp açık sayfanın bağlantısını gönderebilir.
+
+## MOBIL-26 — ÇOK PANELLİ EDİTÖRDE SABİT SÜTUN TOPLAMI `lg` KABINA SIĞMALIDIR.
+
+Kullanıcı bildirimi (01.09.2026) ve ölçüm: El Kitabı editörü
+`lg:grid-cols-[280px_minmax(0,1fr)_320px]` veriyordu. Kenar çubuğu (15 rem) tam
+1024 px'te belirir ve MOBIL-16'nın tablosuna göre içerik kabını **703 px**'e
+indirir; 280 + 320 + 32 px boşluk = 632 px SABİT ayrıldığı için belgenin
+kendisine **71 px** kalıyordu. Yani panel sayısını `lg`de artırmak MOBIL-16'nın
+"sütun sayısını `lg`de artırmak ters teper" maddesinin editör hâlidir.
+
+**Üç panel `xl`den (1280 px) başlar.** `lg` iki sütundur (ağaç + belge) ve
+üçüncü panel oradan bir TABAKAYA iner. Ölçüt: 1024 px'lik gerçek kapta
+(703 px) orta sütun ≥ 380 px. Düzeltmeden sonra ölçülen: **447 px**.
+
+**PANELİ `hidden` İLE SAKLAMAK ÇÖZÜM DEĞİLDİR.** Soru CSS'le sorulamaz çünkü
+cevabı yerleşim değil MONTAJ değiştirir: aynı ağır paneli (A4 önizlemesi yirmi
+yaprak çizer) iki yere birden basıp birini gizlemek bedeli iki katına çıkarır.
+Kırılım JS'te sorulur — `lib/use-breakpoint.ts` (`useIsWide`, `useIsDesktop`);
+sunucuda ve ilk karede DAR düzen varsayılır, hidrasyon uyumludur.
+
+## MOBIL-27 — BELGE ÖNİZLEMESİ KÜÇÜLMEZ, KAYDIRILIR.
+
+MOBIL-9'un (diyagram) belge karşılığıdır. `ManualPaper` A4'ü
+`containerType: inline-size` + `cqw` ile kabın genişliğine ORANTILI çizer:
+360 px'lik bir sütunda 8,5 pt'lik gövde yazısı ~5 px'e iner. Bu yaprak PDF'e
+giden dağıtımın TA KENDİSİDİR (KITAP-19) — mühendis ekranda okuyamadığı bir
+şeyi doğrulayamaz. Dar ekranda okunur bir taban genişlik çivilenir
+(`min-w-[40rem]`) ve kap `.oc-scrollx` ile yatayda kayar.
+
+**KAYDIRMA KABI YÜKSEKLİK ALMAK ZORUNDADIR.** `PaperPanel`in kaydırıcısı
+`flex-1 overflow-y-auto` taşıyordu ama kök `grid content-start` olduğu için
+IZGARA ÇOCUĞUNDA `flex-1` etkisizdir: kap hiç yükseklik almıyor, `scrollTo`
+sessizce hiçbir şey yapmıyordu — "seçili bölümün yaprağına git" davranışı dar
+ekranda HİÇ çalışmadı. Kök esnek sütundur ve ÇAĞIRAN kaba açık bir `max-h`
+verir.
+
+## MOBIL-28 — `.oc-tap` GİRDİDE ÇALIŞMAZ; ORADA HEDEF GERÇEK YÜKSEKLİKTİR.
+
+`<input>`, `<textarea>` ve `<select>` YER DEĞİŞTİRİLMİŞ öğelerdir ve
+`::before`/`::after` ÜRETMEZLER — görünmez 44 px genişletici hiç çizilmez.
+MOBIL-1 zaten yalnız düğme, çip, rozet-düğme ve ikon bağlantısını sayar.
+Girdide dokunma payı GERÇEK yükseklikle verilir; `h-8 pointer-coarse:h-10`
+gibi bir kademe DOĞRUDUR ve MOBIL-1 ihlali DEĞİLDİR. Aynı sebeple
+`<input type="range">` tek başına dokunmatik bir denetim sayılmaz: yanına ön
+ayar düğmeleri konur.
+
+**`.oc-tap-square` YAN YANA İKON DÜĞMELERDE KOMŞUNUN DOKUNUŞUNU YUTAR.**
+`.oc-tap` yalnız dikey büyür (`left:0;right:0`), kare sürüm iki eksende de
+büyür: 24–28 px'lik düğmeler 2 px boşlukla dizilince 44 px'lik hedefler üst
+üste biner. Çözüm düğmeyi küçültmek değil SAYISINI azaltmaktır — seyrek
+kullanılanlar bir `DropdownMenu` altına iner (el kitabında blok şeridi yedi
+düğmeden üçe indi).
+
+**`.oc-scrollx` TEK BAŞINA KAYDIRMAZ**: yalnız kenar ipucunu çizer ve
+(MOBIL-18 gereği) kapsayıcı blok olur. Kap `overflow-x-auto` almazsa içerik
+taşar ve SAYFAYI iter.

@@ -139,7 +139,8 @@ export default async function ComparePage({
           <section key={mk} className="grid gap-2">
             <h2 className="oc-kicker text-foreground/80">{MODULE_LABELS[mk] ?? mk}</h2>
             <div className="relative overflow-hidden rounded-lg border">
-              <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table">
+              <Table containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap"
+                className="oc-mobile-table oc-tablet-table">
                 <TableHeader>
                   {/* TELEFONDA TABLO KATLANIR (kabuk kuralı 15): "Tür" sütunu
                       `sm` altında gizlenir ve etiket alan adının altına iner —

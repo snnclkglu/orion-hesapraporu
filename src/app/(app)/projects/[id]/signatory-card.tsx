@@ -96,6 +96,13 @@ export function ProjectSignatoryCard({
     </Select>
   );
 
+  // `lg:shrink-0` ÖLÇÜLMÜŞ BİR TAŞMANIN DÜZELTMESİDİR (01.09.2026, 1024 px).
+  // Öbek `min-w-0` taşıyor ama içindeki açılır liste tetikleyicisi `shrink-0`:
+  // esnek satırda öbek 345 px'lik içeriğinin altına (267 px) büzülüyor,
+  // tetikleyici oradan taşıyor ve SAYFA 29 px yatay kayıyordu. Büzülmeyi
+  // kapatınca flex sarma devreye giriyor ve öbek alt satıra iniyor —
+  // MOBIL-16'nın "1023 ve 1024 px'te taşma yok" ölçütü sağlanır.
+  //
   // İki açılır listelik bir ayar beş satır yer kaplıyordu (başlık + açıklama +
   // iki etiketli sütun + kendi satırındaki Kaydet). Ayar TEK SATIRA indi;
   // açıklama, alanların ne işe yaradığı zaten adlarından okunduğu için başlığın
@@ -116,13 +123,13 @@ export function ProjectSignatoryCard({
           {pending ? "Kaydediliyor..." : "Kaydet"}
         </Button>
       </div>
-      <div className="col-span-2 grid min-w-0 grid-cols-subgrid items-center lg:flex lg:w-auto lg:gap-2">
+      <div className="col-span-2 grid min-w-0 grid-cols-subgrid items-center lg:flex lg:w-auto lg:shrink-0 lg:gap-2">
         <Label htmlFor="prepared_by" className="shrink-0 text-xs text-muted-foreground">
           Oluşturan
         </Label>
         {personSelect("prepared_by", preparedById, setPreparedById)}
       </div>
-      <div className="col-span-2 grid min-w-0 grid-cols-subgrid items-center lg:flex lg:w-auto lg:gap-2">
+      <div className="col-span-2 grid min-w-0 grid-cols-subgrid items-center lg:flex lg:w-auto lg:shrink-0 lg:gap-2">
         <Label htmlFor="checked_by" className="shrink-0 text-xs text-muted-foreground">
           Kontrol Eden
         </Label>

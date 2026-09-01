@@ -27,7 +27,11 @@ const identity: ProductIdentityValues = {
   span: "24 m",
   liftHeight: "18 m",
   dutyClass: "FEM 3m / ISO M6",
-  supplyVoltage: "400 VAC",
+  // FİKSTÜR ÜRETİMDEKİ METNİN AYNISI OLMALI: hesap motorunun besleme
+  // seçenekleri frekansı zaten içerir ("380 VAC, 3 Faz, 50 Hz"). Kısaltılmış
+  // bir fikstür, plakadaki "… 50 Hz · 50 Hz" tekrarını önizlemede
+  // GİZLİYORDU (01.09.2026).
+  supplyVoltage: "380 VAC, 3 Faz, 50 Hz",
   controlVoltage: "24 VDC",
   frequency: "50 Hz",
   customer: "Müşteri Fabrikası A.Ş.",

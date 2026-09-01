@@ -45,16 +45,56 @@ function safeFileName(value: string): string {
   return `${clean || "dokuman"}.pdf`;
 }
 
+/**
+ * Auth'lu PDF ucundan gelen yanıtı baytlara çevirir — VE NEDEN OLMADIĞINI SÖYLER.
+ *
+ * "Ekipman listesi PDF biçiminde üretilemedi." mesajı kök nedeni SİLİYORDU.
+ * Koşulu çok dardır (yanıt 2xx ama içerik PDF değil) ve ekipman ucu böyle bir
+ * yanıt ÜRETEMEZ: başarılı yolu her zaman `application/pdf`, başarısız yolları
+ * 401/404'tür. Yani yanıt route'tan GELMEMİŞTİ — `proxy.ts` oturumsuz sayılan
+ * alt-isteği `/login`e 307'liyor, `fetch` varsayılan `redirect: "follow"` ile
+ * onu izliyor ve giriş sayfasının HTML'i **200** ile dönüyordu. Projenin
+ * `proxy.ts`te zaten belgelediği ".ttf isteği /login HTML'ini 200 ile aldı"
+ * tuzağının aynısı: bir yönlendirme değil, YANLIŞ İÇERİKLİ BİR BAŞARI.
+ *
+ * İki şey değişti: yönlendirme artık İZLENMEZ (`redirect: "manual"`, aşağıdaki
+ * `pdfIste`) ve mesaj durumu, içerik türünü ve hedefi taşır.
+ */
 async function responsePdf(response: Response, label: string): Promise<Uint8Array> {
+  if (response.status >= 300 && response.status < 400) {
+    throw new Error(
+      `${label} alınamadı: oturum alt-isteğe taşınamadı (${response.status} → ${response.headers.get("location") ?? "?"}). Sayfayı yenileyip yeniden deneyin.`
+    );
+  }
   if (!response.ok) {
     const detail = (await response.text().catch(() => "")).slice(0, 220);
-    throw new Error(`${label} üretilemedi${detail ? `: ${detail}` : ""}`);
+    throw new Error(`${label} üretilemedi (durum ${response.status})${detail ? `: ${detail}` : ""}`);
   }
   const type = response.headers.get("content-type") ?? "";
   if (!type.toLowerCase().includes("application/pdf")) {
-    throw new Error(`${label} PDF biçiminde üretilemedi.`);
+    let hedef = "";
+    try {
+      hedef = new URL(response.url).pathname;
+    } catch {
+      hedef = response.url;
+    }
+    throw new Error(
+      `${label} PDF biçiminde üretilemedi (durum ${response.status}, içerik ${type || "bilinmiyor"}${hedef ? `, hedef ${hedef}` : ""}).`
+    );
   }
   return new Uint8Array(await response.arrayBuffer());
+}
+
+/**
+ * Auth'lu PDF ucuna alt-istek. YÖNLENDİRME İZLENMEZ — izlenen bir 307,
+ * `/login` sayfasının HTML'ini "başarılı" bir yanıt gibi geri getirirdi.
+ */
+function pdfIste(url: URL, requestCookie: string): Promise<Response> {
+  return fetch(url, {
+    cache: "no-store",
+    redirect: "manual",
+    headers: { Accept: "application/pdf", Cookie: requestCookie },
+  });
 }
 
 async function download(
@@ -96,11 +136,7 @@ async function sourceBytes(
           requestOrigin
         );
         url.searchParams.set("level", level);
-        const response = await fetch(url, {
-          cache: "no-store",
-          headers: { Accept: "application/pdf", Cookie: requestCookie },
-        });
-        return responsePdf(response, "Hesap raporu");
+        return responsePdf(await pdfIste(url, requestCookie), "Hesap raporu");
       }
       return download(
         supabase,
@@ -118,11 +154,7 @@ async function sourceBytes(
       url.searchParams.set("format", "pdf");
       url.searchParams.set("scope", "customer");
       if (selection.equipmentDetail === "detayli") url.searchParams.set("detay", "1");
-      const response = await fetch(url, {
-        cache: "no-store",
-        headers: { Accept: "application/pdf", Cookie: requestCookie },
-      });
-      return responsePdf(response, "Ekipman listesi");
+      return responsePdf(await pdfIste(url, requestCookie), "Ekipman listesi");
     }
 
     case "manual": {
@@ -130,11 +162,7 @@ async function sourceBytes(
         `/projects/${projectId}/manual/${selection.sourceId}/pdf`,
         requestOrigin
       );
-      const response = await fetch(url, {
-        cache: "no-store",
-        headers: { Accept: "application/pdf", Cookie: requestCookie },
-      });
-      return responsePdf(response, "İşletme ve Bakım El Kitabı");
+      return responsePdf(await pdfIste(url, requestCookie), "İşletme ve Bakım El Kitabı");
     }
 
     case "electrical": {

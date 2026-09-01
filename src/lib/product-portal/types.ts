@@ -44,7 +44,7 @@ export type ProductIdentityField = (typeof PRODUCT_IDENTITY_FIELDS)[number];
 export type ProductIdentityValues = Record<ProductIdentityField, string>;
 
 export interface IdentitySource {
-  kind: "project" | "job_item" | "report" | "settings" | "system";
+  kind: "project" | "job_item" | "report" | "settings" | "customer" | "system";
   label: string;
   sourceId?: string;
   revisionLabel?: string;

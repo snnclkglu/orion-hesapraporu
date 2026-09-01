@@ -216,4 +216,101 @@ describe("baskı isim plakası", () => {
     expect(buildNameplateSvg(base).match(/<circle/g)).toBeNull();
     expect(buildNameplateSvg({ ...base, holeDiameterMm: 6, holeInsetMm: 9 }).match(/<circle/g)).toHaveLength(4);
   });
+  /*
+   * CE İŞARETİ PLAKANIN İÇİNDE KALIR — bu testin sebebi ölçülmüş bir kusurdur
+   * (01.09.2026). `ceMarkPath` yay YARIÇAPLARINI ölçeklemiyordu; SVG büyük
+   * yarıçapı küçültmez, ~356°'lik dev bir yay çizer ve işaret plakanın
+   * dışına taşıp veri tablosunun etiket sütununu eziyordu. Bileşen ağacına
+   * bakmak bunu göstermez; yolun SINIR KUTUSU gösterir.
+   */
+  it("CE işaretini yasal bandın içinde, plaka sınırlarını aşmadan çizer", () => {
+    const layout = createNameplateLayout({
+      widthMm: 240,
+      heightMm: 160,
+      serialNo: "0057-01",
+      publicUrl: "https://portal.orioncranes.com/paylas/vinc/23456789ABCDEFGH",
+      identity,
+      logoDataUrl: "/brand/orion-logo-white.svg",
+    });
+    const ce = layout.legal.ce;
+    expect(ce).not.toBeNull();
+    if (!ce) return;
+    const sayilar = [...ce.path.matchAll(/[-\d.]+/g)].map((m) => Number(m[0]));
+    expect(sayilar.every((n) => Number.isFinite(n))).toBe(true);
+    // Yolun içindeki HER sayı plakanın kutusunda kalır: yarıçaplar da
+    // koordinatlar da ölçeklenmiş olmalıdır.
+    expect(Math.min(...sayilar)).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...sayilar)).toBeLessThanOrEqual(layout.widthMm);
+    // Yayların yarıçapı işaretin yüksekliğinden büyük olamaz.
+    const yariCaplar = [...ce.path.matchAll(/A([\d.]+) ([\d.]+)/g)].map((m) => Number(m[1]));
+    expect(yariCaplar.length).toBe(4);
+    expect(Math.max(...yariCaplar)).toBeLessThanOrEqual(ce.height);
+    // İşaret yasal bandın dikey sınırları içindedir.
+    expect(ce.y).toBeGreaterThanOrEqual(layout.legal.y);
+    expect(ce.y + ce.height).toBeLessThanOrEqual(layout.legal.y + layout.legal.height + 0.01);
+    // Yasal yazı işaretin sağından başlar; üstüne binmez.
+    expect(layout.legal.x).toBeGreaterThan(ce.x + ce.width);
+  });
+
+  /*
+   * ARALIKLI YAZIDA KELİME ARASI HARF ARASINDAN BÜYÜKTÜR. `estimatedTextWidth`
+   * mono dalında `trim()` uyguladığı için tek karakterlik " " sıfır genişlik
+   * dönüyordu: "TEKNİK DOKÜMANLAR" bitişik basılıyordu (ölçüldü).
+   */
+  it("aralıklı yazıda boşluğu bir karakter genişliğinde ilerletir", () => {
+    const glyphs = trackedGlyphs("AB CD", 0, 4, 1);
+    const harfArasi = glyphs[1].x - glyphs[0].x;
+    const kelimeArasi = glyphs[3].x - glyphs[1].x;
+    expect(kelimeArasi).toBeGreaterThan(harfArasi * 1.9);
+  });
+
+  /*
+   * AYIRICI ÇİZGİ DEĞERİN İÇİNDEN GEÇMEZ. Satır adımı yalnız ETİKET puntosuna
+   * bakıyordu; oysa satırın yüksekliğini büyük olan DEĞER belirler ve çizgi
+   * bir alttaki rakamı kesiyordu.
+   */
+  it("veri satırlarını çakışmadan ve içerik penceresinde tutar", () => {
+    for (const preset of NAMEPLATE_SIZE_PRESETS) {
+      const layout = createNameplateLayout({
+        widthMm: preset.widthMm,
+        heightMm: preset.heightMm,
+        serialNo: "0057-01",
+        publicUrl: "https://portal.orioncranes.com/paylas/vinc/23456789ABCDEFGH",
+        identity,
+        logoDataUrl: "/brand/orion-logo-white.svg",
+      });
+      const rows = layout.rows;
+      expect(rows.length).toBeGreaterThan(4);
+      // Bütün değerler TEK puntodadır; sütun kendi içinde dalgalanmaz.
+      expect(new Set(rows.map((row) => row.valueSize)).size).toBe(1);
+      rows.forEach((row, index) => {
+        // Çizgi kendi satırının altındadır…
+        expect(row.ruleY).toBeGreaterThan(row.y);
+        const sonraki = rows[index + 1];
+        if (!sonraki) return;
+        // …ve bir sonraki değerin tepesinin üstünde kalır.
+        expect(row.ruleY).toBeLessThan(sonraki.y - sonraki.valueSize * 0.7);
+      });
+      // Son satır yasal bandın üstünde biter.
+      const son = rows[rows.length - 1];
+      expect(son.ruleY).toBeLessThanOrEqual(layout.legal.y);
+    }
+  });
+
+  /*
+   * BESLEME SATIRI FREKANSI İKİ KEZ YAZMAZ: `frequency` `supplyVoltage`
+   * metninden türetilir ve üretimdeki seçenek metinleri Hz'i zaten taşır.
+   */
+  it("besleme satırında frekansı tekrar etmez", () => {
+    const layout = createNameplateLayout({
+      widthMm: 240,
+      heightMm: 160,
+      serialNo: "0057-01",
+      publicUrl: "https://portal.orioncranes.com/paylas/vinc/23456789ABCDEFGH",
+      identity: { ...identity, supplyVoltage: "380 VAC, 3 Faz, 50 Hz", frequency: "50 Hz" },
+      logoDataUrl: "/brand/orion-logo-white.svg",
+    });
+    const besleme = layout.rows.find((row) => row.label === "BESLEME");
+    expect(besleme?.value).toBe("380 VAC, 3 Faz, 50 Hz");
+  });
 });
