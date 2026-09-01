@@ -3447,6 +3447,33 @@ export function RevisionEditor({
       gizli: kapali,
       uyari: !kapali && eksik,
       rozet: kapali ? "kapalı" : kontrollu > 0 ? `${gecen}/${kontrollu}` : undefined,
+      /**
+       * ADIMLAR — YALNIZ SABİT SÜTUNDA çizilir (MOBIL-29). Dar ekranda
+       * ray tek düzeydir ve bu liste hiç basılmaz; kullanıcının kararı
+       * orada değişmedi ("çok alt başlık var, çok yer kaplıyor").
+       *
+       * Kimlik ARAMA SONUCUYLA AYNI önekí taşır (`adim:`), böylece
+       * `rayaGit` iki yolu da tek dalda çözer.
+       */
+      // TEK ADIMLI GRUP ÇOCUK ALMAZ: Teknik Özellikler ve Özet grupsuz tek
+      // adımlardır; onlara çocuk vermek satırın kendini bir kez daha
+      // yazmasından ibaret olurdu.
+      cocuklar: group.items.length < 2 ? undefined : group.items.map(({ step: s }) => {
+        const sGizli = stepHidden(s);
+        const kontroller = s.kind === "module" ? sectionChecks(s.moduleKey, s.section) : [];
+        const sGecen = kontroller.filter((c) => c.pass).length;
+        return {
+          id: `${RAY_ADIM_ONEKI}${s.key}`,
+          numara: stepChip(s),
+          baslik: stepLabel(s),
+          gizli: sGizli,
+          uyari: !sGizli && kontroller.some((c) => !c.pass),
+          // Gizli adım sayaç yerine "gizli" yazar: kırmızı bir sayaç
+          // "burada sorun var" derdi, oysa bölüm rapora hiç girmiyor.
+          rozet: sGizli ? "gizli" : kontroller.length > 0 ? `${sGecen}/${kontroller.length}` : undefined,
+        };
+      }),
+
       // BÖLÜM AÇ/KAPA RAYDA KALIR: kapalı bir modülün adımı yoktur, yani onu
       // tekrar açmanın tek yolu bu satırdır. Zorunlu modüllerde de yuva ayrılır,
       // aksi hâlde sayaçlar satırdan satıra 24px kayıyor ve liste hizasız oluyor.
@@ -3581,6 +3608,7 @@ export function RevisionEditor({
         <BolumRayi
           etiket="Hesap bölümleri"
           panelId={NAV_PANEL_ID}
+          depoAnahtari="orion.hesap.ray.daraltildi"
           ogeler={rayOgeleri}
           aktifId={rayAktifId}
           onSec={rayaGit}

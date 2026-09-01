@@ -22,7 +22,7 @@ export default async function SalesLayout({
   if (!canSeeSales(profile?.role)) redirect("/jobs");
 
   return (
-    <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
+    <div className="grid min-w-0 max-w-full gap-4 overflow-x-clip">
       <SalesNav />
       {children}
     </div>

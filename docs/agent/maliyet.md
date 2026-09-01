@@ -1146,6 +1146,10 @@ döndürürdü; iki duman testi bunu sav olarak tutar:
 altı hedef MOBIL-21'in sekiz sınırının altındadır, yani kutu ızgarası oradaki
 DOĞRU biçimdir. Ray yalnız masaüstü çalışma alanı için vardır.
 
+**≥1440 px'TE RAY SABİT SÜTUNDUR** (MOBIL-29) ve tercih hatırlanır
+(`orion.maliyet.ray.daraltildi`). Altı bölümün alt düzeyi olmadığı için
+sütunda da tek düzey kalır.
+
 **GÖVDE İÇİ KATLAMA RAYA GİRMEZ.** PROJE MALİYETİ, YÜRÜTME VE TEKER gibi alt
 başlıkların katlanması (`Katlama`, MALIYET-31) ayrı bir şeydir ve durumu ekranda
 yaşar; ray tek düzeydir (*"çok alt başlık var, çok yer kaplıyor"*).

@@ -875,6 +875,13 @@ kendi seçim yolundan geçmez; `manual-editor.tsx` `rayAcik` durumunu KENDİ
 tutar ve haritanın `onSec`i onu kapatır. Kapatmasaydı kullanıcı seçtiği bölümü
 görmek için tabakayı bir kez de elle kapatmak zorunda kalırdı.
 
+**SABİT SÜTUNDA DA GÖVDE AĞAÇTIR** (≥1440 px, MOBIL-29): ray genişleyince
+17,5 rem'lik sütunda yine `DocumentMap` çizilir, jenerik iki düzey DEĞİL.
+Ağaç dört şey daha taşıyor: sınırsız derinlik, "yalnız eksikler" süzgeci,
+bölüm gizleme düğmesi ve dört durumlu doluluk noktası. Ölçüm: 1440 px'te
+ızgara `280px 745px 304px` — belge sütunu 745 px, MOBIL-26'nın ≥380 px
+ölçütünün çok üstünde.
+
 **TELEFON/TABLET DEĞİŞMEDİ.** `lg` altında Harita · Belge · Kâğıt kutu ızgarası
 (KITAP-26, MOBIL-21) aynen durur; ray orada gizlidir — üç çalışma yüzü sekizin
 altındadır ve ızgara oradaki doğru biçimdir.

@@ -788,13 +788,16 @@ export function ManualEditor({
         {/* ————————————————————————————————————————————— içerik */}
         <TabsContent value="icerik">
           {/* `lg`de İKİ, `xl`de ÜÇ sütun (MOBIL-26). Harita sütunu 15rem'den
-              1rem'lik BÖLÜM RAYINA indi: orta sütun 1024 px'lik kapta 447
+              BÖLÜM RAYINA indi (1rem şerit; ≥1440 px'te 17,5rem'lik SABİT
+              SÜTUN, MOBIL-29). Izgara izi bu yüzden `auto`dur — genişliği
+              rayın kendisi söyler. Orta sütun 1024 px'lik kapta 447
               px'ten ~660 px'e çıkar ve MOBIL-26'nın ≥380 px ölçütü rahatlar.
               Harita KAYBOLMAZ, rayın tabaka GÖVDESİNE taşınır (KITAP-27). */}
-          <div className="mt-3 grid gap-4 lg:grid-cols-[1rem_minmax(0,1fr)] xl:grid-cols-[1rem_minmax(0,1fr)_19rem]">
+          <div className="mt-3 grid gap-4 lg:grid-cols-[auto_minmax(0,1fr)] xl:grid-cols-[auto_minmax(0,1fr)_19rem]">
             <BolumRayi
               className="hidden lg:block"
               etiket="Belge bölümleri"
+              depoAnahtari="orion.elkitabi.ray.daraltildi"
               ogeler={rayOgeleri}
               aktifId={rayAktifId}
               onSec={doc.bolumSec}

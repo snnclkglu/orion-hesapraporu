@@ -605,3 +605,21 @@ verilir.
 Plaka önizlemesi `2xl` yerine `xl`den itibaren yan sütuna geçer: 1024–1535
 aralığında her şey alt alta yığılıyor ve plaka belgenin metrelerce altında
 kalıyordu.
+
+## BELGE-20 — VİNÇ KİMLİĞİ RAYI İKİ KİPLİDİR: DAR EKRANDA SEÇİM, GENİŞTE ÇIPA.
+
+01.09.2026: Vinç Kimliği kartına bölüm rayı eklendi (MOBIL-29). Kart bir rota
+DEĞİL, `/projects/<id>` sayfasının bir sekmesidir; belge kayar, kap `max-w-6xl`.
+
+**AYNI SAYFADA RAYIN HER İKİ KİPİ DE GEREKİR** ve sebebi `bolumSinifi`dir:
+`lg` ALTINDA yalnız seçili bölüm DOM'dadır, yani "bölüme git" bir DURUM
+değişimidir (`setBolum`); `lg` ÜSTÜNDE beş bölüm birden basılır ve aynı eylem
+gerçek bir KAYDIRMADIR (`capayaGit` + `useAktifCapa`). Ray ikisini de yapar.
+
+**RAY KARTIN KÖKÜNÜN YANINA KONUR, ANA IZGARANIN İÇİNE DEĞİL.** `dokumanlar`
+bölümü o ızgaranın dışındadır ve ızgarayı saran `<section>` `relative
+overflow-hidden` taşır: ray oraya konsaydı hem beşinci bölümü kapsamaz hem de
+kırpılırdı. Kök esnek satır `items-start` ALMAZ (MOBIL-31).
+
+**TELEFONDA `MobileSectionGrid` KALIR** — beş hedef MOBIL-21'in sekiz sınırının
+altındadır. **Erken dönüş dalında (workspace yokken) ray basılmaz**: bölüm yok.

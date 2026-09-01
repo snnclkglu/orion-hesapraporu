@@ -258,7 +258,7 @@ export async function ProjectPageView({
   ];
 
   return (
-    <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden sm:gap-4 lg:gap-6">
+    <div className="grid min-w-0 max-w-full gap-3 overflow-x-clip sm:gap-4 lg:gap-6">
       {/* Sayfanın kimliği kabuğun yapışkan üst şeridine de çıkar; künye bloğu
           (aşağıda) ayrıntıyı taşımaya devam eder. `xl` altında geri oku
           kırıntı yolunun yerini tutar — telefonda projeden çıkmanın tek yolu

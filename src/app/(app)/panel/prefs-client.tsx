@@ -21,6 +21,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { BolumRayi, type BolumOgesi } from "@/components/bolum-rayi";
+import { capayaGit, useAktifCapa } from "@/lib/bolum-capa";
 import { cn } from "@/lib/utils";
 
 function useDegistir() {
@@ -73,6 +75,101 @@ function KareIsaret({ isaretli }: { isaretli: boolean }) {
     >
       {isaretli && <Check className="size-3" />}
     </span>
+  );
+}
+
+/**
+ * PANONUN BÖLÜM RAYI — hem gezinme hem tercih yüzeyi (PANEL-24).
+ *
+ * 01.09.2026'ya kadar üst şeritte ayrı bir "Bölümler" menüsü (`SectionsMenu`,
+ * aşağıda) vardı ve aynı sekiz kimliği listeliyordu. Ray gelince kullanıcının
+ * karşısında AYNI listeyi gösteren iki yüzey olurdu; kullanıcı kararı: ray
+ * menüyü yutar. Göz ve "Katlı" düğmeleri satırın sağ yuvasına indi, yazma yolu
+ * (`setPanelSectionState`) hiç değişmedi.
+ *
+ * GİZLİ BÖLÜM RAYDA KALIR ama ÇIPASI YOKTUR: gizlenen bölümün sorgusu hiç
+ * koşmuyor, yani DOM'da da yok. Satır orada yalnız GERİ AÇMAK için durur —
+ * rayın "git" anlamıyla tek çelişkisi budur ve bilinçlidir; başka türlü
+ * gizlenen bir bölüm geri açılamazdı.
+ */
+export function PanelRail({ prefs }: { prefs: PanelPrefs }) {
+  const { pending, degistir } = useDegistir();
+  const gizliKume = new Set(prefs.hidden);
+  const katliKume = new Set(prefs.collapsed);
+
+  /**
+   * `yapilacak`ın kendi yuvası yok — "Benim Günüm"ün içinde çiziliyor. Rayda
+   * kendi satırı VARDIR (gizlenebilir bir bölümdür) ama çıpası `gunum`u
+   * gösterir; kendi kimliğine kaydırmak boşluğa atlamak olurdu.
+   */
+  const capaHedefi = (id: PanelSectionId): PanelSectionId =>
+    id === "yapilacak" ? "gunum" : id;
+
+  const gorunurKimlikler = PANEL_SECTION_IDS.filter((id) => !gizliKume.has(id)).map(capaHedefi);
+  const [okunan, isaretle] = useAktifCapa(gorunurKimlikler);
+
+  const ogeler: BolumOgesi[] = PANEL_SECTION_IDS.map((id) => {
+    const gizli = gizliKume.has(id);
+    const katli = katliKume.has(id);
+    const katlanabilir = COLLAPSIBLE_SECTION_IDS.includes(id);
+    return {
+      id,
+      baslik: PANEL_SECTION_LABELS[id],
+      gizli,
+      rozet: gizli ? "gizli" : katli ? "katlı" : undefined,
+      sag: (
+        <span className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => degistir(id, { hidden: !gizli })}
+            aria-pressed={!gizli}
+            aria-label={`${PANEL_SECTION_LABELS[id]}: ${gizli ? "panoda göster" : "panodan gizle"}`}
+            title={gizli ? "Panoda göster" : "Panodan gizle — sorgusu hiç koşmaz"}
+            className="oc-tap-square grid size-6 shrink-0 place-items-center transition-colors hover:bg-muted"
+          >
+            <KareIsaret isaretli={!gizli} />
+          </button>
+          {katlanabilir && !gizli ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => degistir(id, { collapsed: !katli })}
+              aria-pressed={katli}
+              aria-label={`${PANEL_SECTION_LABELS[id]}: ${katli ? "gövdeyi aç" : "gövdeyi katla"}`}
+              title={katli ? "Gövdeyi aç" : "Gövdeyi katla — başlık kalır, veri yüklenmez"}
+              className={cn(
+                "oc-tap-square grid size-6 shrink-0 place-items-center border font-mono text-[10px] transition-colors",
+                katli
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-transparent text-muted-foreground hover:border-primary hover:text-foreground"
+              )}
+            >
+              ▾
+            </button>
+          ) : (
+            <span aria-hidden className="size-6 shrink-0" />
+          )}
+        </span>
+      ),
+    };
+  });
+
+  return (
+    <BolumRayi
+      etiket="Pano bölümleri"
+      depoAnahtari="orion.pano.ray.daraltildi"
+      ogeler={ogeler}
+      aktifId={okunan}
+      onSec={(id) => {
+        // Gizli bölümün DOM'da karşılığı yok: satır yalnız kutusuyla geri
+        // açılır, tıklamak sessizce hiçbir şey yapar.
+        if (gizliKume.has(id as PanelSectionId)) return;
+        const hedef = capaHedefi(id as PanelSectionId);
+        isaretle(hedef);
+        capayaGit(hedef);
+      }}
+    />
   );
 }
 

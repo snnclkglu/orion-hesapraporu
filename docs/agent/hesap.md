@@ -1454,5 +1454,13 @@ toplamıdır ve `sectionStatus` gizli bölümde `"none"` döner; gizli ya da kap
 bir satırda kırmızı YAKILMAZ — rapora hiç girmeyen bir bölümün kalan kontrolü
 sorun değildir.
 
+**SABİT SÜTUNDA ADIM DÜZEYİ AÇILIR** (≥1440 px, MOBIL-29): modül satırının
+okuna basmak o modülün adımlarını (`7.1 Kesit Özellikleri`, `7.4 Gerilme
+Analizi`…) alt satır olarak açar; gizli adım sayaç yerine `gizli` yazar.
+Dar ekranda ve tabakada liste TEK DÜZEY kalır.
+
+**TEK ADIMLI GRUP ÇOCUK ALMAZ**: Teknik Özellikler ve Özet grupsuz tek
+adımlardır, onlara çocuk vermek satırın kendini bir kez daha yazmasıdır.
+
 **ARAMA `trKatla` İLE YAPILIR**, `toLocaleLowerCase("tr-TR")` ile değil: depodaki
 gerçek Türkçe katlama odur ve `i ı İ I` ailesini tek harfe indirir.

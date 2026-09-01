@@ -29,7 +29,7 @@
   gruplar, katalog bağları, teknik ressam özeti). `lib/excel/equipment.ts`ten
   AYRILDI ve oradan yeniden dışa verilir; sebep `exceljs`tir — satırları okumak
   isteyen İSTEMCİ ekranları koca bir Excel kütüphanesini yüklememeli
-- `src/components/bolum-rayi.tsx** — ortak BÖLÜM RAYI (`BolumRayi`): sol kenardaki ince şerit ve açılan bölüm tabakası (MOBIL-29). **lib/bolum-capa.ts** — çıpa kipi (`useAktifCapa`, `capayaGit`, `.oc-capa`). **katlanir-bolum.tsx` — katlanabilir bölüm (`Bolum` ·
+- `src/components/bolum-rayi.tsx** — ortak BÖLÜM RAYI (`BolumRayi`): sol kenardaki ince şerit ve açılan bölüm tabakası (MOBIL-29). **lib/bolum-capa-kimlik.ts** — saf çıpa kimliği (sunucu bileşenleri için). **lib/bolum-capa.ts** — çıpa kipi (`useAktifCapa`, `capayaGit`, `.oc-capa`). **katlanir-bolum.tsx` — katlanabilir bölüm (`Bolum` ·
   `KatlaDugmesi` · `MiniDugme` · `Katlama`); maliyet editöründen çıkarıldı,
   ağırlık dökümü penceresi de aynı şekli kullanır
 - `src/lib/standards/` — standart kayıt defteri (tablolar + bağıntılar)

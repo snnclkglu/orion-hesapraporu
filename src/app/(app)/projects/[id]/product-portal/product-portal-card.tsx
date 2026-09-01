@@ -47,6 +47,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { MobileSectionGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
+import { BolumRayi, type BolumOgesi } from "@/components/bolum-rayi";
+import { capaKimligi, capayaGit, useAktifCapa } from "@/lib/bolum-capa";
+import { useIsDesktop } from "@/lib/use-breakpoint";
 
 /*
  * DAR EKRANDA KART BEŞ BÖLÜMDÜR (BELGE-13).
@@ -69,6 +72,9 @@ const PORTAL_BOLUMLERI: readonly { value: PortalBolum; label: string }[] = [
   { value: "dokumanlar", label: "Belgeler" },
   { value: "portal", label: "Portal" },
 ];
+
+/** Çıpa kancasının bağımlılığı — dizi her boyamada yeniden üretilmesin. */
+const PORTAL_KIMLIKLERI = PORTAL_BOLUMLERI.map((b) => b.value);
 import {
   NAMEPLATE_SIZE_PRESETS,
   NAMEPLATE_TOGGLE_FIELDS,
@@ -252,6 +258,19 @@ export function ProductPortalCard({
   const [bolum, setBolum] = useState<PortalBolum>("uniteler");
   /** `lg` altında yalnız seçili bölüm görünür; üstünde hepsi. */
   const bolumSinifi = (deger: PortalBolum) => (bolum === deger ? "" : "hidden lg:block");
+  /**
+   * BÖLÜM RAYI BU SAYFADA İKİ KİPLİDİR (BELGE-20) ve sebebi yukarıdaki
+   * satırdır: `lg` ALTINDA yalnız seçili bölüm DOM'dadır, yani "bölüme
+   * git" bir DURUM değişimidir; `lg` ÜSTÜNDE beşi birden basılır ve aynı
+   * eylem gerçek bir KAYDIRMA olur. Tek bir sayfada rayın her iki kipi de
+   * gerekiyor.
+   */
+  const genisMi = useIsDesktop();
+  const [okunanBolum, bolumIsaretle] = useAktifCapa(PORTAL_KIMLIKLERI);
+  const rayOgeleri: BolumOgesi[] = PORTAL_BOLUMLERI.map((b) => ({
+    id: b.value,
+    baslik: b.label,
+  }));
   const selectedUnit = units.find((unit) => unit.id === selectedUnitId) ?? units[0];
   const hasIssuedRevision = Boolean(workspace?.revisions.some((revision) => revision.status === "issued"));
 
@@ -555,7 +574,31 @@ export function ProductPortalCard({
   const qrReady = readiness.every((entry) => entry.ok);
 
   return (
-    <div className="grid gap-4">
+    // RAY + KART. Ray kartın KÖKÜNÜN yanına konur, ana ızgaranın içine
+    // DEĞİL: `dokumanlar` bölümü o ızgaranın dışında duruyor ve ızgaranın
+    // sarmalayıcısı `relative overflow-hidden` — ray oraya konsaydı hem
+    // beşinci bölümü kapsamaz hem de kırpılırdı.
+    //
+    // `items-start` YAZILMAZ (MOBIL-31): yapışkan kutunun yapışacak yolu
+    // sarmalayıcının boyudur.
+    <div className="flex min-w-0 gap-2 lg:gap-4">
+      <BolumRayi
+        etiket="Vinç Kimliği bölümleri"
+        depoAnahtari="orion.kimlik.ray.daraltildi"
+        ogeler={rayOgeleri}
+        aktifId={genisMi ? okunanBolum : bolum}
+        onSec={(id) => {
+          const deger = id as PortalBolum;
+          // Dar ekranda bölüm SEÇİLİR (öteki dördü DOM'da yok);
+          // geniş ekranda hepsi basılı olduğu için ayrıca KAYDIRILIR.
+          setBolum(deger);
+          if (genisMi) {
+            bolumIsaretle(deger);
+            capayaGit(deger);
+          }
+        }}
+      />
+      <div className="grid min-w-0 flex-1 gap-4">
       <section className="relative overflow-hidden border bg-card">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-4 py-3">
           <div>
@@ -621,7 +664,7 @@ export function ProductPortalCard({
           )}
         >
           <div className="min-w-0 space-y-5">
-            <section className={cn("relative overflow-hidden border", bolumSinifi("uniteler"))}>
+            <section id={capaKimligi("uniteler")} className={cn("oc-capa", "relative overflow-hidden border", bolumSinifi("uniteler"))}>
               <header className="border-b bg-muted/40 px-4 py-2.5"><span className="oc-kicker text-muted-foreground">Fiziksel Üniteler · A/B/C</span></header>
               <div className="grid gap-3 p-3">
                 <div className="flex flex-wrap gap-2">
@@ -673,7 +716,7 @@ export function ProductPortalCard({
               </div>
             </section>
 
-            <section className={cn("relative overflow-hidden border", bolumSinifi("kimlik"))}>
+            <section id={capaKimligi("kimlik")} className={cn("oc-capa", "relative overflow-hidden border", bolumSinifi("kimlik"))}>
               <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-4 py-2.5"><span className="oc-kicker text-muted-foreground">Otomatik Kimlik Alanları</span><Badge variant="outline">Kaynak + Elle Düzenleme</Badge></header>
               <div className="divide-y">
                 {workspace.identityFields.map((field) => {
@@ -768,7 +811,7 @@ export function ProductPortalCard({
               </div>
             </section>
 
-            <section className={cn("relative overflow-hidden border", bolumSinifi("portal"))}>
+            <section id={capaKimligi("portal")} className={cn("oc-capa", "relative overflow-hidden border", bolumSinifi("portal"))}>
               <header className="border-b bg-muted/40 px-4 py-2.5"><span className="oc-kicker text-muted-foreground">Müşteri Portalı Metinleri</span></header>
               <div className="grid gap-3 p-3 lg:grid-cols-2">
                 <div><Label htmlFor="portal-title">Başlık</Label><Input id="portal-title" className="mt-1" value={payload.portal.title} disabled={!workspace.editableRevision || !canEdit} onChange={(event) => setPayload({ ...payload, portal: { ...payload.portal, title: event.target.value } })} /></div>
@@ -778,7 +821,7 @@ export function ProductPortalCard({
             </section>
           </div>
 
-          <aside className={cn("min-w-0 xl:sticky xl:top-4 xl:self-start", bolumSinifi("plaka"))}>
+          <aside id={capaKimligi("plaka")} className={cn("oc-capa", "min-w-0 xl:sticky xl:top-4 xl:self-start", bolumSinifi("plaka"))}>
             <section className="relative overflow-hidden border bg-muted/20">
               <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-3 py-3">
                 <div><div className="oc-kicker text-muted-foreground">Baskı Önizlemesi</div><div className="mt-1 font-mono text-xs">{payload.plate.widthMm} × {payload.plate.heightMm} mm · SVG / PDF</div></div>
@@ -889,7 +932,7 @@ export function ProductPortalCard({
         </div>
       </section>
 
-      <section className={cn("relative overflow-hidden border bg-card", bolumSinifi("dokumanlar"))}>
+      <section id={capaKimligi("dokumanlar")} className={cn("oc-capa", "relative overflow-hidden border bg-card", bolumSinifi("dokumanlar"))}>
         <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-4 py-3">
           <div><div className="flex items-center gap-2 text-sm font-semibold"><FilePlus2 className="size-4 text-primary" /> Müşteriye Açılacak Dokümanlar</div><p className="mt-1 text-xs text-muted-foreground">Kaynaklar otomatik bulunur; çıktı türü, klasör ve erişim biçimi sizin onayınızdır.</p></div>
           {workspace.editableRevision && canEdit && <div><input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; const form = new FormData(); form.set("file", file); run(() => uploadCustomPortalDocument(projectId, displayRevision.id, form), "Özel PDF eklendi."); event.target.value = ""; }} /><Button variant="outline" className="min-h-11" onClick={() => fileRef.current?.click()}><FilePlus2 className="size-4" /> PDF Ekle</Button></div>}
@@ -961,6 +1004,7 @@ export function ProductPortalCard({
           {!workspace.currentRevisionId && <div className="border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">Şu anda müşteriye açık bir paket yok. Arşivdeki bir sürümü yeniden yayına alabilir veya yeni sürüm oluşturabilirsiniz.</div>}
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

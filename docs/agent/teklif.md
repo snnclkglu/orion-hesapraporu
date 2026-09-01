@@ -1749,6 +1749,10 @@ kararını değiştirir; gizli bir bölüme ulaşmanın tek yolu listedir, o yü
 düğme listeden ayrılamaz. "PDF'de en az bir bölüm görünür kalmalıdır" kapısı
 `bolumuGizle`de, yani DEĞİŞMEDEN durur.
 
+**TEK DÜZEY YALNIZ DAR EKRANDADIR.** ≥1440 px'te ray 17,5 rem'lik sabit bir
+sütuna döner (MOBIL-29); teklifte doğal bir ikinci düzey olmadığı için liste
+orada da tek düzeydir, yalnız daha okunur olur.
+
 **BEDEL:** gizleme artık iki dokunuştur (tabakayı aç → göze bas). Kabul edildi.
 Rahatsız ederse çözüm rayı yeniden sabitlemek DEĞİL, gözü bölümün kendi
 başlığına da koymaktır — kullanıcı zaten oraya bakıyordur.

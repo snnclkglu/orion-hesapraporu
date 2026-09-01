@@ -155,7 +155,8 @@ yerinde; üstüne gelenler:
   views` deseni), sözleşme `lib/panel-prefs.ts` `{v:1,hidden,collapsed}` —
   bozuk/gelecek-sürümlü kayıt VARSAYILANA döner, panoyu asla düşüremez.
   `hizli` ve `yapilacak` yalnız gizlenir (katlamanın kazandıracağı yer yok).
-  Kontrol yüzeyi üst şeritteki "Bölümler" menüsüdür.
+  Kontrol yüzeyi BÖLÜM RAYIDIR (PANEL-24); üst şeritteki "Bölümler" menüsü
+  01.09.2026'da kaldırıldı.
 - Ölçüldü (dev önizleme, 375/768/1280 + koyu tema): `scrollWidth ===
   clientWidth` üç genişlikte de; 11px altı içerik metni yok; satır hedefleri
   telefonda ≥36px.
@@ -165,3 +166,36 @@ yerinde; üstüne gelenler:
 Panel kabuğu `min-width: 0` ve gövde taşma koruması taşır. Hızlı eylemler ile
 Yaklaşan tür süzgeçleri telefonda sarar; sayfa ve bölüm içinde yatay kaydırma
 üretmez. Hızlı eylemlerin sırası ve rol süzgeci değişmemiştir.
+
+## PANEL-24 — KONTROL YÜZEYİ BÖLÜM RAYIDIR; ÜST ŞERİTTEKİ MENÜ KALKTI.
+
+01.09.2026: panoya bölüm rayı eklendi (MOBIL-29) ve üst şeritteki
+`SectionsMenu` popover'ı KALDIRILDI. Sebep sayıdır: ikisi de aynı sekiz
+kimliği listeliyordu, yani kullanıcının karşısında aynı listeyi gösteren iki
+ayrı yüzey olurdu. Göz (gizle) ve katla düğmeleri ray satırının `sag` yuvasına
+indi; yazma yolu (`setPanelSectionState` + `router.refresh()`) DEĞİŞMEDİ.
+
+**ÇIPALAR SUSPENSE'İN DIŞINDADIR.** Yedi yuvanın altısı kendi Suspense sınırının
+arkasında; kimlik bölümün kendi `<section>`üne konsaydı iskelet çizilirken o
+düğüm HENÜZ OLMAZDI ve `getElementById` boş dönerdi. `panel-view.tsx` her
+yuvayı sınırın DIŞINDA bir `<div id={capaKimligi(...)} class="oc-capa">` ile
+sarar. `capaKimligi` SAF modülden gelir (`lib/bolum-capa-kimlik.ts`) çünkü
+`PanelView` bir SUNUCU bileşenidir.
+
+**GİZLİ BÖLÜM RAYDA KALIR AMA ÇIPASI YOKTUR.** Gizlenen bölümün sorgusu hiç
+koşmuyor, yani DOM'da da yok; satır orada yalnız GERİ AÇMAK için durur ve
+tıklamak sessizce hiçbir şey yapar. Rayın "git" anlamıyla tek çelişkisi budur
+ve bilinçlidir — başka türlü gizlenen bir bölüm geri açılamazdı.
+
+**`yapilacak`IN KENDİ YUVASI YOK**: "Benim Günüm"ün içinde çiziliyor. Rayda
+kendi satırı vardır (gizlenebilir bir bölümdür) ama çıpası `gunum`u gösterir;
+kendi kimliğine kaydırmak boşluğa atlamak olurdu.
+
+**`prefs` VERİLMEYEN `PanelView` RAY BASMAZ VE ÇIPA KİMLİĞİ ÜRETMEZ.**
+`/dev/panel-preview` iki `PanelView` bastığı için ikinci kopyada kimlikler
+çakışırdı (`getElementById` hep ilkini bulur).
+
+Panonun *"PENCERE DEĞİLDİR"* ilkesi korunur: ≥1440 px'te ray zaten modal
+olmayan bir sütundur. 1440 altında tabaka modaldır ve bu bilinçli bir
+istisnadır — gezinme açıkça istenen bir eylemdir, arama gibi sayfanın kendi
+yüzeyi değil.

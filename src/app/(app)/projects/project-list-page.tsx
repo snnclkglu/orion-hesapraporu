@@ -110,7 +110,7 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
     : "Hesap raporu projeleri ve revizyon arşivi";
 
   return (
-    <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
+    <div className="grid min-w-0 max-w-full gap-4 overflow-x-clip">
       <PageHeader kicker={offerContext ? "Teklif" : undefined} title={title} hint={hint}>
         <NewProjectDialog
           defaultCraneType={settings.default_crane_type}

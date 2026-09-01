@@ -19,6 +19,7 @@
 
 import { notFound } from "next/navigation";
 import { PanelView } from "@/app/(app)/panel/panel-view";
+import { VARSAYILAN_PANEL_PREFS } from "@/lib/panel-prefs";
 import { PanelSearch } from "@/app/(app)/panel/panel-search";
 import { WorkspaceSection } from "@/app/(app)/panel/sections/workspace";
 import { SignalsSection } from "@/app/(app)/panel/sections/signals";
@@ -265,11 +266,17 @@ export default function PanelPreviewPage() {
   if (process.env.NODE_ENV !== "development") notFound();
 
   return (
-    <main className="mx-auto grid max-w-5xl gap-12 p-4 sm:p-6">
+    // KABUK KELEPÇESİ TAKLİT EDİLİR: pano gerçekte `max-w-6xl` içinde
+    // yaşıyor ve bölüm rayı o genişlikte ölçülmelidir.
+    <main className="mx-auto grid max-w-6xl gap-12 p-4 sm:p-6">
       <section>
         <p className="oc-kicker mb-4 text-muted-foreground">Önizleme · Yönetici</p>
+        {/* RAY YALNIZ BU KOPYADA: `prefs` verilince yuvalar çıpa kimliği
+            alır ve sayfada iki `PanelView` olduğu için ikinci kopyada
+            aynı kimlikler ÇAKIŞIRDI (`getElementById` hep ilkini bulur). */}
         <PanelView
           role="admin"
+          prefs={VARSAYILAN_PANEL_PREFS}
           displayName="Sinan Çolakoğlu"
           today={BUGUN}
           search={<PanelSearch hits={HITS} />}

@@ -84,7 +84,7 @@ export async function RevisionPageView({
   return (
     // Başlık şeridi sabit yükseklikte; editör kalan alanı doldurur ve
     // kendi içinde kayar (sayfa gövdesi kaymaz).
-    <div className="flex h-full min-h-0 min-w-0 max-w-full flex-col gap-4 overflow-x-hidden">
+    <div className="flex h-full min-h-0 min-w-0 max-w-full flex-col gap-4 overflow-x-clip">
       {/* Başlık ve eylemler kabuğun üst şeridine taşındı: editör ekranında
           çalışma alanı kutsaldır ve bir başlık satırı burada en pahalı
           yerdedir. Kırıntı yolu (Mühendislik / 0055 / V1) başlığın önünde,

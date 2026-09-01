@@ -303,7 +303,7 @@ export default function OfferEditorPreviewPage() {
                        hata iki kez tam burada saklandı. */}
                 <div
                   id="bolum-kabi"
-                  className="flex min-w-0 max-w-full flex-col gap-4 overflow-x-hidden lg:h-full lg:min-h-0"
+                  className="flex min-w-0 max-w-full flex-col gap-4 overflow-x-clip lg:h-full lg:min-h-0"
                 >
                   {/* OffersNav revizyon ekranında `null` döner — burada da yok. */}
                   {/* ——— GERÇEK SAYFA KÖKÜ (page.tsx ile AYNI sınıflar) */}

@@ -434,7 +434,7 @@ export function CostEditor({
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[1rem_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[auto_minmax(0,1fr)]">
         {/* ————————————————————————————————————————————— bölüm rayı */}
         <div className="grid min-w-0 gap-1.5 lg:hidden">
           <p className="text-sm font-medium">Maliyet Bölümü</p>
@@ -453,6 +453,7 @@ export function CostEditor({
         <BolumRayi
           className="hidden lg:block"
           etiket="Maliyet bölümleri"
+          depoAnahtari="orion.maliyet.ray.daraltildi"
           ogeler={RAY_OGELERI}
           aktifId={aktif}
           onSec={(id) => setAktif(id as typeof aktif)}

@@ -12,7 +12,41 @@
 
 import { CalendarClock } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { capaKimligi } from "@/lib/bolum-capa-kimlik";
+import type { PanelPrefs, PanelSectionId } from "@/lib/panel-prefs";
 import { roleLabel } from "@/lib/roles";
+import { PanelRail } from "./prefs-client";
+
+/**
+ * ÇIPA SARMALAYICISI — bölüm rayının hedefi.
+ *
+ * Kimlik bölümün KENDİ `<section>`üne konamaz: yedi yuvanın altısı
+ * Suspense sınırının arkasında ve iskelet çizilirken o düğüm HENÜZ YOK,
+ * `getElementById` boş döner ve kaydırma sessizce hiçbir şey yapardı.
+ * Sarmalayıcı sınırın DIŞINDADIR, yani ilk kareden itibaren vardır.
+ *
+ * `capaKimligi` SAF modülden gelir (`lib/bolum-capa-kimlik.ts`): bu bir
+ * sunucu bileşenidir ve `"use client"` sınırının ötesindeki bir işlevi
+ * çağıramaz.
+ */
+function Yuva({
+  id,
+  capali,
+  children,
+}: {
+  id: PanelSectionId;
+  /** Önizlemenin ikinci kopyasında kimlik BASILMAZ — çakışırdı. */
+  capali: boolean;
+  children: React.ReactNode;
+}) {
+  if (!children) return null;
+  if (!capali) return <>{children}</>;
+  return (
+    <div id={capaKimligi(id)} className="oc-capa min-w-0">
+      {children}
+    </div>
+  );
+}
 
 /** Uzun tarih: "13 Ağustos 2026, Çarşamba". */
 function uzunTarih(iso: string): string {
@@ -59,6 +93,7 @@ export function PanelView({
   today,
   search,
   sections,
+  prefs,
   araclar,
 }: {
   role: string;
@@ -68,7 +103,13 @@ export function PanelView({
   /** Kahraman arama kutusu — sayfanın akışında durur, pencere değil. */
   search: React.ReactNode;
   sections: PanelSlots;
-  /** Üst şeride giden sayfa araçları (ör. Bölümler menüsü) — veri sayfadan. */
+  /**
+   * Bölüm tercihleri. VERİLİRSE bölüm rayı çizilir ve yuvalar çıpa
+   * kimliği alır. Verilmezse ikisi de basılmaz — `/dev/panel-preview` iki
+   * `PanelView` bastığı için ikinci kopyada kimlikler ÇAKIŞIRDI.
+   */
+  prefs?: PanelPrefs;
+  /** Üst şeride giden sayfa araçları — veri sayfadan. */
   araclar?: React.ReactNode;
 }) {
   // Ad tek sözcüğe iner: "Sinan Çolakoğlu, iyi çalışmalar" bir selam değil bir
@@ -76,7 +117,11 @@ export function PanelView({
   const ilkAd = displayName.trim().split(/\s+/)[0] ?? "";
 
   return (
-    <div className="grid min-w-0 max-w-full gap-8 overflow-x-hidden pb-4">
+    // RAY + İÇERİK. `items-start` YAZILMAZ (MOBIL-31): yapışkan ray
+    // sütununun yapışacak yolu sarmalayıcısının boyudur.
+    <div className="flex min-w-0 max-w-full gap-2 overflow-x-clip lg:gap-4">
+      {prefs ? <PanelRail prefs={prefs} /> : null}
+      <div className="grid min-w-0 flex-1 gap-8 pb-4">
       {/* Üst şeridin kimlik alanı — PageHeader veri almaz, çerçeve veri-siz
           kalır (dev önizlemede yerinde çizilir). Araçlar (Bölümler menüsü)
           sayfadan yuvaya gelir; eylem satırı dar ekranda kendi satırındadır. */}
@@ -98,27 +143,27 @@ export function PanelView({
       </header>
 
       {/* ————————————————————————————————————— hızlı eylemler */}
-      {sections.hizli}
+      <Yuva id="hizli" capali={Boolean(prefs)}>{sections.hizli}</Yuva>
 
       {/* ————————————————————————————————————— benim günüm */}
-      {sections.gunum}
+      <Yuva id="gunum" capali={Boolean(prefs)}>{sections.gunum}</Yuva>
 
       {/* ————————————————————————————————————— bölümler */}
-      {sections.alan}
+      <Yuva id="alan" capali={Boolean(prefs)}>{sections.alan}</Yuva>
 
       {/* ————————————————————————————————————— dikkat + yaklaşan */}
       {(sections.sinyal || sections.ajanda) && (
         <div className="grid items-start gap-8 lg:grid-cols-2">
-          {sections.sinyal}
-          {sections.ajanda}
+          <Yuva id="sinyal" capali={Boolean(prefs)}>{sections.sinyal}</Yuva>
+          <Yuva id="ajanda" capali={Boolean(prefs)}>{sections.ajanda}</Yuva>
         </div>
       )}
 
       {/* ————————————————————————————————————— bildirim + akış */}
       {(sections.bildirim || sections.akis) && (
         <div className="grid items-start gap-8 lg:grid-cols-2">
-          {sections.bildirim}
-          {sections.akis}
+          <Yuva id="bildirim" capali={Boolean(prefs)}>{sections.bildirim}</Yuva>
+          <Yuva id="akis" capali={Boolean(prefs)}>{sections.akis}</Yuva>
         </div>
       )}
 
@@ -130,6 +175,7 @@ export function PanelView({
         Yaklaşan listesi otuz günlük penceredir; tarihlerin tamamı ilgili bölümün kendi
         ekranındadır.
       </p>
+      </div>
     </div>
   );
 }

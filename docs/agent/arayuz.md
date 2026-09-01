@@ -436,27 +436,53 @@ düğmeden üçe indi).
 (MOBIL-18 gereği) kapsayıcı blok olur. Kap `overflow-x-auto` almazsa içerik
 taşar ve SAYFAYI iter.
 
-## MOBIL-29 — BÖLÜM RAYI: SOL KENARDA ÇENTİKLİ İNCE ŞERİT, TABAKA OLARAK AÇILIR.
+## MOBIL-29 — BÖLÜM RAYI: ÜÇ KİPLİ TEK LİSTE (ŞERİT · TABAKA · SABİT SÜTUN).
 
-Kullanıcı isteği (01.09.2026): *"soldan açılan bir menü gibi bir şey… daralınca
-çok ince bir çizgi gibi görünse ama tıklayınca açılsa ve bölüm içi gezinmeleri
-sağlasa."* Ortak bileşen `src/components/bolum-rayi.tsx` (`BolumRayi`); dört ayrı
-kopyanın (hesap raporu · teklif · maliyet · el kitabı) yerine geçer.
+Ortak bileşen `src/components/bolum-rayi.tsx` (`BolumRayi`); hesap raporu,
+teklif, maliyet, el kitabı, personel profili, Vinç Kimliği ve açılış panosunun
+bölüm gezinmesi ONDAN gelir. Dört ayrı kopyanın (13rem'lik teklif sütunu,
+11rem'lik maliyet sütunu, hesap raporunun gömülü rayı, el kitabının belge
+haritası) yerine geçti.
 
-**TEK DÜZEYDİR.** Kullanıcı kararı: *"bölüm + alt başlık olmasın, sadece bölüm
-olsun. çok alt başlık var, çok yer kaplıyor."* Ray bir İÇİNDEKİLER değil, sıçrama
-menüsüdür. Alt düzey KAYBOLMAZ, ARAMAYA taşınır: arama sonucu düz bir listedir
-(`arama.sonuclar`), ikinci bir düzey değildir.
+| genişlik | kapalı | açık |
+|---|---|---|
+| <1440 px | 1 rem şerit | TABAKA — `absolute` + örtü + `useOverlay`, modaldır |
+| ≥1440 px | 1 rem şerit | SABİT SÜTUN — akışta, 17,5 rem, örtü YOK, modal DEĞİL |
 
-**VARSAYILAN KAPALIDIR VE HER GENİŞLİKTE AYNI DAVRANIR.** Masaüstünde kalıcı bir
-sütun açılmaz; `orion.editor.nav.collapsed` anahtarı bu yüzden kaldırıldı. Açık
-durum KALICI DEĞİLDİR — gezinmeler arasında açık kalan bir tabaka yanlış olurdu.
+**AYNI LİSTE İKİ KEZ MONTE EDİLMEZ** (MOBIL-26): sabit sütun ile tabaka aynı
+düğümdür, yalnız konumu ve genişliği değişir. Kırılım JS'te sorulur
+(`useRaySabitlenebilir`, `lib/use-breakpoint.ts`), `hidden` sınıfıyla değil.
+
+**EŞİK 1440'TIR, 1280 DEĞİL.** El kitabı `xl`de üçüncü paneli de basıyor
+(19 rem). 1280'deki 962 px'lik kapta 260 px'lik sabit bir ray belgeye
+962 − 260 − 304 − 32 = **366 px** bırakırdı ve MOBIL-26'nın ≥380 px ölçütü
+düşerdi. Ölçülen: 1440'ta el kitabının belge sütunu **745 px**. Sayı iki yerde
+yazılıdır — `RAY_DOCK_MQ` ve CSS'teki karşılığı; ayrışırlarsa sütun CSS'te
+açılıp JS'te kapalı sanılır.
+
+**TERCİH "DARALTILDI" OLARAK SAKLANIR, "AÇIK" OLARAK DEĞİL**
+(`orion.<alan>.ray.daraltildi`). `useStoredFlag`in sunucu anlık görüntüsü
+`false`tur ve geniş ekran varsayılanı AÇIKtır; ters isimlendirilseydi ilk kare
+her seferinde yanlış çizilirdi. Anahtar verilmeyen sayfa hiçbir genişlikte
+sabitlenmez.
+
+**ALT BAŞLIKLAR YALNIZ SABİT SÜTUNDA** (`BolumOgesi.cocuklar`). Dar ekranda
+kullanıcının kararı değişmedi (01.09.2026): *"bölüm + alt başlık olmasın,
+sadece bölüm olsun. çok alt başlık var, çok yer kaplıyor."* Şerit çentikleri ve
+tabaka listesi TEK DÜZEYDİR. Alt düzey kaybolmaz, ARAMAYA da taşınır: arama
+sonucu düz bir listedir (`arama.sonuclar`), ikinci bir düzey değil.
+
+Sabit sütundaki grup davranışı eski raydan birebir gelir: bir grup **açıktır**
+ancak `!gizli && (arama var || aktif satır o grupta || elle açıldı)`; yani
+**bulunduğun grup her zaman açıktır ve onu kapatmak etkisizdir**. Ok ile ad AYRI
+düğmelerdir — ok açar/kapatır, ad bölümün kendisine götürür. Grup açıklığı
+KALICI DEĞİLDİR. Girinti `ml-3.5 border-l border-border/70 pl-2`.
 
 **DURUM RENKLE DEĞİL GEOMETRİYLE ANLATILIR.** `--primary` (oklch 0.467 0.17 27)
 ile `--destructive` (0.516 0.167 26) BİR DERECE arayla aynı kırmızıdır
 (globals.css); 16 px'lik bir çentikte ayırt edilemezler. Üç genişlik kademesi
 kullanılır — aktif tam genişlik **ve iki kat boy**, uyarı 2/3, nötr 1/3 — yani
-aktifi ayıran şey BOYDUR, renk yalnız uyarıyı griden ayırır.
+aktifi ayıran BOYDUR, renk yalnız uyarıyı griden ayırır.
 
 **ÇENTİKLER AYRI DOKUNMA HEDEFİ DEĞİLDİR.** Yirmi bir çentik 700 px'lik bir
 şeritte ~30 px'e denk gelir ve `.oc-tap` üst üste dizili kardeşlerde komşunun
@@ -464,41 +490,80 @@ dokunuşunu yutar (MOBIL-28). Şeridin TAMAMI tek düğmedir; çentikler
 `aria-hidden`dır ve bilgi düğmenin `aria-label`ındadır ("Hesap bölümleri —
 7/21: Ana Kiriş").
 
-**RAY NEGATİF KENAR BOŞLUĞU TAŞIMAZ.** `revision-page-view.tsx` ve
-`offers/layout.tsx` editörü DOLGUSUZ bir `overflow-x-hidden` kaba sarar; padding
-kutusunun sol kenarı içerik kenarıdır, yani `-ml-6` şeridi kutunun dışına atar ve
-KIRPILIR. Şerit içerik kenarından başlar.
+**GENİŞLİK SATIR İÇİNDE VE ÜÇ EKSENDE VERİLİR** (`width`/`minWidth`/`maxWidth`,
+kabuğun kenar çubuğunun kalıbı). İki sebebi var: `globals.css` bütün kaplara
+`min-width: 0` veriyor, ve Tailwind'in keyfi değeri (`w-[17.5rem]`) burada
+ÜRETİLMİYORDU — sınıf yazılıydı ama hesaplanan genişlik 16 px kalıyordu.
 
-**ŞERİT DAR EKRANDA `fixed`, GENİŞ EKRANDA `sticky`.** Aynı sarmalayıcıların
-sonucu: `overflow-x: hidden` `overflow-y`yi de `auto` yapar (MOBIL-14), yani o
-kap bir KAYDIRMA KABIDIR; `lg` altında yüksekliği `auto` olduğu için hiç kaymaz
-ve içindeki `sticky` çocuk da HİÇ YAPIŞMAZ. `fixed` overflow tarafından
-kırpılmaz (kapsayıcı bloğu görünür alandır) ve dar ekranda kabuk kenar çubuğu
-zaten yoktur — şerit ekranın gerçek kenarına oturur. Akıştaki 1 rem'lik sütun
-yerini korur ki içerik şeridin altına kaymasın.
+**GENİŞLİK GEÇİŞİ YOKTUR.** Şerit ↔ sütun AYRIK bir durum değişimidir. Geçiş
+denendi ve animasyon karesi ateşlemeyen bağlamlarda (arka plan sekmesi, gizli
+panel) genişlik BAŞLANGIÇ değerinde asılı kalıyor, sütun 16 px çizilip içeriğin
+üstüne biniyordu. Marka dili de ekran yüzeylerinden animasyonu zaten sökmüştü.
 
-**GENİŞ EKRANDA AKIŞTA DURUR.** `fixed` olsaydı üçünün üstüne binerdi: revizyon
-ekranlarında kabuk kenar çubuğu zaten 4,5 rem'lik dar bir menüdür, uygulamada
-`sticky left-0` ile çivilenmiş tablo sütunları vardır (yetki ızgarası, sarf
-analizi, worklog pivotu), ve sabit çerçeve rotalarında `main` `lg:overflow-hidden`dır.
+**RAY NEGATİF KENAR BOŞLUĞU TAŞIMAZ.** Sayfa kabukları dolgusuzdur; `-ml-6`
+şeridi padding kutusunun dışına atar ve kırpılır.
 
-**TABAKA KAPALIYKEN BASILMAZ.** Eski hesap rayı kapalı listeyi
-`translate-y-full` ile ayakta tutuyor, 117 görünmez düğmeyi Tab sırasından
-çıkarmak için `inert` yazmak zorunda kalıyordu. Basmamak sorunu kaldırır.
-Davranış (gövde kilidi · Esc · odak tuzağı · odağı geri verme) `useOverlay`den
-gelir; Radix `Dialog` KULLANILMAZ, gerekçesi `lib/use-overlay.ts` başlığındadır.
+**ŞERİT DAR EKRANDA `fixed`, GENİŞ EKRANDA `sticky`.** Dar ekranda kabuk kenar
+çubuğu yoktur ve şerit ekranın gerçek kenarına oturmalıdır; akıştaki 1 rem'lik
+sütun yerini korur ki içerik şeridin altına kaymasın. Geniş ekranda `fixed`
+üçünün üstüne binerdi: revizyon ekranlarında kabuk menüsü zaten 4,5 rem'lik dar
+bir raydır, uygulamada `sticky left-0` ile çivilenmiş tablo sütunları vardır ve
+sabit çerçeve rotalarında `main` `lg:overflow-hidden`dır.
+
+**TABAKA KAPALIYKEN BASILMAZ.** Eski ray kapalı listeyi `translate-y-full` ile
+ayakta tutuyor, 117 görünmez düğmeyi Tab sırasından çıkarmak için `inert`
+yazmak zorunda kalıyordu. Davranış (gövde kilidi · Esc · odak tuzağı · odağı
+geri verme) `useOverlay`den gelir; Radix `Dialog` KULLANILMAZ. **Sabit sütun
+modal DEĞİLDİR**: örtü yok, gövde kilidi yok, Esc kapatmaz.
 
 **İKİNCİL EYLEM SATIRDA KALIR** (`BolumOgesi.sag`): teklifin göz düğmesi,
-hesabın modül ＋/－ anahtarı. Kapalı bir modülün adımı yoktur; onu yeniden
-açmanın TEK yolu kendi satırıdır.
+hesabın modül ＋/－ anahtarı, panonun gizle/katla ikilisi. Kapalı bir bölümü
+yalnız kendi satırından geri açabilirsin.
 
-**ÇIPA KİPİ AYRIDIR** (`lib/bolum-capa.ts`). Anahtarlamalı editörlerde (aynı anda
-tek bölüm DOM'da) seçim bir durum değişimidir; uzun kaydırmalı sayfalarda
-(personel profili) gerçek bir kaydırmadır. Hedef `.oc-capa` sınıfını taşır —
-`scroll-margin-top: calc(var(--app-header-h) + 0.75rem)`, 48 px VARSAYILMAZ.
-İki ölçülmüş tuzak: (1) tabaka kapanırken `useOverlay`in gövde kilidi hâlâ
-duruyorsa `scrollIntoView` SESSİZCE hiçbir şey yapmaz, kilidin kalkması beklenir;
-(2) bekleme `setTimeout` iledir, `requestAnimationFrame` ile DEĞİL — sekme arka
-planda ya da gizliyken rAF ve `IntersectionObserver` HİÇ ateşlemez. Aynı sebeple
-seçilen bölüm ELLE de işaretlenir (`useAktifCapa`in ikinci dönüş değeri); gözcü
-tek kaynak olsaydı ray seçilen bölümü yakmayabilirdi.
+**ÇIPA KİPİ AYRIDIR** (`lib/bolum-capa.ts`). Anahtarlamalı editörlerde seçim
+bir durum değişimidir; uzun kaydırmalı sayfalarda (personel profili, açılış
+panosu, Vinç Kimliği `lg` üstünde) gerçek bir kaydırmadır. Hedef `.oc-capa`
+taşır — `scroll-margin-top: calc(var(--app-header-h) + 0.75rem)`, 48 px
+VARSAYILMAZ. Üç ölçülmüş tuzak: (1) tabaka kapanırken `useOverlay`in gövde
+kilidi hâlâ duruyorsa `scrollIntoView` SESSİZCE hiçbir şey yapmaz; (2) bekleme
+`setTimeout` iledir, `requestAnimationFrame` ile DEĞİL — sekme arka planda ya da
+gizliyken rAF ve `IntersectionObserver` HİÇ ateşlemez; (3) aynı sebeple seçilen
+bölüm ELLE de işaretlenir (`useAktifCapa`in ikinci dönüş değeri). Kimlik
+üreticisi SAF bir modüldedir (`lib/bolum-capa-kimlik.ts`) çünkü sunucu
+bileşenleri de çıpa sarmalayıcısı basıyor ve `"use client"` sınırının
+ötesindeki bir işlevi çağıramazlar.
+
+## MOBIL-30 — SAYFA KABUĞU `overflow-x-clip` KULLANIR, `overflow-x-hidden` DEĞİL.
+
+MOBIL-14'ün doğrudan sonucu ve ölçülmüş bedeli: `overflow-x: hidden` verilen kap
+`overflow-y`yi de `auto` yapar, yani bir KAYDIRMA KABI olur. Sayfa kabuklarının
+yüksekliği `auto` olduğu için o kap hiç kaymaz — ve içindeki hiçbir `sticky`
+çocuk YAPIŞMAZ. Aynı kapta ölçülen üst konum: `visible` → 48 px · **`hidden` →
+−496 px** · `clip` → 48 px. Hesaplanan `overflow-y`: `hidden` altında `auto`,
+`clip` altında `visible`.
+
+`clip` yatay kırpmayı (MOBIL-15'in güvenlik kemeri) aynen sürdürür ama kaydırma
+kabı YARATMAZ. On üç sayfa kabuğu (`admin` · `jobs` · `jobs/[id]` · `offers` ·
+`panel` · `personnel` · `projects` · `projects/[id]` · `audit` · `compare` ·
+`revisions/[revId]` · `sales` · `worklog`) ve kabuğu taklit eden iki
+`/dev/*-preview` bu yüzden `clip`e geçirildi.
+
+**TABLO VE PENCERE İÇİ `overflow-x-hidden` DOKUNULMAZ** — oralarda kırpma
+bilinçlidir ve yapışkan bir çocuk yoktur (`offers-table`, `analiz-view`,
+`lines-view`, `electrical-table`, `new-project-dialog`, `ui/select`,
+`ui/dropdown-menu`, `ui/command`).
+
+## MOBIL-31 — YAPIŞKAN ÖĞENİN SARMALAYICISI ESNEK SATIRDA `stretch` OLMALIDIR.
+
+`position: sticky` yalnız SARMALAYICISININ kutusu içinde yol alabilir. Esnek bir
+satırda `items-start` verilirse sarmalayıcı yapışkan çocuğun boyunda kalır, yol
+sıfır olur ve yapışma SESSİZCE ölür — hata görünmez, öğe yalnız içerikle birlikte
+kayıp gider.
+
+Ölçüm (personel profilinin bölüm rayı, 1280 px): `items-start` ile sarmalayıcı
+**752 px** (= yapışkan kutunun boyu), kaydırınca şeridin üstü 956 → **−544**.
+Varsayılan `stretch` ile sarmalayıcı **1655 px**, üst 48'de kalıyor.
+
+Kural: bölüm rayını (ya da başka bir `sticky` sütunu) taşıyan esnek satır
+`items-start`/`items-center` ALMAZ. Dikey hizalama gerekiyorsa yapışkan olmayan
+kardeşe `self-start` verilir, satırın tamamına değil.

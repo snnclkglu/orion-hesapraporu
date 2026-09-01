@@ -92,7 +92,7 @@ export default async function ComparePage({
   );
 
   return (
-    <div className="grid min-w-0 max-w-full gap-5 overflow-x-hidden">
+    <div className="grid min-w-0 max-w-full gap-5 overflow-x-clip">
       <Header project={project} />
       <RevisionPicker projectId={id} revisions={revList} selectedA={selA} selectedB={selB} />
 

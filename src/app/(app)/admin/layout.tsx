@@ -23,7 +23,7 @@ export default async function AdminLayout({
   if (profile?.role !== "admin") redirect("/projects");
 
   return (
-    <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
+    <div className="grid min-w-0 max-w-full gap-4 overflow-x-clip">
       <PageHeader
         title="Yönetim"
         hint="Kullanıcılar, kataloglar ve rapor ayarları"

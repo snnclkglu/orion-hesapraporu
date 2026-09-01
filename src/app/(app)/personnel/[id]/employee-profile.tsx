@@ -258,9 +258,16 @@ export function EmployeeProfile({
     // kadar hiçbir bölüm gezinmesi yoktu: dört bölümün arası ekranlarca
     // uzakta. Ray burada ÇIPA kipindedir (lib/bolum-capa.ts) — bölümlerin
     // hepsi aynı anda DOM'dadır, seçim bir durum değil bir kaydırmadır.
-    <div className="flex min-w-0 items-start gap-2 lg:gap-4">
+    //
+    // `items-start` YAZILMAZ (MOBIL-31). Yazılmıştı ve rayın yapışmasını
+    // SESSİZCE öldürüyordu: hizalama `start` olunca ray sütunu yapışkan
+    // kutusunun boyunda (752px) kalıyor, yani yapışacak yol sıfır oluyordu.
+    // 1280px'te ölçüldü: kaydırınca şeridin üstü 956 → −544'e gidiyordu.
+    // Varsayılan `stretch` ile sarmalayıcı 1655px olur ve ray 48'e yapışır.
+    <div className="flex min-w-0 gap-2 lg:gap-4">
       <BolumRayi
         etiket="Profil bölümleri"
+        depoAnahtari="orion.personel.ray.daraltildi"
         ogeler={PROFIL_BOLUMLERI}
         aktifId={aktifBolum}
         onSec={(id) => {

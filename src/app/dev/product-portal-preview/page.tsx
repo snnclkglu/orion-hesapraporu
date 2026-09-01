@@ -118,8 +118,14 @@ export default function ProductPortalPreviewPage() {
     customerLogoDataUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100"><rect width="400" height="100" fill="#fff"/><text x="200" y="64" text-anchor="middle" font-family="Arial" font-size="42" font-weight="700" fill="#262626">MÜŞTERİ A.Ş.</text></svg>')}`,
   });
   return (
+    // KABUĞUN ATA ZİNCİRİ TAKLİT EDİLİR (`/dev/offer-editor-preview`in
+    // dersi): kart gerçekte `app-shell`in `max-w-6xl` kelepçesinin ve
+    // `project-page-view.tsx`in sayfa kabuğunun içinde yaşıyor. Naif bir
+    // sarmalayıcı 348px fazla genişlik verip `xl` sıkışmasını gizliyor,
+    // ayrıca bölüm rayının yapıştığı kabı hiç kurmuyordu.
     <main className="min-h-dvh bg-muted/40 p-3 sm:p-6">
-      <div className="mx-auto grid max-w-[1500px] gap-6">
+      <div className="mx-auto grid w-full max-w-6xl gap-6">
+        <div className="grid min-w-0 max-w-full gap-3 overflow-x-clip sm:gap-4 lg:gap-6">
         <ProductPortalCard
           projectId={workspace.projectId}
           canEdit
@@ -132,6 +138,7 @@ export default function ProductPortalPreviewPage() {
           draftPreview={portal}
           publishedPreview={portal}
         />
+        </div>
         <section className="border bg-card p-4 sm:p-6">
           <div className="oc-kicker text-muted-foreground">Development Preview · Baskı</div>
           <div className="mt-4 mx-auto max-w-[960px] overflow-hidden border bg-white p-3 [&>svg]:block [&>svg]:h-auto [&>svg]:max-w-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svg }} />

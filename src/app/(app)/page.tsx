@@ -33,7 +33,6 @@ import {
 import { QuickActionsSection } from "./panel/sections/quick-actions";
 import { SectionSkeleton } from "./panel/sections/skeletons";
 import { CollapsedSection } from "./panel/sections/collapsed";
-import { SectionsMenu } from "./panel/prefs-client";
 
 export default async function PanelPage() {
   // Kabuk zaten oturum ister; buradaki kontrol kimliği tipe kazandırmak
@@ -143,7 +142,7 @@ export default async function PanelPage() {
       today={today}
       search={<PanelSearch />}
       sections={sections}
-      araclar={<SectionsMenu prefs={prefs} />}
+      prefs={prefs}
     />
   );
 }

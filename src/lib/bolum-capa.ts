@@ -17,13 +17,13 @@
 // sürümünü yazmasını engeller.
 
 import { useEffect, useState } from "react";
+import { CAPA_ONEKI, capaKimligi } from "./bolum-capa-kimlik";
 
-/** Çıpa kimliklerinin öneki — sayfa içindeki başka `id`lerle çakışmasın. */
-export const CAPA_ONEKI = "bolum-";
-
-export function capaKimligi(id: string): string {
-  return `${CAPA_ONEKI}${id}`;
-}
+// Kimlik üreticisi SAF bir modüldedir (`bolum-capa-kimlik.ts`): sunucu
+// bileşenleri de çıpa sarmalayıcısı basıyor ve `"use client"` sınırının
+// ötesinden gelen bir işlevi sunucuda ÇAĞIRAMAZLAR. Buradan yeniden dışa
+// verilir, yani çağrı yerleri değişmez.
+export { CAPA_ONEKI, capaKimligi };
 
 /**
  * Bölüme kaydır.

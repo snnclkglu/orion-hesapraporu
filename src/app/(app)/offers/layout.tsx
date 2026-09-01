@@ -38,7 +38,7 @@ export default async function OffersLayout({
     // orada üst kap zaten auto yüksekliktedir, yüzde çözülemez ve `auto`ya
     // düşer. `flex-col`, `grid` yerine bilinçlidir — çocuk sayısı değişse de
     // (`OffersNav` revizyon ekranında `null` döner) satır ataması kaymaz.
-    <div className="flex min-w-0 max-w-full flex-col gap-4 overflow-x-hidden lg:h-full lg:min-h-0">
+    <div className="flex min-w-0 max-w-full flex-col gap-4 overflow-x-clip lg:h-full lg:min-h-0">
       <OffersNav />
       {children}
     </div>

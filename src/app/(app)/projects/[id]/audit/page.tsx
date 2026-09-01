@@ -62,7 +62,7 @@ export default async function AuditPage({
     .limit(200);
 
   return (
-    <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
+    <div className="grid min-w-0 max-w-full gap-4 overflow-x-clip">
       <div>
         <div className="text-sm text-muted-foreground">
           {/* `.oc-tap`: kırıntı bağlantısı yazı boyunda kalır, dokunma katmanı

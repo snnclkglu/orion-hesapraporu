@@ -613,7 +613,7 @@ export function OfferEditor({
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[1rem_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[auto_minmax(0,1fr)]">
         {/* BÖLÜM RAYI — her genişlikte. 13rem'lik masaüstü sütunu ve ondan
             AYRI yazılmış telefon ızgarası tek bileşende birleşti.
             Izgaranın kalkma gerekçesi ölçüdür: teklif 7 + KALEM SAYISI kadar
@@ -627,6 +627,7 @@ export function OfferEditor({
             listedir. */}
         <BolumRayi
           etiket="Teklif bölümleri"
+          depoAnahtari="orion.teklif.ray.daraltildi"
           ogeler={rayOgeleri}
           aktifId={aktif}
           onSec={setAktif}
