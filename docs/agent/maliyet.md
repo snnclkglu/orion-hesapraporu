@@ -1135,3 +1135,17 @@ döndürürdü; iki duman testi bunu sav olarak tutar:
   öteki pencereye el koyar.
 - **Çizelgenin açıklama notu** (Excel): söylediği üç şeyin üçü de tablonun
   kendisinde duruyordu.
+
+## MALIYET-52 — BÖLÜM RAYI MASAÜSTÜNDEDİR; TELEFONDA IZGARA KALIR.
+
+01.09.2026: 11 rem'lik masaüstü sütunu 1 rem'lik ortak `BolumRayi`ye indi
+(MOBIL-29) ve çalışma alanına 10 rem geri verdi. Ray altı ANA bölümü listeler
+(Özet · Ağırlıklar · Hesaplar · Maliyetler · Katsayılar · Notlar).
+
+**TELEFONDA `MobileSectionGrid` KALIR** ve bu bir eksiklik değil, kuraldır:
+altı hedef MOBIL-21'in sekiz sınırının altındadır, yani kutu ızgarası oradaki
+DOĞRU biçimdir. Ray yalnız masaüstü çalışma alanı için vardır.
+
+**GÖVDE İÇİ KATLAMA RAYA GİRMEZ.** PROJE MALİYETİ, YÜRÜTME VE TEKER gibi alt
+başlıkların katlanması (`Katlama`, MALIYET-31) ayrı bir şeydir ve durumu ekranda
+yaşar; ray tek düzeydir (*"çok alt başlık var, çok yer kaplıyor"*).

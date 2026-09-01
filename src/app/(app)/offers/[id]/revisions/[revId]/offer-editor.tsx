@@ -34,7 +34,6 @@ import {
   Wallet,
 } from "lucide-react";
 import { EditableCombobox } from "@/components/editable-combobox";
-import { MobileSectionGrid } from "@/components/mobile-nav-grid";
 import { PdfDownloadLink, downloadPdfFromApp } from "@/components/pdf-download-link";
 import { SayiKutusu } from "@/components/sayi-kutusu";
 import { Button } from "@/components/ui/button";
@@ -121,6 +120,7 @@ import { ItemEditor } from "./item-editor";
 import { KalemEkleDialog } from "./kalem-ekle-dialog";
 import { RowEditor, type OptionBook } from "./row-editor";
 import { SignatureUpload } from "./signature-upload";
+import { BolumRayi, type BolumOgesi } from "@/components/bolum-rayi";
 
 type BolumKey = string;
 
@@ -296,6 +296,32 @@ export function OfferEditor({
     ],
     [payload]
   );
+
+  /**
+   * RAY SATIRLARI — TEK DÜZEY. Kalemler de bölümdür (her vinç bir bölüm),
+   * yani liste 7 + kalem sayısı kadardır ve alt başlığı yoktur.
+   *
+   * Bellekleme yok: `bolumler` zaten `useMemo`ludur ve buradaki eşleme
+   * yalnız bir kapanış üretir; `readOnly` ile `bolumuGizle`ye bağlı bir
+   * bağımlılık dizisi kararlı olmazdı.
+   */
+  const rayOgeleri: BolumOgesi[] = bolumler.map((b) => ({
+    id: b.key,
+    baslik: b.label,
+    gizli: b.hidden,
+    sag: readOnly ? undefined : (
+      <button
+        type="button"
+        className="oc-tap-square inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        title={b.hidden ? "PDF'de göster" : "PDF'de gizle — içerik korunur"}
+        aria-label={`${b.label}: ${b.hidden ? "PDF'de göster" : "PDF'de gizle"}`}
+        aria-pressed={!b.hidden}
+        onClick={() => bolumuGizle(b)}
+      >
+        {b.hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+      </button>
+    ),
+  }));
 
   /** Sol raydaki göz düğmesi — gizlemek silmez, yalnız PDF kararını değiştirir. */
   function bolumuGizle(bolum: BolumNavItem) {
@@ -587,96 +613,37 @@ export function OfferEditor({
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[13rem_minmax(0,1fr)]">
-        {/* ————————————————————————————————————————————— bölüm rayı */}
-        <div className="grid min-w-0 gap-2 lg:hidden">
-          <p className="text-sm font-medium">Teklif Bölümü</p>
-          <MobileSectionGrid
-            value={aktif}
-            options={bolumler.map((b) => ({
-              value: b.key,
-              label: b.hidden ? `${b.label} · Gizli` : b.label,
-            }))}
-            label="Teklif bölümleri"
-            onValueChange={setAktif}
-          />
-          {readOnly ? null : (() => {
-            const secili = bolumler.find((b) => b.key === aktif);
-            return secili ? (
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[1rem_minmax(0,1fr)]">
+        {/* BÖLÜM RAYI — her genişlikte. 13rem'lik masaüstü sütunu ve ondan
+            AYRI yazılmış telefon ızgarası tek bileşende birleşti.
+            Izgaranın kalkma gerekçesi ölçüdür: teklif 7 + KALEM SAYISI kadar
+            bölüm taşır ve MOBIL-21'in kutu ızgarası sekiz hedefe kadar
+            okunur — on iki kalemli bir teklifte ızgara ekranın iki katına
+            çıkıyor ve kullanıcı içeriğe ulaşmak için her seferinde onu
+            geçmek zorunda kalıyordu (MOBIL-29 fıkrası).
+
+            GÖZ DÜĞMESİ RAYDA KALIR (TEKLIF-75): gizlemek silmez, yalnız
+            PDF kararını değiştirir ve gizli bölüme ulaşmanın tek yolu
+            listedir. */}
+        <BolumRayi
+          etiket="Teklif bölümleri"
+          ogeler={rayOgeleri}
+          aktifId={aktif}
+          onSec={setAktif}
+          altEk={
+            readOnly ? null : (
               <Button
                 type="button"
-                variant="outline"
-                className="oc-tap w-full"
-                onClick={() => bolumuGizle(secili)}
+                variant="ghost"
+                size="sm"
+                className="oc-tap w-full justify-start"
+                onClick={() => setKalemEkle(true)}
               >
-                {secili.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                {secili.hidden ? "Bu Bölümü PDF'de Göster" : "Bu Bölümü PDF'de Gizle"}
+                <Plus className="size-3.5" /> Kalem Ekle
               </Button>
-            ) : null;
-          })()}
-          {readOnly ? null : (
-            <Button
-              type="button"
-              variant="outline"
-              className="oc-tap w-full"
-              onClick={() => setKalemEkle(true)}
-            >
-              <Plus className="size-4" /> Kalem Ekle
-            </Button>
-          )}
-        </div>
-
-        <nav
-          className="hidden gap-1 lg:flex lg:min-h-0 lg:flex-col lg:overflow-y-auto"
-          aria-label="Teklif bölümleri"
-        >
-          {bolumler.map((b) => (
-            <div
-              key={b.key}
-              className={cn(
-                "group flex shrink-0 items-center rounded-md border-b-2 transition-colors lg:border-b-0 lg:border-l-2",
-                aktif === b.key
-                  ? "border-b-primary bg-muted text-foreground lg:border-l-primary"
-                  : "border-b-transparent text-muted-foreground hover:bg-muted hover:text-foreground lg:border-l-transparent",
-                b.hidden && "opacity-55"
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => setAktif(b.key)}
-                aria-current={aktif === b.key ? "page" : undefined}
-                className={cn(
-                  "oc-tap min-w-0 flex-1 px-3 py-2 text-left text-sm",
-                  aktif === b.key && "font-medium"
-                )}
-              >
-                <span className="line-clamp-1">{b.label}</span>
-              </button>
-              {readOnly ? null : (
-                <button
-                  type="button"
-                  className="oc-tap mr-1 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-background"
-                  title={b.hidden ? "PDF'de göster" : "PDF'de gizle — içerik korunur"}
-                  aria-label={`${b.label}: ${b.hidden ? "PDF'de göster" : "PDF'de gizle"}`}
-                  onClick={() => bolumuGizle(b)}
-                >
-                  {b.hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                </button>
-              )}
-            </div>
-          ))}
-          {readOnly ? null : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="oc-tap shrink-0 justify-start"
-              onClick={() => setKalemEkle(true)}
-            >
-              <Plus className="size-3.5" /> Kalem Ekle
-            </Button>
-          )}
-        </nav>
+            )
+          }
+        />
 
         {/* ————————————————————————————————————————————— bölüm gövdesi */}
         <div

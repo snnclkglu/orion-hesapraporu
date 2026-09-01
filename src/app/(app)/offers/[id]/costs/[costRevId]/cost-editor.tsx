@@ -43,6 +43,7 @@ import {
   syncOfferCostFromOffer,
 } from "@/app/(app)/offers/cost-actions";
 import { Bolum, MiniDugme, type Katlama } from "./cost-parts";
+import { BolumRayi, type BolumOgesi } from "@/components/bolum-rayi";
 import { AgirlikSayfasi, HesapSayfasi, KatsayiSayfasi } from "./model-view";
 import { MaliyetSayfasi } from "./lines-view";
 import { KirilimSayfasi } from "./breakdown-view";
@@ -59,6 +60,15 @@ const BOLUMLER = [
   { key: "katsayi", label: "Katsayılar", kalemli: false },
   { key: "not", label: "Notlar", kalemli: false },
 ] as const;
+
+/**
+ * BÖLÜM RAYININ SATIRLARI — altı ana bölüm, TEK DÜZEY (MALIYET-52).
+ *
+ * Gövde içindeki `Bolum` katlaması (PROJE MALİYETİ, YÜRÜTME VE TEKER…)
+ * BURAYA GİRMEZ: o alt başlıkların işidir ve kullanıcının kararı açıktı —
+ * *"bölüm + alt başlık olmasın, sadece bölüm olsun. çok alt başlık var."*
+ */
+const RAY_OGELERI: BolumOgesi[] = BOLUMLER.map((b) => ({ id: b.key, baslik: b.label }));
 
 /**
  * ÜST ŞERİDİN SAYI KUTUSU — soft tonlu, tek satır.
@@ -424,7 +434,7 @@ export function CostEditor({
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[11rem_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[1rem_minmax(0,1fr)]">
         {/* ————————————————————————————————————————————— bölüm rayı */}
         <div className="grid min-w-0 gap-1.5 lg:hidden">
           <p className="text-sm font-medium">Maliyet Bölümü</p>
@@ -436,27 +446,17 @@ export function CostEditor({
           />
         </div>
 
-        <nav
-          className="hidden gap-1 lg:flex lg:min-h-0 lg:flex-col lg:overflow-y-auto"
-          aria-label="Maliyet bölümleri"
-        >
-          {BOLUMLER.map((b) => (
-            <button
-              key={b.key}
-              type="button"
-              onClick={() => setAktif(b.key)}
-              aria-current={aktif === b.key ? "page" : undefined}
-              className={cn(
-                "oc-tap shrink-0 rounded-md border-b-2 px-3 py-2 text-left text-sm transition-colors lg:border-b-0 lg:border-l-2",
-                aktif === b.key
-                  ? "border-b-primary bg-muted font-medium text-foreground lg:border-l-primary"
-                  : "border-b-transparent text-muted-foreground hover:bg-muted hover:text-foreground lg:border-l-transparent"
-              )}
-            >
-              <span className="line-clamp-1">{b.label}</span>
-            </button>
-          ))}
-        </nav>
+        {/* MASAÜSTÜ RAYI — 11rem'lik sabit sütun 1rem'e indi (MALIYET-52).
+            TELEFONDA IZGARA KALIR: altı bölüm MOBIL-21'in sekiz hedefli
+            sınırının altındadır, yani kutu ızgarası orada DOĞRU biçimdir ve
+            ray yalnız masaüstü çalışma alanını geri kazanmak için vardır. */}
+        <BolumRayi
+          className="hidden lg:block"
+          etiket="Maliyet bölümleri"
+          ogeler={RAY_OGELERI}
+          aktifId={aktif}
+          onSec={(id) => setAktif(id as typeof aktif)}
+        />
 
         {/* ————————————————————————————————————————————— bölüm gövdesi
             KAYAN KAP AYNI ZAMANDA BİR KAPSAYICI BLOKTUR (`relative`, MOBIL-18).

@@ -324,6 +324,21 @@ metinleri ortalı ve kırılabilir olur. Yatay kaydırma ve `whitespace-nowrap`
 kullanılmaz. `md` ve üstünde mevcut masaüstü rayları korunabilir; Yönetim
 rayının masaüstü eşiği `lg`dir.
 
+**KUTU IZGARASI PANEL SEÇİMİNİNDİR, BELGENİN BÖLÜMLERİNİN DEĞİL.** Kural
+hedeflerin hepsi bir ekranda görünebildiği sürece geçerlidir: SEKİZ ya da daha
+az çalışma yüzü (Harita · Belge · Kâğıt gibi) `MobileSectionGrid`te kalır ve bu
+bir istisna değil kuralın TANIMIDIR. Bir BELGENİN bölümleri buna girmez —
+yirmi bir modülü ya da yüz on yedi adımı yan yana kutuya dizmek ızgarayı
+ekranın iki katı yapar ve kullanıcı içeriğe ulaşmak için her seferinde onu
+geçmek zorunda kalır; kuralın kaçındığı gizlenmenin daha kötüsü budur (hesap
+editöründe ölçüldü: başlık + arama + liste ≈ 350 px). Sekizden çok bölümü olan
+belge ekranı BÖLÜM RAYINI kullanır (MOBIL-29).
+
+Ray bir AÇILIR LİSTE DEĞİLDİR ve fark ölçülebilirdir: açılır kutu kapalıyken
+HİÇBİR bilgi taşımaz; ray kapalıyken de sayfanın sol kenarında sürekli görünür,
+kaç bölüm olduğunu, kaçıncısında bulunulduğunu ve hangisinde kontrol kaldığını
+çentikleriyle söyler.
+
 Bu kural yalnız **adres/panel gezinmesine** aittir. Yıl, müşteri, para birimi,
 durum, malzeme gibi veri ya da süzgeç seçen `Select` alanları açılır liste
 olarak kalır; onları kutu ızgarasına çevirmek bilgi mimarisini bozar.
@@ -350,7 +365,10 @@ kart dolgusu, satır aralığı ve etiket boyunu azaltır.
 
 Hesap raporu editöründe telefon alt çubuğu ekranın altında yapışkan kalır ve
 tek sırada Önceki · bölüm seçici · Kaydet · Sonraki denetimlerini taşır. Bölüm
-seçici mevcut alt tabaka listesini açar; ayrı bir gezinme kopyası oluşturmaz.
+seçici BÖLÜM RAYININ tabakasını açar (MOBIL-29); ayrı bir gezinme kopyası
+oluşturmaz. 01.09.2026'ya kadar bu bir ALT tabakaydı ve yalnız `lg` altında
+vardı; artık her genişlikte aynı soldan açılan tabakadır — düğmenin `lg`
+üstünde etkisizleştiren `pointer-events-none` sınıfı da o yüzden kalktı.
 İlerleme çizgisi kumandaların üst kenarındaki 2 px banttır. Dar ekranda geri ve
 ileri metni saklanır ama erişilebilir adları korunur; çubuk yatay kaymaz.
 
@@ -417,3 +435,70 @@ düğmeden üçe indi).
 **`.oc-scrollx` TEK BAŞINA KAYDIRMAZ**: yalnız kenar ipucunu çizer ve
 (MOBIL-18 gereği) kapsayıcı blok olur. Kap `overflow-x-auto` almazsa içerik
 taşar ve SAYFAYI iter.
+
+## MOBIL-29 — BÖLÜM RAYI: SOL KENARDA ÇENTİKLİ İNCE ŞERİT, TABAKA OLARAK AÇILIR.
+
+Kullanıcı isteği (01.09.2026): *"soldan açılan bir menü gibi bir şey… daralınca
+çok ince bir çizgi gibi görünse ama tıklayınca açılsa ve bölüm içi gezinmeleri
+sağlasa."* Ortak bileşen `src/components/bolum-rayi.tsx` (`BolumRayi`); dört ayrı
+kopyanın (hesap raporu · teklif · maliyet · el kitabı) yerine geçer.
+
+**TEK DÜZEYDİR.** Kullanıcı kararı: *"bölüm + alt başlık olmasın, sadece bölüm
+olsun. çok alt başlık var, çok yer kaplıyor."* Ray bir İÇİNDEKİLER değil, sıçrama
+menüsüdür. Alt düzey KAYBOLMAZ, ARAMAYA taşınır: arama sonucu düz bir listedir
+(`arama.sonuclar`), ikinci bir düzey değildir.
+
+**VARSAYILAN KAPALIDIR VE HER GENİŞLİKTE AYNI DAVRANIR.** Masaüstünde kalıcı bir
+sütun açılmaz; `orion.editor.nav.collapsed` anahtarı bu yüzden kaldırıldı. Açık
+durum KALICI DEĞİLDİR — gezinmeler arasında açık kalan bir tabaka yanlış olurdu.
+
+**DURUM RENKLE DEĞİL GEOMETRİYLE ANLATILIR.** `--primary` (oklch 0.467 0.17 27)
+ile `--destructive` (0.516 0.167 26) BİR DERECE arayla aynı kırmızıdır
+(globals.css); 16 px'lik bir çentikte ayırt edilemezler. Üç genişlik kademesi
+kullanılır — aktif tam genişlik **ve iki kat boy**, uyarı 2/3, nötr 1/3 — yani
+aktifi ayıran şey BOYDUR, renk yalnız uyarıyı griden ayırır.
+
+**ÇENTİKLER AYRI DOKUNMA HEDEFİ DEĞİLDİR.** Yirmi bir çentik 700 px'lik bir
+şeritte ~30 px'e denk gelir ve `.oc-tap` üst üste dizili kardeşlerde komşunun
+dokunuşunu yutar (MOBIL-28). Şeridin TAMAMI tek düğmedir; çentikler
+`aria-hidden`dır ve bilgi düğmenin `aria-label`ındadır ("Hesap bölümleri —
+7/21: Ana Kiriş").
+
+**RAY NEGATİF KENAR BOŞLUĞU TAŞIMAZ.** `revision-page-view.tsx` ve
+`offers/layout.tsx` editörü DOLGUSUZ bir `overflow-x-hidden` kaba sarar; padding
+kutusunun sol kenarı içerik kenarıdır, yani `-ml-6` şeridi kutunun dışına atar ve
+KIRPILIR. Şerit içerik kenarından başlar.
+
+**ŞERİT DAR EKRANDA `fixed`, GENİŞ EKRANDA `sticky`.** Aynı sarmalayıcıların
+sonucu: `overflow-x: hidden` `overflow-y`yi de `auto` yapar (MOBIL-14), yani o
+kap bir KAYDIRMA KABIDIR; `lg` altında yüksekliği `auto` olduğu için hiç kaymaz
+ve içindeki `sticky` çocuk da HİÇ YAPIŞMAZ. `fixed` overflow tarafından
+kırpılmaz (kapsayıcı bloğu görünür alandır) ve dar ekranda kabuk kenar çubuğu
+zaten yoktur — şerit ekranın gerçek kenarına oturur. Akıştaki 1 rem'lik sütun
+yerini korur ki içerik şeridin altına kaymasın.
+
+**GENİŞ EKRANDA AKIŞTA DURUR.** `fixed` olsaydı üçünün üstüne binerdi: revizyon
+ekranlarında kabuk kenar çubuğu zaten 4,5 rem'lik dar bir menüdür, uygulamada
+`sticky left-0` ile çivilenmiş tablo sütunları vardır (yetki ızgarası, sarf
+analizi, worklog pivotu), ve sabit çerçeve rotalarında `main` `lg:overflow-hidden`dır.
+
+**TABAKA KAPALIYKEN BASILMAZ.** Eski hesap rayı kapalı listeyi
+`translate-y-full` ile ayakta tutuyor, 117 görünmez düğmeyi Tab sırasından
+çıkarmak için `inert` yazmak zorunda kalıyordu. Basmamak sorunu kaldırır.
+Davranış (gövde kilidi · Esc · odak tuzağı · odağı geri verme) `useOverlay`den
+gelir; Radix `Dialog` KULLANILMAZ, gerekçesi `lib/use-overlay.ts` başlığındadır.
+
+**İKİNCİL EYLEM SATIRDA KALIR** (`BolumOgesi.sag`): teklifin göz düğmesi,
+hesabın modül ＋/－ anahtarı. Kapalı bir modülün adımı yoktur; onu yeniden
+açmanın TEK yolu kendi satırıdır.
+
+**ÇIPA KİPİ AYRIDIR** (`lib/bolum-capa.ts`). Anahtarlamalı editörlerde (aynı anda
+tek bölüm DOM'da) seçim bir durum değişimidir; uzun kaydırmalı sayfalarda
+(personel profili) gerçek bir kaydırmadır. Hedef `.oc-capa` sınıfını taşır —
+`scroll-margin-top: calc(var(--app-header-h) + 0.75rem)`, 48 px VARSAYILMAZ.
+İki ölçülmüş tuzak: (1) tabaka kapanırken `useOverlay`in gövde kilidi hâlâ
+duruyorsa `scrollIntoView` SESSİZCE hiçbir şey yapmaz, kilidin kalkması beklenir;
+(2) bekleme `setTimeout` iledir, `requestAnimationFrame` ile DEĞİL — sekme arka
+planda ya da gizliyken rAF ve `IntersectionObserver` HİÇ ateşlemez. Aynı sebeple
+seçilen bölüm ELLE de işaretlenir (`useAktifCapa`in ikinci dönüş değeri); gözcü
+tek kaynak olsaydı ray seçilen bölümü yakmayabilirdi.

@@ -868,6 +868,19 @@
   .oc-tap-square {
     position: relative;
   }
+
+  /*
+   * ÇIPA PAYI — bölüm rayının çıpa kipinde (lib/bolum-capa.ts) hedefin
+   * yapışkan sayfa başlığının ALTINA girmemesi için.
+   *
+   * Pay `--app-header-h`ten okunur, 48px VARSAYILMAZ: kabuk başlığı `lg`
+   * altında iki satır olabiliyor ve değeri ölçüp köke yazıyor. Sabit bir sayı
+   * yazsaydık dar ekranda bölüm başlığı başlığın altında kalırdı — kullanıcı
+   * doğru yere geldiğini göremezdi.
+   */
+  .oc-capa {
+    scroll-margin-top: calc(var(--app-header-h, 48px) + 0.75rem);
+  }
   @media (pointer: coarse) {
     .oc-tap::after {
       content: "";

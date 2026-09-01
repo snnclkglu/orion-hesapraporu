@@ -351,9 +351,13 @@ burada geçirir; kalıcı kabuk öğeleri buna göre kısılmıştır:
   durum ise istemci durumunda olduğu için bağ bir PORTALDIR
   (`EDITOR_STATUS_SLOT_ID`); yuva yoksa şerit yerinde çizilir. İlerleme
   çubuğu, motor sürümü ve "bu bölüm n/m" sayacı alt adım şeridine indi.
-- Bölüm rayı daraltılabilir (`orion.editor.nav.collapsed`); dar kipte
-  gruplar kalkar, yalnız BÖLÜM NUMARALARI kalır, kontrolü kalan bölüm çipin
-  köşesindeki kırmızı noktadan anlaşılır.
+- Bölüm rayı SOL KENARDA İNCE BİR ŞERİTTİR ve dokununca tabaka olarak açılır
+  (MOBIL-29, HESAP-36). Eski dar/geniş kip ve `orion.editor.nav.collapsed`
+  anahtarı 01.09.2026'da KALDIRILDI — ray artık her genişlikte varsayılan
+  kapalıdır, o yüzden kalıcı bir tercihe de gerek kalmadı.
+- **"Dar ray" ile "sol menü" KARIŞTIRILMAZ**: aşağıdaki 4,5 rem KABUĞUN sol
+  menüsüdür (`SIDEBAR_W_COLLAPSED`, app-shell.tsx). Bölüm rayının genişliği
+  1 rem'dir ve MOBIL-29'dadır.
 - Sol menünün daralt/genişlet düğmesi MENÜNÜN İÇİNDEDİR. Üst şeritte de bir
   eşi var ama orada ikon tek başına durduğu için neyi daralttığı
   anlaşılmıyordu: denetim, denetlediği yüzeyin üzerinde durur.
@@ -1431,3 +1435,24 @@ listesi ve Excel çıktıları DEĞİŞMEZ.
 ağırlığı hesaplanmaz. Kesitin iki bölgesi (açıklık ortası ve mesnet) farklı
 kalınlıktadır ve hangi bölgenin ne kadar sürdüğü sorulmuyor; bilerek düşük
 çıkan bir tahmin, dürüst bir boşluktan kötüdür. Satır gerekçesiyle boş kalır.
+
+## HESAP-36 — BÖLÜM RAYI MODÜL DÜZEYİNDEDİR; ADIM DÜZEYİ ARAMADADIR.
+
+Kullanıcı kararı (01.09.2026, ayrıca soruldu ve doğrulandı): ray `01 · Teknik
+Özellikler`, `02 · Ana Kaldırma`, … `07 · Ana Kiriş`, `Özet` satırlarını
+listeler — **117 adımı değil, ~21 modülü**. Bir modüle dokunmak o modülün İLK
+adımına götürür. Kaynak `NAV_GROUPS`tur; kapalı modüller de listelenir, çünkü
+onları yeniden açmanın tek yolu kendi satırlarındaki ＋ düğmesidir.
+
+**ADIM DÜZEYİ KAYBOLMAZ.** Adım adım gezinme yapışkan alt kumandadadır
+(MOBIL-24: Geri/İleri) ve uzak bir adıma atlamanın yolu tabakadaki ARAMA
+kutusudur: arama 117 adımın tamamına bakar ve DÜZ bir sonuç listesi döndürür
+("gerilme" → `7.4 Gerilme Analizi`). Düz bir süzgeç ikinci bir düzey değildir.
+
+**GİZLİ BÖLÜMÜN KONTROLÜ SAYILMAZ.** Satırın `n/m` rozeti modülün bölümlerinin
+toplamıdır ve `sectionStatus` gizli bölümde `"none"` döner; gizli ya da kapalı
+bir satırda kırmızı YAKILMAZ — rapora hiç girmeyen bir bölümün kalan kontrolü
+sorun değildir.
+
+**ARAMA `trKatla` İLE YAPILIR**, `toLocaleLowerCase("tr-TR")` ile değil: depodaki
+gerçek Türkçe katlama odur ve `i ı İ I` ailesini tek harfe indirir.

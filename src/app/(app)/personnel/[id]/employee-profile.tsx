@@ -81,6 +81,8 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { TAM_BOY_PENCERE } from "@/components/pencere";
+import { BolumRayi, type BolumOgesi } from "@/components/bolum-rayi";
+import { capaKimligi, capayaGit, useAktifCapa } from "@/lib/bolum-capa";
 
 /** Sütun önceliği (AGENTS MOBIL-7): kart markup'ı ÇOĞALTILMAZ, sütun düşer. */
 const AT_SM = "hidden sm:table-cell";
@@ -156,6 +158,24 @@ function Field({
   );
 }
 
+/**
+ * BÖLÜM RAYININ SATIRLARI — TEK DÜZEY, dört bölüm.
+ *
+ * Sayısı sekizin altında olduğu için MOBIL-21 telefonda kutu ızgarası
+ * ister; buradaki sorun SAYI DEĞİL MESAFEDİR — maaş geçmişi tablosu tek
+ * başına yüzlerce satır olabiliyor ve özlük dosyalarına inmek ekranlarca
+ * kaydırma demek. Ray bu yüzden her genişlikte durur.
+ */
+const PROFIL_BOLUMLERI: BolumOgesi[] = [
+  { id: "kimlik", baslik: "Kimlik Kartı" },
+  { id: "donem", baslik: "Çalışma Dönemleri" },
+  { id: "maas", baslik: "Maaş Geçmişi" },
+  { id: "ozluk", baslik: "Özlük Dosyaları" },
+];
+
+/** Kancanın bağımlılığı — dizi her boyamada yeniden üretilmesin. */
+const PROFIL_KIMLIKLERI = PROFIL_BOLUMLERI.map((b) => b.id);
+
 /** Pencere içindeki mantıklı öbek — Kimlik · İletişim · İstihdam · Banka · Not. */
 function Bolum({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -230,10 +250,29 @@ export function EmployeeProfile({
     });
   }
 
+  /** Okunan bölüm — ray hangi çentiği yakacağını buradan öğrenir. */
+  const [aktifBolum, bolumIsaretle] = useAktifCapa(PROFIL_KIMLIKLERI);
+
   return (
-    <div className="grid gap-4">
+    // RAY + İÇERİK. Profil 1251 satırlık TEK BİR KAYDIRMADIR ve bugüne
+    // kadar hiçbir bölüm gezinmesi yoktu: dört bölümün arası ekranlarca
+    // uzakta. Ray burada ÇIPA kipindedir (lib/bolum-capa.ts) — bölümlerin
+    // hepsi aynı anda DOM'dadır, seçim bir durum değil bir kaydırmadır.
+    <div className="flex min-w-0 items-start gap-2 lg:gap-4">
+      <BolumRayi
+        etiket="Profil bölümleri"
+        ogeler={PROFIL_BOLUMLERI}
+        aktifId={aktifBolum}
+        onSec={(id) => {
+          // Önce ELLE işaretle, sonra kaydır: kaydırma gözcüsü sekme arka
+          // plandayken ateşlemiyor ve ray seçilen bölümü yakmayabiliyordu.
+          bolumIsaretle(id);
+          capayaGit(id);
+        }}
+      />
+      <div className="grid min-w-0 flex-1 gap-4">
       {/* ══════════════════════════════════════════════════ 1) kimlik kartı */}
-      <section className="border bg-card">
+      <section id={capaKimligi("kimlik")} className="oc-capa border bg-card">
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b px-4 py-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -397,7 +436,7 @@ export function EmployeeProfile({
       </section>
 
       {/* ═════════════════════════════════════════════ 3) çalışma dönemleri */}
-      <section className="border bg-card">
+      <section id={capaKimligi("donem")} className="oc-capa border bg-card">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5">
           <h3 className="text-sm font-medium">Çalışma Dönemleri</h3>
           <Button
@@ -509,7 +548,7 @@ export function EmployeeProfile({
       </section>
 
       {/* ═══════════════════════════════════════════════ 4) maaş geçmişi */}
-      <section className="border bg-card">
+      <section id={capaKimligi("maas")} className="oc-capa border bg-card">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5">
           <h3 className="text-sm font-medium">Maaş Geçmişi</h3>
           <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
@@ -643,12 +682,14 @@ export function EmployeeProfile({
       </section>
 
       {/* ═══════════════════════════════════════════════ 5) özlük dosyaları */}
-      <DocumentsPanel
-        employeeId={employee.id}
-        documents={documents}
-        bugun={bugun}
-        canWrite={canWrite}
-      />
+      <div id={capaKimligi("ozluk")} className="oc-capa">
+        <DocumentsPanel
+          employeeId={employee.id}
+          documents={documents}
+          bugun={bugun}
+          canWrite={canWrite}
+        />
+      </div>
 
       {/* Pencereler KOŞULLU MONTE edilir: her açılış taze bir bileşendir, alan
           değerlerini senkronize eden bir efekte gerek kalmaz (sale-dialog). */}
@@ -664,6 +705,7 @@ export function EmployeeProfile({
         />
       )}
     </div>
+      </div>
   );
 }
 

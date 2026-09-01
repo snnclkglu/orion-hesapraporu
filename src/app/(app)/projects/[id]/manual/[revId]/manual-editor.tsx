@@ -79,6 +79,7 @@ import {
 } from "../actions";
 import { DiagramPicker } from "./editor/diagram-picker";
 import { DocumentMap } from "./editor/document-map";
+import { BolumRayi, type BolumOgesi } from "@/components/bolum-rayi";
 import { IdentityForm, type FirmaSecenegi } from "./editor/identity-form";
 import { Inspector } from "./editor/inspector";
 import { MediaPicker, type MediaTuru } from "./editor/media-picker";
@@ -183,6 +184,12 @@ export function ManualEditor({
   const [etiket, setEtiket] = useState(label);
   const [sekme, setSekme] = useState<Sekme>("icerik");
   const [darPanel, setDarPanel] = useState<DarPanel>("tomar");
+  /**
+   * BÖLÜM RAYI TABAKASI (`lg` ve üstü). Durum BURADA yaşar, bileşenin
+   * içinde değil: tabakanın gövdesi Belge Haritası ağacıdır ve ağaçtan bir
+   * bölüm seçmek de tabakayı kapatmalıdır — ray o seçimi görmez.
+   */
+  const [rayAcik, setRayAcik] = useState(false);
   const [kagitAcik, setKagitAcik] = useState(false);
   const [mufettisAcik, setMufettisAcik] = useState(false);
   const [yayimOnayi, setYayimOnayi] = useState(false);
@@ -521,10 +528,42 @@ export function ManualEditor({
       onSec={(id) => {
         doc.bolumSec(id);
         setDarPanel("tomar");
+        // Ağaçtan seçim tabakayı KAPATIR: aksi hâlde kullanıcı seçtiği
+        // bölümü görmek için tabakayı bir kez de elle kapatmak zorunda.
+        setRayAcik(false);
       }}
       onGizle={doc.bolumGizle}
     />
   );
+
+  /**
+   * RAY SATIRLARI — YALNIZ KÖK BÖLÜMLER (KITAP-27). Kullanıcı kararı
+   * (01.09.2026): *"bölüm + alt başlık olmasın… çok alt başlık var, çok yer
+   * kaplıyor."* Şablonda 12 kök bölüme karşılık 55 alt bölüm var.
+   *
+   * AĞAÇ KAYBOLMAZ: tabakanın GÖVDESİ Belge Haritası'nın ta kendisidir.
+   * KITAP-19 30.08.2026'da "ağacı kısaltmak değil SÜZMEK" diye karara
+   * bağlanmıştı; şerit tek düzeydir ama panel ağacın tamamını gösterir.
+   */
+  const rayOgeleri: BolumOgesi[] = doc.numarali.map((kok) => {
+    const eksikVar = (s: (typeof doc.numarali)[number]): boolean =>
+      eksikKimlikleri.has(s.id) || s.children.some(eksikVar);
+    return {
+      id: kok.id,
+      numara: kok.number || "EK",
+      baslik: kok.title,
+      gizli: kok.hidden === true,
+      uyari: eksikVar(kok),
+    };
+  });
+
+  /** Seçili bölümün KÖK atası — çentikler kökleri gösterir. */
+  const rayAktifId =
+    doc.numarali.find(function icerir(k): boolean {
+      const bak = (s: (typeof doc.numarali)[number]): boolean =>
+        s.id === doc.seciliBolumId || s.children.some(bak);
+      return bak(k);
+    })?.id ?? null;
 
   const tomar = gosterilen ? (
     <Tomar
@@ -748,11 +787,27 @@ export function ManualEditor({
 
         {/* ————————————————————————————————————————————— içerik */}
         <TabsContent value="icerik">
-          {/* `lg`de İKİ, `xl`de ÜÇ sütun (MOBIL-26). Harita `lg`den itibaren
-              KALICIDIR; orta sütun belgeyi ya da (xl altında) kâğıdı taşır. */}
-          <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_19rem]">
-            <div className={darPanel === "harita" ? "min-w-0" : "hidden min-w-0 lg:block"}>
-              <div className="lg:sticky lg:top-2 lg:max-h-[calc(100dvh-9rem)]">{harita}</div>
+          {/* `lg`de İKİ, `xl`de ÜÇ sütun (MOBIL-26). Harita sütunu 15rem'den
+              1rem'lik BÖLÜM RAYINA indi: orta sütun 1024 px'lik kapta 447
+              px'ten ~660 px'e çıkar ve MOBIL-26'nın ≥380 px ölçütü rahatlar.
+              Harita KAYBOLMAZ, rayın tabaka GÖVDESİNE taşınır (KITAP-27). */}
+          <div className="mt-3 grid gap-4 lg:grid-cols-[1rem_minmax(0,1fr)] xl:grid-cols-[1rem_minmax(0,1fr)_19rem]">
+            <BolumRayi
+              className="hidden lg:block"
+              etiket="Belge bölümleri"
+              ogeler={rayOgeleri}
+              aktifId={rayAktifId}
+              onSec={doc.bolumSec}
+              acik={rayAcik}
+              onAcikDegisti={setRayAcik}
+              govde={harita}
+            />
+
+            {/* TELEFON/TABLET HARİTASI — `lg` altında Harita·Belge·Kâğıt kutu
+                ızgarasının kendi yüzüdür (KITAP-26, MOBIL-21) ve olduğu gibi
+                kalır; ray orada gizlidir. */}
+            <div className={darPanel === "harita" ? "min-w-0 lg:hidden" : "hidden"}>
+              {harita}
             </div>
 
             {/* ORTA — belge. `harita` seçiliyken de `lg` üstünde burası belgedir:

@@ -827,7 +827,7 @@ gerekçe ve ölçüm MOBIL-26'dadır.
 | genişlik | görünen | denetim |
 |---|---|---|
 | <1024 px | tek panel | alt kumandadaki Harita · Belge · Kâğıt kutuları |
-| 1024–1279 | Harita + Tomar | Müfettiş sağdan TABAKA (`useOverlay`) |
+| 1024–1279 | Ray + Tomar | Müfettiş sağdan TABAKA (`useOverlay`) |
 | ≥1280 | üç panel | bugünkü davranış |
 
 **KÂĞIT DÜĞMESİ TEK ŞEY SORAR: "kâğıdı göster".** `xl`de sağ sütunun içeriğini
@@ -852,3 +852,29 @@ madde ve uyarı metni `OtoMetin`den geçer ve 15,2 px'lik eski değer iOS'ta her
 odakta sayfayı yakınlaştırıyordu. Yükseklik `field-sizing: content` ile CSS'in
 işidir; elle ölçen efekt yalnız `value` değişince çalışıyor, ekran döndürünce
 bayat kalıyordu.
+
+## KITAP-27 — BÖLÜM RAYI HARİTAYI DEĞİŞTİRMEZ, TAŞIR.
+
+01.09.2026: masaüstündeki 15 rem'lik Harita sütunu 1 rem'lik BÖLÜM RAYINA
+(MOBIL-29) indi. Şeridin çentikleri YALNIZ KÖK BÖLÜMLERDİR (şablonda 12 kök,
+55 alt bölüm) — kullanıcı kararı: *"bölüm + alt başlık olmasın… çok alt başlık
+var, çok yer kaplıyor."*
+
+**AMA AĞAÇ KISALMAZ.** Tabakanın GÖVDESİ `DocumentMap`in ta kendisidir: tam
+ağaç, `trKatla` araması, "yalnız eksikler" süzgeci ve doluluk noktaları
+olduğu gibi durur (`BolumRayi`nin `govde` yuvası). KITAP-19 30.08.2026'da
+*"ağacı kısaltmak değil SÜZMEK"* diye karara bağlanmıştı ve o karar geçerlidir;
+tek düzey olan ŞERİTTİR, panel değil.
+
+**ÖLÇÜ:** 1024 px'lik gerçek kapta (703 px, MOBIL-16 tablosu) orta sütuna
+703 − 16 − 16 = **671 px** kalır; MOBIL-26'nın ≥ 380 px ölçütü rahatlar
+(önceki ölçüm 447 px'ti).
+
+**AĞAÇTAN SEÇİM TABAKAYI KAPATIR.** Gövde çağıranın düğümü olduğu için rayın
+kendi seçim yolundan geçmez; `manual-editor.tsx` `rayAcik` durumunu KENDİ
+tutar ve haritanın `onSec`i onu kapatır. Kapatmasaydı kullanıcı seçtiği bölümü
+görmek için tabakayı bir kez de elle kapatmak zorunda kalırdı.
+
+**TELEFON/TABLET DEĞİŞMEDİ.** `lg` altında Harita · Belge · Kâğıt kutu ızgarası
+(KITAP-26, MOBIL-21) aynen durur; ray orada gizlidir — üç çalışma yüzü sekizin
+altındadır ve ızgara oradaki doğru biçimdir.

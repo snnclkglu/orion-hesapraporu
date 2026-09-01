@@ -1734,3 +1734,21 @@ BUTONU" geniş sayfada da ikiye bölünürdü. Sayı iki yerde yazılmaz: ölç�
 **TUZAK — `rows.map(satirYuksekligi)` YAZILMAZ.** `map` geri çağrıya dizini de
 geçer ve dizin ikinci parametreye, yani sütun genişliğine düşer (0, 1, 2
 pt'lik sütunlar → 52 yapraklık bir belge). Genişlik her zaman açıkça verilir.
+
+## TEKLIF-75 — BÖLÜM RAYI ORTAK BİLEŞENDİR; GÖZ DÜĞMESİ SATIRDA KALIR.
+
+01.09.2026: teklif editörünün 13 rem'lik masaüstü sütunu ve ondan AYRI yazılmış
+telefon kutu ızgarası tek bir `BolumRayi`de birleşti (MOBIL-29). Kazanç ölçüdür:
+teklif **7 + kalem sayısı** kadar bölüm taşır ve MOBIL-21'in kutu ızgarası sekiz
+hedefe kadar okunur — on iki kalemli bir teklifte ızgara ekranın iki katına
+çıkıyordu. Teklif editörü böylece dar ekranda İLK KEZ gerçek bir bölüm
+gezinmesi kazandı.
+
+**GÖZ DÜĞMESİ RAYDA KALIR** (`BolumOgesi.sag`). Gizlemek silmez, yalnız PDF
+kararını değiştirir; gizli bir bölüme ulaşmanın tek yolu listedir, o yüzden
+düğme listeden ayrılamaz. "PDF'de en az bir bölüm görünür kalmalıdır" kapısı
+`bolumuGizle`de, yani DEĞİŞMEDEN durur.
+
+**BEDEL:** gizleme artık iki dokunuştur (tabakayı aç → göze bas). Kabul edildi.
+Rahatsız ederse çözüm rayı yeniden sabitlemek DEĞİL, gözü bölümün kendi
+başlığına da koymaktır — kullanıcı zaten oraya bakıyordur.

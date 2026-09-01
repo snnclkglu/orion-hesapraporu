@@ -145,7 +145,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { useOverlay } from "@/lib/use-overlay";
+import { BolumRayi, type BolumOgesi } from "@/components/bolum-rayi";
+import { trKatla } from "@/lib/drawings/tr-text";
 import { buildEquipmentGroups } from "@/lib/equipment-list";
 import { agirlikDokumu } from "@/lib/weights/topla";
 import { AGIRLIK_BANT_ANAHTARI } from "@/lib/weights/defter";
@@ -155,8 +156,7 @@ import {
   type AgirlikSpecAnahtari,
 } from "@/lib/weights/types";
 import { AgirlikDokumuDialog } from "./agirlik-dokumu-dialog";
-import { DESKTOP_MQ, useIsDesktop } from "@/lib/use-breakpoint";
-import { useStoredFlag } from "@/lib/use-stored-flag";
+import { DESKTOP_MQ } from "@/lib/use-breakpoint";
 import { saveRevision } from "./actions";
 
 /**
@@ -1317,13 +1317,15 @@ function initModules(initial: CalcInput): ModulesState {
 
 // ---------------------------------------------------------------- Editor
 
-/** Bölüm rayının dar/geniş tercihi (tarayıcı başına kalıcı). */
-const NAV_COLLAPSE_KEY = "orion.editor.nav.collapsed";
-
-/** Bölüm listesinin kimliği — mobil aç/kapa düğmesi `aria-controls` ile bağlanır. */
-const NAV_LIST_ID = "hesap-bolum-listesi";
-
-/** Bölüm panelinin (mobilde alt tabaka) kimliği — iki denetim de buna bağlanır. */
+/**
+ * Bölüm tabakasının kimliği — iki denetim de buna bağlanır: rayın kendi şeridi
+ * ve alt kumanda çubuğundaki "12/117 · bölüm adı" düğmesi.
+ *
+ * `NAV_COLLAPSE_KEY` (`orion.editor.nav.collapsed`) ve `NAV_LIST_ID` KALKTI:
+ * ray artık dar/geniş kipi olan kalıcı bir sütun değil, her genişlikte
+ * varsayılan kapalı bir tabakadır (MOBIL-29) ve listenin kimliğini `BolumRayi`
+ * kendi üretir.
+ */
 const NAV_PANEL_ID = "hesap-bolum-paneli";
 
 /**
@@ -1443,55 +1445,24 @@ export function RevisionEditor({
     for (const k of MODULE_ORDER) out[k] = !off.has(k);
     return out;
   });
-  // Sadece sunum: kenar çubuğunda elle açılan modül grupları
-  // (aktif adımın grubu her zaman açıktır).
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  // `openGroups` KALKTI: ray tek düzeydir (HESAP-36), katlanacak grup yok.
   // Bölüm navigasyonu arama filtresi (bölüm adına göre)
   const [navQuery, setNavQuery] = useState("");
   /**
-   * Bölüm rayı dar kip. Mühendis günün büyük kısmını bu ekranda geçirir ve
-   * çalışma alanı 286 px'lik bir listeye harcanmamalıdır; dar kipte yalnız
-   * BÖLÜM NUMARALARI kalır (ör. "2.3"), ad ipucu olarak durur.
+   * BÖLÜM TABAKASI — her genişlikte varsayılan KAPALI (MOBIL-29).
    *
-   * Tercih tarayıcıda kalıcıdır ve ilk boyamada okunur (`useStoredFlag`);
-   * genişlik geçişi ilk boyamadan sonra açılır, aksi hâlde her açılışta ray
-   * geniş çizilip animasyonla daralırdı.
-   */
-  const [navCollapsed, toggleNavCollapsed] = useStoredFlag(NAV_COLLAPSE_KEY);
-  const isDesktop = useIsDesktop();
-  /**
-   * Dar kip YALNIZ masaüstünde geçerlidir. Tercih tarayıcı başına kalıcı
-   * olduğu için masaüstünden telefona taşınıyordu ve orada ray tam genişlikte
-   * olduğundan satırlarda yalnız "2.3" yazıyordu.
-   */
-  const narrowNav = navCollapsed && isDesktop;
-  /**
-   * Bölüm rayı telefonda/tablet portrede KAPALI başlar ve ALT TABAKA olarak
-   * açılır.
+   * Burada eskiden ÜÇ ayrı durum vardı: `navCollapsed` (tarayıcıda kalıcı
+   * dar/geniş kip), `narrowNav` (kipin yalnız masaüstünde geçerli olması) ve
+   * `navOpenMobile` (telefondaki alt tabaka). Üçü de tek bir sorunun farklı
+   * cevaplarıydı ve cevap artık tek: ray ince bir şerittir, dokununca açılır.
+   * `orion.editor.nav.collapsed` anahtarı ÖLDÜ — tabaka gezinmeler arasında
+   * açık kalmadığı için kalıcı bir tercih de gerekmiyor.
    *
-   * Eskiden ray `lg` altında içeriğin ÜSTÜNDE, akışın içinde duruyordu:
-   * başlık + arama + liste ≈ 350px, yani kullanıcı her adımda önce bu listeyi
-   * geçmek zorundaydı. Kapalı tutmak o sorunu çözdü ama yenisini yarattı —
-   * 100+ adımlık bir sihirbazda telefonda geriye yalnız Geri/İleri kalıyordu
-   * ve uzak bir bölüme atlamanın yolu yoktu.
-   *
-   * Çözüm konumdur, görünürlük değil: ray akıştan çıkar (içerik yerini geri
-   * alır) ve adım şeridindeki "12/117 · bölüm adı" etiketine dokununca alttan
-   * yükselir. Başparmak zaten orada. JSX ÇOĞALTILMAZ — aynı `<nav>` yalnız
-   * `max-lg:` sınıflarıyla yeniden konumlanır; ikinci bir kopya `NAV_LIST_ID`
-   * ile birlikte `aria-current` ve arama durumunu da ikizlerdi.
+   * Örtü davranışı (gövde kilidi · Esc · odak tuzağı · odağı geri verme)
+   * `BolumRayi`nin içindedir; burada yalnız açık/kapalı bayrağı yaşar, çünkü
+   * alt kumanda çubuğundaki "12/117 · bölüm adı" düğmesi de aynı tabakayı açar.
    */
-  const [navOpenMobile, setNavOpenMobile] = useState(false);
-  /** Alt tabakayı açan düğme — kapanışta odak buraya döner (`useOverlay`). */
-  const navPanelRef = useRef<HTMLElement>(null);
-  const closeNavMobile = useCallback(() => setNavOpenMobile(false), []);
-  /**
-   * Tabaka davranışı kabuğun mobil çekmecesiyle ORTAK (`useOverlay`): gövde
-   * kaymaz, Esc kapatır, Tab tabakanın içinde döner, kapanınca odak geri gider.
-   * `isDesktop` kapısı şart — telefonda açıkken pencere genişletilirse ray
-   * kendi sütununa döner ve gövde kaydırması kilitli kalırdı.
-   */
-  useOverlay(navOpenMobile && !isDesktop, closeNavMobile, navPanelRef);
+  const [rayAcik, setRayAcik] = useState(false);
   const [pending, startTransition] = useTransition();
 
   // Kaydedilmemiş değişiklik takibi: kaydedilen state'lerden herhangi biri
@@ -3420,112 +3391,138 @@ export function RevisionEditor({
   }
 
   /**
-   * Bölüme geçiş. Telefonda ray içeriğin ÜSTÜNDE durduğu için seçimden sonra
-   * kapanır; aksi hâlde kullanıcı seçtiği bölümü görmek için listeyi bir kez
-   * daha geçmek zorunda kalırdı. lg üstünde liste zaten hep açıktır.
+   * Bölüme geçiş. Tabaka içeriğin ÜSTÜNDE durur; seçimden sonra kapanır, aksi
+   * hâlde kullanıcı seçtiği bölümü görmek için listeyi bir kez daha geçerdi.
    */
   function goToStep(i: number) {
     setStepIndex(i);
-    setNavOpenMobile(false);
+    setRayAcik(false);
   }
 
-  /**
-   * Dar kip satırı: yalnız BÖLÜM NUMARASI. Ad `title` ile durur ve kontrolü
-   * kalan bölüm çipin köşesindeki kırmızı noktadan anlaşılır — sayaç yazısı bu
-   * genişliğe sığmaz, ama "burada bir sorun var" bilgisi kaybolmamalıdır.
-   */
-  function navChip(s: Step, i: number) {
-    const hidden = stepHidden(s);
-    const checks = s.kind === "module" ? sectionChecks(s.moduleKey, s.section) : [];
-    // Gizli bölümün kontrolü sayılmaz — kırmızı nokta da yakılmaz.
-    const failing = !hidden && checks.some((c) => !c.pass);
-    return (
-      <li key={s.key}>
-        <button
-          type="button"
-          onClick={() => goToStep(i)}
-          title={`${stepChip(s)} · ${stepLabel(s)}${hidden ? " (gizli)" : ""}`}
-          aria-current={i === activeStepIndex ? "step" : undefined}
-          className={cn(
-            "oc-tap relative flex w-full items-center justify-center rounded-md py-1.5 font-mono text-[11px] tabular-nums transition-colors",
-            i === activeStepIndex
-              ? "bg-primary/15 font-medium text-primary"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            hidden && "opacity-45"
-          )}
-        >
-          {stepChip(s)}
-          {failing && (
-            <span
-              aria-hidden
-              className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-destructive"
-            />
-          )}
-        </button>
-      </li>
+  // --------------------------------------------------------------- Bölüm rayı
+  //
+  // RAY MODÜL DÜZEYİNDEDİR (HESAP-36). Kullanıcı kararı (01.09.2026): *"bölüm +
+  // alt başlık olmasın, sadece bölüm olsun. çok alt başlık var, çok yer
+  // kaplıyor."* Liste 117 adımdan ~21 modüle iner. Adım düzeyi KAYBOLMAZ,
+  // ARAMAYA taşınır — arama sonucu düz bir listedir, ikinci bir düzey değildir.
+  //
+  // BELLEKLEME (`useMemo`) YOK ve bu bilinçlidir: 21 grup × ~8 bölüm bir
+  // boyamada önemsizdir, `sectionStatus`/`stepChip` ise bileşen gövdesinde her
+  // boyamada yeniden tanımlanan işlevlerdir — bağımlılık dizisi hiçbir zaman
+  // kararlı olmaz, yani bellekleme yalnız yanlış bir güven duygusu verirdi.
+
+  /** Arama sonucundaki ADIM satırını modül satırından ayıran önek. */
+  const RAY_ADIM_ONEKI = "adim:";
+
+  /** "07 · Ana Kiriş" → ["07", "Ana Kiriş"]. Ayraçsız başlıkta numara yoktur. */
+  function rayBaslikAyir(baslik: string): [string | undefined, string] {
+    const i = baslik.indexOf(" · ");
+    return i > 0 ? [baslik.slice(0, i), baslik.slice(i + 3)] : [undefined, baslik];
+  }
+
+  const rayOgeleri: BolumOgesi[] = NAV_GROUPS.map((group) => {
+    // Grupsuz tek adımlar (Teknik Özellikler, Özet) başlığını adımdan alır.
+    const tekAdim = group.title === null ? group.items[0]?.step : undefined;
+    const [numara, baslik] =
+      group.title !== null
+        ? rayBaslikAyir(group.title)
+        : ([
+            tekAdim ? stepChip(tekAdim) : undefined,
+            tekAdim ? stepLabel(tekAdim) : group.key,
+          ] as [string | undefined, string]);
+    const kapali = group.enabled === false;
+    const durumlar = group.items.map(({ step: s }) =>
+      s.kind === "module" ? sectionStatus(s.moduleKey, s.section) : "none"
     );
-  }
-
-  function navItem(s: Step, i: number) {
-    // Numara çipi + kontrol özeti: durum noktası yerine "✓ n/m" sayısı
-    // (hepsi geçtiyse nötr, kalan varsa kırmızı).
-    const hidden = stepHidden(s);
-    const checks = s.kind === "module" ? sectionChecks(s.moduleKey, s.section) : [];
-    const passN = checks.filter((c) => c.pass).length;
-    const chip = stepChip(s);
-    const label = stepLabel(s);
-    return (
-      <li key={s.key}>
-        <button
-          type="button"
-          onClick={() => goToStep(i)}
-          aria-current={i === activeStepIndex ? "step" : undefined}
-          className={cn(
-            // Telefonda bölüm listesi ana dokunma hedefidir (~29px'ti)
-            "oc-tap flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
-            i === activeStepIndex
-              ? "bg-primary/10 font-medium text-primary"
-              : "text-foreground/80 hover:bg-muted hover:text-foreground"
-          )}
-        >
-          <span
+    const kontrollu = durumlar.filter((d) => d !== "none").length;
+    const gecen = durumlar.filter((d) => d === "pass").length;
+    // GİZLİ BÖLÜMÜN KONTROLÜ SAYILMAZ: `sectionStatus` gizli bölümde "none"
+    // döner, yani kapalı modülde olduğu gibi burada da kırmızı yakılmaz.
+    const eksik = durumlar.some((d) => d === "fail");
+    const modulKey = group.moduleKey;
+    return {
+      id: group.key,
+      numara,
+      baslik,
+      gizli: kapali,
+      uyari: !kapali && eksik,
+      rozet: kapali ? "kapalı" : kontrollu > 0 ? `${gecen}/${kontrollu}` : undefined,
+      // BÖLÜM AÇ/KAPA RAYDA KALIR: kapalı bir modülün adımı yoktur, yani onu
+      // tekrar açmanın tek yolu bu satırdır. Zorunlu modüllerde de yuva ayrılır,
+      // aksi hâlde sayaçlar satırdan satıra 24px kayıyor ve liste hizasız oluyor.
+      sag:
+        group.optional && modulKey ? (
+          <button
+            type="button"
+            disabled={readOnly}
+            onClick={() => toggleModule(modulKey, kapali)}
+            title={
+              kapali
+                ? `${moduleLabelFor(modulKey, specs)} bölümünü aç`
+                : `${moduleLabelFor(modulKey, specs)} bölümünü gizle (hesaba ve rapora girmez)`
+            }
+            aria-label={
+              kapali
+                ? `${moduleLabelFor(modulKey, specs)} bölümünü aç`
+                : `${moduleLabelFor(modulKey, specs)} bölümünü gizle`
+            }
+            aria-pressed={!kapali}
             className={cn(
-              "inline-flex h-5 min-w-8 shrink-0 items-center justify-center px-1 font-mono text-xs tabular-nums sm:text-[11px]",
-              i === activeStepIndex ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+              "oc-tap-square grid size-6 shrink-0 place-items-center font-mono text-[11px] transition-colors",
+              kapali
+                ? "text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                : "text-primary/70 hover:bg-muted hover:text-foreground",
+              readOnly && "pointer-events-none opacity-40"
             )}
           >
-            {chip}
-          </span>
-          <span
-            className={cn("min-w-0 flex-1 truncate", hidden && "opacity-50")}
-            title={hidden ? `${label} (gizli)` : label}
-          >
-            {label}
-          </span>
-          {/* Gizli bölümün sayacı yerine "gizli" etiketi: kırmızı bir sayaç
-              "burada sorun var" derdi, oysa bölüm rapora hiç girmiyor. */}
-          {hidden ? (
-            <span className="shrink-0 text-[11px] text-muted-foreground/70">gizli</span>
-          ) : (
-            checks.length > 0 && (
-              <span
-                className={cn(
-                  "shrink-0 font-mono text-xs tabular-nums sm:text-[11px]",
-                  passN === checks.length ? "text-muted-foreground" : "text-destructive"
-                )}
-              >
-                {passN}/{checks.length}
-              </span>
-            )
-          )}
-        </button>
-      </li>
-    );
-  }
+            {kapali ? "＋" : "－"}
+          </button>
+        ) : (
+          <span aria-hidden className="size-6 shrink-0" />
+        ),
+    };
+  });
 
-  const navQ = navQuery.trim().toLocaleLowerCase("tr-TR");
-  const stepMatches = (s: Step) =>
-    navQ === "" || s.title.toLocaleLowerCase("tr-TR").includes(navQ);
+  /** Aktif adımın düştüğü modül satırı. */
+  const rayAktifId =
+    NAV_GROUPS.find((g) => g.items.some(({ index }) => index === activeStepIndex))?.key ?? null;
+
+  /**
+   * ARAMA 117 ADIMA BAKAR. Ray modül listeler ama "gerilme" yazan mühendis
+   * 7.4'ü bulabilmelidir; bu, tek düzey kararının ihlali değil, aynı düzeyin
+   * daha ince süzgeçle DÜZ sonucudur.
+   *
+   * `trKatla` kullanılır, `toLocaleLowerCase("tr-TR")` DEĞİL: depodaki gerçek
+   * Türkçe katlama odur ve `i ı İ I` ailesini tek harfe indirir — tarayıcıda
+   * `/KALDIRMA/i` "Kaldırma"yı bulmuyordu.
+   */
+  const raySorgu = trKatla(navQuery);
+  const rayAramaSonuclari: BolumOgesi[] | undefined =
+    raySorgu === ""
+      ? undefined
+      : STEPS.filter((s) => trKatla(stepLabel(s)).includes(raySorgu)).map((s) => ({
+          id: `${RAY_ADIM_ONEKI}${s.key}`,
+          numara: stepChip(s),
+          baslik: stepLabel(s),
+          gizli: stepHidden(s),
+          uyari:
+            s.kind === "module" &&
+            !stepHidden(s) &&
+            sectionChecks(s.moduleKey, s.section).some((c) => !c.pass),
+        }));
+
+  function rayaGit(id: string) {
+    if (id.startsWith(RAY_ADIM_ONEKI)) {
+      const anahtar = id.slice(RAY_ADIM_ONEKI.length);
+      const i = STEPS.findIndex((s) => s.key === anahtar);
+      if (i >= 0) goToStep(i);
+      return;
+    }
+    const ilk = NAV_GROUPS.find((g) => g.key === id)?.items[0]?.index;
+    // Kapalı modülün adımı yoktur; satırı tıklamak sessizce hiçbir şey yapar ve
+    // bu doğrudur — bölüm ＋ ile açılır, kapalıyken hesaba da rapora da girmez.
+    if (ilk !== undefined) goToStep(ilk);
+  }
 
   /**
    * Durum şeridi — sayfa başlığındaki yuvaya taşınır (bkz. EDITOR_STATUS_SLOT_ID).
@@ -3576,251 +3573,35 @@ export function RevisionEditor({
     <div className="oc-engineering-editor flex min-h-0 flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row lg:gap-5">
       <StatusSlot>{statusStrip}</StatusSlot>
 
-      {/* Örtü — alt tabaka açıkken. Yalnız telefonda/tablet portrede vardır;
-          `lg` üstünde ray zaten kendi sütunundadır ve örtülecek bir şey yok. */}
-      {navOpenMobile && !isDesktop && (
-        <div
-          className="fixed inset-0 z-40 bg-black/45 lg:hidden"
-          onClick={closeNavMobile}
-          aria-hidden
+      {/* RAY + İÇERİK TEK SATIR. Sarmalayıcı YÜKSEKLİK GEÇİRİR
+          (`min-h-0 flex-1`): `offers/layout.tsx`in 17.08.2026'da iki kez
+          bulunan hatası tam böyle bir yerde, AUTO yükseklikli bir sarmalayıcıda
+          doğmuştu ve taşan içerik kaydırılamadan kırpılıyordu. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-row items-stretch gap-2 lg:gap-4">
+        <BolumRayi
+          etiket="Hesap bölümleri"
+          panelId={NAV_PANEL_ID}
+          ogeler={rayOgeleri}
+          aktifId={rayAktifId}
+          onSec={rayaGit}
+          acik={rayAcik}
+          onAcikDegisti={setRayAcik}
+          ozet={
+            <span
+              className={cn(
+                "font-mono text-[11px] font-medium tabular-nums",
+                failCount === 0 ? "text-success" : "text-destructive"
+              )}
+            >
+              {passCount}/{visibleChecks.length} uygun
+            </span>
+          }
+          arama={{
+            deger: navQuery,
+            onDegisti: setNavQuery,
+            sonuclar: rayAramaSonuclari,
+          }}
         />
-      )}
-
-      {/* Bölüm navigasyonu.
-          `lg` ÜSTÜNDE: bugünkü ray — dar/geniş kip, kalıcı tercih, kendi
-          sütunu. Hiçbir şey değişmedi.
-          `lg` ALTINDA: ALT TABAKA. Ray akıştan çıkar (içerik ~40px kazanır) ve
-          adım şeridindeki etikete dokununca alttan yükselir. `translate-y-full`
-          ile kapanır — `hidden` yerine dönüşüm, çünkü açılış/kapanış hareketi
-          kullanıcıya listenin NEREDEN geldiğini söyler.
-          `dvh` (`vh` DEĞİL, MOBIL-3): adres çubuğu açıkken `vh` tabakayı ekranın
-          altına taşırırdı. */}
-      <nav
-        ref={navPanelRef}
-        id={NAV_PANEL_ID}
-        aria-label="Hesap bölümleri"
-        // Kapalı tabaka ekranın altında DURUYOR, yok olmuyor: `hidden`
-        // verilseydi açılış hareketi de olmazdı. Ama duran bir tabaka Tab ile
-        // hâlâ gezilebilir — 117 görünmez düğme klavye ve ekran okuyucu için
-        // sayfayı kullanılamaz yapardı. `inert` ikisini birden keser.
-        inert={!isDesktop && !navOpenMobile}
-        className={cn(
-          "flex min-h-0 min-w-0 flex-col",
-          "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-50 max-lg:max-h-[78dvh] max-lg:border-t max-lg:bg-card max-lg:px-3 max-lg:pt-2 max-lg:pb-3 max-lg:shadow-[0_-8px_24px_-8px_rgb(0_0_0/0.28)] max-lg:transition-transform max-lg:duration-200 max-lg:ease-out",
-          !navOpenMobile && "max-lg:translate-y-full",
-          "lg:shrink-0 lg:transition-[width] lg:duration-200 lg:ease-out",
-          navCollapsed ? "lg:w-[3.25rem] xl:w-[3.25rem]" : "lg:w-[260px] xl:w-[286px]"
-        )}
-      >
-        <div
-          className={cn(
-            "mb-1.5 flex items-center gap-1",
-            narrowNav ? "justify-center" : "justify-between px-2"
-          )}
-        >
-          {!narrowNav && (
-            <>
-              {/* lg ALTINDA bu satır TABAKANIN BAŞLIĞIDIR ve tabakayı kapatır
-                  (açan denetim adım şeridindedir — başparmağın olduğu yerde).
-                  lg üstünde ray kendi sütunundadır ve düğme etkisizdir. */}
-              <button
-                type="button"
-                onClick={closeNavMobile}
-                aria-expanded={navOpenMobile}
-                aria-controls={NAV_PANEL_ID}
-                title="Bölüm listesini kapat"
-                className="oc-tap flex min-h-9 min-w-0 items-center gap-1.5 text-left transition-colors hover:text-foreground lg:pointer-events-none lg:min-h-0"
-              >
-                <span
-                  aria-hidden
-                  className="shrink-0 font-mono text-[11px] leading-none text-muted-foreground lg:hidden"
-                >
-                  ✕
-                </span>
-                <span className="oc-kicker text-muted-foreground">Bölümler</span>
-                <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground lg:hidden">
-                  · {stepChip(step)}
-                </span>
-              </button>
-              <span
-                className={cn(
-                  "ml-auto shrink-0 font-mono text-[11px] font-medium tabular-nums",
-                  failCount === 0 ? "text-success" : "text-destructive"
-                )}
-              >
-                {passCount}/{visibleChecks.length} uygun
-              </span>
-            </>
-          )}
-          {/* Dar/geniş kip yalnız sabit çerçevede anlamlıdır; lg altında
-              düğme hiçbir şey yapmayacağı için gösterilmez. */}
-          <button
-            type="button"
-            onClick={toggleNavCollapsed}
-            aria-pressed={navCollapsed}
-            title={navCollapsed ? "Bölüm listesini genişlet" : "Bölüm listesini daralt"}
-            aria-label={navCollapsed ? "Bölüm listesini genişlet" : "Bölüm listesini daralt"}
-            className="oc-tap-square hidden size-6 shrink-0 place-items-center rounded font-mono text-[11px] leading-none text-muted-foreground transition-colors hover:bg-muted hover:text-foreground pointer-coarse:size-10 lg:grid"
-          >
-            {navCollapsed ? "»" : "«"}
-          </button>
-        </div>
-
-        {/* Bölüm arama kutusu — dar kipte yer kaplamaz (ada göre arıyor).
-            Panelin kendisi gizlendiği için ayrıca gizlemeye gerek yok. */}
-        {!narrowNav && (
-          <div className="mb-2 shrink-0 px-1">
-            <Input
-              value={navQuery}
-              onChange={(e) => setNavQuery(e.target.value)}
-              placeholder="ARA · Bölüm Adı"
-              // `text-sm` YAZILMAZ: taban `text-base pointer-fine:text-sm`tir ve
-              // elle ezmek iOS Safari'nin odakta OTOMATİK YAKINLAŞTIRMASINI geri
-              // getiriyordu (AGENTS HESAP-2) — uygulamadaki tek ihlal buydu.
-              className="h-8 bg-background placeholder:font-mono placeholder:text-xs pointer-coarse:h-10"
-              aria-label="Bölüm ara"
-            />
-          </div>
-        )}
-
-        {/* Dar kip: gruplar kalkar, adımlar tek sütun numara listesi olur.
-            Kapalı modüllerin adımları zaten STEPS'te yoktur. */}
-        {narrowNav ? (
-          <ol
-            id={NAV_LIST_ID}
-            className="grid min-h-0 flex-1 auto-rows-max gap-0.5 overflow-y-auto overscroll-y-contain pb-2"
-          >
-            {STEPS.map((s, i) => navChip(s, i))}
-          </ol>
-        ) : (
-        /* Uzun bölüm listesi yalnız KENDİ bölgesinde kayar. `max-h-72` kalktı:
-           mobilde artık tabakanın kendisi yükseklik kelepçesini taşıyor
-           (`max-lg:max-h-[78dvh]`), yani liste tabakanın kalanını doldurur. */
-        <ol
-          id={NAV_LIST_ID}
-          className="grid min-h-0 flex-1 auto-rows-max gap-0.5 overflow-y-auto overscroll-y-contain pb-2 pr-1 text-sm">
-          {NAV_GROUPS.map((group) => {
-            const groupTitleMatch =
-              navQ !== "" &&
-              group.title !== null &&
-              group.title.toLocaleLowerCase("tr-TR").includes(navQ);
-            const visibleItems =
-              navQ === "" || groupTitleMatch
-                ? group.items
-                : group.items.filter(({ step: s }) => stepMatches(s));
-            // Grupsuz tek adımlar (Teknik Özellikler, Özet)
-            if (group.title === null) {
-              if (visibleItems.length === 0) return null;
-              const { step: s, index: i } = visibleItems[0];
-              return navItem(s, i);
-            }
-            const isDisabled = group.enabled === false;
-            // Kapalı modüller yalnız arama boşken (ya da adı eşleşince) görünür
-            if (isDisabled && navQ !== "" && !groupTitleMatch) return null;
-            if (!isDisabled && visibleItems.length === 0) return null;
-            const statuses = group.items.map(({ step: s }) =>
-              s.kind === "module" ? sectionStatus(s.moduleKey, s.section) : "none"
-            );
-            const withChecks = statuses.filter((st) => st !== "none").length;
-            const passed = statuses.filter((st) => st === "pass").length;
-            const anyFail = statuses.some((st) => st === "fail");
-            const containsCurrent = group.items.some(({ index: i }) => i === activeStepIndex);
-            const isOpen =
-              !isDisabled && (navQ !== "" || containsCurrent || !!openGroups[group.key]);
-            return (
-              <li key={group.key}>
-                <div
-                  className={cn(
-                    "mt-2 flex w-full items-center gap-1 rounded-md pr-1 transition-colors",
-                    isDisabled ? "opacity-55" : "hover:bg-muted"
-                  )}
-                >
-                  <button
-                    type="button"
-                    disabled={isDisabled}
-                    onClick={() =>
-                      setOpenGroups((g) => ({ ...g, [group.key]: !isOpen }))
-                    }
-                    className="oc-tap flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground pointer-coarse:min-h-10 disabled:cursor-default"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "inline-block shrink-0 font-mono transition-transform",
-                        !isOpen && "-rotate-90",
-                        isDisabled && "opacity-0"
-                      )}
-                    >
-                      ▾
-                    </span>
-                    <span className="min-w-0 flex-1 truncate" title={group.title ?? undefined}>
-                      {group.title}
-                    </span>
-                    {!isDisabled && withChecks > 0 && (
-                      <span
-                        className={cn(
-                          "font-mono text-[11px] font-medium normal-case tabular-nums",
-                          anyFail
-                            ? "text-destructive"
-                            : passed === withChecks
-                              ? "text-success"
-                              : "text-muted-foreground"
-                        )}
-                      >
-                        {passed}/{withChecks}
-                      </span>
-                    )}
-                    {isDisabled && (
-                      <span className="font-mono text-[11px] normal-case text-muted-foreground">
-                        kapalı
-                      </span>
-                    )}
-                  </button>
-                  {/* Bölüm aç/kapa — kapalı bölüm hesaba ve rapora girmez.
-                      Yuva ZORUNLU bölümlerde de ayrılır: aksi hâlde sayaçlar
-                      satırdan satıra 24px kayıyor ve liste hizasız görünüyordu. */}
-                  {!(group.optional && group.moduleKey) && (
-                    <span aria-hidden className="size-6 shrink-0 pointer-coarse:size-10" />
-                  )}
-                  {group.optional && group.moduleKey && (
-                    <button
-                      type="button"
-                      disabled={readOnly}
-                      onClick={() => toggleModule(group.moduleKey!, isDisabled)}
-                      title={
-                        isDisabled
-                          ? `${moduleLabelFor(group.moduleKey, specs)} bölümünü aç`
-                          : `${moduleLabelFor(group.moduleKey, specs)} bölümünü gizle (hesaba ve rapora girmez)`
-                      }
-                      aria-label={
-                        isDisabled
-                          ? `${moduleLabelFor(group.moduleKey, specs)} bölümünü aç`
-                          : `${moduleLabelFor(group.moduleKey, specs)} bölümünü gizle`
-                      }
-                      aria-pressed={!isDisabled}
-                      className={cn(
-                        "oc-tap-square grid size-6 shrink-0 place-items-center rounded font-mono text-[11px] transition-colors",
-                        isDisabled
-                          ? "text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                          : "text-primary/70 hover:bg-muted hover:text-foreground",
-                        readOnly && "pointer-events-none opacity-40"
-                      )}
-                    >
-                      {isDisabled ? "＋" : "－"}
-                    </button>
-                  )}
-                </div>
-                {isOpen && (
-                  <ol className="mt-0.5 ml-3.5 grid gap-0.5 border-l border-border/70 pl-2">
-                    {visibleItems.map(({ step: s, index: i }) => navItem(s, i))}
-                  </ol>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-        )}
-      </nav>
 
       {/* İçerik — kayan gövde + altta adım şeridi. Üstteki durum çubuğu
           kaldırıldı: kontrol özeti ve Kaydet sayfa başlığına taşındı, ilerleme
@@ -3888,13 +3669,13 @@ export function RevisionEditor({
                   bu düğmedir. */}
               <button
                 type="button"
-                onClick={() => setNavOpenMobile((v) => !v)}
-                aria-expanded={navOpenMobile}
+                onClick={() => setRayAcik((v) => !v)}
+                aria-expanded={rayAcik}
                 aria-controls={NAV_PANEL_ID}
                 title={`${activeStepIndex + 1}/${STEPS.length} · ${step.title}`}
-                className="oc-tap flex w-full min-w-0 items-center gap-1 rounded-md px-1 text-left font-mono text-[11px] tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:w-auto sm:max-w-[60%] sm:shrink sm:gap-1.5 sm:px-0 sm:text-[11px] lg:pointer-events-none lg:hover:bg-transparent"
+                className="oc-tap flex w-full min-w-0 items-center gap-1 rounded-md px-1 text-left font-mono text-[11px] tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:w-auto sm:max-w-[60%] sm:shrink sm:gap-1.5 sm:px-0 sm:text-[11px]"
               >
-                <span aria-hidden className="shrink-0 leading-none lg:hidden">
+                <span aria-hidden className="shrink-0 leading-none">
                   ☰
                 </span>
                 <span className="min-w-0 truncate">
@@ -3944,6 +3725,7 @@ export function RevisionEditor({
             </Button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
