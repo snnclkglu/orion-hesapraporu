@@ -112,6 +112,52 @@ import {
   withdrawProductPortal,
 } from "./actions";
 
+/**
+ * PLAKA TİKİ — kimlik satırındaki kompakt açık/kapalı işareti.
+ *
+ * `DraftToggle` YERİNE geçmez, ONA DOKUNULMAZ: o bileşen plaka seçenekleri ve
+ * belge listesinde de kullanılıyor ve orada yazı DOĞRU YERDEDİR (tek başına
+ * duran, bağlamsız anahtarlar). Buradaki tik ise on yedi kez tekrarlanır ve
+ * anlamını SÜTUN BAŞLIĞINDAN alır; yazıyı her satırda tekrarlamak, kullanıcının
+ * "satıra genişlik sığmıyor" dediği şeyin ta kendisiydi.
+ *
+ * Sınıf dizisi projedeki kompakt tik deseninin aynısıdır (teklif tanımları ve
+ * görev şablonları ekranları).
+ */
+function PlakaTiki({
+  gorunur,
+  alanAdi,
+  disabled,
+  onChange,
+}: {
+  gorunur: boolean;
+  alanAdi: string;
+  disabled?: boolean;
+  onChange: (gorunur: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-pressed={gorunur}
+      aria-label={`${alanAdi} — plakada göster`}
+      title={gorunur
+        ? "Plakada gösteriliyor — tıklayınca gizlenir"
+        : "Plakadan gizli — tıklayınca gösterilir"}
+      onClick={() => onChange(!gorunur)}
+      className={cn(
+        "oc-tap-square grid size-5 shrink-0 place-items-center border transition-colors",
+        gorunur
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border text-transparent hover:border-primary",
+        disabled && "pointer-events-none opacity-50"
+      )}
+    >
+      <Check className="size-3.5" />
+    </button>
+  );
+}
+
 const FIELD_LABELS: Record<ProductIdentityField, string> = {
   manufacturer: "Üretici",
   manufacturerAddress: "Üretici Adresi",
@@ -123,13 +169,16 @@ const FIELD_LABELS: Record<ProductIdentityField, string> = {
   capacity: "Kaldırma Kapasitesi",
   span: "Açıklık",
   liftHeight: "Kaldırma Yüksekliği",
-  mass: "Kütle",
+  mass: "Ağırlık",
   dutyClass: "Çalışma Sınıfı",
   supplyVoltage: "Besleme Gerilimi",
   controlVoltage: "Kumanda Gerilimi",
   frequency: "Frekans",
   customer: "Müşteri",
   site: "Saha / Konum",
+  mainHoistSummary: "Ana Kaldırma (hız · motor)",
+  trolleyTravelSummary: "Araba Yürütme (hız · teker · motor)",
+  bridgeTravelSummary: "Köprü Yürütme (hız · teker · motor)",
 };
 
 const REPORT_LEVEL_LABELS: Record<PortalReportLevel, string> = {
@@ -659,7 +708,18 @@ export function ProductPortalCard({
 
         <div
           className={cn(
-            "gap-5 p-3 sm:p-4 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.8fr)]",
+            /*
+             * SAYFA GEÇ BÖLÜNÜR (kullanıcı isteği, 02.09.2026, md. 21: *"bu
+             * bölümde sayfayı ikiye bölmeyelim, yazılar yarım kalıyor"*).
+             *
+             * Bölme `xl` (1280 px) idi ve plaka önizlemesinin 420 px'lik TABANI
+             * sabitti, yani sıkışmanın tamamını SOL sütun yiyordu. Ölçüldü:
+             * 1440–1520 px'te bölüm rayı da sabit sütuna geçince sol sütun
+             * 382 px'e iniyor ve kimlik satırları kırpılıyordu. Eşik 1600 px'e
+             * alındı; altında plaka önizlemesi kimlik bölümünün ALTINA yığılır
+             * ve tam genişlikte, daha okunur görünür.
+             */
+            "gap-5 p-3 sm:p-4 min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(400px,0.75fr)]",
             bolum === "dokumanlar" ? "hidden lg:grid" : "grid"
           )}
         >
@@ -718,6 +778,14 @@ export function ProductPortalCard({
 
             <section id={capaKimligi("kimlik")} className={cn("oc-capa", "relative overflow-hidden border", bolumSinifi("kimlik"))}>
               <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-4 py-2.5"><span className="oc-kicker text-muted-foreground">Otomatik Kimlik Alanları</span><Badge variant="outline">Kaynak + Elle Düzenleme</Badge></header>
+              {/* İKİ DENETİM SÜTUNUNUN BAŞLIĞI — metin düğmelerden çıkınca
+                  anlamın gideceği yer burasıdır. `title` tek taşıyıcı sayılmaz
+                  (dokunmatikte hiç görünmez); sütun başlığı kalıcı bir işarettir. */}
+              <div className="flex items-center justify-end border-b px-3 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                {/* TEK ŞERİT, İKİ AD: sütunlar 32 ve 20 px'tir, "PLAKA" oraya
+                    sığmaz ve iki satıra kırılıyordu. Sıra soldan sağa okunur. */}
+                <span className="whitespace-nowrap">Oto · Plaka</span>
+              </div>
               <div className="divide-y">
                 {workspace.identityFields.map((field) => {
                   const overridden = Object.prototype.hasOwnProperty.call(payload.overrides, field.key);
@@ -726,7 +794,26 @@ export function ProductPortalCard({
                   const yazilabilir = workspace.editableRevision && canEdit;
                   return (
                     /*
-                     * SATIR DÖRT SÜTUNDUR VE HİÇBİRİ SABİT GENİŞLİKTE DEĞİLDİR.
+                     * SATIR ÜÇ SÜTUNDUR VE TEK ŞEMASI VARDIR (02.09.2026, md. 21).
+                     *
+                     * Kullanıcı bildirimi: "Otomatik butonu çok yer kaplıyor,
+                     * yazıya gerek yok; satıra genişlik sığmıyor." Ölçüldü ve
+                     * şikâyetin altında İKİ ayrı hata vardı: (1) 1440 px ve
+                     * üstünde bölüm rayı sabit sütuna geçince sol sütun 382 px'e
+                     * iniyor, `auto` izler 0 px'e ÇÖKÜYOR ve `overflow-hidden`
+                     * altında hem düğme hem tik TAMAMEN kırpılıyordu (satır
+                     * 324 px, içerik 508 px) — yani kullanıcı bir alanı plakadan
+                     * çıkaramıyordu; (2) 1024–1279 arasında `lg` şeması ÜÇ iz
+                     * tanımlarken satırda DÖRT çocuk vardı, "Plakada" örtük bir
+                     * alt satıra düşüp etiket sütununa hizalanıyor ve satır
+                     * 61 px yerine 113 px oluyordu.
+                     *
+                     * İkisini birden bitiren şey sütun SAYISINI düşürmektir: iki
+                     * denetim tek hücrede ve ikisi de İKON. Tek şema olduğu için
+                     * kırılma noktasında iz sayısı da değişmez.
+                     *
+                     * ——— eski gerekçe (01.09.2026) ———
+                     * SATIR DÖRT SÜTUNDU VE HİÇBİRİ SABİT GENİŞLİKTE DEĞİLDİ.
                      *
                      * Eski şema `160px_minmax(180px,1fr)_170px_100px` idi: en az
                      * 634 px isterken proje sayfasının sol sütunu 610 px veriyor,
@@ -742,7 +829,7 @@ export function ProductPortalCard({
                      */
                     <div
                       key={field.key}
-                      className="grid min-w-0 items-center gap-x-3 gap-y-2 px-3 py-2 lg:grid-cols-[minmax(120px,1fr)_minmax(160px,2fr)_auto] xl:grid-cols-[minmax(140px,1fr)_minmax(180px,2fr)_auto_auto]"
+                      className="grid min-w-0 items-center gap-x-3 gap-y-2 px-3 py-2 sm:grid-cols-[minmax(110px,1fr)_minmax(150px,2fr)_auto]"
                     >
                       <div className="min-w-0">
                         <Label htmlFor={`field-${field.key}`}>{FIELD_LABELS[field.key]}</Label>
@@ -770,38 +857,45 @@ export function ProductPortalCard({
                           </div>
                         ) : null}
                       </div>
-                      {/* OTOMATİK BİR DURUM DEĞİL BİR DÜĞMEDİR (kullanıcı isteği,
-                          01.09.2026: "Otomatik'e basılabilse ve basıldığında
-                          düzelse"). Basmak override'ı siler, yani alan kaynağın
-                          güncel değerine döner; elle yazmak onu yeniden açar. */}
-                      <div className="flex items-center">
+                      {/* İKİ DENETİM TEK HÜCREDE VE İKON OLARAK.
+                          OTOMATİK BİR DURUM DEĞİL BİR DÜĞMEDİR (01.09.2026):
+                          basmak override'ı siler, alan kaynağın güncel değerine
+                          döner. Metin kalktı; anlam `title` + `aria-label` +
+                          `aria-pressed` ve SÜTUN BAŞLIĞINDA durur.
+                          `oc-tap-square` dokunma hedefini görünmez bir ::after
+                          ile 44 px'e tamamlar; iki hedef üst üste binmesin diye
+                          aralarında 8 px (`gap-2`) vardır. */}
+                      <div className="flex shrink-0 items-center justify-end gap-2">
                         <Button
                           type="button"
                           variant={overridden ? "outline" : "secondary"}
-                          size="sm"
-                          className="oc-tap min-h-11 w-full justify-center gap-1.5 xl:w-[9.5rem]"
+                          size="icon-sm"
                           disabled={!yazilabilir || !overridden}
                           aria-pressed={!overridden}
+                          aria-label={overridden
+                            ? `${FIELD_LABELS[field.key]} — kaynağın güncel değerine dön`
+                            : `${FIELD_LABELS[field.key]} — kaynaktan otomatik doluyor`}
                           title={overridden
                             ? "Elle düzenlendi — kaynağın güncel değerine dön"
                             : "Alan kaynaktan otomatik doluyor"}
                           onClick={() => resetOverride(field.key)}
                         >
-                          <RotateCcw className={cn("size-3.5", overridden ? "text-primary" : "opacity-50")} />
-                          {overridden ? "Otomatiğe Dön" : "Otomatik"}
+                          <RotateCcw className={cn("size-4", overridden ? "text-primary" : "opacity-50")} />
                         </Button>
-                      </div>
-                      <div className="flex items-center">
                         {plateToggle ? (
-                          <DraftToggle
-                            checked={!payload.hiddenFields.includes(field.key)}
+                          <PlakaTiki
+                            gorunur={!payload.hiddenFields.includes(field.key)}
+                            alanAdi={FIELD_LABELS[field.key]}
                             disabled={!yazilabilir}
-                            label="Plakada"
-                            onChange={(visible) => setPayload((current) => current ? ({ ...current, hiddenFields: visible ? current.hiddenFields.filter((key) => key !== field.key) : [...new Set([...current.hiddenFields, field.key])] }) : current)}
+                            onChange={(gorunur) => setPayload((current) => current ? ({ ...current, hiddenFields: gorunur ? current.hiddenFields.filter((key) => key !== field.key) : [...new Set([...current.hiddenFields, field.key])] }) : current)}
                           />
                         ) : (
-                          <span className="text-xs text-muted-foreground" title="Yasal zorunlu alan; plakadan gizlenemez (BELGE-2)">
-                            Künye
+                          <span
+                            className="grid size-5 shrink-0 place-items-center"
+                            title="Yasal zorunlu alan; plakadan gizlenemez (BELGE-2)"
+                          >
+                            <LockKeyhole className="size-3.5 text-muted-foreground" aria-hidden />
+                            <span className="sr-only">Yasal zorunlu alan; plakadan gizlenemez</span>
                           </span>
                         )}
                       </div>
@@ -821,7 +915,7 @@ export function ProductPortalCard({
             </section>
           </div>
 
-          <aside id={capaKimligi("plaka")} className={cn("oc-capa", "min-w-0 xl:sticky xl:top-4 xl:self-start", bolumSinifi("plaka"))}>
+          <aside id={capaKimligi("plaka")} className={cn("oc-capa", "min-w-0 min-[1600px]:sticky min-[1600px]:top-4 min-[1600px]:self-start", bolumSinifi("plaka"))}>
             <section className="relative overflow-hidden border bg-muted/20">
               <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-3 py-3">
                 <div><div className="oc-kicker text-muted-foreground">Baskı Önizlemesi</div><div className="mt-1 font-mono text-xs">{payload.plate.widthMm} × {payload.plate.heightMm} mm · SVG / PDF</div></div>

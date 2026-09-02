@@ -37,6 +37,17 @@ export const PRODUCT_IDENTITY_FIELDS = [
   "frequency",
   "customer",
   "site",
+  /*
+   * MEKANİZMA SATIRLARI (kullanıcı isteği, 02.09.2026, md. 20).
+   *
+   * Üçü de BİRLEŞİK metindir ("35 m/dak · 2 × 7,5 kW · Ø400 × 4") çünkü
+   * ölçüldü: dokuz ayrı satır plakanın veri penceresine SIĞMIYOR — yasal bant
+   * incelse bile sığmıyor. Üç birleşik satır hem sığar hem okunur; ayrı
+   * satırlar okunmaz bir puntoya inerdi.
+   */
+  "mainHoistSummary",
+  "trolleyTravelSummary",
+  "bridgeTravelSummary",
 ] as const;
 
 export type ProductIdentityField = (typeof PRODUCT_IDENTITY_FIELDS)[number];

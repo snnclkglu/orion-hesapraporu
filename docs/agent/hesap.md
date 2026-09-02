@@ -1534,13 +1534,111 @@ toplamıdır ve `sectionStatus` gizli bölümde `"none"` döner; gizli ya da kap
 bir satırda kırmızı YAKILMAZ — rapora hiç girmeyen bir bölümün kalan kontrolü
 sorun değildir.
 
-**SABİT SÜTUNDA ADIM DÜZEYİ AÇILIR** (≥1440 px, MOBIL-29): modül satırının
-okuna basmak o modülün adımlarını (`7.1 Kesit Özellikleri`, `7.4 Gerilme
-Analizi`…) alt satır olarak açar; gizli adım sayaç yerine `gizli` yazar.
-Dar ekranda ve tabakada liste TEK DÜZEY kalır.
+**ADIM DÜZEYİ HER GENİŞLİKTE AÇILIR** (MOBIL-29, üçüncü tur): modül satırına
+dokunmak o modülün adımlarını (`7.1 Kesit Özellikleri`, `7.4 Gerilme Analizi`…)
+alt satır olarak açar, adıma dokunmak oraya götürür; gizli adım sayaç yerine
+`gizli` yazar. Modül satırı GEZİNMEZ, yalnız açar — bu yüzden modülün ilk
+adımına gitmek iki dokunuştur.
 
-**TEK ADIMLI GRUP ÇOCUK ALMAZ**: Teknik Özellikler ve Özet grupsuz tek
-adımlardır, onlara çocuk vermek satırın kendini bir kez daha yazmasıdır.
+**TEK ADIMLI GRUP ÇOCUK ALMAZ VE GEZİNİLİR**: Teknik Özellikler ile Özet
+grupsuz tek adımlardır; onlara çocuk vermek satırın kendini bir kez daha
+yazması, açıcı yapmak ise gezilemez kılmak olurdu. Kimlikleri bu yüzden
+`adim:<adım anahtarı>`dır — `aktifId` ile doğrudan eşleşir ve `rayaGit` onları
+öteki adımlarla aynı dalda çözer. Çok adımlı grubun kimliği `group.key` kalır.
+
+**KAPALI MODÜLÜN SATIRI AÇILMAZ**: `buildSteps` onun adımlarını hiç üretmediği
+için dal boş olurdu. Satır listede DURUR (yalnız oradan geri açılır) ama
+tıklamak sessizce hiçbir şey yapmaz.
 
 **ARAMA `trKatla` İLE YAPILIR**, `toLocaleLowerCase("tr-TR")` ile değil: depodaki
 gerçek Türkçe katlama odur ve `i ı İ I` ailesini tek harfe indirir.
+
+## HESAP-37 — İklimlendirmenin tasarım noktası ARTIK GİRDİDİR; kabinin camı ölçüden türer.
+
+Kullanıcı turu (02.09.2026, md. 2–14). Beş karar ve dört düzeltme.
+
+**İÇ SICAKLIK MAHAL BAŞINA AYRIDIR.** `ROOM_DESIGN_TEMP_C` (25 °C) artık bir
+YEDEKTİR: elektrik odası 23/24/25 (varsayılan **24**), operatör kabini
+21/22/23/24 (varsayılan **23**) arasından seçilir. Sebebi ikisinin gereğinin
+farklı olmasıdır — odada soru elektroniğin ömrü (IEC 61439-1 panoları 35 °C
+24-saat ortalamasına göre doğrular), kabinde operatörün konforudur (ISO 7730 /
+EN 16798-1 Kat. II yaz bandı 23–26 °C). Bir derece, iletimden taze havaya
+kadar yükün HER kalemini birden oynatır. `roomTempC` verilmeyen her çağrı eski
+sabiti kullanır, yani hiçbir eski revizyonun sayısı değişmez.
+
+**KAPI ÖLÇÜSÜ TEK KUTUDUR** (`roomDoorSize`, "800x2000" biçiminde altı seçenek).
+Genişlik ve yükseklik iki ayrı SAYI kutusuyken imal edilmeyen birleşimler
+yazılabiliyordu; kapı bir üründür ve boyu defterlidir. **Eski iki alan tanımda
+KALIR** ve `roomPanelLayout` tek kutu boşken onları okur; ayrıca `migrateCabin`
+kayıtta alan yoksa tek kutuyu iki sayıdan KURAR — yoksa şablonun varsayılanı
+mühendisin yazdığı 700 × 2.100'ü sessizce ezerdi.
+
+**PANO ADEDİ VE DERİNLİĞİ ANA IZGARADA SORULMAZ.** Adet zaten pano oluşturma
+kartındaki ekle/sil düğmelerinden yazılıyordu; ikinci bir kutu iki sayının
+ayrışmasının davetiyesiydi. Derinlik de panoların tarif edildiği karta taşındı.
+`panelCount` alanı DURUYOR: 11.3 Elektrik Panoları bölümünün kendi girdisidir ve
+orada aynı zamanda SIZINTI KAPI ADEDİDİR — silinemez.
+
+**KABİN CAM ALANI OTOMATİKTİR**: `A = 0,80 × yükseklik × (genişlik + uzunluk)`
+(ön yüz tam, iki yanın yarısı; %80 çerçeve payı), bir ondalığa yuvarlanır.
+`cabinGlazingAreaAuto` bayrağı `AUTO_FLAGS`tedir; anahtar kapatılınca son
+türetilen değer kutuda kalır.
+
+**CAM DEFTERİ BEŞ TİPLİDİR** ve `glazingKind()` artık BEYAZ LİSTE DEĞİLDİR
+(`value in GLAZING`). Eski hâli üç değeri elle sayıyordu ve seçeneklere eklenen
+yeni bir tip hesapta SESSİZCE "double" ile koşuyordu. Kurşungeçirmez cam İKİ
+seçenektir ve aralarındaki fark 3,5 KATTIR: monolitik balistik lamine BR4
+(U 4,5 · 80 kg/m²) tek camdan yalnız biraz iyidir; ısı yalıtımı ancak balistik
+lamine + Low-E ısıcam birleşiminde sağlanır (BR4-NS, U 1,3 · 115 kg/m²).
+Temperli ve lamine cam AYRI SEÇENEK DEĞİLDİR — EN 673'e göre U yalnız
+kalınlığa, camın öz direncine ve yüzey yayınımına bağlıdır.
+
+**DÜZELTİLEN DÖRT KUSUR:**
+- `roomDeviceHeatAuto` ve `panelDeviceHeatAuto` `AUTO_FLAGS` listesinde YOKTU;
+  bayrağı bulunmayan eski bir kayıtta şablondaki `true` miras kalıyor ve
+  mühendisin elle girdiği pano kayıp gücü ilk açılışta SESSİZCE eziliyordu.
+- Kabin cihaz ısısı yardım metni "…ve operatör" diyordu; kod operatörü AYRICA
+  `occupantKw` olarak topluyor — metne uyan mühendis 130 W'ı ÇİFT sayardı.
+- "Hesaplanan Isı Kazancı" formül satırı operatör kalemini yazmıyordu.
+- Katalog kapasitesi **L35/L35** değeridir (DIN 3168 / EN 14511). Kontrol onu
+  doğrudan kullanır ve ortama göre DÜŞÜRMEZ; ortam 40 °C'yi aşınca artık bir
+  UYARI kontrolü çıkar. Düşürme YAPILMAZ: her üreticinin eğrisi farklıdır ve
+  tek bir katsayı uydurmak yayımlanmamış bir kesinlik üretirdi (md. 4).
+
+**BİLGİ NOTLARI KODUN YANINDA YAŞAR** (`presentation/cabinNotes.ts`): bölüm
+başlığındaki «i» hesabın adımlarını, alan notları ise ışınım yükünün nasıl
+kestirileceğini ve cam U değerlerinin kaynağını anlatır. Buradaki her katsayı
+`climate-load.ts`teki gerçek değerdir; biri değişirse metin de değişmelidir —
+metnin yalan söylemesi hiç olmamasından kötüdür.
+
+## HESAP-38 — İklimlendirme şemasında ön ve yan görünüş AYNI ÖLÇEKTEDİR.
+
+Kullanıcı bildirimi (02.09.2026, md. 4, 5, 13).
+
+**İKİ GÖRÜNÜŞÜN YÜKSEKLİĞİ EŞİTTİR.** Ön ve yan kutular İKİ AYRI yükseklik
+tavanına (168 ve 116 px) çarpıyordu: aynı 2,6 m'lik oda solda 154, sağda 104 px
+çiziliyordu — 1,62 kat fark. Teknik resimde izdüşüm çizgileri ancak eşit
+ölçekte hizalanır. `sideH = bh` ve duvar kalınlığı da ortaktır; genişlik
+tavanına takılırsa YALNIZ GENİŞLİK kırpılır.
+
+**PANO ETİKETİ ÖLÇÜLEREK YAZILIR.** Biçim `P1-600`e indi (8 karakterden 6'ya) ve
+karar `textWidth` ile verilir, sabit bir px eşiğiyle değil; sığmayan etiket
+ATILMAZ, numaraya KISALIR. Ölçüm payı 1,08'dir: ekranda yazı IBM Plex Mono
+(genişlik tam), PDF'te DejaVu (orantılı) — ekranda sığan PDF'te taşabilir.
+
+**PANOLARDAN SONRA BOYDA KALAN MESAFE ÇİZİLİR** ve sayı ÇİZİMDEN DEĞİL
+HESAPTAN gelir (`roomPanelLayout.remainingLengthMm`): panolar sığmadığında şema
+onları ölçekleyerek sığdırılmış gibi gösterir ve çizimden okunan boşluk yalan
+söyler. Negatif değer mutlak değere ÇEVRİLMEZ; işaret bilginin kendisidir ve
+etiket "SIĞMIYOR" yazar. `walkingClearanceMm` ile KARIŞTIRILMAZ — o, oda
+GENİŞLİĞİ eksi pano DERİNLİĞİdir (yan görünüş), bu ise oda BOYU eksi pano
+enleri toplamıdır (ön görünüş).
+
+**ALT ETİKET ŞERİDİ ELLE KURULUR.** Dört etiket (kapı · cam · cihazlar ·
+operatör) aynı taban çizgisine ayrı ayrı yazılıyor, toplam genişlikleri kutuya
+sığmıyor ve çakışma çözücü ikisini 7,6 px aşağı itiyordu. Çözücü çakışmayı
+ÇÖZMEZ, KAÇIRIR; doğru düzeltme yerleşimi ÖLÇMEKTİR. Etiketler artık toplanıp
+tek (gerekirse kasıtlı iki) SABİT satır olarak basılır.
+
+**ŞEMANIN ÖNİZLEMESİ VAR:** `/dev/climate-room-preview` — dört varyant (1, 3 ve
+6 panolu oda ile kabin), auth'suz.

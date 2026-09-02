@@ -29,6 +29,9 @@ const identity: ProductIdentityValues = {
   frequency: "50 Hz",
   customer: "Müşteri",
   site: "Ankara",
+  mainHoistSummary: "12 m/dak · 2 × 30 kW",
+  trolleyTravelSummary: "35 m/dak · Ø400 × 4 · 2 × 3 kW",
+  bridgeTravelSummary: "50 m/dak · Ø500 × 4 · 2 × 5,5 kW",
 };
 
 describe("baskı isim plakası", () => {
@@ -106,12 +109,93 @@ describe("baskı isim plakası", () => {
         identity,
         logoDataUrl: "/brand/orion-logo-white.svg",
       });
-      expect(layout.legal.ce, preset.label).not.toBeNull();
-      expect(layout.legal.ce!.height, preset.label).toBeGreaterThanOrEqual(5);
+      expect(layout.ce, preset.label).not.toBeNull();
+      expect(layout.ce!.height, preset.label).toBeGreaterThanOrEqual(5);
       expect(layout.capacity, preset.label).not.toBeNull();
       expect(layout.legal.lines.length, preset.label).toBeGreaterThan(0);
       expect(layout.fallback.code, preset.label).toBe("23456789ABCDEFGH");
     }
+  });
+
+  /*
+   * SUSTURULAMAYAN UYARI OKUNMAZ HÂLE GELİR.
+   *
+   * 02.09.2026'da ölçüldü: üç hazır ölçünün ÜÇÜNDE de "veri satırları
+   * sığmıyor" uyarısı ateşleniyordu, yani kartta kalıcı bir kırmızı kutu
+   * duruyordu. Sebep yerleşim matematiğiydi — son ayırıcı çizgi son taban
+   * çizgisinin yarım adım altındadır ve yükseklik kapısı bunu saymıyordu.
+   * Köprü plakalarında artık uyarı YOKTUR; en küçük pano plakasında ise
+   * uyarı GERÇEKTİR ve kaç alanın gizleneceğini söyler.
+   */
+  it("köprü plakaları on üç satırla UYARISIZ yerleşir", () => {
+    for (const preset of NAMEPLATE_SIZE_PRESETS.filter((p) => p.widthMm >= 200)) {
+      const layout = createNameplateLayout({
+        widthMm: preset.widthMm,
+        heightMm: preset.heightMm,
+        serialNo: "0057-01",
+        publicUrl: "https://portal.orioncranes.com/paylas/vinc/23456789ABCDEFGH",
+        identity,
+        logoDataUrl: "/brand/orion-logo-white.svg",
+      });
+      // Fikstürde ürün adı vinç tipini zaten içerdiği için "VİNÇ TİPİ" satırı
+      // düşer; kalan on iki satır üç mekanizma özetini de kapsar.
+      expect(layout.rows.length, preset.label).toBe(12);
+      expect(layout.issues, preset.label).toEqual([]);
+      expect(layout.fits, preset.label).toBe(true);
+      // Etiket asla değerden büyük basılmaz (md. 18).
+      for (const row of layout.rows) {
+        expect(row.labelSize, `${preset.label} · ${row.label}`).toBeLessThanOrEqual(row.valueSize);
+      }
+    }
+  });
+
+  it("sığmayan satır varsa uyarı KAÇ ALANIN gizleneceğini söyler", () => {
+    const kucuk = NAMEPLATE_SIZE_PRESETS.find((p) => p.widthMm < 200)!;
+    const layout = createNameplateLayout({
+      widthMm: kucuk.widthMm,
+      heightMm: kucuk.heightMm,
+      serialNo: "0057-01",
+      publicUrl: "https://portal.orioncranes.com/paylas/vinc/23456789ABCDEFGH",
+      // Ürün adı vinç tipini İÇERMEZ: "VİNÇ TİPİ" satırı da basılır ve en
+      // küçük plaka on üç satırla gerçekten taşar.
+      identity: { ...identity, product: "KÖPRÜLÜ VİNÇ SİSTEMİ" },
+      logoDataUrl: "/brand/orion-logo-white.svg",
+    });
+    expect(layout.rows.length).toBe(13);
+    expect(layout.issues.join(" ")).toMatch(/son \d+ tanesi/);
+  });
+
+  it("mekanizma özetleri plakada BİRLEŞİK satır olarak durur (md. 20)", () => {
+    const layout = createNameplateLayout({
+      widthMm: 240,
+      heightMm: 160,
+      serialNo: "0057-01",
+      publicUrl: "https://portal.orioncranes.com/paylas/vinc/23456789ABCDEFGH",
+      identity,
+      logoDataUrl: "/brand/orion-logo-white.svg",
+    });
+    const etiketler = layout.rows.map((row) => row.label);
+    expect(etiketler).toContain("ANA KALDIRMA");
+    expect(etiketler).toContain("ARABA YÜRÜTME");
+    expect(etiketler).toContain("KÖPRÜ YÜRÜTME");
+    // "KÜTLE" değil "AĞIRLIK" (md. 18).
+    expect(etiketler).toContain("AĞIRLIK");
+    expect(etiketler).not.toContain("KÜTLE");
+    // Seri numarası TEK yerde: satırlarda. QR altındaki kutu kaldırıldı (md. 17).
+    expect(etiketler.filter((l) => l === "SERİ NUMARASI")).toHaveLength(1);
+  });
+
+  it("QR'ın altında adres YOK, yalnız 16 haneli kod var (md. 16)", () => {
+    const svg = buildNameplateSvg({
+      widthMm: 240,
+      heightMm: 160,
+      serialNo: "0057-01",
+      publicUrl: "https://portal.orioncranes.com/paylas/vinc/23456789ABCDEFGH",
+      identity,
+      logoDataUrl: "/brand/orion-logo-white.svg",
+    });
+    expect(svg).toContain("23456789ABCDEFGH");
+    expect(svg).not.toContain("portal.orioncranes.com/paylas");
   });
 
   it("CE işaretini yalnız açıkça kapatıldığında düşürür", () => {
@@ -123,8 +207,8 @@ describe("baskı isim plakası", () => {
       identity,
       logoDataUrl: "/brand/orion-logo-white.svg",
     };
-    expect(createNameplateLayout(base).legal.ce).not.toBeNull();
-    expect(createNameplateLayout({ ...base, ceMark: false }).legal.ce).toBeNull();
+    expect(createNameplateLayout(base).ce).not.toBeNull();
+    expect(createNameplateLayout({ ...base, ceMark: false }).ce).toBeNull();
   });
 
   /*
@@ -200,7 +284,7 @@ describe("baskı isim plakası", () => {
       identity,
       logoDataUrl: "/brand/orion-logo-white.svg",
     });
-    const smallest = Math.min(...layout.rows.map((row) => row.valueSize), layout.fallback.urlSize);
+    const smallest = Math.min(...layout.rows.map((row) => row.valueSize), layout.fallback.codeSize);
     expect(smallest).toBeGreaterThanOrEqual(READABLE_MIN_MM - 0.35);
   });
 
@@ -223,7 +307,7 @@ describe("baskı isim plakası", () => {
    * dışına taşıp veri tablosunun etiket sütununu eziyordu. Bileşen ağacına
    * bakmak bunu göstermez; yolun SINIR KUTUSU gösterir.
    */
-  it("CE işaretini yasal bandın içinde, plaka sınırlarını aşmadan çizer", () => {
+  it("CE işaretini QR altında, plaka sınırlarını aşmadan çizer", () => {
     const layout = createNameplateLayout({
       widthMm: 240,
       heightMm: 160,
@@ -232,7 +316,7 @@ describe("baskı isim plakası", () => {
       identity,
       logoDataUrl: "/brand/orion-logo-white.svg",
     });
-    const ce = layout.legal.ce;
+    const ce = layout.ce;
     expect(ce).not.toBeNull();
     if (!ce) return;
     const sayilar = [...ce.path.matchAll(/[-\d.]+/g)].map((m) => Number(m[0]));
@@ -245,11 +329,13 @@ describe("baskı isim plakası", () => {
     const yariCaplar = [...ce.path.matchAll(/A([\d.]+) ([\d.]+)/g)].map((m) => Number(m[1]));
     expect(yariCaplar.length).toBe(4);
     expect(Math.max(...yariCaplar)).toBeLessThanOrEqual(ce.height);
-    // İşaret yasal bandın dikey sınırları içindedir.
-    expect(ce.y).toBeGreaterThanOrEqual(layout.legal.y);
-    expect(ce.y + ce.height).toBeLessThanOrEqual(layout.legal.y + layout.legal.height + 0.01);
-    // Yasal yazı işaretin sağından başlar; üstüne binmez.
-    expect(layout.legal.x).toBeGreaterThan(ce.x + ce.width);
+    // İşaret QR'IN ALTINDA ve onunla ORTALANMIŞTIR (02.09.2026, md. 19).
+    expect(ce.y).toBeGreaterThan(layout.qr.y + layout.qr.size);
+    expect(ce.x + ce.width / 2).toBeCloseTo(layout.qr.x + layout.qr.size / 2, 1);
+    // Yasal bandın üstüne taşmaz.
+    expect(ce.y + ce.height).toBeLessThanOrEqual(layout.legal.y);
+    // Künye yazısı artık soldan TAM GENİŞLİKTE başlar; CE bandın içinde değil.
+    expect(layout.legal.x).toBeLessThan(ce.x);
   });
 
   /*

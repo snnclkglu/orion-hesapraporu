@@ -4,6 +4,7 @@ import { PDFDocument } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import { mm } from "@/lib/pdf/palette";
 import { renderNameplatePdf } from "../nameplate-pdf";
+import { NAMEPLATE_SIZE_PRESETS } from "../nameplate";
 import type { ProductIdentityValues } from "../types";
 
 async function dataUrl(relativePath: string, mime: string): Promise<string> {
@@ -29,9 +30,53 @@ const identity: ProductIdentityValues = {
   frequency: "50 Hz",
   customer: "Müşteri Fabrikası A.Ş.",
   site: "Ankara",
+  mainHoistSummary: "12 m/dak · 2 × 30 kW",
+  trolleyTravelSummary: "35 m/dak · Ø400 × 4 · 2 × 3 kW",
+  bridgeTravelSummary: "50 m/dak · Ø500 × 4 · 2 × 5,5 kW",
 };
 
 describe("baskı plaka PDF'i", () => {
+  /*
+   * HAZIR ÖLÇÜLERİN ÜÇÜ DE SINANIR (02.09.2026, md. 15).
+   *
+   * Eski test yalnız 240 × 160'ı ölçüyordu ve o ölçü TESADÜFEN geçiyordu:
+   * `<Svg>` sayfa bölünemez bir düğümdür ve yüksekliği float32'de YUKARI
+   * yuvarlanan ölçülerde (200 × 140, 160 × 110) sayfayı bir kıl payı aşıp
+   * ikinci bir sayfa doğuruyordu. Tek ölçü sınamak, hatayı iki hafta boyunca
+   * sessiz bıraktı.
+   */
+  it.each(NAMEPLATE_SIZE_PRESETS.map((preset) => [preset.label, preset] as const))(
+    "%s ölçüsünü TEK sayfa ve tam ölçüde üretir",
+    async (_label, preset) => {
+      const [logoPaperDataUrl, archivoBoldDataUrl, archivoExtraBoldDataUrl, plexDataUrl] =
+        await Promise.all([
+          dataUrl("public/brand/orion-logo-paper.png", "image/png"),
+          dataUrl("src/assets/fonts/Archivo-Bold.ttf", "font/ttf"),
+          dataUrl("src/assets/fonts/Archivo-ExtraBold.ttf", "font/ttf"),
+          dataUrl("src/assets/fonts/IBMPlexMono-SemiBold.ttf", "font/ttf"),
+        ]);
+      const blob = await renderNameplatePdf({
+        widthMm: preset.widthMm,
+        heightMm: preset.heightMm,
+        serialNo: "0057-01-A",
+        publicUrl: "https://portal.orioncranes.com/paylas/vinc/23456789ABCDEFGH",
+        identity,
+        logoDataUrl: logoPaperDataUrl,
+      }, {
+        archivoBold: archivoBoldDataUrl,
+        archivoExtraBold: archivoExtraBoldDataUrl,
+        plexSemiBold: plexDataUrl,
+        logoRaster: logoPaperDataUrl,
+      });
+      const document = await PDFDocument.load(await blob.arrayBuffer());
+      expect(document.getPageCount()).toBe(1);
+      const page = document.getPage(0);
+      expect(page.getWidth()).toBeCloseTo(mm(preset.widthMm), 2);
+      expect(page.getHeight()).toBeCloseTo(mm(preset.heightMm), 2);
+    },
+    30_000
+  );
+
   it("tek vektör sayfayı tam 240 × 160 mm üretir", async () => {
     const [logoPaperDataUrl, customerLogoDataUrl, archivoBoldDataUrl, archivoExtraBoldDataUrl, plexDataUrl] = await Promise.all([
       dataUrl("public/brand/orion-logo-paper.png", "image/png"),

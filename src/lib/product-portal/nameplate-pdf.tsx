@@ -32,6 +32,25 @@ import { PLATE_FONT_FILES, PLATE_LOGO_RASTER_URL } from "./plate-assets";
  * `createNameplateLayout`ın ürettiği mm koordinatlarını basar; aralıklı yazılar
  * karakter karakter konumlanmış olarak gelir.
  */
+/**
+ * PLAKA HER ÖLÇÜDE TEK SAYFADIR (kullanıcı bildirimi, 02.09.2026, md. 15).
+ *
+ * `<Svg>` react-pdf'te SAYFA BÖLÜNEMEZ bir düğümdür. Yerleşim sayfanın
+ * yüksekliğini JS `double`ıyla, düğümün kutusunu ise yoga'nın `float32`iyle
+ * tutar; `mm(140)` float32'de YUKARI, `mm(160)` AŞAĞI yuvarlanır. Yukarı
+ * yuvarlanan ölçülerde düğüm sayfayı bir kıl payı aşıyor, sayfalama
+ * tetikleniyor ve mutlak konumlu logolar İKİNCİ SAYFAYA itiliyordu — yani
+ * hangi ölçünün patlayacağı saf kayan nokta tesadüfüydü (ölçüldü: 240×160 tek,
+ * 200×140 ve 160×110 iki sayfa).
+ *
+ * `<Page wrap={false}>` sayfalamayı atlar AMA sayfa kutusunun yüksekliğini de
+ * sıfırlıyor (ölçüldü: `getHeight() === 0`) ve belge bozuluyor. Bu yüzden çözüm
+ * ÇİZİMİ 0,05 pt KISALTMAKTIR: float32'nin bu büyüklükteki bağıl hatası
+ * ~3·10⁻⁵ pt'dir, yani 0,05 pt bin kat pay bırakır ve HER ölçüde tutar.
+ * Görsel karşılığı 0,018 mm'dir — kazıma toleransının çok altında.
+ */
+const SAYFA_EPSILON_PT = 0.05;
+
 export interface NameplatePdfAssets {
   archivoBold: string;
   archivoExtraBold: string;
@@ -129,7 +148,13 @@ function NameplatePdfDocument({
       <Page size={[mm(l.widthMm), mm(l.heightMm)]} style={{ backgroundColor: p.paper }}>
         <Svg
           viewBox={`0 0 ${l.widthMm} ${l.heightMm}`}
-          style={{ position: "absolute", left: 0, top: 0, width: mm(l.widthMm), height: mm(l.heightMm) }}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: mm(l.widthMm),
+            height: mm(l.heightMm) - SAYFA_EPSILON_PT,
+          }}
         >
           <Rect width={l.widthMm} height={l.heightMm} fill={p.paper} />
           <Rect
@@ -251,39 +276,9 @@ function NameplatePdfDocument({
           >
             {l.fallback.code}
           </Text>
-          <Text
-            x={l.fallback.x}
-            y={l.fallback.urlY}
-            textAnchor="middle"
-            fill={p.muted}
-            style={{ fontFamily: "PlatePlex", fontSize: l.fallback.urlSize, fontWeight: 600 }}
-          >
-            {l.fallback.url}
-          </Text>
-
-          {l.serialBox ? (
-            <G>
-              <Rect x={l.serialBox.x} y={l.serialBox.y} width={l.serialBox.width} height={l.serialBox.height} fill={p.band} />
-              <Text
-                x={l.serialBox.centerX}
-                y={l.serialBox.labelY}
-                textAnchor="middle"
-                fill={p.paper}
-                style={{ fontFamily: "PlatePlex", fontSize: l.serialBox.labelSize, fontWeight: 600 }}
-              >
-                {l.serialBox.label}
-              </Text>
-              <Text
-                x={l.serialBox.centerX}
-                y={l.serialBox.valueY}
-                textAnchor="middle"
-                fill={p.bandText}
-                style={{ fontFamily: "PlatePlex", fontSize: l.serialBox.valueSize, fontWeight: 600 }}
-              >
-                {l.serialBox.value}
-              </Text>
-            </G>
-          ) : null}
+          {/* CE QR'IN ALTINDA (02.09.2026, md. 19); adres satırı ve seri
+              numarası kutusu kaldırıldı (md. 16 ve 17). */}
+          {l.ce ? <Path d={l.ce.path} fill={p.ink} /> : null}
 
           <Line
             x1={l.accent.width}
@@ -293,7 +288,6 @@ function NameplatePdfDocument({
             stroke={p.hairline}
             strokeWidth={0.35}
           />
-          {l.legal.ce ? <Path d={l.legal.ce.path} fill={p.ink} /> : null}
           {l.legal.lines.map((line, index) => (
             <Text
               key={`${index}-${line.text}`}

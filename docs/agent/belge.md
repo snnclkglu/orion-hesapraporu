@@ -417,11 +417,41 @@ sığmıyor" denir. `NAMEPLATE_SIZE_PRESETS` yalnız zorunlu bloğu okunur taş�
 yazılar `trackedGlyphs` ile karakter karakter konumlanır ve iki çizici de aynı
 x dizisini basar.
 
-## BELGE-6 — QR'ın yazılı yedeği zorunludur.
+## BELGE-6 — QR'ın yazılı yedeği zorunludur; yedek KODDUR, adres değil.
 
-Plaka sahada on yıl durur; kod
-kirlenir, çizilir, boya alır. Kodun ve adresin insan-okunur hâli QR'ın altında
-basılır. QR modülü `QR_MODULE_MIN_MM` altına inerse yerleşim uyarı verir.
+Plaka sahada on yıl durur; kod kirlenir, çizilir, boya alır. **16 haneli KODUN**
+insan-okunur hâli QR'ın altında basılır ve zorunludur. QR modülü
+`QR_MODULE_MIN_MM` altına inerse yerleşim uyarı verir.
+
+**ADRES SATIRI KALDIRILDI** (kullanıcı kararı, 02.09.2026): *"…/qr/XXXX linkine
+gerek yok, kullanıcı bunu yazarak giremez zaten, QR'la girsin."* Doğrudur —
+otuz iki karakterlik bir adresi telefona elle yazmak gerçekçi bir kurtarma yolu
+değildir; kod ise kısadır ve portalın arama kutusuna girer. Yedeğin kendisi
+kalkmadı, BİÇİMİ değişti. Adres satırını geri koymayın.
+
+## BELGE-6b — Plakanın alt bandı yalnız YASAL künyeyi taşır; CE QR'ın altındadır.
+
+Bandın 20 mm'lik hâli 160 mm'lik bir plakanın %14'ünü yiyordu ve CE de onun
+içindeydi (kullanıcı bildirimi, 02.09.2026: *"alttaki CE ve firma bilgisi
+gereksiz yer kaplıyor"*). Bant 11 mm'ye indi, CE **QR'ın altına** taşındı ve
+konumu `qr` geometrisinden türetilir.
+
+**ÜÇ SATIR SİLİNEMEZ:** imalatçının ticari unvanı, TAM ADRESİ ve imal yılı
+2006/42/AT Ek I md. 1.7.3 gereği plakada BULUNMAK ZORUNDADIR (BELGE-1). "Yer
+kaplıyor" isteği bandın İNCELMESİYLE karşılanır, satırların silinmesiyle değil.
+
+## BELGE-6c — Plaka HER ÖLÇÜDE tek sayfadır ve çizim sayfadan 0,05 pt kısadır.
+
+`<Svg>` react-pdf'te sayfa bölünemez bir düğümdür. Yerleşim sayfanın
+yüksekliğini JS `double`ıyla, düğümün kutusunu yoga'nın `float32`iyle tutar;
+`mm(140)` float32'de YUKARI, `mm(160)` AŞAĞI yuvarlanır — yani hangi ölçünün
+ikinci sayfa doğuracağı saf kayan nokta tesadüfüdür (ölçüldü: 240×160 tek,
+200×140 ve 160×110 İKİ sayfa). `<Page wrap={false}>` sayfalamayı atlar **ama
+sayfa kutusunun yüksekliğini de sıfırlar** (`getPageCount` 1, `getHeight()` 0);
+kullanılmaz. Çözüm `SAYFA_EPSILON_PT = 0.05`: float32'nin bu büyüklükteki bağıl
+hatası ~3·10⁻⁵ pt'dir, epsilon bin kat pay bırakır ve görsel karşılığı
+0,018 mm'dir. **Sayfa sayısı testi üç hazır ölçüde de koşar** — tek ölçü sınamak
+bu hatayı iki hafta sessiz bırakmıştı.
 
 ## BELGE-7 — Plakaya kazınan adres `/qr/<kod>`tir.
 

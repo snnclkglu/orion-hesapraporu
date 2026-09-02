@@ -36,6 +36,9 @@ const identity: ProductIdentityValues = {
   frequency: "50 Hz",
   customer: "Müşteri Fabrikası A.Ş.",
   site: "Ankara Üretim Tesisi",
+  mainHoistSummary: "12 m/dak · 2 × 30 kW",
+  trolleyTravelSummary: "35 m/dak · Ø400 × 4 · 2 × 3 kW",
+  bridgeTravelSummary: "50 m/dak · Ø500 × 4 · 2 × 5,5 kW",
 };
 
 const portal: CustomerPortalDto = {

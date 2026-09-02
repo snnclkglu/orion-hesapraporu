@@ -44,6 +44,9 @@ export const NAMEPLATE_TOGGLE_FIELDS = [
   "controlVoltage",
   "frequency",
   "customer",
+  "mainHoistSummary",
+  "trolleyTravelSummary",
+  "bridgeTravelSummary",
 ] as const satisfies readonly ProductIdentityField[];
 
 /**
@@ -149,14 +152,27 @@ export interface NameplateLayout {
   divider: { x: number; y1: number; y2: number } | null;
   qr: { path: string; x: number; y: number; size: number; moduleMm: number };
   qrCaption: { glyphs: TrackedGlyph[]; y: number; size: number; centerX: number };
-  /** QR okunmazsa geri dönüş yolu: kod ve insan-okunur adres. */
-  fallback: { code: string; url: string; x: number; codeY: number; urlY: number; codeSize: number; urlSize: number };
-  serialBox: { x: number; y: number; width: number; height: number; labelY: number; valueY: number; labelSize: number; valueSize: number; centerX: number; label: string; value: string } | null;
+  /**
+   * QR okunmazsa geri dönüş yolu: 16 haneli KOD.
+   *
+   * İnsan-okunur adres 02.09.2026'da kaldırıldı (md. 16): 32 karakterlik bir
+   * adresi elle yazmak gerçekçi bir kurtarma yolu değildir; kod ise telefona
+   * yazılabilir ve BELGE-6'nın istediği yazılı yedeği tek başına karşılar.
+   */
+  fallback: { code: string; x: number; codeY: number; codeSize: number };
+  /**
+   * CE İŞARETİ QR'IN ALTINDADIR (md. 19), yasal bandın içinde değil.
+   *
+   * `legal` içinde kalsaydı bant CE'nin 5 mm'lik asgarisi yüzünden
+   * incelemezdi; oysa kullanıcının şikâyeti tam olarak o bandın kapladığı
+   * yerdi. CE bir beyandır ve konumu serbesttir (765/2008/AT yalnız asgari
+   * ölçüyü ve okunurluğu bağlar).
+   */
+  ce: { x: number; y: number; height: number; path: string; width: number } | null;
   legal: {
     y: number;
     height: number;
     rule: { y: number };
-    ce: { x: number; y: number; height: number; path: string; width: number } | null;
     lines: Array<{ text: string; y: number; size: number }>;
     x: number;
   };
@@ -491,7 +507,14 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
     : null;
 
   // ————————————————————————————————————————————— içerik ve yasal bant
-  const legalH = +(Math.max(8, 20 * k)).toFixed(2);
+  /* YASAL BANT İNCELDİ (kullanıcı isteği, 02.09.2026, md. 19): *"alttaki CE ve
+     firma bilgisi gereksiz yer kaplıyor"*. 20 mm, 160 mm'lik bir plakanın
+     %14'üydü ve CE de onun içindeydi.
+     ÜÇ SATIR SİLİNEMEZ: imalatçının ticari unvanı, TAM ADRESİ ve imal yılı
+     2006/42/AT Ek I md. 1.7.3 gereği plakada BULUNMAK ZORUNDADIR (BELGE-1).
+     Kazanç bandın İNCELMESİNDEN gelir — CE artık QR'ın altındadır ve bant
+     yalnız iki ince satır taşır. */
+  const legalH = +(Math.max(6, 11 * k)).toFixed(2);
   const legalY = +(heightMm - headerY - legalH).toFixed(2);
   const contentTop = +(headerY + headerH + headerRuleH + Math.max(2.5, 6 * k)).toFixed(2);
   const contentBottom = +(legalY - Math.max(1.5, 3 * k)).toFixed(2);
@@ -567,10 +590,15 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
     ["PROJE / ÜRÜN KODU", visibleValue(input.identity, hidden, "projectCode")],
     ["AÇIKLIK", visibleValue(input.identity, hidden, "span")],
     ["KALDIRMA YÜKSEKLİĞİ", visibleValue(input.identity, hidden, "liftHeight")],
-    ["KÜTLE", visibleValue(input.identity, hidden, "mass")],
+    ["AĞIRLIK", visibleValue(input.identity, hidden, "mass")],
     ["ÇALIŞMA SINIFI", visibleValue(input.identity, hidden, "dutyClass")],
     ["BESLEME", supply],
     ["KUMANDA GERİLİMİ", visibleValue(input.identity, hidden, "controlVoltage")],
+    // MEKANİZMA SATIRLARI (md. 20) — üçü de BİRLEŞİKTİR; dokuz ayrı satır
+    // plakanın veri penceresine sığmıyor (ölçüldü).
+    ["ANA KALDIRMA", visibleValue(input.identity, hidden, "mainHoistSummary")],
+    ["ARABA YÜRÜTME", visibleValue(input.identity, hidden, "trolleyTravelSummary")],
+    ["KÖPRÜ YÜRÜTME", visibleValue(input.identity, hidden, "bridgeTravelSummary")],
   ];
   const present = candidates.filter(([, value]) => Boolean(value));
   if (!normalized(input.identity.machineModel)) {
@@ -607,12 +635,18 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
   const genislikPuntosu = present.length > 0
     ? Math.min(...present.map(([, value]) => fitMonoSize(value, valueMaxWidth, valueSizes)))
     : valueSizes[0];
-  const satirYuksekligiIcin = (punto: number) => +(Math.max(labelSize, punto) * 1.45).toFixed(2);
+  const satirYuksekligiIcin = (punto: number) => +(punto * 1.45).toFixed(2);
+  /* YÜKSEKLİK KAPISI SON AYIRICI ÇİZGİYİ DE SAYAR.
+     Eski hâl `satır yüksekliği × n ≤ boşluk` diyordu; oysa satır bloğu
+     rowsTop + değer puntosu ile BAŞLAR ve son satırın ayırıcı çizgisi son
+     taban çizgisinin YARIM ADIM ALTINDADIR. Aradaki fark 0,3–0,4 mm'ydi ve
+     "veri satırları sığmıyor" uyarısını üç hazır ölçüde de sürekli
+     ateşliyordu — susturulamayan bir uyarı okunmaz hâle gelir. */
+  const blokYuksekligi = (punto: number) =>
+    satirYuksekligiIcin(punto) * (present.length - 0.5) + punto;
   const valueSize = present.length > 0
     ? valueSizes.find(
-        (punto) =>
-          punto <= genislikPuntosu &&
-          satirYuksekligiIcin(punto) * present.length <= rowsSpace
+        (punto) => punto <= genislikPuntosu && blokYuksekligi(punto) <= rowsSpace
       ) ?? Math.min(genislikPuntosu, MIN_VALUE_SIZE)
     : genislikPuntosu;
 
@@ -621,9 +655,28 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
      yüksekliğini büyük olan DEĞER belirler. Ölçülmüştü: adım 3,84 mm iken
      değer 4,2 mm ve her satırın saç çizgisi bir alttaki rakamın içinden
      geçiyordu — kullanıcının "tablo bozuk" dediği şey buydu. */
+  /* ETİKET DEĞERDEN BÜYÜK OLAMAZ (kullanıcı bildirimi, 02.09.2026, md. 18).
+     Etiket puntosu sabitken değer puntosu satır sayısına göre küçülüyordu;
+     240 × 160'ta ölçülen hâl etiket 2,75 / değer 2,20 idi — hiyerarşi ters
+     dönüyor, aynı taban çizgisindeki iki sütun farklı puntoda oturduğu için
+     göz satırı hizasız görüyordu. Etiket artık değerin %80'ini geçmez ve
+     okunabilirlik tabanının altına da inmez. Sütun başlangıcı (`valueX`)
+     yeniden hesaplanmaz: yalnız küçülen bir etiket oradan taşamaz, olsa olsa
+     araya bir miktar daha boşluk girer. */
+  const satirEtiketPuntosu = +Math.max(
+    MIN_LABEL_SIZE,
+    Math.min(labelSize, valueSize * 0.8)
+  ).toFixed(2);
   const satirYuksekligi = satirYuksekligiIcin(valueSize);
+  /* ADIM DA AYNI DENKLEMDEN ÇIKAR: son ayırıcı çizgi tam olarak içerik
+     penceresinin dibine oturur, bir kıl payı taşmaz. Aşağı yuvarlanır —
+     yukarı yuvarlamak yeniden 0,01 mm'lik bir taşma üretirdi. */
+  const kullanilabilirAdim =
+    present.length > 0
+      ? Math.floor(((rowsSpace - valueSize) / Math.max(0.5, present.length - 0.5)) * 100) / 100
+      : 0;
   const rowStep = present.length > 0
-    ? +Math.max(satirYuksekligi, Math.min(8.1 * k, rowsSpace / present.length)).toFixed(2)
+    ? +Math.max(satirYuksekligi, Math.min(8.1 * k, kullanilabilirAdim)).toFixed(2)
     : 0;
 
   const rows: NameplateRow[] = present.map(([label, value], index) => {
@@ -632,7 +685,7 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
       label,
       value,
       y,
-      labelSize,
+      labelSize: satirEtiketPuntosu,
       valueSize,
       // Ayırıcı çizgi İKİ TABAN ÇİZGİSİNİN ORTASINDADIR ve yerleşimden gelir;
       // iki çizici onu ayrı ayrı hesaplarsa biri gün gelip kayar.
@@ -640,8 +693,15 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
     };
   });
   const sonSatirAlti = rows.length > 0 ? rows[rows.length - 1].ruleY : rowsTop;
-  if (sonSatirAlti > contentBottom) {
-    issues.push("Veri satırları bu ölçüye sığmıyor; plakayı büyütün veya alan gizleyin.");
+  if (sonSatirAlti > contentBottom && rowStep > 0) {
+    // UYARI KAÇ SATIRIN FAZLA OLDUĞUNU SÖYLER: "sığmıyor" tek başına
+    // mühendisi ölçüyle oynamaya iterdi; sayı hangi alanların gizleneceğini
+    // doğrudan gösterir.
+    const fazla = Math.ceil((sonSatirAlti - contentBottom) / rowStep);
+    issues.push(
+      `Veri satırlarının son ${fazla} tanesi bu ölçüye sığmıyor; plakayı ` +
+        `büyütün ya da ${fazla} alanı plakadan gizleyin.`
+    );
   }
 
   // ————————————————————————————————————————————————— QR ve yedeği
@@ -669,38 +729,26 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
    * servisçiyi çıkmaza sokar; kodun ve adresin insan gözüyle okunabilir hâli
    * tek geri dönüş yoludur.
    */
+  /* ADRES SATIRI KALDIRILDI (02.09.2026, md. 16): *"orion-hesapraporu…/qr/XXXX
+     linkine gerek yok, kullanıcı bunu yazarak giremez zaten, QR'la girsin."*
+     Doğrudur: 32 karakterlik bir adresi elle yazmak gerçekçi bir kurtarma yolu
+     değildir. 16 HANELİ KOD KALIR — QR kirlendiğinde tek geri dönüş odur ve
+     telefona yazılabilecek kadar kısadır (BELGE-6'nın istediği yazılı yedek). */
   const codeFromUrl = input.publicUrl.split("/").filter(Boolean).pop() ?? "";
-  const fallbackCodeSize = size(2.6, 1.8);
-  const fallbackUrlSize = size(2.0, MIN_LEGAL_SIZE);
-  const shortUrl = input.publicUrl.replace(/^https?:\/\//i, "");
+  // KOD İNSAN GÖZÜYLE OKUNACAK: tabanı okunabilirlik sınırıdır, 1,8 mm
+  // değil. Eski taban en küçük plakada 1,80 mm veriyordu ve yerleşim her
+  // seferinde "kazımada 2 mm altı okunmaz" uyarısını ateşliyordu.
+  const fallbackCodeSize = size(2.6, READABLE_MIN_MM);
   const fallback = {
     code: codeFromUrl,
-    url: shortUrl,
     x: centerX,
     codeY: +(qrY + qrSize + fallbackCodeSize + Math.max(1.2, 3 * k)).toFixed(2),
-    urlY: +(qrY + qrSize + fallbackCodeSize + fallbackUrlSize + Math.max(2.4, 5.5 * k)).toFixed(2),
     codeSize: fallbackCodeSize,
-    urlSize: fallbackUrlSize,
   };
 
-  // Seri numarası kutusu yalnız yer kaldıysa basılır; satırlarda zaten vardır.
-  const serialBoxTop = +(fallback.urlY + Math.max(1.5, 4 * k)).toFixed(2);
-  const serialBoxH = +(Math.max(8, 16 * k)).toFixed(2);
-  const serialBox = serialBoxTop + serialBoxH <= contentBottom
-    ? {
-        x: rightX,
-        y: serialBoxTop,
-        width: rightColW,
-        height: serialBoxH,
-        label: "SERİ NUMARASI",
-        value: normalized(input.serialNo),
-        labelY: +(serialBoxTop + serialBoxH * 0.36).toFixed(2),
-        valueY: +(serialBoxTop + serialBoxH * 0.82).toFixed(2),
-        labelSize: size(2.25, MIN_LEGAL_SIZE),
-        valueSize: fitMonoSize(normalized(input.serialNo), rightColW * 0.9, [size(4.1, 2.4), size(3.6, 2.4), size(3.1, 2.4), 2.4]),
-        centerX,
-      }
-    : null;
+  /* SERİ NUMARASI KUTUSU KALDIRILDI (md. 17): aynı numara hem QR'ın altındaki
+     siyah kutuda hem VERİ SATIRLARINDA yazıyordu. Satır kalır — orası bütün
+     künye bilgisinin okunduğu yerdir. */
 
   // ————————————————————————————————————————————————— yasal bant
   const legalSize = size(2.2, MIN_LEGAL_SIZE);
@@ -709,22 +757,33 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
      imkânsızdı ve BELGE-3'ün "5 mm altına inerse yerleşim uyarı üretir"
      güvencesi pratikte yoktu. Doğal yükseklik AYRI ölçülür, kelepçe sonra
      uygulanır ve fark kullanıcıya söylenir. */
-  const ceDogalYukseklik = +(legalH * 0.52).toFixed(2);
+  /* CE QR'IN ALTINDA VE ORTALANMIŞ. Yüksekliği QR'a oranlıdır ama 765/2008/AT
+     asgarisi olan 5 mm'nin altına İNMEZ; inmek zorunda kalırsa yerleşim bunu
+     söyler (BELGE-3). Konum `qr` geometrisinden türetilir — iki çizici de aynı
+     sayıyı okur. */
+  const ceDogalYukseklik = +(qrSize * 0.24).toFixed(2);
   const ceHeight = Math.max(5, ceDogalYukseklik);
-  const ceY = +(legalY + (legalH - ceHeight) / 2).toFixed(2);
+  const ceY = +(fallback.codeY + Math.max(1.5, 4 * k)).toFixed(2);
   const ce = input.ceMark === false
     ? null
     : (() => {
-        const mark = ceMarkPath(padX, ceY, ceHeight);
-        return { x: padX, y: ceY, height: ceHeight, path: mark.path, width: mark.width };
+        // Genişliği bilmek için bir kez ölçülür, sonra ortalanmış hâli kurulur.
+        const olcu = ceMarkPath(0, ceY, ceHeight);
+        const ceX = +(qrX + (qrSize - olcu.width) / 2).toFixed(2);
+        const mark = ceMarkPath(ceX, ceY, ceHeight);
+        return { x: ceX, y: ceY, height: ceHeight, path: mark.path, width: mark.width };
       })();
   if (ce && ceDogalYukseklik < 5) {
     issues.push(
-      "Yasal bant CE işareti için dar; işaret 765/2008/AT asgarisi olan 5 mm'ye kelepçelendi ve banttan taşabilir."
+      "QR altındaki alan CE işareti için dar; işaret 765/2008/AT asgarisi olan 5 mm'ye kelepçelendi."
     );
   }
+  if (ce && ce.y + ce.height > contentBottom) {
+    issues.push("CE işareti içerik penceresinden taşıyor; plakayı büyütün.");
+  }
 
-  const legalX = +(padX + (ce ? ce.width + Math.max(2, 5 * k) : 0)).toFixed(2);
+  // CE banttan çıktığı için künye satırları soldan TAM GENİŞLİKTE başlar.
+  const legalX = padX;
   const manufacturer = normalized(input.identity.manufacturer);
   const address = normalized(input.identity.manufacturerAddress);
   const year = normalized(input.identity.productionYear);
@@ -765,7 +824,7 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
     labelSize,
     ...rows.map((row) => row.valueSize),
     legalSize,
-    fallback.urlSize
+    fallback.codeSize
   );
   // Tabanlar eşikle aynı olduğu için bu normalde ATEŞLENMEZ; biri tabanı
   // düşürürse diye duran bir değişmez bekçisidir.
@@ -799,18 +858,17 @@ export function createNameplateLayout(input: NameplateInput): NameplateLayout {
     labelX,
     valueX,
     rowRuleX2: +(padX + leftColW).toFixed(2),
-    divider: rows.length > 0 || serialBox
+    divider: rows.length > 0
       ? { x: dividerX, y1: contentTop, y2: contentBottom }
       : null,
     qr,
     qrCaption,
     fallback,
-    serialBox,
+    ce,
     legal: {
       y: legalY,
       height: legalH,
       rule: { y: legalY },
-      ce,
       lines: legalLines,
       x: legalX,
     },
@@ -890,12 +948,9 @@ export function buildNameplateSvg(input: NameplateInput): string {
   <rect x="${l.qr.x}" y="${l.qr.y}" width="${l.qr.size}" height="${l.qr.size}" fill="#FFFFFF" stroke="${p.hairline}" stroke-width="0.35"/>
   <path d="${l.qr.path}" fill="#000000" shape-rendering="crispEdges"/>
   <text x="${l.fallback.x}" y="${l.fallback.codeY}" text-anchor="middle" class="mono" fill="${p.ink}" font-size="${l.fallback.codeSize}" font-weight="700">${xmlEscape(l.fallback.code)}</text>
-  <text x="${l.fallback.x}" y="${l.fallback.urlY}" text-anchor="middle" class="mono" fill="${p.muted}" font-size="${l.fallback.urlSize}">${xmlEscape(l.fallback.url)}</text>
-  ${l.serialBox ? `<rect x="${l.serialBox.x}" y="${l.serialBox.y}" width="${l.serialBox.width}" height="${l.serialBox.height}" fill="${p.band}"/>
-  <text x="${l.serialBox.centerX}" y="${l.serialBox.labelY}" text-anchor="middle" class="mono" fill="${p.paper}" font-size="${l.serialBox.labelSize}">${xmlEscape(l.serialBox.label)}</text>
-  <text x="${l.serialBox.centerX}" y="${l.serialBox.valueY}" text-anchor="middle" class="mono" fill="${p.bandText}" font-size="${l.serialBox.valueSize}" font-weight="700">${xmlEscape(l.serialBox.value)}</text>` : ""}
+  ${l.ce ? `<path d="${l.ce.path}" fill="${p.ink}"/>` : ""}
   <line x1="${l.accent.width}" y1="${l.legal.rule.y}" x2="${(l.widthMm - l.header.y).toFixed(2)}" y2="${l.legal.rule.y}" stroke="${p.hairline}" stroke-width="0.35"/>
-  ${l.legal.ce ? `<path d="${l.legal.ce.path}" fill="${p.ink}"/>` : ""}
+
   ${l.legal.lines.map((line) => `<text x="${l.legal.x}" y="${line.y}" class="sans" fill="${p.ink}" font-size="${line.size}" font-weight="700">${xmlEscape(line.text)}</text>`).join("")}
   ${l.holes.map((hole) => `<circle cx="${hole.cx}" cy="${hole.cy}" r="${hole.r}" fill="${p.paper}" stroke="${p.ink}" stroke-width="0.8"/>`).join("")}
 </svg>`;

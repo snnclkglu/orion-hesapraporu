@@ -69,6 +69,9 @@ const EMPTY_VALUES: ProductIdentityValues = {
   frequency: "",
   customer: "",
   site: "",
+  mainHoistSummary: "",
+  trolleyTravelSummary: "",
+  bridgeTravelSummary: "",
 };
 
 function source(
@@ -203,6 +206,35 @@ export async function resolveAutomaticProductIdentity(
   const productionDate = jobDates?.workshop_exit_date ?? jobDates?.delivery_date ?? "";
   const productionYear = /^\d{4}/.test(String(productionDate)) ? String(productionDate).slice(0, 4) : "";
 
+  /*
+   * MEKANİZMA ÖZETLERİ (md. 20) — veri ZATEN kapsamda, yalnız okunmuyordu.
+   *
+   * `calcInputFromRevision` bütün AKTİF modülleri döndürür; zemine sabit bir
+   * vinçte `trolley`/`bridge` hiç gelmez ve satır da basılmaz (değişmez md. 4:
+   * olmayan bir eksenin hızı uydurulmaz). Yeni sorgu ya da migration gerekmez.
+   */
+  const motor = (sel: { motorPowerKw?: number; motorCount?: number } | undefined): string => {
+    const kw = sel?.motorPowerKw;
+    const adet = sel?.motorCount;
+    if (!Number.isFinite(kw) || (kw ?? 0) <= 0) return "";
+    const n = Number.isFinite(adet) && (adet ?? 0) > 0 ? Math.round(adet as number) : 1;
+    return `${n} × ${num(kw as number)} kW`;
+  };
+  const teker = (
+    sel: { wheelDiaMm?: number } | undefined,
+    inp: { wheelCount?: number } | undefined
+  ): string => {
+    const cap = sel?.wheelDiaMm;
+    const adet = inp?.wheelCount;
+    if (!Number.isFinite(cap) || (cap ?? 0) <= 0 || !Number.isFinite(adet) || (adet ?? 0) <= 0) {
+      return "";
+    }
+    return `Ø${num(cap as number)} × ${Math.round(adet as number)}`;
+  };
+  const hiz = (v: unknown): string =>
+    typeof v === "number" && Number.isFinite(v) && v > 0 ? `${num(v)} m/dak` : "";
+  const ozet = (...parcalar: string[]): string => parcalar.filter(Boolean).join(" · ");
+
   const supplyVoltage = String(specs?.supplyVoltage ?? "").trim();
   const automatic: ProductIdentityValues = {
     ...EMPTY_VALUES,
@@ -239,6 +271,23 @@ export async function resolveAutomaticProductIdentity(
     frequency: frequencyFromSupplyVoltage(supplyVoltage),
     customer: String(project?.customer ?? "").trim(),
     site: String(project?.crane_location ?? "").trim(),
+    mainHoistSummary: calc?.mainHoist
+      ? ozet(hiz(specs?.mainLiftSpeedMpm), motor(calc.mainHoist.selections))
+      : "",
+    trolleyTravelSummary: calc?.trolley
+      ? ozet(
+          hiz(specs?.trolleySpeedMpm),
+          teker(calc.trolley.selections, calc.trolley.inputs),
+          motor(calc.trolley.selections)
+        )
+      : "",
+    bridgeTravelSummary: calc?.bridge
+      ? ozet(
+          hiz(specs?.bridgeSpeedMpm),
+          teker(calc.bridge.selections, calc.bridge.inputs),
+          motor(calc.bridge.selections)
+        )
+      : "",
   };
 
   const projectSource = source("project", "Proje künyesi", String(project?.id ?? ""));
@@ -271,6 +320,9 @@ export async function resolveAutomaticProductIdentity(
     frequency: reportSource,
     customer: projectSource,
     site: projectSource,
+    mainHoistSummary: reportSource,
+    trolleyTravelSummary: reportSource,
+    bridgeTravelSummary: reportSource,
   };
   const fields = resolveIdentityFields(automatic, sources, payload.overrides);
   return { fields, values: identityValues(fields) };
