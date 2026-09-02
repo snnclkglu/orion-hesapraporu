@@ -3599,10 +3599,13 @@ export function RevisionEditor({
 
   // --------------------------------------------------------------- Bölüm rayı
   //
-  // RAY MODÜL DÜZEYİNDEDİR (HESAP-36). Kullanıcı kararı (01.09.2026): *"bölüm +
-  // alt başlık olmasın, sadece bölüm olsun. çok alt başlık var, çok yer
-  // kaplıyor."* Liste 117 adımdan ~21 modüle iner. Adım düzeyi KAYBOLMAZ,
-  // ARAMAYA taşınır — arama sonucu düz bir listedir, ikinci bir düzey değildir.
+  // RAY KATLI BİR LİSTEDİR (HESAP-36). Açılışta ~21 MODÜL görünür; bir modüle
+  // dokunmak onun adımlarını AÇAR, adıma dokunmak oraya götürür. Kullanıcı
+  // isteği (01.09.2026, üçüncü tur): *"sadece ana başlıkların açılması pek iyi
+  // olmadı… başlığa tıkladığımda alt başlıklar açılsın, alt başlıktan
+  // tıkladığım yere gidebileyim."* İlk turun "çok alt başlık var, çok yer
+  // kaplıyor" şikâyeti KATLAMA ile karşılanır: kapalıyken liste yine kısadır.
+  // Arama ayrıca 117 adımın tamamına bakar ve DÜZ bir sonuç döndürür.
   //
   // BELLEKLEME (`useMemo`) YOK ve bu bilinçlidir: 21 grup × ~8 bölüm bir
   // boyamada önemsizdir, `sectionStatus`/`stepChip` ise bileşen gövdesinde her
@@ -3638,25 +3641,34 @@ export function RevisionEditor({
     // döner, yani kapalı modülde olduğu gibi burada da kırmızı yakılmaz.
     const eksik = durumlar.some((d) => d === "fail");
     const modulKey = group.moduleKey;
+    // TEK ADIMLI GRUP KENDİSİ BİR ADIMDIR: kimliği de adımın kimliği olur, yani
+    // `aktifId` ile doğrudan eşleşir ve `rayaGit` onu diğer adımlarla aynı
+    // dalda çözer. Çok adımlı grup ise gezinilen bir yer değil, bir AÇICIDIR —
+    // kimliği grubun kendi anahtarı kalır.
+    const cokAdimli = group.items.length >= 2;
+    const ilkAdim = group.items[0]?.step;
     return {
-      id: group.key,
+      id: cokAdimli || !ilkAdim ? group.key : `${RAY_ADIM_ONEKI}${ilkAdim.key}`,
       numara,
       baslik,
       gizli: kapali,
       uyari: !kapali && eksik,
       rozet: kapali ? "kapalı" : kontrollu > 0 ? `${gecen}/${kontrollu}` : undefined,
       /**
-       * ADIMLAR — YALNIZ SABİT SÜTUNDA çizilir (MOBIL-29). Dar ekranda
-       * ray tek düzeydir ve bu liste hiç basılmaz; kullanıcının kararı
-       * orada değişmedi ("çok alt başlık var, çok yer kaplıyor").
+       * ADIMLAR — HER GENİŞLİKTE çizilir (MOBIL-29, üçüncü tur). Kullanıcı
+       * isteği (01.09.2026): *"başlığa tıkladığımda alt başlıklar açılsın, alt
+       * başlıktan tıkladığım yere gidebileyim. hem mobil hem tablette hem
+       * webde bu tarzda olsun."* Liste açılışta yine ~21 satırdır; adımlar
+       * yalnız AÇILAN başlığın altına eklenir.
        *
-       * Kimlik ARAMA SONUCUYLA AYNI önekí taşır (`adim:`), böylece
-       * `rayaGit` iki yolu da tek dalda çözer.
+       * Kimlik ARAMA SONUCUYLA AYNI öneki taşır (`adim:`), böylece `rayaGit`
+       * iki yolu da tek dalda çözer.
        */
       // TEK ADIMLI GRUP ÇOCUK ALMAZ: Teknik Özellikler ve Özet grupsuz tek
       // adımlardır; onlara çocuk vermek satırın kendini bir kez daha
-      // yazmasından ibaret olurdu.
-      cocuklar: group.items.length < 2 ? undefined : group.items.map(({ step: s }) => {
+      // yazmasından ibaret olurdu — üstelik açıcı olup gezinilemez hâle
+      // gelirlerdi.
+      cocuklar: !cokAdimli ? undefined : group.items.map(({ step: s }) => {
         const sGizli = stepHidden(s);
         const kontroller = s.kind === "module" ? sectionChecks(s.moduleKey, s.section) : [];
         const sGecen = kontroller.filter((c) => c.pass).length;
@@ -3709,8 +3721,16 @@ export function RevisionEditor({
   });
 
   /** Aktif adımın düştüğü modül satırı. */
-  const rayAktifId =
-    NAV_GROUPS.find((g) => g.items.some(({ index }) => index === activeStepIndex))?.key ?? null;
+  /**
+   * BULUNULAN ADIMIN kimliği — grubunki DEĞİL.
+   *
+   * Alt başlıklar artık her genişlikte açılabildiği için kullanıcı hangi ADIMDA
+   * olduğunu listede görmek ister. Üst satırı (ve şeritteki çentiği) `BolumRayi`
+   * kendisi işaretler: bir satır, çocuklarından biri aktifse "kapsıyor" sayılır.
+   */
+  const rayAktifId = STEPS[activeStepIndex]
+    ? `${RAY_ADIM_ONEKI}${STEPS[activeStepIndex].key}`
+    : null;
 
   /**
    * ARAMA 117 ADIMA BAKAR. Ray modül listeler ama "gerilme" yazan mühendis

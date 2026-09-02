@@ -466,17 +466,40 @@ açılıp JS'te kapalı sanılır.
 her seferinde yanlış çizilirdi. Anahtar verilmeyen sayfa hiçbir genişlikte
 sabitlenmez.
 
-**ALT BAŞLIKLAR YALNIZ SABİT SÜTUNDA** (`BolumOgesi.cocuklar`). Dar ekranda
-kullanıcının kararı değişmedi (01.09.2026): *"bölüm + alt başlık olmasın,
-sadece bölüm olsun. çok alt başlık var, çok yer kaplıyor."* Şerit çentikleri ve
-tabaka listesi TEK DÜZEYDİR. Alt düzey kaybolmaz, ARAMAYA da taşınır: arama
-sonucu düz bir listedir (`arama.sonuclar`), ikinci bir düzey değil.
+**ALT BAŞLIKLAR HER GENİŞLİKTE, AMA KATLI** (`BolumOgesi.cocuklar`). Kullanıcı
+isteği (01.09.2026, üçüncü tur): *"sadece ana başlıkların açılması pek iyi
+olmadı. sola tıkladığımda ana başlıklar gelsin. başlığa tıkladığımda alt
+başlıklar açılsın, alt başlıktan tıkladığım yere gidebileyim. hem mobil hem
+tablette hem webde bu tarzda olsun."*
 
-Sabit sütundaki grup davranışı eski raydan birebir gelir: bir grup **açıktır**
-ancak `!gizli && (arama var || aktif satır o grupta || elle açıldı)`; yani
-**bulunduğun grup her zaman açıktır ve onu kapatmak etkisizdir**. Ok ile ad AYRI
-düğmelerdir — ok açar/kapatır, ad bölümün kendisine götürür. Grup açıklığı
-KALICI DEĞİLDİR. Girinti `ml-3.5 border-l border-border/70 pl-2`.
+Bu, ilk turun *"çok alt başlık var, çok yer kaplıyor"* kararını GEÇERSİZ
+KILMAZ: oradaki şikâyet uzunluktu, buradaki ULAŞILAMAZLIK. Katlama ikisini
+birden verir — liste açılışta yine yalnız ana başlıkları taşır, adımlar yalnız
+AÇILAN başlığın altına eklenir. Alt düzey ayrıca ARAMADA da durur; arama sonucu
+düz bir listedir (`arama.sonuclar`) ve çocuk taşımadığı için liste o sırada
+kendiliğinden tek düzeye iner.
+
+**ÇENTİKLER YİNE TEK DÜZEYDİR.** 117 çentik 700px'lik bir şeritte ~6px'e iner ve
+"neredeyim" bilgisi okunmaz olur. Şerit *neredeyim*, liste *nereye gideyim*
+sorusunu yanıtlar. Bulunulan adımın çentiği, onu KAPSAYAN üst satırınkidir.
+
+**BAŞLIK SATIRI GEZİNMEZ, AÇAR.** Çocuğu olan satır bir AÇICIDIR
+(`aria-expanded`), çocuğu olmayan satır bir BAĞLANTIDIR (`aria-current`). Ayrı
+bir ok düğmesi KONMAZ: 20px'lik bir ok `.oc-tap-square` ile 44px'e büyür ve
+yanındaki satırın dokunuşunu yutar (MOBIL-28) — ok satırın içinde, dekoratif bir
+işarettir. Bunun bedeli, modülün ilk adımına gitmenin artık iki dokunuş
+olmasıdır; kabul edildi.
+
+**`aktifId` YAPRAĞIN KİMLİĞİDİR**, grubunki değil: kullanıcı alt başlığa
+tıkladıktan sonra hangi adımda olduğunu listede görmelidir. Üst satırı bileşen
+kendisi işaretler (`aktifKapsiyor`: kendisi ya da çocuklarından biri aktif).
+
+Grup açıklık kuralı eski raydan birebir gelir: bir grup **açıktır** ancak
+`!gizli && (arama var || aktif satır o grupta || elle açıldı)`; yani
+**bulunduğun grup her zaman açıktır ve onu kapatmak etkisizdir**. KAPALI MODÜL
+AÇILMAZ — adımı hiç üretilmediği için boş bir dal görünürdü; o satır yalnız
+sağdaki `＋` ile geri açılır. Grup açıklığı KALICI DEĞİLDİR. Girinti
+`ml-3.5 border-l border-border/70 pl-2`.
 
 **DURUM RENKLE DEĞİL GEOMETRİYLE ANLATILIR.** `--primary` (oklch 0.467 0.17 27)
 ile `--destructive` (0.516 0.167 26) BİR DERECE arayla aynı kırmızıdır

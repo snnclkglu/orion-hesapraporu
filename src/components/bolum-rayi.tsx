@@ -33,10 +33,25 @@
 // KARARLAR VE ÖLÇÜLMÜŞ GEREKÇELERİ
 // ---------------------------------------------------------------------------
 //
-// 1. ALT BAŞLIKLAR YALNIZ SABİT SÜTUNDA. Dar ekranda kullanıcının kararı
-//    değişmedi: "bölüm + alt başlık olmasın, sadece bölüm olsun. çok alt
-//    başlık var, çok yer kaplıyor." Şerit çentikleri ve tabaka listesi TEK
-//    DÜZEYDİR; `cocuklar` yalnız sabit sütunda çizilir, çünkü orada yer var.
+// 1. ALT BAŞLIKLAR HER GENİŞLİKTE, AMA KATLI. Üçüncü tur (01.09.2026):
+//    *"sadece ana başlıkların açılması pek iyi olmadı. sola tıkladığımda ana
+//    başlıklar gelsin. başlığa tıkladığımda alt başlıklar açılsın, alt
+//    başlıktan tıkladığım yere gidebileyim. hem mobil hem tablette hem webde bu
+//    tarzda olsun."*
+//
+//    İlk turun "tek düzey" kararı BUNUNLA ÇELİŞMEZ, çünkü şikâyet uzunluk
+//    değil ULAŞILAMAZLIKTI: liste kısaydı ama alt adıma gitmenin yolu yoktu.
+//    Katlı liste ikisini birden verir — açılışta yine ~21 satır görünür (kısa
+//    kalır), istenen başlık açılınca yalnız ONUN adımları eklenir.
+//
+//    ÇENTİKLER YİNE TEK DÜZEYDİR: şeritte 117 çentik ~6px'e iner ve konum
+//    bilgisi okunmaz olur. Şerit "neredeyim", liste "nereye gideyim" sorusunu
+//    yanıtlar.
+//
+//    BAŞLIK SATIRI GEZİNMEZ, AÇAR. Ayrı bir ok düğmesi konmadı: 20px'lik bir ok
+//    `.oc-tap-square` ile 44px'e büyür ve yanındaki satırın dokunuşunu yutar
+//    (MOBIL-28). Çocuğu olan satır bir AÇICIDIR, çocuğu olmayan satır bir
+//    BAĞLANTIDIR; ok satırın içinde, dekoratif bir işarettir.
 //
 // 2. TERCİH "DARALTILDI" OLARAK SAKLANIR, "AÇIK" OLARAK DEĞİL. `useStoredFlag`
 //    sunucuda ve ilk karede `false` döner; geniş ekran varsayılanı AÇIK olduğu
@@ -211,7 +226,21 @@ export function BolumRayi({
     return ogeler.filter((o) => trKatla(o.baslik).includes(sorgu));
   }, [arama, ogeler, sorgu]);
 
-  const aktifSira = ogeler.findIndex((o) => o.id === aktifId);
+  /**
+   * Bir üst satır "bulunulan yeri KAPSIYOR mu".
+   *
+   * `aktifId` artık YAPRAĞIN kimliğidir (hesap raporunda `adim:…`), çünkü
+   * kullanıcı alt başlığa tıklayınca hangi adımda olduğunu görmek ister. Üst
+   * satır ise onu kapsadığı için işaretlenir: şeridin çentiği, grubun kendini
+   * açık tutması ve `aria-label`daki "7/21" sayacı bu yüklemden okur.
+   */
+  const aktifKapsiyor = useCallback(
+    (o: BolumOgesi) =>
+      o.id === aktifId || (o.cocuklar?.some((c) => c.id === aktifId) ?? false),
+    [aktifId]
+  );
+
+  const aktifSira = ogeler.findIndex(aktifKapsiyor);
   const aktifOge = aktifSira >= 0 ? ogeler[aktifSira] : undefined;
 
   /** Şerit 1rem, sabit sütun 17,5rem — akıştaki sütunun ayırdığı yer. */
@@ -232,21 +261,56 @@ export function BolumRayi({
 
   // ————————————————————————————————————————————————— satır çizimi
 
-  function satir(o: BolumOgesi, cocukMu: boolean) {
-    const secili = o.id === aktifId;
+  /**
+   * Tek satır. `acilir` verilirse satır bir GEZİNME değil bir AÇICIDIR:
+   * tıklamak alt başlıkları açar/kapatır, sayfa değişmez, tabaka kapanmaz.
+   * İki iş için tek düğme kullanılır — ayrı bir ok düğmesi komşusunun
+   * dokunuşunu yerdi (MOBIL-28).
+   */
+  function satir(
+    o: BolumOgesi,
+    cocukMu: boolean,
+    acilir?: { acik: boolean; degistir: () => void; listeId: string }
+  ) {
+    // Açıcı satır, bulunulan adımı KAPSADIĞINDA vurgulanır; yaprak satır ise
+    // yalnız kendisi seçiliyken.
+    const secili = acilir ? aktifKapsiyor(o) : o.id === aktifId;
     return (
       <button
         type="button"
-        onClick={() => sec(o.id)}
-        aria-current={secili ? "step" : undefined}
+        onClick={() => (acilir ? acilir.degistir() : sec(o.id))}
+        disabled={acilir ? o.gizli : undefined}
+        aria-current={!acilir && secili ? "step" : undefined}
+        aria-expanded={acilir ? acilir.acik : undefined}
+        aria-controls={acilir && acilir.acik ? acilir.listeId : undefined}
+        title={
+          acilir
+            ? acilir.acik
+              ? `${o.baslik} — alt başlıkları kapat`
+              : `${o.baslik} — alt başlıkları aç`
+            : undefined
+        }
         className={cn(
           // Telefonda bölüm listesi ANA dokunma hedefidir.
           "oc-tap flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left transition-colors",
           secili
             ? "bg-primary/10 font-medium text-primary"
-            : "text-foreground/80 hover:bg-muted hover:text-foreground"
+            : "text-foreground/80 hover:bg-muted hover:text-foreground",
+          acilir && o.gizli && "cursor-default"
         )}
       >
+        {acilir ? (
+          <span
+            aria-hidden
+            className={cn(
+              "shrink-0 font-mono text-[11px] leading-none text-muted-foreground transition-transform",
+              !acilir.acik && "-rotate-90",
+              o.gizli && "opacity-0"
+            )}
+          >
+            ▾
+          </span>
+        ) : null}
         {o.numara ? (
           <span
             className={cn(
@@ -286,13 +350,12 @@ export function BolumRayi({
   }
 
   /**
-   * Grup satırı — YALNIZ sabit sütunda. Eski raydan birebir gelen açıklık
-   * kuralı: bulunduğun grup HER ZAMAN açıktır ve onu kapatmak etkisizdir;
-   * arama varken bütün gruplar açılır.
+   * Grup satırı — HER GENİŞLİKTE (üçüncü tur). Eski raydan birebir gelen
+   * açıklık kuralı korunur: bulunduğun grup HER ZAMAN açıktır ve onu kapatmak
+   * etkisizdir; arama varken bütün gruplar açılır.
    *
-   * Ok ile ad AYRI düğmelerdir: ok grubu açar/kapatır, ada dokunmak modülün
-   * kendisine (ilk adımına) götürür. Tek düğme olsaydı ikisinden biri
-   * kaybolurdu.
+   * KAPALI MODÜL AÇILMAZ: adımı yoktur (`buildSteps` onları hiç üretmez), o
+   * yüzden açsak boş bir dal görünürdü. Satır yalnız sağdaki ＋ ile geri açılır.
    */
   function grup(o: BolumOgesi) {
     const cocuklar = o.cocuklar ?? [];
@@ -304,30 +367,21 @@ export function BolumRayi({
 
     if (sorgu !== "" && !baslikEsleser && gorunenCocuklar.length === 0) return null;
 
-    const aktifBurada = cocuklar.some((c) => c.id === aktifId) || o.id === aktifId;
-    const acikGrup = !o.gizli && (sorgu !== "" || aktifBurada || !!elleAcilan[o.id]);
+    const acikGrup = !o.gizli && (sorgu !== "" || aktifKapsiyor(o) || !!elleAcilan[o.id]);
+    const listeId = `${panelId}-alt-${o.id}`;
 
     return (
       <li key={o.id}>
         <div className="flex min-w-0 items-center gap-1">
-          <button
-            type="button"
-            disabled={o.gizli}
-            onClick={() => setElleAcilan((g) => ({ ...g, [o.id]: !acikGrup }))}
-            aria-expanded={acikGrup}
-            aria-label={acikGrup ? `${o.baslik} — alt bölümleri kapat` : `${o.baslik} — alt bölümleri aç`}
-            title={acikGrup ? "Alt bölümleri kapat" : "Alt bölümleri aç"}
-            className="oc-tap-square grid size-5 shrink-0 place-items-center font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-0"
-          >
-            <span aria-hidden className={cn("transition-transform", !acikGrup && "-rotate-90")}>
-              ▾
-            </span>
-          </button>
-          {satir(o, false)}
+          {satir(o, false, {
+            acik: acikGrup,
+            listeId,
+            degistir: () => setElleAcilan((g) => ({ ...g, [o.id]: !acikGrup })),
+          })}
           {o.sag}
         </div>
         {acikGrup && gorunenCocuklar.length > 0 ? (
-          <ol className="mt-0.5 ml-3.5 grid gap-0.5 border-l border-border/70 pl-2">
+          <ol id={listeId} className="mt-0.5 ml-3.5 grid gap-0.5 border-l border-border/70 pl-2">
             {gorunenCocuklar.map((c) => (
               <li key={c.id} className="flex min-w-0 items-center gap-1">
                 {satir(c, true)}
@@ -342,7 +396,10 @@ export function BolumRayi({
 
   // ————————————————————————————————————————————— panel/sütun gövdesi
 
-  const ikiDuzey = sabit && listelenen.some((o) => (o.cocuklar?.length ?? 0) > 0);
+  // İKİ DÜZEY ARTIK GENİŞLİĞE BAĞLI DEĞİL (üçüncü tur): tabakada da, sabit
+  // sütunda da katlı liste çizilir. Arama sonucu DÜZ geldiği için (çocuksuz
+  // satırlar) arama sırasında kendiliğinden tek düzeye iner.
+  const ikiDuzey = listelenen.some((o) => (o.cocuklar?.length ?? 0) > 0);
 
   const icerik = (
     <>
@@ -504,10 +561,13 @@ export function BolumRayi({
                 600px'lik bir şeritte 30px'e denk gelir ve `.oc-tap` üst üste
                 dizili kardeşlerde komşunun dokunuşunu yutar (MOBIL-28).
                 Şeridin TAMAMI tek düğmedir; bilgi `aria-label`dadır.
-                ÇENTİKLER TEK DÜZEYDİR — `cocuklar` burada hiç çizilmez.
+                ÇENTİKLER TEK DÜZEYDİR — `cocuklar` burada hiç çizilmez: 117
+                çentik 700px'lik bir şeritte ~6px'e iner ve "neredeyim" bilgisi
+                okunmaz olurdu. Bulunulan ADIM, onu KAPSAYAN üst satırın
+                çentiğini yakar.
               */}
               {ogeler.map((o) => {
-                const secili = o.id === aktifId;
+                const secili = aktifKapsiyor(o);
                 return (
                   <span
                     key={o.id}
