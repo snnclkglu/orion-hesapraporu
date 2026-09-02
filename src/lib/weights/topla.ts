@@ -12,6 +12,11 @@
 // insanın kararıdır: ezme, not.
 
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
+import { DRUM_STEEL_DENSITY_G_CM3 } from "@/lib/calc/derive";
+import { loadCellByModel } from "@/lib/calc/load-cell";
+import { plateSheaveByDia } from "@/lib/calc/plate-sheave";
+import { bearingHousingByModel } from "@/lib/calc/bearing-housing";
+import { klimaAgirligiKg, klimaKapasiteAraligi } from "./klima-agirlik";
 import type { EqRow } from "@/lib/equipment-list";
 import { hiddenEquipmentSlugs, rowSlug } from "@/lib/equipment-list";
 import { moduleResult, moduleState } from "@/lib/calc/presentation/module-access";
@@ -24,21 +29,30 @@ import {
 import { girderArrangement, girdersInBridge, type TechnicalSpecs } from "@/lib/calc/types";
 import { travelFestoonDistanceM } from "@/lib/calc/modules/travelGroup";
 import type { CabinInputs } from "@/lib/calc/modules/cabin";
+import { gantryLegCount } from "@/lib/crane-types";
 import {
   arabaPlatformuTahmini,
+  ayakMerdiveniTahmini,
+  ayakTahmini,
   baskirisBoyuTahmini,
+  baskirisTahmini,
   festonTahmini,
   kabinTahmini,
   kopruElektrikTahmini,
+  koseYukuTahmini,
   odaTahmini,
   panoTahmini,
   platformTahmini,
+  portalTakviyeTahmini,
   sasiTahmini,
   ustMakaraTahmini,
+  ustUcBaglantiTahmini,
   type TahminSonucu,
 } from "./ledger";
 import { bandinGruplari, kalemBandi, kalemGrubu } from "./defter";
 import {
+  AGIRLIK_SERBEST_ON_EKI,
+  AGIRLIK_SERBEST_SINIRI,
   type AgirlikBandi,
   type AgirlikDokumu,
   type AgirlikDokumuDurumu,
@@ -59,6 +73,17 @@ export interface AgirlikDokumuGirdisi {
   satirlar: readonly EqRow[];
   gizliBolumler?: readonly string[];
   durum?: AgirlikDokumuDurumu;
+  /**
+   * PROJE KÜNYESİNDEKİ VİNÇ TİPİ (`projects.crane_type`) — yalnız portal
+   * ayaklarının var olup olmadığını söyler.
+   *
+   * HESAP-8b ÇİĞNENMEZ: o kural tipin HESAP MOTORUNA girmesini yasaklar
+   * (`runCalc`, `activeModules`, `loadRevision`). Döküm bir hesap değil bir
+   * DOĞRULAMADIR (HESAP-35) ve motor bu dosyayı hiç görmez; künyeden çıkan
+   * sayı da teknik özelliğe ancak mühendisin AÇIK eylemiyle taşınır — ayak
+   * grubu ise o düğmenin toplamına zaten girmez (`bantToplaminaGirmez`).
+   */
+  craneType?: string;
 }
 
 /** Bant etiketleri — bandın adı modülün rapor başlığı değil, PARÇANIN adıdır. */
@@ -68,6 +93,26 @@ const BANT_ETIKETLERI: Readonly<Record<string, string>> = {
   auxTrolley: "YARDIMCI ARABA",
   mono1Trolley: "MONORAY 1 ARABASI",
   mono2Trolley: "MONORAY 2 ARABASI",
+};
+
+/**
+ * TEKNİK ÖZELLİK KUTUSUNA GİRMEYEN GRUPLAR.
+ *
+ * Ayaklar KÖPRÜ bandındadır (kullanıcı isteği, 02.09.2026, md. 8) ama
+ * `bridgeWeightT`e YAZILMAZ: o kutuyu ana kiriş (ölü yük payı) ve teker
+ * yükleri okur, ayak ise kirişi TAŞIR, kirişe BİNMEZ. Ayrıntılı gerekçe
+ * `AgirlikGrubu.bantToplaminaGirmez` yorumundadır.
+ */
+const KUTUYA_GIRMEYEN_GRUPLAR: ReadonlySet<string> = new Set(["legs"]);
+
+/**
+ * Besleme yönteminin okunur adı — `fields.ts`teki etiket haritasının değil,
+ * DÖKÜMÜN kendi kısa karşılığı: çekirdek saftır ve sunum katmanını okumaz.
+ */
+const BESLEME_ADLARI: Readonly<Record<string, string>> = {
+  cableChain: "kablo zinciri",
+  conductorBar: "bara",
+  cableReel: "kablo sarma tamburu",
 };
 
 const BANT_SPEC_ANAHTARLARI: Readonly<Record<string, AgirlikSpecAnahtari>> = {
@@ -87,24 +132,217 @@ const BANT_SPEC_ANAHTARLARI: Readonly<Record<string, AgirlikSpecAnahtari>> = {
  */
 const HESAPTAN_GELEN_SLUGLAR = new Set(["drum", "rope", "ropeLeft", "balanceSocket"]);
 
+/** Klima ağırlığı ancak SERİ tanınıp ısı yükü hesaplanınca türetilebilir. */
+const KLIMA_GEREKCESI =
+  "Klima ağırlığı için hem katalogdan bir SERİ seçilmeli hem de mahallin ısı " +
+  "yükü hesaplanmış olmalı (11.x bölümü); ikisi de varsa ağırlık kendiliğinden gelir.";
+
 /** Katalogda ağırlığı HİÇ yayımlanmayan satırlar — uydurulmaz (md. 4). */
 const AGIRLIKSIZ_SLUG_GEREKCESI: Readonly<Record<string, string>> = {
-  drumBearingHousing: "SKF SNL/SE yatak kataloğunda ağırlık yayımlanmamış.",
+  drumBearingHousing:
+    "Seçilen gövde SKF SNL/SE defterinde yok (başka bir seri); ağırlık elle girilebilir.",
+  balanceSheave:
+    "Girilen çap yayımlanmış kaynaklı sac makara boyları arasında değil; " +
+    "ağırlık elle girilebilir.",
+  balanceLoadcell:
+    "Bu markanın yük hücresi föyünde ağırlık yayımlanmamış (Esit PLC satırlarında var).",
   festoon: "Feston kataloğunda (Conductix · Vasel) ağırlık yayımlanmamış.",
-  cabinAc: "Klima kataloğunda (TMS) ağırlık yayımlanmamış.",
-  roomAc: "Klima kataloğunda (TMS) ağırlık yayımlanmamış.",
-  panelAc: "Klima kataloğunda (TMS) ağırlık yayımlanmamış.",
-  balanceSheave: "Denge makarası imalattır; ağırlığı elle girilir.",
-  balanceLoadcell: "Yük hücresi kataloğunda ağırlık yayımlanmamış.",
-  shaft: "Kanca bloğu mili imalattır; ağırlığı elle girilir.",
-  liftingBeam: "Kaldırma kirişi imalattır; ağırlığı elle girilir.",
+  cabinAc: KLIMA_GEREKCESI,
+  roomAc: KLIMA_GEREKCESI,
+  panelAc: KLIMA_GEREKCESI,
   "operator-cabin": "Kabin çelik ağırlığı henüz hesaplanmıyor; elle girilebilir.",
   "electrical-room": "Oda çelik ağırlığı henüz hesaplanmıyor; elle girilebilir.",
   "electrical-panel": "Pano ağırlığı henüz hesaplanmıyor; elle girilebilir.",
 };
 
-const VARSAYILAN_GEREKCE =
-  "Katalog ağırlığı bu revizyonda kayıtlı değil — ürünü yeniden seçin ya da elle girin.";
+/**
+ * İMALAT PARÇALARININ AĞIRLIĞI — katalogdan değil KENDİ HESABINDAN.
+ *
+ * Kullanıcı isteği (02.09.2026, md. 4): *"Ağırlık tahmin bölümünde çok fazla
+ * ekipmanın ağırlığı yok."* Kanca bloğu mili ve kaldırma kirişi bir ÜRÜN değil
+ * bir imalattır; hiçbir katalogda yoktur ve "elle girilir" cevabı, ölçüsü zaten
+ * hesaplanmış bir parça için gereksizdi. İkisinin de geometrisi bölümün kendi
+ * hücrelerinde duruyor.
+ *
+ * `null` dönmek kural dışı değil KURALDIR: ölçü yoksa uydurulmaz (md. 4).
+ */
+interface EkAgirlik {
+  birimKg: number;
+  birimKgUst?: number;
+  formul: string;
+  gerekce: string;
+  kaynak: AgirlikKaynagi;
+}
+
+function imalatAgirligi(
+  moduleKey: ModuleKey,
+  slug: string,
+  input: CalcInput,
+  result: CalcResult
+): EkAgirlik | null {
+  // ——— katalogda VAR ama satıra AKMIYOR olanlar
+  if (slug === "drumBearingHousing") {
+    // SKF SNL/SE gövdesinin kütlesi katalogda YAYIMLIDIR; çıkarım sırasında
+    // sütun okunmamıştı. Model kodu revizyonda duruyor, defter onu çözer —
+    // böylece ESKİ revizyonlar da ürünü yeniden seçmeden doğru kiloyu alır.
+    const sel = moduleState(input, moduleKey)?.selections as
+      | { bearingHousingCode?: string }
+      | undefined;
+    const spec = bearingHousingByModel(sel?.bearingHousingCode);
+    if (!spec) return null;
+    return {
+      birimKg: spec.kg,
+      ...(spec.kgUst !== undefined ? { birimKgUst: spec.kgUst } : {}),
+      formul: `${spec.model} — SKF gövde kütlesi (taban + kapak)`,
+      gerekce:
+        spec.kgUst !== undefined
+          ? "Katalog aynı gövdeyi iki mil çapı bloğunda farklı kütleyle basmış; " +
+            "aralık olarak verilir. Rulman, keçe ve son kapak dâhil değildir."
+          : "SKF kataloğundaki gövde kütlesi (taban + kapak). Rulman, keçe, son " +
+            "kapak ve konumlandırma halkası dâhil DEĞİLDİR.",
+      kaynak: "katalog",
+    };
+  }
+  if (slug === "cabinAc" || slug === "roomAc" || slug === "panelAc") {
+    // KLİMA KATALOĞU SERİ DÜZEYİNDEDİR (mühendis "VKS-VP" seçer, "VKS-VP 850"
+    // değil); üretici ise ağırlığı ALT MODEL başına yayımlar. Ağırlık bu yüzden
+    // HESAPLANAN ISI YÜKÜNDEN türetilir — hangi alt modelin ısmarlanacağını
+    // belirleyen sayı odur — ve rozet KATALOG değil TAHMİN yazar.
+    const sel = moduleState(input, moduleKey)?.selections as
+      | Record<string, unknown>
+      | undefined;
+    const seri = typeof sel?.[`${slug}Model`] === "string" ? (sel[`${slug}Model`] as string) : "";
+    const toplamKw = pozitifVeya(hucre(result, moduleKey, `${slug}.total`));
+    // Pano yerleşiminde yük panolara BÖLÜNÜR; kabin ve odada tek mahaldir.
+    const bolen =
+      slug === "panelAc" ? Math.max(1, pozitifVeya(hucre(result, moduleKey, "panel.count")) ?? 1) : 1;
+    const birimKw = toplamKw === null ? null : toplamKw / bolen;
+    const kg = klimaAgirligiKg(seri, birimKw);
+    if (kg === null) return null;
+    const bant = klimaKapasiteAraligi(seri);
+    const bandinDisinda =
+      bant !== null && birimKw !== null && (birimKw < bant.min || birimKw > bant.max);
+    return {
+      birimKg: kg,
+      formul: `${seri} · ${birimKw!.toFixed(2)} kW soğutma yükü`,
+      gerekce:
+        `Katalog SERİ düzeyindedir; ağırlık, hesaplanan ısı yükünün karşılık ` +
+        `geldiği alt modelden türetildi (üretici NET ağırlıkları, erişim 02.09.2026).` +
+        (bandinDisinda
+          ? " YÜK SERİNİN YAYIMLANMIŞ BANDININ DIŞINDA — uç modelin ağırlığı kullanıldı."
+          : ""),
+      kaynak: "tahmin",
+    };
+  }
+  if (slug === "balanceLoadcell") {
+    // Yük hücresi OTOMATİK seçilir (`balance.loadcellModelShort`) ve modelin
+    // ağırlığı Esit'in ölçü resimlerinde basılıdır; satıra hiç bağlanmamıştı.
+    const model = metinHucresi(result, moduleKey, "balance.loadcellModelShort");
+    const spec = loadCellByModel(model);
+    const kg = pozitifVeya(spec?.weightKg);
+    if (kg === null) return null;
+    return {
+      birimKg: kg,
+      formul: `${spec!.brand} ${spec!.model} katalog ağırlığı`,
+      gerekce: "Üreticinin ölçü resminde yayımlanan kütle.",
+      kaynak: "katalog",
+    };
+  }
+  if (slug === "balanceSheave") {
+    // Denge makarası KATALOGDAN SEÇİLMEZ, bölüm yalnız ÇAP sorar; ağırlık aynı
+    // yayımlanmış boy tablosundan okunur (`plate-sheave.ts`).
+    const sel = moduleState(input, moduleKey)?.selections as
+      | { balanceSheaveDiaMm?: number }
+      | undefined;
+    const spec = plateSheaveByDia(sel?.balanceSheaveDiaMm);
+    if (!spec) return null;
+    return {
+      birimKg: spec.weightKg,
+      ...(spec.weightMaxKg !== undefined ? { birimKgUst: spec.weightMaxKg } : {}),
+      formul: `Ø${spec.nominalDiaMm} mm kaynaklı sac makara`,
+      gerekce:
+        spec.weightMaxKg !== undefined
+          ? "Bu çapta iki yataklama düzeni yayımlanmış; ağırlık aralık olarak verilir."
+          : "Kaynaklı sac makara boy tablosundan.",
+      kaynak: "katalog",
+    };
+  }
+  // ——— hiçbir katalogda olmayan imalat parçaları
+  if (slug === "shaft") {
+    // MİL SİLİNDİR KABUL EDİLİR. Kademeler, gres kanalları ve emniyet
+    // delikleri sayılmaz; çıkan sayı bu yüzden bir ÜST SINIRdır ve gerekçe
+    // bunu söyler — sessizce yüksek bir kilo, boş bir hücreden kötüdür.
+    const inp = moduleState(input, moduleKey)?.inputs as { shaftD1Mm?: number } | undefined;
+    const d = pozitifVeya(inp?.shaftD1Mm);
+    const L = pozitifVeya(hucre(result, moduleKey, "shaft.length"));
+    if (d === null || L === null) return null;
+    const kg = ((Math.PI / 4) * (d / 10) ** 2 * (L / 10) * DRUM_STEEL_DENSITY_G_CM3) / 1000;
+    return {
+      birimKg: kg,
+      formul: `π/4 · Ø${d}² · ${Math.round(L)} mm · 7,85 g/cm³`,
+      gerekce:
+        "Mil düz silindir kabul edildi (kademeler ve delikler düşülmedi); " +
+        "gerçek ağırlık bir miktar DAHA AZDIR.",
+      kaynak: "hesap",
+    };
+  }
+  if (slug === "liftingBeam") {
+    // KESİT İKİ BÖLGELİDİR (açıklık ortası ince, mesnet yakını kalın) ve hangi
+    // bölgenin ne kadar sürdüğü hesapta SORULMUYOR. Tek bir sayı uydurmak
+    // yerine ARALIK verilir: alt uç baştan sona ince kesit, üst uç baştan sona
+    // kalın kesit. Gerçek kiriş ikisinin arasındadır.
+    const span = pozitifVeya(hucre(result, moduleKey, "girder.span"));
+    const ince = pozitifVeya(hucre(result, moduleKey, "girder.midUnitWeight"));
+    const kalin = pozitifVeya(hucre(result, moduleKey, "girder.thickUnitWeight"));
+    if (span === null || ince === null) return null;
+    const boyM = span / 1000;
+    return {
+      birimKg: ince * boyM,
+      ...(kalin !== null && kalin > ince ? { birimKgUst: kalin * boyM } : {}),
+      formul: `${boyM.toFixed(2)} m × ${ince.toFixed(1)}–${(kalin ?? ince).toFixed(1)} kg/m`,
+      gerekce:
+        "Kesidin iki bölgesi farklı kalınlıktadır ve hangisinin ne kadar sürdüğü " +
+        "bölümde sorulmuyor. ALT UÇ baştan sona ince kesit, ÜST UÇ baştan sona " +
+        "kalın kesittir; alın sacları, kulaklar ve kaynak dâhil değildir.",
+      kaynak: "hesap",
+    };
+  }
+  return null;
+}
+
+/** Ürün seçilmiş sayılır mı — katalog satırları boş alanı "-" ile yazar. */
+function urunSecili(row: EqRow): boolean {
+  const bos = (v: string | undefined) => !v || v.trim() === "" || v.trim() === "-";
+  return !bos(row.model) || !bos(row.brand);
+}
+
+/**
+ * AĞIRLIK NEDEN YOK — üç ayrı cevap, üçü de doğru.
+ *
+ * Eski tek cümle ("ürünü yeniden seçin") ÜRÜN SEÇİLİYKEN de basılıyordu ve
+ * mühendisi olmayan bir işe gönderiyordu: POLAT PCS, SEW R/X ve YILMAZ Planet
+ * redüktörlerinin motorsuz ağırlığı katalog sayfasında hiç YAYIMLANMAMIŞTIR,
+ * ürünü yeniden seçmek hiçbir şeyi değiştirmez (ölçüm: seed edilen redüktör
+ * satırlarının yalnız %38'inde ağırlık var). Ayrım kaynakta yapılır:
+ * slug bilinçli boşsa kendi cümlesi, ürün seçiliyse "föyden elle girin",
+ * seçili değilse "önce ürünü seçin".
+ */
+function agirliksizGerekce(slug: string, row: EqRow): string {
+  const kendi = AGIRLIKSIZ_SLUG_GEREKCESI[slug];
+  if (kendi) return kendi;
+  if (!urunSecili(row)) return "Ürün henüz seçilmedi; seçildiğinde katalog ağırlığı gelir.";
+  const ad = [row.brand, row.model].filter((v) => v && v.trim() !== "-").join(" ").trim();
+  return (
+    `${ad ? `«${ad}» için ` : ""}katalogda ağırlık kayıtlı değil — üretici föyünden ` +
+    `elle girilebilir. (Bazı redüktör ve kaplin serilerinde ağırlık sütunu hiç yayımlanmaz.)`
+  );
+}
+
+/** ORTA SÜTUNA basılan iki-üç kelimelik durum (md. 6). */
+function kisaDurumMetni(slug: string, row: EqRow): string {
+  if (AGIRLIKSIZ_SLUG_GEREKCESI[slug]) return "katalogda yok";
+  return urunSecili(row) ? "katalogda yok" : "ürün seçilmedi";
+}
 
 /** Aynı grupta birden çok kaldırma grubu varsa etiketleri ayıran kısa ad. */
 const KISA_MODUL_ADI: Readonly<Record<string, string>> = {
@@ -146,6 +384,12 @@ function hucre(result: CalcResult, key: ModuleKey, ad: string): number | null {
   return cells ? sayiVeya(cells[ad]) : null;
 }
 
+/** Hücre haritasından METİN — hesaplanmamış modülde `undefined`. */
+function metinHucresi(result: CalcResult, key: ModuleKey, ad: string): string | undefined {
+  const v = moduleResult(result, key)?.cells?.[ad];
+  return typeof v === "string" ? v : undefined;
+}
+
 function moduleKeyOf(rowKey: string | undefined): ModuleKey | undefined {
   if (!rowKey) return undefined;
   const ayrac = rowKey.indexOf(":");
@@ -161,8 +405,9 @@ function moduleKeyOf(rowKey: string | undefined): ModuleKey | undefined {
  * fonksiyonun tamamı hiçbir koşulda fırlatmaz.
  */
 export function agirlikDokumu(girdi: AgirlikDokumuGirdisi): AgirlikDokumu {
-  const { input, result, satirlar, gizliBolumler, durum } = girdi;
+  const { input, result, satirlar, gizliBolumler, durum, craneType } = girdi;
   const specs = input.specs;
+  const ayakSayisi = gantryLegCount(craneType);
   const overrides = durum?.overrides ?? {};
   const gizliSay = durum?.gizliBolumleriSay === true;
   const gizliKume = new Set(gizliBolumler ?? []);
@@ -229,12 +474,19 @@ export function agirlikDokumu(girdi: AgirlikDokumuGirdisi): AgirlikDokumu {
     }
 
     const adet = pozitifVeya(row.qty);
+    // KATALOG SUSUYORSA HESABA SORULUR: mil ve kaldırma kirişi bir ürün değil
+    // bir imalattır, ölçüleri zaten bölümün hücrelerindedir (md. 4 turu).
+    const imalat =
+      pozitifVeya(row.weightKg) === null
+        ? imalatAgirligi(moduleKey, slug, input, result)
+        : null;
     // SATIR EKRANDA TOPLANABİLMELİ: toplam, YUVARLANMIŞ birimden çarpılır.
     // Ham birimden çarpıp ayrıca yuvarlamak "2 ad × 4.774,5 = 9.549,1" gibi
     // kendi kendini yalanlayan bir satır üretiyordu.
-    const birimKg = yuvarla(pozitifVeya(row.weightKg));
-    const birimKgUst = yuvarla(pozitifVeya(row.weightKgUst));
-    const kaynak: AgirlikKaynagi = HESAPTAN_GELEN_SLUGLAR.has(slug) ? "hesap" : "katalog";
+    const birimKg = yuvarla(imalat?.birimKg ?? pozitifVeya(row.weightKg));
+    const birimKgUst = yuvarla(imalat?.birimKgUst ?? pozitifVeya(row.weightKgUst));
+    const kaynak: AgirlikKaynagi =
+      imalat?.kaynak ?? (HESAPTAN_GELEN_SLUGLAR.has(slug) ? "hesap" : "katalog");
     ekle(bant, {
       key: `${bant}.${grup}.${row.rowKey}`,
       label: row.component,
@@ -246,11 +498,11 @@ export function agirlikDokumu(girdi: AgirlikDokumuGirdisi): AgirlikDokumu {
       ...(birimKgUst !== null && adet !== null
         ? { kgUst: yuvarla(birimKgUst * adet) as number }
         : {}),
-      formul: birimKg !== null && adet !== null ? "adet × birim ağırlık" : undefined,
-      gerekce:
-        birimKg !== null
-          ? undefined
-          : (AGIRLIKSIZ_SLUG_GEREKCESI[slug] ?? VARSAYILAN_GEREKCE),
+      formul:
+        imalat?.formul ??
+        (birimKg !== null && adet !== null ? "adet × birim ağırlık" : undefined),
+      gerekce: imalat?.gerekce ?? (birimKg !== null ? undefined : agirliksizGerekce(slug, row)),
+      ...(birimKg === null ? { kisaDurum: kisaDurumMetni(slug, row) } : {}),
       moduleKey,
       rowKey: row.rowKey,
       ...(gizli ? { gizliBolumden: true } : {}),
@@ -315,7 +567,62 @@ export function agirlikDokumu(girdi: AgirlikDokumuGirdisi): AgirlikDokumu {
   }
 
   // ——————————————————————————————————————————— tahmin defteri kalemleri
-  tahminKalemleriniEkle({ input, specs, varOlan, bantSirasi, bantKalemleri, ekle });
+  tahminKalemleriniEkle({
+    input,
+    specs,
+    varOlan,
+    bantSirasi,
+    bantKalemleri,
+    ekle,
+    ayakSayisi,
+    ayakYuksekligiM: durum?.ayakYuksekligiM,
+  });
+
+  // ————————————————————————————————— pencereden elle açılan serbest satırlar
+  // EN SONA eklenir: kendi grubunun altında, otomatik kalemlerin ardında durur
+  // ve sıralaması mühendisin ekleme sırasıdır. Bandı OLMAYAN bir serbest satır
+  // bandı DİRİLTMEZ (`ekle` yeni bant açardı) — vinçte olmayan bir bandın
+  // altında satır göstermek, kayıtta kalmış eski bir kararı gerçekmiş gibi
+  // okuturdu; satır düşer ve notlarda sayılır.
+  const serbestler = (durum?.serbest ?? []).slice(0, AGIRLIK_SERBEST_SINIRI);
+  let dusenSerbest = 0;
+  for (const s of serbestler) {
+    // ANAHTAR UZAYI KORUNUR: serbest satır ancak `serbest-` ön ekiyle girer.
+    // Ön eksiz bir kimlik, otomatik bir kalemin anahtarını ele geçirip onun
+    // ezme ve notunu sessizce devralabilirdi.
+    if (!s || typeof s.id !== "string" || !s.id.startsWith(AGIRLIK_SERBEST_ON_EKI)) continue;
+    if (!bantKalemleri.has(s.bant)) {
+      dusenSerbest += 1;
+      continue;
+    }
+    const grupVar = bandinGruplari(s.bant).some((g) => g.key === s.grup);
+    if (!grupVar) {
+      dusenSerbest += 1;
+      continue;
+    }
+    const kg = pozitifVeya(s.kg);
+    const adet = pozitifVeya(s.adet);
+    ekle(s.bant, {
+      key: `${s.bant}.${s.grup}.${s.id}`,
+      label: s.ad?.trim() || "Adsız kalem",
+      kaynak: "elle",
+      adet,
+      birimKg: kg !== null && adet !== null && adet > 1 ? yuvarla(kg / adet) : yuvarla(kg),
+      kg: yuvarla(kg),
+      gerekce:
+        kg === null
+          ? "Elle açılan satır; ağırlığı henüz girilmedi."
+          : "Pencereden elle açılan satır — mühendisin o işe özel bilgisi.",
+      ...(kg === null ? { kisaDurum: "ağırlık girilmedi" } : {}),
+      serbestId: s.id,
+    });
+  }
+  if (dusenSerbest > 0) {
+    notlar.push(
+      `${dusenSerbest} elle açılmış satır, bağlı olduğu bölüm bu revizyonda ` +
+        `bulunmadığı için listede yok.`
+    );
+  }
 
   // ————————————————————————————————————————— gruplama ve toplamlar
   const bantlar: AgirlikBandi[] = [];
@@ -349,13 +656,22 @@ export function agirlikDokumu(girdi: AgirlikDokumuGirdisi): AgirlikDokumu {
         ...(grupEzme !== null ? { ezildi: true } : {}),
         tahminIcerir: ezmeliKalemler.some((k) => k.kaynak === "tahmin"),
         gizliDusenSayisi: dusen,
+        ...(KUTUYA_GIRMEYEN_GRUPLAR.has(tanim.key) ? { bantToplaminaGirmez: true } : {}),
       });
     }
 
-    const bilinenGruplar = gruplar.filter((g) => g.kg !== null);
+    // İKİ AYRI TOPLAM: kutuyla karşılaştırılan (`kg`) ve kutuya girmeyen
+    // (`disKg`, bugün yalnız portal ayakları). Tek toplam tutulsaydı ayakların
+    // kilosu "Teknik özelliğe yaz" düğmesiyle `bridgeWeightT`e sızardı.
+    const iceridekiler = gruplar.filter((g) => !g.bantToplaminaGirmez && g.kg !== null);
+    const disaridakiler = gruplar.filter((g) => g.bantToplaminaGirmez && g.kg !== null);
     const bantKg =
-      bilinenGruplar.length > 0
-        ? yuvarla(bilinenGruplar.reduce((t, g) => t + (g.kg as number), 0))
+      iceridekiler.length > 0
+        ? yuvarla(iceridekiler.reduce((t, g) => t + (g.kg as number), 0))
+        : null;
+    const bantDisKg =
+      disaridakiler.length > 0
+        ? yuvarla(disaridakiler.reduce((t, g) => t + (g.kg as number), 0))
         : null;
     const specKey = BANT_SPEC_ANAHTARLARI[bantKey];
     const tahminiT = specKey ? sayiVeya(specs[specKey]) : null;
@@ -367,6 +683,7 @@ export function agirlikDokumu(girdi: AgirlikDokumuGirdisi): AgirlikDokumu {
       tahminiKg,
       gruplar,
       kg: bantKg,
+      disKg: bantDisKg,
       eksikKalemSayisi: gruplar.reduce((t, g) => t + g.eksikKalemSayisi, 0),
       tahminIcerir: gruplar.some((g) => g.tahminIcerir),
       farkOrani:
@@ -376,13 +693,43 @@ export function agirlikDokumu(girdi: AgirlikDokumuGirdisi): AgirlikDokumu {
     });
   }
 
-  const bilinenBantlar = bantlar.filter((b) => b.kg !== null);
+  // VİNCİN TOPLAMI KUTUYA GİRMEYENİ DE SAYAR: portal ayakları vincin
+  // parçasıdır; yalnız `bridgeWeightT`e yazılmaz.
+  const bantToplamlari = bantlar
+    .map((b) => (b.kg === null && b.disKg === null ? null : (b.kg ?? 0) + (b.disKg ?? 0)))
+    .filter((v): v is number => v !== null);
   const eksikToplam = bantlar.reduce((t, b) => t + b.eksikKalemSayisi, 0);
   if (eksikToplam > 0) {
     notlar.push(
       `${eksikToplam} kalemin ağırlığı bilinmiyor; toplamlar EN AZ değeridir.`
     );
   }
+  // SESSİZ BOŞLUK, ARTIK SESSİZ DEĞİL: hem ekipman satırı hem tahmin kalemi
+  // yalnız FESTON dalında doğuyor. Bara ya da kablo sarma tamburu seçilmiş bir
+  // köprüde hat ne listede ne toplamda görünüyordu ve eksik sayacına da
+  // katkısı yoktu — 30 m açıklıkta bir bara 300–600 kg mertebesindedir.
+  // Uydurma bir kg/m yazılmaz (md. 4); mühendis uyarılır ve elle ekleyebilir.
+  const beslemeCumlesi = (etiket: string, deger: string | undefined): void => {
+    if (!deger || deger === "festoon") return;
+    notlar.push(
+      `${etiket} beslemesi «${BESLEME_ADLARI[deger] ?? deger}» seçilmiş; bu hattın ` +
+        `ağırlığı dökümde YOK (yalnız feston hattı tartılıyor). Gerekiyorsa ilgili ` +
+        `gruba elle satır ekleyin.`
+    );
+  };
+  if (bantKalemleri.has("bridge") && varOlan.has("bridge")) {
+    beslemeCumlesi("Köprü", specs.bridgePowerSupply);
+  }
+  const arabaBeslemeleri: readonly [string, string, string | undefined][] = [
+    ["trolley", "Ana araba", specs.trolleyPowerSupply],
+    ["auxTrolley", "Yardımcı araba", specs.auxTrolleyPowerSupply],
+    ["mono1Trolley", "Monoray 1 arabası", specs.mono1TrolleyPowerSupply],
+    ["mono2Trolley", "Monoray 2 arabası", specs.mono2TrolleyPowerSupply],
+  ];
+  for (const [bant, etiket, deger] of arabaBeslemeleri) {
+    if (bantKalemleri.has(bant)) beslemeCumlesi(etiket, deger);
+  }
+
   const dusenToplam = [...gizliDusen.values()].reduce((t, n) => t + n, 0);
   if (!gizliSay && dusenToplam > 0) {
     notlar.push(
@@ -394,8 +741,8 @@ export function agirlikDokumu(girdi: AgirlikDokumuGirdisi): AgirlikDokumu {
   return {
     bantlar,
     kg:
-      bilinenBantlar.length > 0
-        ? yuvarla(bilinenBantlar.reduce((t, b) => t + (b.kg as number), 0))
+      bantToplamlari.length > 0
+        ? yuvarla(bantToplamlari.reduce((t, v) => t + v, 0))
         : null,
     eksikKalemSayisi: eksikToplam,
     tahminIcerir: bantlar.some((b) => b.tahminIcerir),
@@ -468,8 +815,12 @@ function tahminKalemleriniEkle(ctx: {
   bantSirasi: readonly string[];
   bantKalemleri: Map<string, AgirlikKalemi[]>;
   ekle: (bant: string, kalem: AgirlikKalemi) => void;
+  /** Künyeden gelen portal ayak adedi; `0` = portal değil. */
+  ayakSayisi: number;
+  /** Pencereden elle girilen portal ayak yüksekliği [m]. */
+  ayakYuksekligiM?: number;
 }): void {
-  const { input, specs, varOlan, bantSirasi, bantKalemleri, ekle } = ctx;
+  const { input, specs, varOlan, bantSirasi, bantKalemleri, ekle, ayakSayisi } = ctx;
 
   /** Grupta bilinen kilolar toplamı — sıralı bağımlı tahminler bunu okur. */
   const grupToplami = (bant: string, grup: string): number | null => {
@@ -495,10 +846,17 @@ function tahminKalemleriniEkle(ctx: {
     grup: string,
     ad: string,
     sonuc: TahminSonucu,
-    adet: number | null = 1
+    adet: number | null = 1,
+    /**
+     * ANAHTARIN SON PARÇASI. Varsayılan `tahmin`, çünkü çoğu grupta tek bir
+     * tahmin kalemi vardır ve o anahtar revizyonda saklanan ezmelere bağlıdır
+     * — DEĞİŞTİRİLEMEZ. Bir grupta birden çok tahmin varsa (portal ayakları)
+     * her satır kendi son parçasını verir.
+     */
+    sonParca = "tahmin"
   ): void => {
     ekle(bant, {
-      key: `${bant}.${grup}.tahmin`,
+      key: `${bant}.${grup}.${sonParca}`,
       label: ad,
       kaynak: "tahmin",
       adet,
@@ -506,6 +864,7 @@ function tahminKalemleriniEkle(ctx: {
       kg: yuvarla(sonuc.kg),
       formul: sonuc.formul,
       gerekce: sonuc.gerekce,
+      ...(sonuc.kg === null ? { kisaDurum: "türetilemedi" } : {}),
     });
   };
 
@@ -605,6 +964,88 @@ function tahminKalemleriniEkle(ctx: {
       );
       kapsa(bant, "festoon", `${bant}:festoon`);
     }
+  }
+
+  // ————————————————————————————————— köşe yükünden türeyenler (EN SONDA)
+  //
+  // SIRA ZORUNLU: başkiriş de portal ayağı da KÖŞE YÜKÜNE bağlıdır ve köşe
+  // yükü köprünün TAŞINAN yapısını (kirişler + platform + elektrik + kabin +
+  // oda) ve arabaları toplar. İkisi de bu bloktan önce eklenmiş olmalıdır.
+  if (!bantKalemleri.has("bridge")) return;
+
+  /** Bir bandın bilinen kilolarının toplamı; verilen gruplar HARİÇ. */
+  const bantToplami = (bant: string, haric: ReadonlySet<string>): number | null => {
+    const kalemler = (bantKalemleri.get(bant) ?? []).filter((k) => {
+      const parcalar = k.key.split(".");
+      return parcalar.length > 2 && !haric.has(parcalar[1]);
+    });
+    const bilinen = kalemler.filter((k) => k.kg !== null && !k.kapsandi);
+    return bilinen.length > 0 ? bilinen.reduce((t, k) => t + (k.kg as number), 0) : null;
+  };
+
+  // Kendi kilolarını köşe yükünden alan gruplar girdiye KATILMAZ (döngü olurdu).
+  const kendindenTureyen = new Set(["endCarriage", "legs"]);
+  const yapiKg = bantToplami("bridge", kendindenTureyen);
+  const arabalarKg = bantSirasi
+    .filter((b) => b !== "bridge")
+    .reduce<number | null>((t, b) => {
+      const v = bantToplami(b, new Set());
+      return v === null ? t : (t ?? 0) + v;
+    }, null);
+  const kose = koseYukuTahmini(specs, yapiKg, arabalarKg);
+
+  // ————————————————————————————————————————————————————— BAŞKİRİŞ
+  // Bölüm AÇIKSA kalem zaten kesitten geldi; kapalıysa köşe yükünden tahmin
+  // edilir. Kullanıcı isteği (02.09.2026, md. 9): başkiriş köprü grubunda ana
+  // kirişin altında HER ZAMAN görünsün — yeni işler «09 · Başkiriş» bölümü
+  // KAPALI açılır ve grup bugüne dek hiç çizilmiyordu.
+  //
+  // ANAHTAR AYNI KALIR (`bridge.endCarriage.beam`): farklı bir anahtar
+  // kullanılsaydı, bölümü sonradan açan mühendisin elle girdiği kilo ve notu
+  // sessizce kopardı.
+  const baskirisVar = (bantKalemleri.get("bridge") ?? []).some((k) =>
+    k.key.startsWith("bridge.endCarriage.")
+  );
+  if (!baskirisVar) {
+    tahminKalemi(
+      "bridge",
+      "endCarriage",
+      "Başkiriş",
+      baskirisTahmini(kose.koseYukuT, 2),
+      2,
+      "beam"
+    );
+  }
+
+  // ————————————————————————————————————————————————————— PORTAL AYAKLARI
+  if (ayakSayisi > 0) {
+    const H = ctx.ayakYuksekligiM;
+    const ayaklar = ayakTahmini(kose.koseYukuT, H, ayakSayisi);
+    tahminKalemi("bridge", "legs", "Ayaklar", ayaklar, ayakSayisi, "ayak");
+    tahminKalemi(
+      "bridge",
+      "legs",
+      "Üst Uç Bağlantı",
+      ustUcBaglantiTahmini(kose.koseYukuT),
+      ayakSayisi,
+      "ustUc"
+    );
+    tahminKalemi(
+      "bridge",
+      "legs",
+      "Portal Takviyeleri",
+      portalTakviyeTahmini(grupToplami("bridge", "girder"), ayaklar.kg),
+      1,
+      "takviye"
+    );
+    tahminKalemi(
+      "bridge",
+      "legs",
+      "Ayak Merdiveni ve Sahanlıkları",
+      ayakMerdiveniTahmini(H, ayakSayisi),
+      1,
+      "merdiven"
+    );
   }
 }
 

@@ -32,6 +32,11 @@ export const KOPRU_GRUPLARI: readonly AgirlikGrupTanimi[] = [
   { key: "bridgeTravel", label: "Köprü Yürütme Grubu" },
   { key: "girder", label: "Ana Kiriş" },
   { key: "endCarriage", label: "Başkiriş" },
+  // AYAKLAR ANA KİRİŞTEN SONRA, PLATFORMDAN ÖNCE: sıra hâlâ mühendisin okuma
+  // sırasıdır (taşıyandan taşınana) ve portalde ayak, kirişin altındaki bir
+  // sonraki taşıyıcıdır. Grup YALNIZ portal/yarı portal künyesinde doğar ve
+  // `bantToplaminaGirmez` ile işaretlidir (bkz. `AgirlikGrubu`).
+  { key: "legs", label: "Ayaklar ve Portal Yapısı" },
   { key: "platform", label: "Platform ve Korkuluk" },
   { key: "festoon", label: "Feston Hattı" },
   { key: "electric", label: "Köprü Elektrik Tesisatı" },

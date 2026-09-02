@@ -88,6 +88,28 @@ export function isGroundCraneType(craneType: string | null | undefined): boolean
   return (craneType ?? "").trim() === GROUND_CRANE_TYPE;
 }
 
+export const GANTRY_CRANE_TYPE = "Portal Vinç" as const;
+export const SEMI_GANTRY_CRANE_TYPE = "Yarı Portal Vinç" as const;
+
+/**
+ * KÖPRÜSÜ AYAK ÜZERİNDE YÜRÜYEN VİNÇ — ve kaç ayağı olduğu.
+ *
+ * `0` döner = portal değil. Portalde dört ayak vardır (her köşede bir);
+ * YARI portalde köprünün bir ucu duvardaki üst raya oturur ve yalnız İKİ ayak
+ * kalır. `includes("PORTAL")` KULLANILMAZ: "Yarı Portal Vinç" de eşleşir ve
+ * ayak adedini iki katına çıkarırdı — `isTrolleyOnlyCraneType`in tam eşitlik
+ * deseni burada da geçerlidir.
+ *
+ * KAYITLI DEĞER SERBEST METİNDİR: tanınmayan bir tip portal SAYILMAZ
+ * (değişmez md. 4 — bilinmeyen "evet" değildir).
+ */
+export function gantryLegCount(craneType: string | null | undefined): 0 | 2 | 4 {
+  const value = (craneType ?? "").trim();
+  if (value === GANTRY_CRANE_TYPE) return 4;
+  if (value === SEMI_GANTRY_CRANE_TYPE) return 2;
+  return 0;
+}
+
 /** Proje künyesindeki açık tek/çift kiriş tanımının V0 teknik önerisi. */
 export function girderArrangementForCraneType(
   craneType: string | null | undefined

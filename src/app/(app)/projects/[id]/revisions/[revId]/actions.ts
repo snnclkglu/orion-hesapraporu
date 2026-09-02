@@ -10,6 +10,7 @@ import {
   hiddenDiagramsFromRevision,
   hiddenSectionsFromRevision,
   sectionNotesFromRevision,
+  weightBreakdownFromRevision,
   type RevisionInputsJson,
   type RevisionSelectionsJson,
   type RevisionSectionNotes,
@@ -255,6 +256,10 @@ export async function saveRevision(
       ? (currentInputs as Record<string, unknown>).fileImport
       : undefined;
 
+  const temizWeightBreakdown = weightBreakdown
+    ? weightBreakdownFromRevision({ weightBreakdown } as RevisionInputsJson)
+    : undefined;
+
   const { data: updated, error } = await supabase
     .from("revisions")
     .update({
@@ -266,8 +271,12 @@ export async function saveRevision(
         hiddenDiagrams: hiddenDiagrams ?? [],
         // BOŞ KARAR YAZILMAZ: hiç ezme yoksa anahtar da yoktur ve eski
         // revizyonlar bugünkü hâllerini birebir korur.
-        ...(weightBreakdown && Object.keys(weightBreakdown).length > 0
-          ? { weightBreakdown }
+        // İSTEMCİDEN GELEN KARAR AYNI SÜZGEÇTEN GEÇER: kayda giren serbest
+        // satırın kimliği `serbest-` ön ekli, sayıları pozitif ve adedi
+        // sınırlı olmalı. Yükleyicinin süzgeci yeniden yazılmaz, ÇAĞRILIR
+        // (değişmez md. 8) — iki ayrı kelepçe zamanla ayrışırdı.
+        ...(temizWeightBreakdown && Object.keys(temizWeightBreakdown).length > 0
+          ? { weightBreakdown: temizWeightBreakdown }
           : {}),
         ...(fileImport ? { fileImport } : {}),
       },

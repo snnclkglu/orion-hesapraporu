@@ -45,6 +45,23 @@ function weightOverrideKeys(raw: unknown): string[] {
     .sort();
 }
 
+/** Elle açılan satırların ADLARI — anahtarları değil (okuyan insandır). */
+function weightSerbestAdlari(raw: unknown): string[] {
+  if (!isPlainObject(raw)) return [];
+  const liste = raw.serbest;
+  if (!Array.isArray(liste)) return [];
+  return liste
+    .map((s) => (isPlainObject(s) && typeof s.ad === "string" ? s.ad.trim() : ""))
+    .map((ad) => ad || "(adsız)")
+    .sort();
+}
+
+function weightAyakYuksekligi(raw: unknown): string {
+  if (!isPlainObject(raw)) return "—";
+  const v = raw.ayakYuksekligiM;
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? `${v} m` : "—";
+}
+
 function diffModuleObjects(
   moduleKey: string,
   kind: "input" | "selection",
@@ -152,6 +169,33 @@ export function diffRevisions(a: Snapshot, b: Snapshot): RevisionDiff {
       key: "weightBreakdownOverrides",
       a: aEzme.length ? aEzme.join(", ") : "—",
       b: bEzme.length ? bEzme.join(", ") : "—",
+    });
+  }
+
+  // ELLE AÇILAN SATIR bir ezmeden de büyük bir karardır: hiçbir hesap bölümünün
+  // üretmediği bir parçayı vincin üzerine koyar. Adıyla listelenir — anahtar
+  // (`serbest-3`) sonraki revizyonu açan kişiye hiçbir şey söylemez.
+  const aSerbest = weightSerbestAdlari(aInputs.weightBreakdown);
+  const bSerbest = weightSerbestAdlari(bInputs.weightBreakdown);
+  if (JSON.stringify(aSerbest) !== JSON.stringify(bSerbest)) {
+    fields.push({
+      module: "specs",
+      kind: "input",
+      key: "weightBreakdownSerbest",
+      a: aSerbest.length ? aSerbest.join(", ") : "—",
+      b: bSerbest.length ? bSerbest.join(", ") : "—",
+    });
+  }
+
+  const aAyak = weightAyakYuksekligi(aInputs.weightBreakdown);
+  const bAyak = weightAyakYuksekligi(bInputs.weightBreakdown);
+  if (aAyak !== bAyak) {
+    fields.push({
+      module: "specs",
+      kind: "input",
+      key: "weightBreakdownAyakYuksekligi",
+      a: aAyak,
+      b: bAyak,
     });
   }
 

@@ -485,3 +485,377 @@ describe("tambur emniyet freni artık görünür", () => {
     expect(varMi).toBe(false);
   });
 });
+
+// ————————————————————————————————————————————————— 02.09.2026 turu
+
+describe("BAŞKİRİŞ köprü grubunda HER ZAMAN görünür (md. 9)", () => {
+  it("bölüm KAPALIYKEN köşe yükünden tahmin edilir", () => {
+    // Yeni işler «09 · Başkiriş» bölümü KAPALI açılır; grup bugüne dek hiç
+    // çizilmiyordu ve `bridgeWeightT` ipucunun sözü ("başkirişler dâhil")
+    // tutulmuyordu.
+    expect(OFF).toContain("endCarriage");
+    const g = grup(dokumFor(), "bridge", "endCarriage");
+    expect(g, "başkiriş grubu").toBeDefined();
+    const kalem = g!.kalemler.find((k) => k.key === "bridge.endCarriage.beam")!;
+    expect(kalem.kaynak).toBe("tahmin");
+    expect(kalem.adet).toBe(2);
+    expect(kalem.kg).toBeGreaterThan(0);
+    expect(kalem.gerekce).toContain("kapalı");
+  });
+
+  it("bölüm AÇIKKEN kesitten gelir ve ANAHTAR AYNI kalır", () => {
+    // Anahtar değişseydi, bölümü sonradan açan mühendisin elle girdiği kilo ve
+    // notu sessizce kopardı.
+    const dokum = dokumFor(BASE, OFF.filter((k) => k !== "endCarriage"));
+    const kalem = grup(dokum, "bridge", "endCarriage")!.kalemler.find(
+      (k) => k.key === "bridge.endCarriage.beam"
+    )!;
+    expect(kalem.moduleKey).toBe("endCarriage");
+    expect(kalem.formul).toContain("kg/m");
+  });
+
+  it("ezme, bölüm açık da kapalı da AYNI anahtardan geçer", () => {
+    const durum: AgirlikDokumuDurumu = { overrides: { "bridge.endCarriage.beam": 3300 } };
+    for (const kapali of [OFF, OFF.filter((k) => k !== "endCarriage")]) {
+      const kalem = grup(dokumFor(BASE, kapali, durum), "bridge", "endCarriage")!.kalemler.find(
+        (k) => k.key === "bridge.endCarriage.beam"
+      )!;
+      expect(kalem.kg).toBe(3300);
+      expect(kalem.kaynak).toBe("elle");
+    }
+  });
+
+  it("VİNÇ ARABASI raporunda köprü bandını DİRİLTMEZ", () => {
+    const kapali = [...new Set([...OFF, ...TROLLEY_ONLY_DISABLED_MODULES])];
+    const dokum = dokumFor(BASE, kapali);
+    expect(dokum.bantlar.map((b) => b.key)).toEqual(["trolley"]);
+  });
+});
+
+describe("PORTAL AYAKLARI köprü grubunda, kutunun DIŞINDA (md. 8)", () => {
+  const ile = (craneType: string, durum?: AgirlikDokumuDurumu) => {
+    const input = calcFor(BASE, OFF);
+    return agirlikDokumu({
+      input,
+      result: runCalc(input),
+      satirlar: satirlariniAl(input),
+      durum,
+      craneType,
+    });
+  };
+
+  it("gezer köprülü vinçte AYAK GRUBU HİÇ doğmaz", () => {
+    expect(grup(ile("Çift Kirişli Gezer Köprülü Vinç"), "bridge", "legs")).toBeUndefined();
+    expect(grup(dokumFor(), "bridge", "legs")).toBeUndefined();
+  });
+
+  it("Portal Vinç künyesinde dört ayak, KÖPRÜ bandının içinde doğar", () => {
+    const dokum = ile("Portal Vinç", { ayakYuksekligiM: 8 });
+    const g = grup(dokum, "bridge", "legs")!;
+    expect(g.label).toBe("Ayaklar ve Portal Yapısı");
+    expect(g.bantToplaminaGirmez).toBe(true);
+    const ayak = g.kalemler.find((k) => k.key === "bridge.legs.ayak")!;
+    expect(ayak.adet).toBe(4);
+    expect(ayak.kg).toBeGreaterThan(0);
+    expect(g.kalemler.map((k) => k.label)).toEqual([
+      "Ayaklar",
+      "Üst Uç Bağlantı",
+      "Portal Takviyeleri",
+      "Ayak Merdiveni ve Sahanlıkları",
+    ]);
+  });
+
+  it("YARI portalde iki ayak olur", () => {
+    const g = grup(ile("Yarı Portal Vinç", { ayakYuksekligiM: 8 }), "bridge", "legs")!;
+    expect(g.kalemler.find((k) => k.key === "bridge.legs.ayak")!.adet).toBe(2);
+  });
+
+  it("ayak kilosu `bridgeWeightT` toplamına GİRMEZ, vinç toplamına GİRER", () => {
+    // Kutuyu ana kiriş (ölü yük payı) ve teker yükleri okuyor; ayak kirişi
+    // TAŞIR, kirişe BİNMEZ. Kilosu kutuya sızsaydı sehim ve teker yükü sessizce
+    // büyürdü.
+    const yok = ile("Çift Kirişli Gezer Köprülü Vinç");
+    const portal = ile("Portal Vinç", { ayakYuksekligiM: 8 });
+    const kopru = bant(portal, "bridge")!;
+    expect(kopru.kg).toBe(bant(yok, "bridge")!.kg);
+    expect(kopru.disKg).toBeGreaterThan(0);
+    expect(portal.kg!).toBeCloseTo(yok.kg! + kopru.disKg!, 1);
+  });
+
+  it("ayak yüksekliği girilmezse kilo BOŞ kalır ve sebebi yazılır (md. 4)", () => {
+    const g = grup(ile("Portal Vinç"), "bridge", "legs")!;
+    const ayak = g.kalemler.find((k) => k.key === "bridge.legs.ayak")!;
+    expect(ayak.kg).toBeNull();
+    // "yükseklik" ARANMAZ: metinde "yüksekliği" geçiyor ve ünsüz yumuşaması
+    // k → ğ olduğu için alt dizge tutmaz (Türkçe eki olan her aramanın tuzağı).
+    expect(ayak.gerekce).toContain("Ayak yüksekli");
+    expect(g.eksikKalemSayisi).toBeGreaterThan(0);
+  });
+
+  it("tanınmayan künye portal SAYILMAZ", () => {
+    expect(grup(ile("PORTAL"), "bridge", "legs")).toBeUndefined();
+    expect(grup(ile(""), "bridge", "legs")).toBeUndefined();
+  });
+});
+
+describe("elle açılan serbest satır (md. 7)", () => {
+  const durumla = (durum: AgirlikDokumuDurumu) => dokumFor(BASE, OFF, durum);
+
+  it("kendi grubunda doğar, toplama girer ve `elle` rozetlidir", () => {
+    const dokum = durumla({
+      serbest: [
+        {
+          id: "serbest-1",
+          bant: "trolley",
+          grup: "frame",
+          ad: "Kabin yürütme grubu",
+          adet: 1,
+          kg: 420,
+        },
+      ],
+    });
+    const g = grup(dokum, "trolley", "frame")!;
+    const kalem = g.kalemler.find((k) => k.serbestId === "serbest-1")!;
+    expect(kalem.label).toBe("Kabin yürütme grubu");
+    expect(kalem.kaynak).toBe("elle");
+    expect(kalem.kg).toBe(420);
+    const otomatik = g.kalemler.filter((k) => !k.serbestId).reduce((t, k) => t + (k.kg ?? 0), 0);
+    expect(g.kg).toBeCloseTo(otomatik + 420, 1);
+  });
+
+  it("kilosu girilmemiş serbest satır EKSİK sayılır, sıfır sayılmaz (md. 4)", () => {
+    const dokum = durumla({
+      serbest: [
+        { id: "serbest-2", bant: "bridge", grup: "platform", ad: "Ek sahanlık", adet: null, kg: null },
+      ],
+    });
+    const g = grup(dokum, "bridge", "platform")!;
+    const kalem = g.kalemler.find((k) => k.serbestId === "serbest-2")!;
+    expect(kalem.kg).toBeNull();
+    expect(kalem.kisaDurum).toBe("ağırlık girilmedi");
+    expect(g.eksikKalemSayisi).toBe(1);
+  });
+
+  it("ÖN EKSİZ kimlik otomatik bir kalemin anahtarını ELE GEÇİREMEZ", () => {
+    const dokum = durumla({
+      serbest: [{ id: "beam", bant: "bridge", grup: "endCarriage", ad: "Sahte", adet: 1, kg: 9 }],
+    });
+    const kalemler = grup(dokum, "bridge", "endCarriage")!.kalemler;
+    expect(kalemler.some((k) => k.label === "Sahte")).toBe(false);
+  });
+
+  it("bandı olmayan satır bandı DİRİLTMEZ, notlarda sayılır", () => {
+    const dokum = durumla({
+      serbest: [
+        { id: "serbest-3", bant: "mono1Trolley", grup: "frame", ad: "Eski", adet: 1, kg: 50 },
+      ],
+    });
+    expect(bant(dokum, "mono1Trolley")).toBeUndefined();
+    expect(dokum.notlar.some((n) => n.includes("elle açılmış satır"))).toBe(true);
+  });
+
+  it("tanımsız grup düşer", () => {
+    const dokum = durumla({
+      serbest: [{ id: "serbest-4", bant: "bridge", grup: "yokBoyleGrup", ad: "X", adet: 1, kg: 5 }],
+    });
+    expect(dokum.notlar.some((n) => n.includes("elle açılmış satır"))).toBe(true);
+  });
+});
+
+describe("besleme yöntemi feston değilse SESSİZ KALINMAZ (md. 4)", () => {
+  it("bara seçilmiş köprüde notlarda uyarı çıkar", () => {
+    const dokum = dokumFor({ ...BASE, bridgePowerSupply: "conductorBar" });
+    expect(dokum.notlar.some((n) => n.includes("bara"))).toBe(true);
+  });
+
+  it("feston seçilmişse uyarı çıkmaz", () => {
+    const dokum = dokumFor({ ...BASE, bridgePowerSupply: "festoon" });
+    expect(dokum.notlar.some((n) => n.includes("Köprü beslemesi"))).toBe(false);
+  });
+});
+
+describe("ağırlık neden yok — cevap ÜÇE ayrılır", () => {
+  it("ürün seçiliyken «yeniden seçin» DEMEZ", () => {
+    const dokum = dokumFor();
+    const bos = dokum.bantlar
+      .flatMap((b) => b.gruplar)
+      .flatMap((g) => g.kalemler)
+      .filter((k) => k.kg === null && k.rowKey && !k.kapsandi);
+    expect(bos.length).toBeGreaterThan(0);
+    for (const k of bos) {
+      expect(k.gerekce, k.key).toBeTruthy();
+      expect(k.gerekce, k.key).not.toContain("yeniden seçin");
+      expect(k.kisaDurum, k.key).toBeTruthy();
+    }
+  });
+});
+
+describe("katalogda olmayan ağırlıklar artık boş durmuyor (md. 4)", () => {
+  it("KANCA BLOĞU MİLİ kendi geometrisinden tartılır", () => {
+    const kalem = grup(dokumFor(), "trolley", "hookBlock")!.kalemler.find((k) =>
+      k.rowKey?.endsWith(":shaft")
+    )!;
+    expect(kalem.kaynak).toBe("hesap");
+    expect(kalem.kg).toBeGreaterThan(0);
+    expect(kalem.formul).toContain("7,85");
+    expect(kalem.gerekce).toContain("silindir");
+  });
+
+  it("KALDIRMA KİRİŞİ tek sayı değil ARALIK verir — kesit iki bölgeli", () => {
+    const specs: TechnicalSpecs = {
+      ...BASE,
+      mainCapacityT: 64,
+      mainHoistEquipmentArrangement: "doubleDrum",
+      mainDoubleDrumHookSystem: "liftingBeam",
+    };
+    const kalem = grup(dokumFor(specs), "trolley", "hookBlock")!.kalemler.find((k) =>
+      k.rowKey?.endsWith(":liftingBeam")
+    )!;
+    expect(kalem.kaynak).toBe("hesap");
+    expect(kalem.kg).toBeGreaterThan(0);
+    // Üst uç kalın kesitten gelir ve alt uçtan büyüktür; tek sayıya indirilmez.
+    expect(kalem.kgUst).toBeGreaterThan(kalem.kg!);
+  });
+
+  it("YÜK HÜCRESİ ağırlığı Esit föyünden gelir", () => {
+    // Denge traversli varsayılan düzende loadcell satırı doğar.
+    const kalem = grup(dokumFor(), "trolley", "balance")!.kalemler.find((k) =>
+      k.rowKey?.endsWith(":balanceLoadcell")
+    );
+    expect(kalem, "yük hücresi satırı").toBeDefined();
+    expect(kalem!.kaynak).toBe("katalog");
+    expect(kalem!.kg).toBeGreaterThan(0);
+  });
+
+  it("DENGE MAKARASI yayımlanmış çapta tartılır, yayımlanmamışta gerekçe yazar", () => {
+    const ile = (dia: number) => {
+      const input = calcFor(BASE, OFF);
+      const patched: CalcInput = {
+        ...input,
+        mainHoist: {
+          ...input.mainHoist!,
+          inputs: { ...input.mainHoist!.inputs, ropeBalancingType: "equalizerSheave" as const },
+          selections: { ...input.mainHoist!.selections, balanceSheaveDiaMm: dia },
+        },
+      };
+      const dokum = agirlikDokumu({
+        input: patched,
+        result: runCalc(patched),
+        satirlar: satirlariniAl(patched),
+      });
+      return dokum.bantlar
+        .find((b) => b.key === "trolley")!
+        .gruplar.find((g) => g.key === "trolley.balance")!
+        .kalemler.find((k) => k.rowKey?.endsWith(":balanceSheave"))!;
+    };
+    const yayimli = ile(450);
+    expect(yayimli.kaynak).toBe("katalog");
+    expect(yayimli.kg).toBe(31.5);
+    expect(yayimli.kgUst).toBe(34);
+
+    // ARA DEĞER ALINMAZ: "Ø 500 mm makara" diye bir ürün yok.
+    const yayimsiz = ile(500);
+    expect(yayimsiz.kg).toBeNull();
+    expect(yayimsiz.gerekce).toContain("yayımlanmış");
+  });
+});
+
+describe("SKF yatak gövdesi ağırlığı — yerel katalogdan", () => {
+  const ile = (kod: string) => {
+    const input = calcFor(BASE, OFF);
+    const patched: CalcInput = {
+      ...input,
+      mainHoist: {
+        ...input.mainHoist!,
+        selections: { ...input.mainHoist!.selections, bearingHousingCode: kod },
+      },
+    };
+    const dokum = agirlikDokumu({
+      input: patched,
+      result: runCalc(patched),
+      satirlar: satirlariniAl(patched),
+    });
+    return dokum.bantlar
+      .find((b) => b.key === "trolley")!
+      .gruplar.find((g) => g.key === "trolley.drum")!
+      .kalemler.find((k) => k.rowKey?.endsWith(":drumBearingHousing"))!;
+  };
+
+  it("gövde kodundan çözülür ve KATALOG rozetiyle durur", () => {
+    const kalem = ile("SNL 520-617");
+    expect(kalem.kaynak).toBe("katalog");
+    expect(kalem.birimKg).toBe(17.6);
+    expect(kalem.gerekce).toContain("taban + kapak");
+  });
+
+  it("katalogun kendi içinde çeliştiği gövdede ARALIK verir", () => {
+    // Aynı gövde iki mil çapı bloğunda birebir aynı ölçülerle ama farklı
+    // kütleyle basılmış; tek sayıya indirmek yayımlanmamış bir kesinlik
+    // uydurmak olurdu.
+    const kalem = ile("SNL 517");
+    expect(kalem.birimKg).toBe(9.5);
+    expect(kalem.birimKgUst).toBe(10);
+  });
+
+  it("defterde olmayan bir seri BOŞ kalır ve sebebini yazar", () => {
+    const kalem = ile("SAF 22518");
+    expect(kalem.kg).toBeNull();
+    expect(kalem.gerekce).toContain("başka bir seri");
+  });
+});
+
+describe("klima ağırlığı — seri + hesaplanan ısı yükünden (TAHMİN)", () => {
+  const ile = (seri: string) => {
+    const acik = OFF.filter((k) => k !== "cabin");
+    const specs: TechnicalSpecs = {
+      ...BASE,
+      hasOperatorCabin: "yes",
+      operatorCabinHasAirConditioner: "yes",
+      operatorCabinWidthM: 1.5,
+      operatorCabinLengthM: 1.5,
+      operatorCabinHeightM: 2.2,
+    };
+    const input = calcFor(specs, acik);
+    const patched: CalcInput = {
+      ...input,
+      cabin: {
+        ...input.cabin!,
+        selections: {
+          ...input.cabin!.selections,
+          cabinAcBrand: "TMS",
+          cabinAcModel: seri,
+          cabinAcCoolingKwMin: 2,
+          cabinAcCoolingKwMax: 8,
+        },
+      },
+    };
+    const dokum = agirlikDokumu({
+      input: patched,
+      result: runCalc(patched),
+      satirlar: satirlariniAl(patched),
+    });
+    return dokum.bantlar
+      .find((b) => b.key === "bridge")!
+      .gruplar.find((g) => g.key === "bridge.cabin")!
+      .kalemler.find((k) => k.rowKey?.endsWith(":cabinAc"));
+  };
+
+  it("tanınan seride ağırlık gelir ve rozet TAHMİN olur", () => {
+    const kalem = ile("VKS-VC");
+    expect(kalem, "klima satırı").toBeDefined();
+    // Isı yükü şablon ölçülerinden gerçekten çıkıyor: satır BOŞ KALMAMALI.
+    expect(kalem!.kg).not.toBeNull();
+    expect(kalem!.kaynak).toBe("tahmin");
+    // Ağırlık serinin yayımlanmış bandındadır (VKS-VC: 280–370 kg).
+    expect(kalem!.kg!).toBeGreaterThanOrEqual(280);
+    expect(kalem!.kg!).toBeLessThanOrEqual(370);
+    expect(kalem!.gerekce).toContain("SERİ");
+  });
+
+  it("tanınmayan seride BOŞ kalır ve ne gerektiğini söyler", () => {
+    const kalem = ile("BILINMEYEN-SERI");
+    expect(kalem, "klima satırı").toBeDefined();
+    expect(kalem!.kg).toBeNull();
+    expect(kalem!.gerekce).toContain("SERİ");
+  });
+});

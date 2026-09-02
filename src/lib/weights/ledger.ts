@@ -186,6 +186,172 @@ export function festonTahmini(
   };
 }
 
+/**
+ * KÖŞE YÜKÜ [t] — bir köşedeki tekerlere binen toplam ağırlık.
+ *
+ * Başkirişin/bojinin ve portal ayağının kilosu firma defterinde köşe yüküne
+ * bağlıdır: taşınan yük büyüdükçe kesit büyür. Formül firma defterinin kendi
+ * düzenidir (`cornerSelfWeightFactor` payı, dörde bölüm) — maliyet MODELİ
+ * okunmaz (MALIYET-3), yalnız KATSAYI paylaşılır.
+ *
+ * `yapiKg` KENDİSİNİ İÇERMEZ: başkiriş de ayak da köşe yükünden türetildiği
+ * için, girdiye kendi kilolarını katmak döngü olurdu. Çağıran, köprünün
+ * TAŞINAN kısmını (kirişler, platform, elektrik, kabin, oda) ve araba(lar)ı
+ * verir.
+ */
+export function koseYukuTahmini(
+  specs: TechnicalSpecs,
+  yapiKg: number | null,
+  arabaKg: number | null
+): { koseYukuT: number | null; formul: string; gerekce: string } {
+  const Q = pozitif(specs.mainCapacityT);
+  const pay = katsayi("cornerSelfWeightFactor");
+  const formul = `${pay} × (köprü yapısı + arabalar + kapasite) / 4`;
+  if (yapiKg === null || Q === null) {
+    return {
+      koseYukuT: null,
+      formul,
+      gerekce: "Köşe yükü için köprü yapı ağırlığı ve kaldırma kapasitesi gerekir.",
+    };
+  }
+  const toplamKg = yapiKg + (arabaKg ?? 0) + Q * 1000;
+  return {
+    koseYukuT: (pay * toplamKg) / 4 / 1000,
+    formul,
+    gerekce:
+      arabaKg === null
+        ? "Araba ağırlığı dökümden çıkmadığı için köşe yükü YALNIZ yapı ve yükle kuruldu."
+        : "Firma defterinin köşe yükü düzeni.",
+  };
+}
+
+/**
+ * BAŞKİRİŞ / BOJİ — bölüm KAPALIYKEN köşe yükünden.
+ *
+ * Bölüm açıkken ağırlık kesitin kendi metre ağırlığından gelir (`topla.ts`) ve
+ * bu fonksiyon çağrılmaz. Kapalıyken satırın hiç çıkmaması, `bridgeWeightT`
+ * ipucunun sözünü ("Ana kirişler ve başkirişler dâhil") tutamayan bir bant
+ * toplamı üretiyordu — yeni işler başkiriş bölümü KAPALI açılır.
+ */
+export function baskirisTahmini(koseYukuT: number | null, adet: number): TahminSonucu {
+  const kgPerT = katsayi("endCarriageKgPerT");
+  const formul = `köşe yükü × ${kgPerT} kg/t × ${adet} adet`;
+  if (koseYukuT === null) {
+    return {
+      kg: null,
+      formul,
+      gerekce:
+        "«09 · Başkiriş» bölümü kapalı ve köşe yükü türetilemedi; bölümü açın " +
+        "ya da ağırlığı elle girin.",
+    };
+  }
+  return {
+    kg: on(koseYukuT * kgPerT * adet),
+    formul,
+    gerekce:
+      "«09 · Başkiriş» bölümü kapalı; kesit yerine firma defterinin köşe yükü " +
+      "katsayısı kullanıldı. Bölüm açılırsa ağırlık HESAPTAN gelir.",
+  };
+}
+
+// ————————————————————————————————————————————————————————— portal
+
+/**
+ * PORTAL AYAKLARI — birim ağırlık köşe yüküyle büyür.
+ *
+ * `ayakSayisi` künyeden gelir (`gantryLegCount`): portalde dört, yarı portalde
+ * iki. Ayak yüksekliği hiçbir hesap bölümünde sorulmuyor; döküm penceresinden
+ * elle girilir (`AgirlikDokumuDurumu.ayakYuksekligiM`) ve girilmediğinde satır
+ * `null` + gerekçeyle durur — uydurma bir yükseklik, dürüst bir boşluktan
+ * kötüdür (değişmez md. 4).
+ */
+export function ayakTahmini(
+  koseYukuT: number | null,
+  yukseklikM: number | null | undefined,
+  ayakSayisi: number
+): TahminSonucu {
+  const taban = katsayi("legBaseKgPerM");
+  const yukKats = katsayi("legLoadKgPerMPerT");
+  const H = pozitif(yukseklikM);
+  const formul = `${ayakSayisi} × yükseklik × (${taban} + ${yukKats} × köşe yükü) kg/m`;
+  if (koseYukuT === null) {
+    return { kg: null, formul, gerekce: "Köşe yükü türetilemeden ayak kesiti bilinmez." };
+  }
+  if (H === null) {
+    return {
+      kg: null,
+      formul,
+      gerekce:
+        "Ayak yüksekliği girilmedi — pencerenin «Ayaklar ve Portal Yapısı» " +
+        "başlığındaki kutuya yazın (hesap bölümlerinde sorulmuyor).",
+    };
+  }
+  return {
+    kg: on(ayakSayisi * H * (taban + yukKats * koseYukuT)),
+    formul,
+    gerekce: "Firma defterinin portal ayak birim ağırlığı.",
+  };
+}
+
+/**
+ * ÜST UÇ BAĞLANTI — portalde ana kirişi ayağa bağlayan parça.
+ *
+ * Gezer köprülü vinçte bu işi başkiriş görür; portalde ayrı bir imalattır ve
+ * başkiriş (boji) ayağın ALTINDA, rayın üstünde kalır. İkisi ayrı satırlardır
+ * ve ikisi de sayılır.
+ */
+export function ustUcBaglantiTahmini(koseYukuT: number | null): TahminSonucu {
+  const kgPerT = katsayi("topEndKgPerT");
+  const formul = `köşe yükü × ${kgPerT} kg/t`;
+  return {
+    kg: koseYukuT === null ? null : on(koseYukuT * kgPerT),
+    formul,
+    gerekce:
+      koseYukuT === null
+        ? "Köşe yükü türetilemedi."
+        : "Portalde ana kirişi ayağa bağlayan parça (firma kabulü).",
+  };
+}
+
+/** Portal çaprazları — ana kiriş ve ayakların toplamına oranla. */
+export function portalTakviyeTahmini(
+  anaKirisKg: number | null,
+  ayaklarKg: number | null
+): TahminSonucu {
+  const oran = katsayi("gantryBracingRatio");
+  const formul = `(ana kiriş + ayaklar) × ${oran}`;
+  if (anaKirisKg === null) {
+    return { kg: null, formul, gerekce: "Ana kiriş ağırlığı bilinmeden takviye türetilemez." };
+  }
+  return {
+    kg: on((anaKirisKg + (ayaklarKg ?? 0)) * oran),
+    formul,
+    gerekce:
+      ayaklarKg === null
+        ? "Ayak ağırlığı bilinmediği için takviye YALNIZ ana kirişten kuruldu."
+        : "Çapraz bağlantılar ve alın sacları (firma kabulü).",
+  };
+}
+
+/** Ayak merdiveni ve sahanlıkları — her ayak ÇİFTİNE bir merdiven. */
+export function ayakMerdiveniTahmini(
+  yukseklikM: number | null | undefined,
+  ayakSayisi: number
+): TahminSonucu {
+  const kgPerM = katsayi("legLadderKgPerM");
+  const adet = Math.max(1, Math.round(ayakSayisi / 2));
+  const H = pozitif(yukseklikM);
+  const formul = `yükseklik × ${kgPerM} kg/m × ${adet} merdiven`;
+  return {
+    kg: H === null ? null : on(H * kgPerM * adet),
+    formul,
+    gerekce:
+      H === null
+        ? "Ayak yüksekliği girilmedi."
+        : "Kafesli merdiven ve sahanlık (firma kabulü).",
+  };
+}
+
 export function kabinTahmini(cabin: CabinInputs | undefined): TahminSonucu {
   const kgPerM2 = katsayi("cabinKgPerM2");
   const en = pozitif(cabin?.cabinWidthM);

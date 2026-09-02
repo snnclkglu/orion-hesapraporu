@@ -175,6 +175,21 @@ export interface SpecGroup {
   requiresModule?: ModuleKey;
   /** Teknik özellik seçimine göre grubu göster/gizle. */
   visible?: (specs: TechnicalSpecs) => boolean;
+  /**
+   * BAŞLIĞIN OKLCH TON AÇISI — verilmezse başlık renksizdir (varsayılan).
+   *
+   * Kullanıcı isteği (02.09.2026, md. 2): *"Teknik Özellikler Ağırlıklar bölüm
+   * başlığının rengini çok az farklı yapalım dikkat çeksin."* "Çok az farklı"
+   * ölçüdür: renk YALNIZ BAŞLIK YAZISINA verilir (`.oc-fieldgroup-title`),
+   * alanların ızgarasına değil — on yedi kutuluk bir öbeği boyamak dikkati
+   * dağıtır, tam da ayırt ediciliğin kaybolduğu yer orasıdır.
+   *
+   * Renk bir HEX DEĞİL AÇIdır (değişmez md. 6); doygunluk ve parlaklık
+   * `globals.css`ten, tema başına gelir. Orion Kırmızısı (0°) SEÇİLMEZ:
+   * markanın tek doygun rengidir ve arayüzde "kontrol sağlanmadı" anlamı
+   * taşır.
+   */
+  hue?: number;
 }
 
 /** Teknik özellikler ekranındaki blok sırası. */
@@ -209,6 +224,9 @@ export const SPEC_GROUPS: readonly SpecGroup[] = [
     key: "weights",
     title: "Ağırlıklar",
     description: "Yürütme, ana kiriş ve başkiriş hesapları ağırlıkları buradan okur.",
+    // Çelik mavisi: ağırlık/kütle bu ekranda çelik yapıyla okunuyor ve aynı ton
+    // ana kiriş kesitinin "üst başlık" öbeğinde de kullanılıyor (255°'ye yakın).
+    hue: 240,
   },
   {
     key: "mainHoist",

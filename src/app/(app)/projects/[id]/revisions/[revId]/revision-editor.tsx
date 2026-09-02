@@ -149,12 +149,7 @@ import { BolumRayi, type BolumOgesi } from "@/components/bolum-rayi";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { buildEquipmentGroups } from "@/lib/equipment-list";
 import { agirlikDokumu } from "@/lib/weights/topla";
-import { AGIRLIK_BANT_ANAHTARI } from "@/lib/weights/defter";
-import {
-  AGIRLIK_SPEC_ANAHTARLARI,
-  type AgirlikDokumuDurumu,
-  type AgirlikSpecAnahtari,
-} from "@/lib/weights/types";
+import { type AgirlikDokumuDurumu } from "@/lib/weights/types";
 import { AgirlikDokumuDialog } from "./agirlik-dokumu-dialog";
 import { DESKTOP_MQ } from "@/lib/use-breakpoint";
 import { saveRevision } from "./actions";
@@ -297,7 +292,7 @@ function nearestOption(options: string[], current: string, numeric: boolean): st
 }
 
 function Field({
-  def, value, onChange, disabled, auto, context, specs, mobileFull, sag,
+  def, value, onChange, disabled, auto, context, specs, mobileFull,
 }: {
   def: AnyFieldDef;
   value: object;
@@ -310,13 +305,6 @@ function Field({
   specs?: TechnicalSpecs;
   /** Teknik özelliklerde uzun seçimler iki dar sütuna bölünmez. */
   mobileFull?: boolean;
-  /**
-   * Etiketin sağındaki EK EYLEM — bugün yalnız ağırlık kutularının "Ağırlık
-   * Dökümü" düğmesi. `AnyFieldDef`e alan eklenmedi: beş alan için bütün ızgara
-   * tanımını kirletmek yerine çağrı yeri geçirir. Izgaraya AYRI BİR ÖĞE olarak
-   * konsaydı `grid-rows-subgrid` hizasını bozardı.
-   */
-  sag?: React.ReactNode;
 }) {
   const v = (value as Record<string, unknown>)[def.key];
   const id = `f-${def.key}`;
@@ -404,7 +392,6 @@ function Field({
         {def.standardRef && (
           <StandardRefBadge code={def.standardRef} context={context} />
         )}
-        {sag}
         {auto && (
           <button
             type="button"
@@ -1377,7 +1364,7 @@ function StatusSlot({ children }: { children: React.ReactNode }) {
 
 export function RevisionEditor({
   projectId, revisionId, readOnly, initial, initialAlts, initialSectionNotes, initialDisabled,
-  initialHidden, initialHiddenDiagrams, initialWeightBreakdown,
+  initialHidden, initialHiddenDiagrams, initialWeightBreakdown, craneType,
 }: {
   projectId: string;
   revisionId: string;
@@ -1402,6 +1389,14 @@ export function RevisionEditor({
   initialHiddenDiagrams?: string[];
   /** Ağırlık dökümünde daha önce elle verilmiş kalemler ve notları. */
   initialWeightBreakdown?: AgirlikDokumuDurumu;
+  /**
+   * PROJE KÜNYESİNDEKİ VİNÇ TİPİ (`projects.crane_type`).
+   *
+   * HESAP MOTORUNA GİRMEZ (HESAP-8b) ve hiçbir modüle geçirilmez; tek okuyucusu
+   * ağırlık dökümüdür ve orada yalnız "bu vincin ayağı var mı" sorusuna cevap
+   * verir. Döküm bir hesap değil bir DOĞRULAMADIR (HESAP-35).
+   */
+  craneType?: string;
 }) {
   const [specs, setSpecs] = useState(initial.specs);
   const [mods, setMods] = useState<ModulesState>(() => initModules(initial));
@@ -1419,7 +1414,6 @@ export function RevisionEditor({
     () => initialWeightBreakdown ?? {}
   );
   const [agirlikAcik, setAgirlikAcik] = useState(false);
-  const [agirlikBant, setAgirlikBant] = useState<string | undefined>(undefined);
   const [hiddenSections, setHiddenSections] = useState<Set<string>>(
     () => new Set(initialHidden ?? [])
   );
@@ -1612,8 +1606,9 @@ export function RevisionEditor({
       satirlar: buildEquipmentGroups(calcInput).flatMap((g) => g.rows),
       gizliBolumler: hiddenList,
       durum: agirlikDurum,
+      craneType,
     });
-  }, [agirlikAcik, calcInput, result, hiddenList, agirlikDurum]);
+  }, [agirlikAcik, calcInput, result, hiddenList, agirlikDurum, craneType]);
   const hiddenDiagramsList = useMemo(
     () => [...hiddenDiagrams].sort(),
     [hiddenDiagrams]
@@ -2001,7 +1996,14 @@ export function RevisionEditor({
         hiddenList,
         hiddenDiagramsList,
         // Yalnız İNSANIN kararları gider; döküm türetilir (HESAP-35).
-        { overrides: agirlikDurum.overrides, notes: agirlikDurum.notes }
+        // "Gizli bölümleri de say" BİR GÖRÜNÜM TERCİHİDİR ve bilerek yazılmaz;
+        // serbest satırlar ve ayak yüksekliği ise türetilemez, o yüzden yazılır.
+        {
+          overrides: agirlikDurum.overrides,
+          notes: agirlikDurum.notes,
+          serbest: agirlikDurum.serbest,
+          ayakYuksekligiM: agirlikDurum.ayakYuksekligiM,
+        }
       );
       if (res.error) toast.error(res.error);
       else {
@@ -2061,29 +2063,33 @@ export function RevisionEditor({
   const cardSpacing = "[--card-spacing:--spacing(3)] sm:[--card-spacing:--spacing(6)]";
 
   /**
-   * AĞIRLIK KUTUSUNUN YANINDAKİ DÖKÜM DÜĞMESİ.
+   * AĞIRLIK DÖKÜMÜ DÜĞMESİ — GRUP BAŞLIĞINDA, TEK VE KUTU BİÇİMİNDE.
    *
-   * Beş ağırlık kutusunun beşi de AYNI pencereyi açar (kullanıcı kararı,
-   * 01.09.2026: tek pencere, tüm vinç); basılan kutu yalnız hangi bandın öne
-   * geleceğini söyler. Ayrı pencereler, toplam vinç ağırlığını hiçbir ekranda
-   * göstermezdi.
+   * Kullanıcı isteği (02.09.2026, md. 1): *"ağırlık tahmin butonunu
+   * beğenmedim. Kutu şeklinde tek bir buton olsa daha iyi olur."*
+   *
+   * Önceki düzende beş ağırlık kutusunun her birinin yanında yuvarlak bir Σ
+   * vardı; beşi de AYNI pencereyi açıyordu (01.09.2026 kararı: tek pencere,
+   * tüm vinç) ve basılan kutu yalnız hangi bandın öne geleceğini söylüyordu.
+   * Beş özdeş düğme, tek bir eylemi beş ayrı eylem gibi gösteriyordu — üstelik
+   * o yuvarlak biçim alan etiketlerindeki "i" (bilgi) düğmesiyle BİREBİR
+   * aynıydı, yani iki farklı anlam aynı görsel dili kullanıyordu.
+   *
+   * Tek düğme hiçbir bandı öne almaz: pencere beş bandı da açık getirir
+   * (`acilanBant` verilmez) ve toplam vinç ağırlığı en üstte durur.
    */
-  function agirlikDokumuDugmesi(fieldKey: string): React.ReactNode {
-    if (!(AGIRLIK_SPEC_ANAHTARLARI as readonly string[]).includes(fieldKey)) return null;
-    const bant = AGIRLIK_BANT_ANAHTARI[fieldKey as AgirlikSpecAnahtari];
+  function agirlikDokumuDugmesi(): React.ReactNode {
     return (
-      <button
+      <Button
         type="button"
-        onClick={() => {
-          setAgirlikBant(bant);
-          setAgirlikAcik(true);
-        }}
-        title="Ağırlık dökümünü aç — seçilen ekipman ve hesaplanan kesitlerle karşılaştır"
-        aria-label="Ağırlık dökümünü aç"
-        className="oc-tap-square inline-flex size-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px] text-muted-foreground hover:border-primary/50 hover:text-primary"
+        variant="outline"
+        size="sm"
+        className="ml-auto self-center"
+        onClick={() => setAgirlikAcik(true)}
+        title="Ağırlık dökümünü aç — girilen tahmini ağırlıkları seçilen ekipman ve hesaplanan kesitlerle karşılaştırır"
       >
-        Σ
-      </button>
+        <span className="font-mono">Σ</span> Ağırlık Dökümü
+      </Button>
     );
   }
 
@@ -2119,12 +2125,28 @@ export function RevisionEditor({
             return (
               <section key={group.key} className="grid gap-1.5 sm:gap-2.5">
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b pb-1.5">
-                  <h3 className="oc-kicker leading-tight text-foreground/80">{group.title}</h3>
+                  {/* BAŞLIK RENGİ VERİDEN GELİR (`SpecGroup.hue`): renk bir HEX
+                      değil AÇIdır, doygunluk ve parlaklık `globals.css`ten ve
+                      tema başına gelir (değişmez md. 6). */}
+                  <h3
+                    className={cn(
+                      "oc-kicker leading-tight",
+                      group.hue === undefined ? "text-foreground/80" : "oc-fieldgroup-title"
+                    )}
+                    style={
+                      group.hue === undefined
+                        ? undefined
+                        : ({ "--oc-hue": `${group.hue}` } as React.CSSProperties)
+                    }
+                  >
+                    {group.title}
+                  </h3>
                   {group.description && (
                     <span className="text-[11px] text-muted-foreground max-sm:line-clamp-1 sm:text-[11px]">
                       {group.description}
                     </span>
                   )}
+                  {group.key === "weights" ? agirlikDokumuDugmesi() : null}
                 </div>
                 <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-1 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {fields.map((f) => (
@@ -2137,7 +2159,6 @@ export function RevisionEditor({
                       context={stdContext}
                       specs={specs}
                       mobileFull={f.type !== "number"}
-                      sag={agirlikDokumuDugmesi(f.key)}
                     />
                   ))}
                 </div>
@@ -2245,7 +2266,13 @@ export function RevisionEditor({
     );
   }
 
-  /** Pencere BİR KEZ çizilir; beş düğme de onu açar. */
+  /**
+   * Pencere BİR KEZ çizilir ve TEK düğme onu açar (02.09.2026, md. 1).
+   *
+   * `acilanBant` GEÇİLMEZ: beş bant da açık gelir. Düğme bir ağırlık kutusuna
+   * değil bölümün kendisine bağlı olduğu için "hangi bant öne gelsin" sorusunun
+   * artık bir cevabı yok — ve zaten pencere baştan beri TÜM VİNCİ gösteriyordu.
+   */
   function renderAgirlikDokumu() {
     if (!agirlikDokumuSonuc) return null;
     return (
@@ -2253,7 +2280,6 @@ export function RevisionEditor({
         acik={agirlikAcik}
         onOpenChange={setAgirlikAcik}
         dokum={agirlikDokumuSonuc}
-        acilanBant={agirlikBant}
         durum={agirlikDurum}
         onDurum={setAgirlikDurum}
         readOnly={readOnly}

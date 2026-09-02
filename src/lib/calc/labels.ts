@@ -99,6 +99,8 @@ const EXTRA_LABELS: Record<string, FieldLabel> = {
   // AĞIRLIK DÖKÜMÜ bir hesap değil bir doğrulamadır (HESAP-35); ezme ise bir
   // mühendislik kararıdır ve iki revizyon karşılaştırılırken görünmelidir.
   weightBreakdownOverrides: { label: "Ağırlık Dökümü — Elle Verilen Kalemler" },
+  weightBreakdownSerbest: { label: "Ağırlık Dökümü — Elle Açılan Satırlar" },
+  weightBreakdownAyakYuksekligi: { label: "Ağırlık Dökümü — Portal Ayak Yüksekliği" },
   ropeWeightAuto: { label: "Halat Ağırlığı Otomatik" },
   hookBlockWeightAuto: { label: "Kanca Bloğu Ağırlığı Otomatik" },
   tempFactorAuto: { label: "Sıcaklık Faktörü Otomatik" },

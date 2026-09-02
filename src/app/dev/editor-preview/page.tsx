@@ -11,10 +11,14 @@ import { NEW_WORK_DISABLED_MODULES, NEW_WORK_TEMPLATE } from "@/lib/calc/default
 export default async function EditorPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ doubleDrum?: string }>;
+  searchParams: Promise<{ doubleDrum?: string; craneType?: string }>;
 }) {
   if (process.env.NODE_ENV !== "development") notFound();
-  const { doubleDrum } = await searchParams;
+  // `craneType` KÜNYE alanıdır ve hesap motoruna girmez (HESAP-8b); tek
+  // okuyucusu ağırlık dökümüdür ve orada yalnız "bu vincin ayağı var mı"
+  // sorusuna cevap verir. Önizlemede portal ayaklarını görebilmek için
+  // ?craneType=Portal%20Vin%C3%A7 ile verilir.
+  const { doubleDrum, craneType } = await searchParams;
   const initial = doubleDrum === "1"
     ? {
         ...NEW_WORK_TEMPLATE,
@@ -47,6 +51,7 @@ export default async function EditorPreviewPage({
           readOnly={false}
           initial={initial}
           initialDisabled={[...NEW_WORK_DISABLED_MODULES]}
+          craneType={craneType}
         />
       </div>
     </div>

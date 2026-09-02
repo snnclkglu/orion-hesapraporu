@@ -38,6 +38,11 @@ import type { BucklingInputs } from "@/lib/calc/modules/buckling";
 import type { EndCarriageInputs, EndCarriageSelections } from "@/lib/calc/modules/endCarriage";
 import type { CabinInputs, CabinSelections } from "@/lib/calc/modules/cabin";
 import type { TechnicalSpecs } from "@/lib/calc/types";
+import {
+  AGIRLIK_SERBEST_ON_EKI,
+  AGIRLIK_SERBEST_SINIRI,
+  type AgirlikSerbestKalem,
+} from "@/lib/weights/types";
 
 export interface RevisionInputsJson {
   specs?: TechnicalSpecs;
@@ -106,6 +111,15 @@ export interface RevisionWeightBreakdown {
    * kadar tahmin olduğunu görmelidir.
    */
   applied?: Record<string, RevisionWeightApplied>;
+  /**
+   * PENCEREDEN ELLE AÇILAN SATIRLAR (02.09.2026, md. 7).
+   *
+   * Türetilemez, o yüzden saklanır: hiçbir hesap bölümünün üretmediği bir
+   * parçanın varlığı da kilosu da mühendisin bilgisidir.
+   */
+  serbest?: AgirlikSerbestKalem[];
+  /** Portal ayak yüksekliği [m] — hesap bölümlerinde sorulmayan tek ölçü. */
+  ayakYuksekligiM?: number;
 }
 
 export interface RevisionWeightApplied {
@@ -247,6 +261,50 @@ export function weightBreakdownFromRevision(
   const applied = uygulananHaritasi(kaynak.applied);
   if (Object.keys(applied).length > 0) out.applied = applied;
 
+  const serbest = serbestListesi(kaynak.serbest);
+  if (serbest.length > 0) out.serbest = serbest;
+
+  const ayak = kaynak.ayakYuksekligiM;
+  if (typeof ayak === "number" && Number.isFinite(ayak) && ayak > 0) {
+    out.ayakYuksekligiM = ayak;
+  }
+
+  return out;
+}
+
+/**
+ * Serbest satır listesi — BOZUK KAYIT RAPORU DÜŞÜRMEZ, yalnız o satır atlanır.
+ *
+ * `id` ÖN EKİ ZORUNLUDUR: ön eksiz bir kimlik otomatik bir kalemin anahtarını
+ * ele geçirip onun ezmesini ve notunu devralabilirdi (`topla.ts` aynı kapıyı
+ * bir kez daha kurar — kelepçe iki yerde de var, çünkü kayda başka bir yoldan
+ * da girilebilir).
+ */
+function serbestListesi(raw: unknown): AgirlikSerbestKalem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: AgirlikSerbestKalem[] = [];
+  const gorulen = new Set<string>();
+  for (const ham of raw) {
+    if (out.length >= AGIRLIK_SERBEST_SINIRI) break;
+    if (!ham || typeof ham !== "object" || Array.isArray(ham)) continue;
+    const v = ham as Record<string, unknown>;
+    const id = typeof v.id === "string" ? v.id.trim() : "";
+    if (!id.startsWith(AGIRLIK_SERBEST_ON_EKI) || gorulen.has(id)) continue;
+    const bant = typeof v.bant === "string" ? v.bant.trim() : "";
+    const grup = typeof v.grup === "string" ? v.grup.trim() : "";
+    if (!bant || !grup) continue;
+    gorulen.add(id);
+    const sayi = (x: unknown): number | null =>
+      typeof x === "number" && Number.isFinite(x) && x > 0 ? x : null;
+    out.push({
+      id,
+      bant,
+      grup,
+      ad: typeof v.ad === "string" ? v.ad.slice(0, 120) : "",
+      adet: sayi(v.adet),
+      kg: sayi(v.kg),
+    });
+  }
   return out;
 }
 

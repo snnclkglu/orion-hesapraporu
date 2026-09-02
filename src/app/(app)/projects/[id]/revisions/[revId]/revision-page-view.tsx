@@ -49,7 +49,7 @@ export async function RevisionPageView({
 
   const { data: project } = await supabase
     .from("projects")
-    .select("doc_no, name, customer, report_context")
+    .select("doc_no, name, customer, crane_type, report_context")
     .eq("id", id)
     .single();
   if (!project || reportContextOf(project.report_context) !== expectedContext) notFound();
@@ -177,6 +177,7 @@ export async function RevisionPageView({
         initialHidden={hiddenSections}
         initialHiddenDiagrams={hiddenDiagrams}
         initialWeightBreakdown={weightBreakdown}
+        craneType={project.crane_type ?? undefined}
       />
     </div>
   );

@@ -102,6 +102,25 @@ export interface AgirlikKalemi {
   /** Gizlenen bir alt bölümden geldi (anahtar açıkken solgun görünür). */
   gizliBolumden?: boolean;
   /**
+   * ORTA SÜTUNA basılan KISA DURUM (kullanıcı isteği, 02.09.2026, md. 6):
+   * *"'2 kalem eksik' gibi yazılar ağırlığın yanında değil satır ortasında bir
+   * sütun gibi yazsın."*
+   *
+   * `gerekce`nin kısaltması DEĞİL, onun yerine geçen bir ETİKETtir: gerekçe bir
+   * cümledir ve satıra sığmaz, bu ise iki-üç kelimedir ("katalogda yok",
+   * "hat tahminine dâhil"). Uzun metin adın açılırında kalır.
+   */
+  kisaDurum?: string;
+  /**
+   * PENCEREDEN ELLE AÇILAN SATIRIN kimliği (`serbest-3`).
+   *
+   * Ezilen bir kalemden ayrıdır: ezme MEVCUT bir satırın kilosunu değiştirir,
+   * bu ise vincin üzerinde olup hiçbir bölümün üretmediği bir parçayı listeye
+   * SOKAR (kullanıcı isteği, 02.09.2026, md. 7). Adı ve kilosu düzenlenebilir,
+   * satır silinebilir — otomatik satırlarda ikisi de yapılamaz.
+   */
+  serbestId?: string;
+  /**
    * AĞIRLIĞI BAŞKA BİR KALEM KAPSIYOR — "eksik" sayılmaz.
    *
    * Feston kablo arabasının kilosu katalogda yayımlanmamıştır ama TAHMİN kalemi
@@ -125,6 +144,19 @@ export interface AgirlikGrubu {
   tahminIcerir: boolean;
   /** Gizli alt bölüm yüzünden listeden düşen satır adedi. */
   gizliDusenSayisi: number;
+  /**
+   * BANDIN TEKNİK ÖZELLİK TOPLAMINA GİRMEZ (bugün yalnız portal ayakları).
+   *
+   * Kullanıcı isteği ayakları KÖPRÜ grubunda istiyor (02.09.2026, md. 8) ve
+   * grup gerçekten oradadır — ama `bridgeWeightT` kutusunu ana kiriş (ölü yük
+   * payı) ve teker yükleri OKUR. Ayaklar ana kirişe binmez, ana kirişi TAŞIR;
+   * kilosu o kutuya yazılsaydı kiriş sehimi ve teker yükü sessizce büyürdü —
+   * bir doğrulama aracının ürettiği gerçek bir hesap hatası olurdu.
+   *
+   * Bu yüzden grup bandın İÇİNDE görünür, `bant.kg`ye girmez ve `bant.disKg`de
+   * ayrıca toplanır; vincin TOPLAM ağırlığı ikisini de sayar.
+   */
+  bantToplaminaGirmez?: boolean;
 }
 
 export interface AgirlikBandi {
@@ -135,7 +167,13 @@ export interface AgirlikBandi {
   /** O kutunun bugünkü değeri [kg] — teknik özellik TON tutar, burada kg'a çevrilir. */
   tahminiKg: number | null;
   gruplar: AgirlikGrubu[];
+  /** Teknik özellik kutusuyla KARŞILAŞTIRILAN toplam (`bantToplaminaGirmez` hariç). */
   kg: number | null;
+  /**
+   * Kutuya girmeyen grupların toplamı [kg] — bugün yalnız portal ayakları.
+   * Vincin toplam ağırlığı bunu da sayar, teknik özellik kutusu saymaz.
+   */
+  disKg: number | null;
   eksikKalemSayisi: number;
   tahminIcerir: boolean;
   /** (döküm − tahmini) / tahmini; ikisinden biri yoksa `null`. */
@@ -144,12 +182,48 @@ export interface AgirlikBandi {
 
 export interface AgirlikDokumu {
   bantlar: AgirlikBandi[];
+  /**
+   * VİNCİN TOPLAM AĞIRLIĞI — kutuya girmeyen gruplar (portal ayakları) DÂHİL.
+   *
+   * Bant toplamlarının toplamı DEĞİLDİR: bir bandın `kg`si yalnız teknik
+   * özellik kutusuyla karşılaştırılan kısımdır. Ayakları toplamdan düşmek,
+   * ekranda "toplam vinç ağırlığı" yazan bir sayının vincin bir parçasını
+   * saymaması olurdu.
+   */
   kg: number | null;
   eksikKalemSayisi: number;
   tahminIcerir: boolean;
   /** Ekranda gösterilecek eksik/kapsam cümleleri (MALIYET-13). */
   notlar: string[];
 }
+
+/**
+ * PENCEREDEN ELLE AÇILAN SERBEST SATIR (kullanıcı isteği, 02.09.2026, md. 7).
+ *
+ * Ekipman listesindeki `EquipmentExtraRow` DEĞİLDİR ve oraya yazılmaz: orası
+ * satın almaya giden bir belgedir, burası bir tartıdır. Bir vinçte hiçbir hesap
+ * bölümünün üretmediği ama gerçekten tartan parçalar olur (kabin yürütmesi,
+ * özel bir bağlantı sacı, müşteri talebi bir platform); bunlar bir ürün seçimi
+ * değil MÜHENDİSİN BİLGİSİdir ve `AgirlikDokumuDurumu`da, öteki insan
+ * kararlarının yanında yaşar.
+ */
+export interface AgirlikSerbestKalem {
+  /** `serbest-<n>` — bant/grup ile birleşerek `<bant>.<grup>.serbest-<n>` olur. */
+  id: string;
+  bant: string;
+  grup: string;
+  ad: string;
+  /** Adet — serbest satırın KENDİ adedidir; HESAP-21 ekipman satırını bağlar. */
+  adet: number | null;
+  /** Adet başına DEĞİL, satırın TOPLAM kilosu; bilinmiyorsa `null` (md. 4). */
+  kg: number | null;
+}
+
+/** Serbest satır anahtarlarının ön eki — ezme/not uzayında ayrık kalsın. */
+export const AGIRLIK_SERBEST_ON_EKI = "serbest-";
+
+/** Bir revizyonda açılabilecek serbest satır tavanı (Zod kelepçesi). */
+export const AGIRLIK_SERBEST_SINIRI = 100;
 
 /**
  * Revizyonda saklanan İNSAN KARARLARI — dökümün kendisi saklanmaz, her açılışta
@@ -160,6 +234,18 @@ export interface AgirlikDokumuDurumu {
   overrides?: Record<string, number>;
   /** kalem/grup anahtarı → mühendisin notu (neden ezildi) */
   notes?: Record<string, string>;
+  /** Pencereden elle açılan satırlar (md. 7). */
+  serbest?: AgirlikSerbestKalem[];
+  /**
+   * PORTAL AYAK YÜKSEKLİĞİ [m] — ray üstünden ana kiriş alt başlığına.
+   *
+   * Teknik özelliklere YENİ BİR KUTU EKLENMEDİ: hesap motoru bu sayıyı hiç
+   * okumaz ve HESAP-35'in kendi uyarısı ("hiçbir kontrolün okumadığı bir sayı
+   * yapısal bir girdi gibi görünür") tam olarak buna işaret ediyor. Ayak
+   * yüksekliği dökümün kendi girdisidir ve öteki insan kararlarıyla birlikte
+   * `inputs.weightBreakdown`ta durur.
+   */
+  ayakYuksekligiM?: number;
   /**
    * GİZLİ ALT BÖLÜMLERİ DE SAY (kullanıcı kararı, 01.09.2026).
    *

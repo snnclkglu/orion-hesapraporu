@@ -1413,6 +1413,86 @@ kirişin ölü yükü ve teker yükleri onları taşır. Her ARABA kendi bandın
 ve kendi kutusuyla karşılaştırılır; paylaşımlı yardımcı kaldırma ANA arabanın
 bandındadır (`hoistTrolleyKey` — `HOIST_OF_TRAVEL`ün TERSİ, karıştırılmaz).
 
+### 02.09.2026 turu — dokuz madde
+
+**DÜĞME TEKTİR VE BÖLÜM BAŞLIĞINDADIR.** Beş ağırlık kutusunun yanındaki beş
+yuvarlak Σ kaldırıldı (kullanıcı isteği: *"kutu şeklinde tek bir buton"*): beşi
+de aynı pencereyi açıyordu, yani tek bir eylem beş eylem gibi görünüyordu — ve o
+yuvarlak biçim alan etiketlerindeki "i" (bilgi) düğmesiyle birebir aynıydı.
+Pencere artık hiçbir bandı öne almaz; `acilanBant` geçilmez, beş bant da açık
+gelir. **Ağırlıklar** grubunun başlığı ayrıca ton açısı 240 (çelik mavisi) ile
+renklenir (`SpecGroup.hue`); Orion Kırmızısı SEÇİLMEZ, o renk "kontrol
+sağlanmadı" demektir.
+
+**PENCERE TEK IZGARADIR: `[ağırlık] [ad] [durum] [rozet·eylem]`.** Ağırlık EN
+SOLDA ve düzenlenebilir; "N kalem eksik" gibi metinler ağırlığın yanından
+alınıp KENDİ SÜTUNUNA taşındı. Telefonda durum sütunu kapanır ve metin adın
+ALTINA iner — dört gerçek sütun 375 px'te adı "T…" hâline getiriyordu. Başlık
+satırlarının tamamı tıklanabilir (`grid-cols-subgrid` ile ana ızgaraya oturan
+tek bir `<button>`); kalem satırının İKİ HEDEFİ korunur (ada tıkla = nereden
+geldiği, sayıya tıkla = düzenle), çünkü satırı düğmeye çevirmek girdiyi yutardı.
+
+**ÜÇ RENK KANALI, ÜÇÜ DE AYRI SÜTUNDA.** Bant başlığı bandın tonunu taşır;
+ağırlık sütunu kilonun ISISINI (`.oc-amount`, taban = en ağır KALEM — grup ve
+bant toplamları ısı ALMAZ, orada ölçek tavana yapışırdı); rozet kaynağın tonunu
+ve ADINI taşır. Sapma şeridi tutuyorsa yeşil, aşıyorsa kırmızı zeminlidir.
+Isı seviyesi `null` ise sınıf da verilmez — `.oc-amount` tanımsız `--oc-level`i
+`0` okur ve bilinmeyeni "en soğuk" gösterirdi.
+
+**PENCEREDEN ELLE SATIR AÇILABİLİR** (`AgirlikDokumuDurumu.serbest`). Ekipman
+listesinin `EquipmentExtraRow`u DEĞİLDİR ve oraya yazılmaz: orası satın almaya
+giden bir belge, burası bir tartıdır. Kimlik `serbest-` ÖN EKİ zorunludur ve
+kelepçe İKİ yerdedir (`topla.ts` ve `revision-load.ts`) — ön eksiz bir kimlik
+otomatik bir kalemin anahtarını ele geçirip ezmesini devralabilirdi. Bandı ya da
+grubu olmayan satır bandı DİRİLTMEZ, düşer ve notlarda sayılır.
+
+**PORTAL AYAKLARI KÖPRÜ BANDININDA AMA KUTUNUN DIŞINDA.** Kullanıcı ayakları
+köprü grubunda istedi ve oradadırlar; ama `bridgeWeightT` kutusunu ana kiriş
+(ölü yük payı) ve teker yükleri OKUR — ayak kirişi TAŞIR, kirişe BİNMEZ.
+Grup `bantToplaminaGirmez` ile işaretlidir: `bant.kg`ye girmez, `bant.disKg`de
+ayrıca toplanır, vincin TOPLAM ağırlığına girer. Ayak adedi künyeden gelir
+(`gantryLegCount`: portal 4, yarı portal 2; tam eşitlik — `includes("PORTAL")`
+"Yarı Portal"ı da yakalardı). **Künyenin dökümü beslemesi HESAP-8b'yi çiğnemez**:
+o kural tipin `runCalc`/`activeModules`/`loadRevision`a girmesini yasaklar,
+döküm ise motorun görmediği bir DOĞRULAMADIR. Ayak yüksekliği hesap
+bölümlerinde sorulmaz; dökümün kendi girdisidir
+(`AgirlikDokumuDurumu.ayakYuksekligiM`) ve girilmezse satır boş kalır.
+
+**BAŞKİRİŞ HER ZAMAN GÖRÜNÜR.** Yeni işler «09 · Başkiriş» bölümü KAPALI açılır
+ve grup bugüne dek hiç çizilmiyordu; `bridgeWeightT` ipucunun sözü
+("başkirişler dâhil") tutulmuyordu. Bölüm açıkken kalem kesitten gelir,
+kapalıyken köşe yükünden TAHMİN edilir (`endCarriageKgPerT`). **Anahtar iki
+durumda da `bridge.endCarriage.beam`dir** — farklı olsaydı bölümü sonradan açan
+mühendisin elle girdiği kilo sessizce koparadı.
+
+**AĞIRLIK NEDEN YOK — CEVAP ÜÇE AYRILIR.** Eski tek cümle ("ürünü yeniden
+seçin") ürün seçiliyken de basılıyor ve mühendisi olmayan bir işe gönderiyordu:
+POLAT PCS, SEW R/X ve YILMAZ Planet redüktörlerinin motorsuz ağırlığı katalog
+sayfasında HİÇ yayımlanmamıştır. Artık: slug bilinçli boşsa kendi cümlesi, ürün
+seçiliyse "föyden elle girin", seçili değilse "önce ürünü seçin".
+
+**DÖRT YENİ AĞIRLIK KAYNAĞI** (`imalatAgirligi`, `topla.ts`):
+- `shaft` — kanca bloğu mili, kendi geometrisinden (π/4·d²·L·7,85). Silindir
+  kabulüdür, kademe ve delikler düşülmez; gerekçe bunu söyler.
+- `liftingBeam` — kaldırma kirişi, ARALIK olarak (alt uç ince kesit, üst uç
+  kalın kesit metre ağırlığı × açıklık). Kesidin iki bölgesinin uzunluğu
+  bölümde sorulmuyor; tek sayı uydurmak yerine iki uç verilir.
+- `drumBearingHousing` — SKF SNL/SE gövde kütlesi (`lib/calc/bearing-housing.ts`),
+  kaynak workspace kökündeki SKF PDF'idir (SKF verisi WEBDEN ÇEKİLMEZ).
+  Katalogun kendi içinde çeliştiği dört gövdede aralık verilir.
+- `balanceSheave` / `balanceLoadcell` — yayımlanmış boy tablosundan
+  (`plate-sheave.ts`) ve Esit PLC ölçü resminden (`load-cell.ts`).
+- `cabinAc` · `roomAc` · `panelAc` — klima kataloğu SERİ düzeyindedir, üretici
+  ağırlığı ALT MODEL başına yayımlar; ağırlık bu yüzden HESAPLANAN ISI
+  YÜKÜNDEN türetilir (`lib/weights/klima-agirlik.ts`) ve rozet `Tahmin`tir.
+  Değerler üreticinin ürün sayfalarındandır ve `catalog_data`ya YAZILMAZ —
+  oranın kuralı "basılı sayfada olmayan alan hiç yazılmaz".
+
+**BESLEME FESTON DEĞİLSE SESSİZ KALINMAZ.** Bara, kablo zinciri ve kablo sarma
+tamburunda ne ekipman satırı ne tahmin kalemi doğuyordu; hat ne listede ne
+toplamda görünüyor ve eksik sayacına da katkı vermiyordu. Uydurma bir kg/m
+yazılmaz; notlarda uyarı çıkar ve mühendis elle satır ekleyebilir.
+
 **BAŞKİRİŞ BOYU MOTORA GİRDİ OLARAK EKLENMEDİ.** `EndCarriageInputs`e bir
 `lengthMm` koymak her eski revizyona şablon varsayılanını sessizce verirdi ve
 hiçbir kontrolün okumadığı bir sayı yapısal bir girdi gibi görünürdü. Boy
