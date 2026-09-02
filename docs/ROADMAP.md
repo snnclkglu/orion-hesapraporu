@@ -1069,3 +1069,10 @@ de bölebiliriz. Hesapların tamamı, formüllerin tamamı olmasına da gerek yo
   sayıları basılmaz (yargı basılır).
 - Yayın arşivi (`issueRevision`) DETAYLI üretmeye devam eder; kompakt rapor
   isteğe bağlı indirme ve portal seçimidir.
+
+### Sinan'ın yorumu sonrası (02.09.2026, akşam)
+
+- Kartlardaki `n/n UYGUN` rozetleri kaldırıldı; sayaç yalnız modül bandında.
+- Ek (Kaynaklar ve Standartlar) kompakt rapordan çıktı; KISA gizlilik metni
+  son hesap sayfasının dibine, sıkıştırılmış payla girdi (ayrı yaprak yok).
+  V5: 9 sayfa.

@@ -142,9 +142,10 @@ export interface ReportRevision {
  * - "basit": kapak + özet bölümü + hesap bölümlerinin KOMPAKT hâli — tek sayfa
  *   akışında, iki sütunlu kartlar: seçilen ekipman, planla seçilmiş girdi /
  *   sonuç satırları ve kontroller (`report-compact.ts`). Şema, formül, seçenek
- *   bloğu ve içindekiler YOKTUR; Ek KISA gizlilik metniyle basılır. Kullanıcı
- *   kararı (02.09.2026): Özet ile Standart arasında. MÜŞTERİYE GİDEN ADI
- *   "KOMPAKT"TIR — dosya adı, portal başlığı ve belge "basit" sözcüğünü taşımaz.
+ *   bloğu, içindekiler ve Ek (Kaynaklar) YOKTUR; KISA gizlilik metni son hesap
+ *   sayfasının dibindedir. Kullanıcı kararı (02.09.2026): Özet ile Standart
+ *   arasında. MÜŞTERİYE GİDEN ADI "KOMPAKT"TIR — dosya adı, portal başlığı ve
+ *   belge "basit" sözcüğünü taşımaz.
  * - "standart": + modül bölümleri (hesap satırlarında yalnız sonuç) +
  *   diyagramlar + içindekiler + Ek (gizlilik koşullarının KISA metniyle).
  *   Kontrol özeti YOKTUR; satır içi kontroller bölümlerinde durur.
@@ -2422,16 +2423,30 @@ function legalTermsShort(reportBrand: ReportProps["reportBrand"]): readonly Lega
 function LegalTermsBlock({
   level,
   reportBrand,
+  dense,
 }: {
   level: ReportLevel;
   reportBrand: ReportProps["reportBrand"];
+  /**
+   * KOMPAKT rapor: metin Ek'in değil son hesap sayfasının dibindedir ve
+   * "sıkıştırılabilir" (kullanıcı kararı, 02.09.2026) — pay ve satır aralığı
+   * daralır, punto ve sözcükler DEĞİŞMEZ.
+   */
+  dense?: boolean;
 }) {
   const paragraphs = level === "detayli"
     ? legalTermsFull(reportBrand)
     : legalTermsShort(reportBrand);
   return (
-    <View style={{ marginTop: 18, borderTopWidth: 0.75, borderTopColor: BRAND.line300, paddingTop: 8 }}>
-      <Text style={{ ...T.kickerInk, fontSize: 6.5, color: BRAND.gray450, marginBottom: 5 }}>
+    <View
+      style={{
+        marginTop: dense ? 10 : 18,
+        borderTopWidth: 0.75,
+        borderTopColor: BRAND.line300,
+        paddingTop: dense ? 5 : 8,
+      }}
+    >
+      <Text style={{ ...T.kickerInk, fontSize: 6.5, color: BRAND.gray450, marginBottom: dense ? 3 : 5 }}>
         GİZLİLİK VE KULLANIM KOŞULLARI
       </Text>
       {paragraphs.map((p, i) => (
@@ -2440,10 +2455,10 @@ function LegalTermsBlock({
           style={{
             fontFamily: FONTS.sans,
             fontSize: 6.5,
-            lineHeight: 1.5,
+            lineHeight: dense ? 1.38 : 1.5,
             color: BRAND.gray500,
             textAlign: "justify",
-            marginTop: i === 0 ? 0 : 4,
+            marginTop: i === 0 ? 0 : dense ? 2.5 : 4,
           }}
         >
           {p.lead ? (
@@ -2802,8 +2817,6 @@ const cs = StyleSheet.create({
   },
   cardNo: { fontFamily: FONTS.mono, fontSize: 7, fontWeight: 600, letterSpacing: 0.2, color: BRAND.red, flexShrink: 0 },
   cardTitle: { flex: 1, minWidth: 0, fontFamily: FONTS.sans, fontSize: 7.6, fontWeight: 700, color: BRAND.ink },
-  badge: { paddingVertical: 1, paddingHorizontal: 3.5, flexShrink: 0 },
-  badgeText: { fontFamily: FONTS.mono, fontSize: 5.8, fontWeight: 600, letterSpacing: 0.5, color: BRAND.white },
   // Ürün satırı: özet sayfasındaki "Ana Ekipman Seçimleri" satırının kart içi hâli.
   line: {
     fontFamily: FONTS.mono,
@@ -3166,10 +3179,15 @@ function CompactCheckLine({ check, label }: { check: AnyCheck; label: string }) 
   );
 }
 
+/**
+ * Kartta UYGUNLUK ROZETİ YOKTUR (kullanıcı kararı, 02.09.2026: *"alt
+ * bölümlerde 3/3 uygun yazıları olmasın; sadece ana bölümdeki 14/14 uygun
+ * görünse yeter"*). Sayaç yalnız modül bandındadır; kartın yargısını sol
+ * kenar rengi (yeşil/kırmızı) ve kontrol satırlarındaki ✓/✗ taşır.
+ */
 function CompactCard({ card }: { card: CompactCardModel }) {
   const total = card.checks.length;
-  const pass = card.checks.filter((c) => c.pass).length;
-  const allPass = total === 0 || pass === total;
+  const allPass = card.checks.every((c) => c.pass);
   const accent = total === 0 ? BRAND.line350 : allPass ? BRAND.success : BRAND.red;
   const kv = card.rows.map((row, i) => <CompactKvRow key={i} row={row} />);
   const half = Math.ceil(kv.length / 2);
@@ -3178,13 +3196,6 @@ function CompactCard({ card }: { card: CompactCardModel }) {
       <View style={cs.cardHead}>
         <Text style={cs.cardNo}>{card.no}</Text>
         <Text style={cs.cardTitle}>{trUpper(card.title)}</Text>
-        {total > 0 ? (
-          <View style={[cs.badge, { backgroundColor: allPass ? BRAND.success : BRAND.red }]}>
-            <Text style={cs.badgeText}>
-              {pass}/{total} UYGUN
-            </Text>
-          </View>
-        ) : null}
       </View>
       {card.line ? <Text style={cs.line}>{card.line}</Text> : null}
       {card.wide && kv.length > 1 ? (
@@ -3260,6 +3271,12 @@ function compactModuleNodes(
  * Kompakt raporun hesap sayfaları — bütün modüller TEK BrandPage'de akar.
  * Standart rapordaki gibi her modüle yeni yaprak açılsaydı, üç kartlık bir
  * bölüm yarım sayfayı boş bırakırdı; kompaktlığın asıl kaynağı bu akıştır.
+ *
+ * EK YOKTUR (kullanıcı kararı, 02.09.2026: *"Kaynaklar ve Standartlar
+ * bölümünü kaldıralım; sadece gizlilik ve kullanım koşulları olsun, ayrı
+ * sayfada olmasına gerek yok, son sayfada olsa yeterli, sıkıştırılabilir."*).
+ * Gizlilik metni bu akışın SON parçasıdır: son kartın altına girer, sığmazsa
+ * bütün hâlde bir sonraki yaprağa geçer (hukukî beyan yarım basılamaz).
  */
 function CompactModulesPage({
   props,
@@ -3276,7 +3293,6 @@ function CompactModulesPage({
   const nodes = MODULE_ADAPTERS.filter((a) => present(a.key)).flatMap((a) =>
     compactModuleNodes(a, props, deps, numbers[a.key] ?? 0)
   );
-  if (nodes.length === 0) return null;
   return (
     <BrandPage
       docLine={docLineFor(revision, props.level)}
@@ -3293,6 +3309,9 @@ function CompactModulesPage({
       )}
     >
       {nodes}
+      <View wrap={false}>
+        <LegalTermsBlock level="basit" reportBrand={reportBrand} dense />
+      </View>
     </BrandPage>
   );
 }
@@ -3377,8 +3396,12 @@ export function ReportDocument(
           collect={collect}
         />
       )}
-      {/* ÖZET raporda Ek (Kaynaklar) ve gizlilik koşulları da yoktur. */}
-      {level !== "ozet" && !wheelLoadsOnly && <SourcesSection {...props} level={level} />}
+      {/* ÖZET raporda Ek (Kaynaklar) ve gizlilik koşulları da yoktur. KOMPAKT
+          raporda Ek yoktur; gizlilik metni hesap akışının sonundadır
+          (CompactModulesPage). */}
+      {level !== "ozet" && !compact && !wheelLoadsOnly && (
+        <SourcesSection {...props} level={level} />
+      )}
     </Document>
   );
 }

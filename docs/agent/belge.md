@@ -84,8 +84,8 @@ kararı, 12.08.2026; dördüncü seviye 02.09.2026):
 | Hesap bölümleri | — | ✓ (iki sütunlu KART; planlı satırlar) | ✓ (yalnız sonuç) | ✓ (formüllerle) |
 | Şemalar | — | — | ✓ | ✓ |
 | Kontrol Özeti | — | — | — | ✓ |
-| Ek — Kaynaklar | — | ✓ | ✓ | ✓ |
-| Gizlilik koşulları | — | KISA | KISA | TAM |
+| Ek — Kaynaklar | — | — | ✓ | ✓ |
+| Gizlilik koşulları | — | KISA, son hesap sayfasının dibinde | KISA (Ek'te) | TAM (Ek'te) |
 
 **BASİT SEVİYE MÜŞTERİYE "KOMPAKT" DİYE GİDER** (kullanıcı kararı, 02.09.2026:
 *"Müşteri tabi basit olarak bilmeyecek."*). Uygulama içinde — PDF Rapor
@@ -98,10 +98,16 @@ RAPORU**dur; seviye adı belgeye hiç yazılmaz.
 **KOMPAKT RAPORUN HESAP SAYFALARI TEK AKIŞTIR, İKİ SÜTUNDUR.** Bütün modüller
 tek `BrandPage`de ("HESAP SONUÇLARI" anteti) art arda akar; her modül koyu
 bölüm bandıyla (`SectionTag`, `12/13 UYGUN` sayacıyla) başlar ve alt bölümleri
-yarım sütunluk KARTLARDIR: numara + ad + uygunluk rozeti, ürün satırı (özet
-sayfasındaki "Ana Ekipman Seçimleri" satırının KENDİSİ — iki yerde iki ayrı
-biçimleyici aynı motoru farklı yazardı), planla seçilmiş girdi/seçim/sonuç
-satırları ve kontroller (`✓ Tork kapasitesi · CMAA 70 … 22,07 kNm ≤ 22 kNm`).
+yarım sütunluk KARTLARDIR: numara + ad, ürün satırı (özet sayfasındaki "Ana
+Ekipman Seçimleri" satırının KENDİSİ — iki yerde iki ayrı biçimleyici aynı
+motoru farklı yazardı), planla seçilmiş girdi/seçim/sonuç satırları ve
+kontroller (`✓ Tork kapasitesi · CMAA 70 … 22,07 kNm ≤ 22 kNm`).
+**KARTTA UYGUNLUK ROZETİ YOKTUR** (kullanıcı kararı, 02.09.2026: *"alt
+bölümlerde 3/3 uygun yazıları olmasın; sadece ana bölümdeki 14/14 uygun görünse
+yeter"*); kartın yargısını sol kenar rengi ve ✓/✗ satırları taşır.
+**EK YOKTUR:** Kaynaklar ve Standartlar basılmaz, KISA gizlilik metni hesap
+akışının SON parçası olarak son kartın altına girer (`LegalTermsBlock dense`,
+sığmazsa bütün hâlde sonraki yaprağa geçer — hukukî beyan yarım basılamaz).
 Hangi satırın basılacağı `pdf/report-compact.ts`teki PLANDAN gelir — genel bir
 kural rastgele sonuç üretiyordu; seçim mühendislik yargısıdır ve
 `report-compact.test.ts` her anahtarın adaptörde var olduğunu doğrular.

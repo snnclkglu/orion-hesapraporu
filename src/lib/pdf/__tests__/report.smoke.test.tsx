@@ -329,13 +329,38 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
     expect(basit.squeezed).toContain("HASÇELİKØ18mm");
     expect(basit.squeezed).toContain("Emniyetkatsayısı");
     expect(basit.squeezed).toContain("ANAKALDIRMA");
-    // Ek: kaynaklar + KISA gizlilik metni (standartla aynı)
-    expect(basit.squeezed).toContain("KAYNAKLARVESTANDARTLAR");
+    // Uygunluk sayacı YALNIZ modül bandında (kullanıcı kararı, 02.09.2026):
+    // kartlarda "1/1 UYGUN" rozeti yok. V5'te ana kaldırma bandı 25/30'dur;
+    // halat kartının kendi "1/1" rozeti basılsaydı metinde "1/1UYGUN" olurdu.
+    expect(basit.squeezed).toContain("25/30UYGUN");
+    expect(basit.squeezed).not.toContain("1/1UYGUN");
+    expect(basit.squeezed).not.toContain("3/3UYGUN");
+    // Ek (Kaynaklar) YOK; KISA gizlilik metni hesap akışının sonunda
+    expect(basit.squeezed).not.toContain("KAYNAKLARVESTANDARTLAR");
+    expect(basit.squeezed).toContain("GİZLİLİKVEKULLANIMKOŞULLARI");
     expect(basit.all).toContain("Mülkiyet ve Gizlilik.");
     expect(basit.all).not.toContain("Teknik bilginin kullanımı.");
     // Kapsam: özetten uzun, standartın üçte birinden kısa
     expect(basit.pages.length).toBeGreaterThan(ozet.pages.length);
     expect(basit.pages.length).toBeLessThan(standart.pages.length / 3);
+  }, 300_000);
+
+  it("kompakt raporda gizlilik metni AYRI sayfa değil, son hesap sayfasının dibidir", async () => {
+    const { pages } = await pagesOf(await atLevel("basit"));
+    const son = pages.length - 1;
+    const squeezedLast = pages[son].replace(/\s+/g, "");
+    // Başlık ve metnin son cümlesi son sayfada; aynı sayfada hesap içeriği var
+    expect(squeezedLast).toContain("GİZLİLİKVEKULLANIMKOŞULLARI");
+    expect(pages[son]).toContain("gizlilik anlaşmaları saklıdır");
+    expect(squeezedLast).toContain("HESAPSONUÇLARI");
+    // V5'te son modül Başkiriş'tir; gizlilik onun kartlarının altına girer
+    expect(squeezedLast).toContain("BAŞKİRİŞ");
+    // Önceki sayfalarda gizlilik başlığı yok (tek yerde basılır)
+    for (let i = 0; i < son; i += 1) {
+      expect(pages[i].replace(/\s+/g, ""), `${i + 1}. sayfa`).not.toContain(
+        "GİZLİLİKVEKULLANIMKOŞULLARI"
+      );
+    }
   }, 300_000);
 
   it("kompakt raporda müşteri 'basit' sözcüğünü görmez — belge, dosya adı ve kapak KOMPAKT/HESAP RAPORU der", async () => {
@@ -428,7 +453,9 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
 
   // ---- kullanıcı kararı: "Ek ve bu yazı 1 sayfayı geçmesin"
   it("Ek ile gizlilik koşulları TEK sayfaya sığar ve belgenin son sayfasıdır", async () => {
-    for (const level of ["detayli", "standart", "basit"] as const) {
+    // Kompakt raporun Ek'i yoktur (gizlilik metni hesap akışının sonundadır);
+    // kuralı yalnız Ek basan iki seviye taşır.
+    for (const level of ["detayli", "standart"] as const) {
       const { pages } = await pagesOf(await atLevel(level));
       const son = pages.length - 1;
       const squeezedPage = (i: number) => pages[i].replace(/\s+/g, "");
