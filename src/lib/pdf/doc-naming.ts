@@ -192,10 +192,19 @@ export function offerCostFileName(subject: string, offerNo: string, revNo: numbe
   return downloadFileName([subject, offerNo, `Maliyet M${revNo}`, "İç Belge"]);
 }
 
-/** Rapor seviyesinin dosya adındaki karşılığı. */
+/**
+ * Rapor seviyesinin dosya adındaki karşılığı — MÜŞTERİNİN GÖRDÜĞÜ ad.
+ *
+ * `basit` seviyesinin dosya adı "KOMPAKT"tır (kullanıcı kararı, 02.09.2026:
+ * *"Müşteri tabi basit olarak bilmeyecek."*). Uygulama içinde seviye "Basit"
+ * diye anılır; dosya adı müşteriye gider ve "BASİT" sözcüğü orada belgenin
+ * değerini düşüren bir etiket olurdu. Aynı ayrım portal belge başlığında da
+ * vardır (`PORTAL_REPORT_TITLE_LABELS`).
+ */
 export const REPORT_LEVEL_LABELS: Record<string, string> = {
   detayli: "Detaylı",
   standart: "Standart",
+  basit: "Kompakt",
   ozet: "Özet",
   teker_yukleri: "Teker Yükleri",
 };

@@ -84,12 +84,27 @@ export type PortalAccessMode = "view_watermarked" | "download";
 
 export const PORTAL_REPORT_LEVELS = [
   "ozet",
+  "basit",
   "standart",
   "detayli",
   "teker_yukleri",
 ] as const;
 
 export type PortalReportLevel = (typeof PORTAL_REPORT_LEVELS)[number];
+
+/**
+ * Seviyenin MÜŞTERİYE görünen adı — portal belge başlığı bu sözlükten kurulur
+ * ("Hesap Raporu · Kompakt · V3"). `basit` seviyesi müşteriye "Kompakt" diye
+ * gider (kullanıcı kararı, 02.09.2026: müşteri "basit" sözcüğünü görmez);
+ * yönetim ekranındaki seçenek etiketi ayrıdır ve iç adı taşır.
+ */
+export const PORTAL_REPORT_TITLE_LABELS: Record<PortalReportLevel, string> = {
+  ozet: "Özet",
+  basit: "Kompakt",
+  standart: "Standart",
+  detayli: "Detaylı",
+  teker_yukleri: "Teker Yükleri",
+};
 export type PortalEquipmentDetail = "standart" | "detayli";
 
 export const PORTAL_FOLDER_OPTIONS = [

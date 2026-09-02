@@ -14,7 +14,7 @@ import {
   resolveIdentityFields,
   withProductPortalDefaults,
 } from "./identity";
-import { PORTAL_FOLDER_OPTIONS } from "./types";
+import { PORTAL_FOLDER_OPTIONS, PORTAL_REPORT_TITLE_LABELS } from "./types";
 import type {
   CraneUnitRow,
   IdentitySource,
@@ -574,13 +574,8 @@ export function mergeDiscoveredDocuments(
     const equipmentDetail = entry.equipmentDetail ?? fresh.equipmentDetail;
     const generatedTitle = (() => {
       if (entry.sourceKind === "report") {
-        const label = reportLevel === "ozet"
-          ? "Özet"
-          : reportLevel === "standart"
-            ? "Standart"
-            : reportLevel === "teker_yukleri"
-              ? "Teker Yükleri"
-              : "Detaylı";
+        // Müşteriye görünen ad tek sözlükten: "basit" seviyesi burada "Kompakt"tır.
+        const label = PORTAL_REPORT_TITLE_LABELS[reportLevel ?? "detayli"] ?? "Detaylı";
         return `Hesap Raporu · ${label}${fresh.sourceRevisionLabel ? ` · ${fresh.sourceRevisionLabel}` : ""}`;
       }
       if (entry.sourceKind === "equipment") {
@@ -591,7 +586,7 @@ export function mergeDiscoveredDocuments(
     })();
     const hadGeneratedTitle = entry.automatic && (
       entry.sourceKind === "report"
-        ? /^Hesap Raporu(?: · (?:Özet|Standart|Detaylı|Teker Yükleri))?(?: · V\d+)?$/u.test(entry.title)
+        ? /^Hesap Raporu(?: · (?:Özet|Kompakt|Standart|Detaylı|Teker Yükleri))?(?: · V\d+)?$/u.test(entry.title)
         : entry.sourceKind === "equipment"
           ? /^Ekipman Listesi(?: · (?:Standart|Detaylı))?(?: · V\d+)?$/u.test(entry.title)
           : entry.title === fresh.title

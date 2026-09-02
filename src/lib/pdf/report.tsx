@@ -59,7 +59,15 @@ import {
   isHoistKey,
   isHookBlockKey,
   isTravelKey,
+  moduleFamily,
 } from "@/lib/calc/presentation/module-family";
+// Kompakt (basit) raporun planı ve yerleşim çekirdeği — saf, ayrı sınanır.
+import {
+  compactPlanFor,
+  estimateCompactCardHeight,
+  isExistenceCheck,
+  packCompactBlocks,
+} from "@/lib/pdf/report-compact";
 import {
   ctxFor,
   moduleResult,
@@ -131,6 +139,12 @@ export interface ReportRevision {
  * - "ozet": kapak + özet bölümü. İçindekiler, kontrol özeti, Ek (Kaynaklar) ve
  *   gizlilik koşulları YOKTUR — iki sayfalık bir belgede dizin ve ek, gösterdiği
  *   içerikten uzun olurdu.
+ * - "basit": kapak + özet bölümü + hesap bölümlerinin KOMPAKT hâli — tek sayfa
+ *   akışında, iki sütunlu kartlar: seçilen ekipman, planla seçilmiş girdi /
+ *   sonuç satırları ve kontroller (`report-compact.ts`). Şema, formül, seçenek
+ *   bloğu ve içindekiler YOKTUR; Ek KISA gizlilik metniyle basılır. Kullanıcı
+ *   kararı (02.09.2026): Özet ile Standart arasında. MÜŞTERİYE GİDEN ADI
+ *   "KOMPAKT"TIR — dosya adı, portal başlığı ve belge "basit" sözcüğünü taşımaz.
  * - "standart": + modül bölümleri (hesap satırlarında yalnız sonuç) +
  *   diyagramlar + içindekiler + Ek (gizlilik koşullarının KISA metniyle).
  *   Kontrol özeti YOKTUR; satır içi kontroller bölümlerinde durur.
@@ -140,11 +154,12 @@ export interface ReportRevision {
  *   kapak + Teker Yükleri modülü, formülleri ve şemalarıyla basılır;
  *   İçindekiler, Özet, Kontrol Özeti ve Ek kesinlikle basılmaz.
  */
-export type ReportLevel = "detayli" | "standart" | "ozet" | "teker_yukleri";
+export type ReportLevel = "detayli" | "standart" | "basit" | "ozet" | "teker_yukleri";
 
 export const REPORT_LEVELS: readonly ReportLevel[] = [
   "detayli",
   "standart",
+  "basit",
   "ozet",
   "teker_yukleri",
 ];
@@ -1832,6 +1847,25 @@ function travelSelectionItems(st: { selections: object } | undefined): SummaryGr
   return items;
 }
 
+function hookBlockSelectionItems(st: { selections: object } | undefined): SummaryGroup["items"] {
+  if (!st) return [];
+  const sel = st.selections as unknown as Record<string, unknown>;
+  return [
+    {
+      label: "Kanca",
+      sectionRawId: "4.1",
+      value: `${String(sel.hookDesignation ?? "")} · ${fmt(sel.hookCapacityKg as number)} kg`,
+    },
+    {
+      label: "Makara",
+      sectionRawId: "4.2",
+      value: `Ø${fmt(sel.sheaveDiaMm as number)} mm · rulman ${String(
+        sel.sheaveBearingCode ?? ""
+      )}`,
+    },
+  ];
+}
+
 /**
  * Özet sayfasının ana ekipman blokları vincin GERÇEK topolojisinden üretilir:
  * hangi kaldırma grupları, kanca blokları ve arabalar hesaba giriyorsa hepsi
@@ -1847,23 +1881,7 @@ function summaryGroups(input: CalcInput, hidden: ReadonlySet<string>): SummaryGr
     if (isHoistKey(key)) {
       items = hoistSelectionItems(state as never);
     } else if (isHookBlockKey(key)) {
-      const sel = state.selections as unknown as Record<string, unknown>;
-      items = [
-        {
-          label: "Kanca",
-          sectionRawId: "4.1",
-          value: `${String(sel.hookDesignation ?? "")} · ${fmt(
-            sel.hookCapacityKg as number
-          )} kg`,
-        },
-        {
-          label: "Makara",
-          sectionRawId: "4.2",
-          value: `Ø${fmt(sel.sheaveDiaMm as number)} mm · rulman ${String(
-            sel.sheaveBearingCode ?? ""
-          )}`,
-        },
-      ];
+      items = hookBlockSelectionItems(state);
     } else if (isTravelKey(key)) {
       items = travelSelectionItems(state as never);
     }
@@ -2743,6 +2761,542 @@ function ModulePage({
   );
 }
 
+// ---------------------------------------------------------------- Kompakt (basit) rapor
+//
+// Dördüncü seviye (kullanıcı kararı, 02.09.2026): Özet ile Standart arasında.
+// Kapak ve özet sayfası aynen kalır; ardından hesap bölümleri TEK bir sayfa
+// akışında, İKİ SÜTUNLU kartlarla basılır. Kart = bölüm numarası ve adı +
+// seçilen ekipman satırı + planla seçilmiş girdi / sonuç satırları +
+// kontroller. Şema, formül, "SEÇENEKLER" bloğu ve kontrol dizini YOKTUR.
+//
+// Hangi SATIRIN basılacağı `report-compact.ts`teki plandan gelir; hangi
+// BÖLÜMÜN basılacağı standart raporla AYNI yüklemden (`sectionPrintedFor`,
+// `modulePrintedIn`) — gizlenen alt bölüm burada da düşer, numaralar da
+// oradaki gibi kayar. Kartlar sayfaya BÖLÜNMEZ: react-pdf satır yönlü bir kabı
+// sayfa sınırında bölemez, bu yüzden kartlar `packCompactBlocks` ile küçük
+// bloklara paketlenir ve her blok bütün hâlde taşınır.
+
+const cs = StyleSheet.create({
+  module: { marginTop: 4 },
+  grid: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  col: { flex: 1, minWidth: 0 },
+  card: {
+    borderWidth: 0.5,
+    borderColor: BRAND.line300,
+    borderLeftWidth: 2,
+    backgroundColor: BRAND.white,
+    paddingTop: 3.5,
+    paddingBottom: 3,
+    paddingLeft: 6,
+    paddingRight: 5,
+    marginBottom: 6,
+  },
+  cardHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderBottomWidth: 0.6,
+    borderBottomColor: BRAND.line300,
+    paddingBottom: 2.5,
+    marginBottom: 2,
+  },
+  cardNo: { fontFamily: FONTS.mono, fontSize: 7, fontWeight: 600, letterSpacing: 0.2, color: BRAND.red, flexShrink: 0 },
+  cardTitle: { flex: 1, minWidth: 0, fontFamily: FONTS.sans, fontSize: 7.6, fontWeight: 700, color: BRAND.ink },
+  badge: { paddingVertical: 1, paddingHorizontal: 3.5, flexShrink: 0 },
+  badgeText: { fontFamily: FONTS.mono, fontSize: 5.8, fontWeight: 600, letterSpacing: 0.5, color: BRAND.white },
+  // Ürün satırı: özet sayfasındaki "Ana Ekipman Seçimleri" satırının kart içi hâli.
+  line: {
+    fontFamily: FONTS.mono,
+    fontSize: 6.6,
+    fontWeight: 600,
+    letterSpacing: 0.15,
+    lineHeight: 1.3,
+    color: BRAND.ink,
+    paddingVertical: 1.5,
+    marginBottom: 1,
+  },
+  wideGrid: { flexDirection: "row", gap: 12 },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    gap: 6,
+    paddingVertical: 1.6,
+    borderBottomWidth: 0.4,
+    borderBottomColor: BRAND.hairline,
+    flexShrink: 0,
+  },
+  rowLabel: { flex: 1, fontFamily: FONTS.sans, fontSize: 6.6, color: BRAND.gray700 },
+  rowLabelMono: { flex: 1, fontFamily: FONTS.mono, fontSize: 6.2, color: BRAND.gray600 },
+  // Değer de PAY ALIR ve sarar (kvValue ile aynı ders): sığmayan uzun bir
+  // katalog metni etiketin üstüne binmez.
+  rowValue: {
+    flexGrow: 0,
+    flexShrink: 1,
+    maxWidth: "58%",
+    fontFamily: FONTS.mono,
+    fontSize: 6.8,
+    fontWeight: 500,
+    letterSpacing: 0.15,
+    color: BRAND.ink,
+    textAlign: "right",
+  },
+  rowUnit: { fontFamily: FONTS.mono, fontSize: 6, fontWeight: 400, color: BRAND.gray500 },
+  check: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 1.8,
+    paddingHorizontal: 2,
+    borderBottomWidth: 0.4,
+    borderBottomColor: BRAND.hairline,
+  },
+  checkLabel: { flex: 1, minWidth: 0, fontFamily: FONTS.sans, fontSize: 6.6, color: BRAND.ink },
+  checkStd: { fontFamily: FONTS.mono, fontSize: 5.4, letterSpacing: 0.2, color: BRAND.gray450 },
+  checkCmp: { flexDirection: "row", alignItems: "baseline", flexShrink: 0, gap: 3 },
+  checkValue: { fontFamily: FONTS.mono, fontSize: 6.9, fontWeight: 700 },
+  /** Bağıntı işareti (≤ / ≥) — DejaVu, çünkü Plex Mono bu glifleri taşımaz */
+  checkOp: { fontFamily: FONTS.glyph, fontSize: 7, color: BRAND.gray600 },
+  checkLimit: { fontFamily: FONTS.mono, fontSize: 6.9, fontWeight: 500, color: BRAND.ink },
+  checkVerdict: { fontFamily: FONTS.mono, fontSize: 6, fontWeight: 700, letterSpacing: 0.4, flexShrink: 0 },
+  note: {
+    fontFamily: FONTS.sans,
+    fontSize: 6.4,
+    lineHeight: 1.4,
+    color: BRAND.gray700,
+    marginTop: 3,
+    borderLeftWidth: 1.5,
+    borderLeftColor: BRAND.red,
+    paddingLeft: 5,
+  },
+});
+
+/**
+ * Bir bloğun sütun yüksekliği tavanı (yerleşim pt). Blok en çok bunun iki
+ * katıdır; sayfa dibinde boş kalan alan da en çok bir blok kadardır.
+ * Modülün İLK bloğu bölüm bandıyla birlikte taşındığından daha küçük tutulur.
+ */
+const COMPACT_COLUMN_CAP = 130;
+const COMPACT_FIRST_COLUMN_CAP = 70;
+
+interface CompactRow {
+  label: string;
+  value: string;
+  unit?: string;
+  /** Katalog seçimi satırı — etiket mono (seçim rolü, girdiden ayrışır) */
+  mono?: boolean;
+  /** Girdi/seçim satırı: etiket ve değer büyük harfe çevrilir (belge kuralı) */
+  upper?: boolean;
+}
+
+interface CompactCardModel {
+  id: string;
+  no: string;
+  title: string;
+  wide: boolean;
+  line?: string;
+  rows: CompactRow[];
+  checks: AnyCheck[];
+  /** Kontrol id → başlık şeridindeki kısa ad ("Tork kapasitesi") */
+  shortLabels: Map<string, string>;
+  tableNodes: React.ReactNode[];
+  note?: string;
+  /** Paketleme için tahmini yükseklik */
+  height: number;
+}
+
+/** Boş / seçilmemiş değer satır açmaz (FieldTable ile aynı süzgeç). */
+function isBlankShownValue(shown: string): boolean {
+  const t = shown.trim().toLocaleLowerCase("tr-TR");
+  return t === "" || t === "—" || t === "seçim yapılmadı" || t === "seçilmedi";
+}
+
+/**
+ * Özet sayfasının ekipman satırları — bölüm id'sine göre. Kart, özet
+ * sayfasıyla AYNI satırı basar; iki yerde iki ayrı biçimleyici bir gün aynı
+ * motoru farklı yazardı.
+ */
+function compactSummaryLines(
+  key: ModuleKey,
+  state: { inputs: object; selections: object }
+): Map<string, string> {
+  let items: SummaryGroup["items"] = [];
+  if (isHoistKey(key)) items = hoistSelectionItems(state as never);
+  else if (isHookBlockKey(key)) items = hookBlockSelectionItems(state);
+  else if (isTravelKey(key)) items = travelSelectionItems(state as never);
+  return new Map(
+    items
+      .filter((it): it is SummaryGroup["items"][number] & { sectionRawId: string } =>
+        Boolean(it.sectionRawId)
+      )
+      .map((it) => [it.sectionRawId, reportRowUpper(it.value)])
+  );
+}
+
+/** Plandaki `line` anahtarlarından ürün satırı ("SKF · SE 212 · SİLİNDİRİK YATAKLAMA"). */
+function compactPlanLine(
+  section: AdapterSection,
+  keys: readonly string[] | undefined,
+  selections: Record<string, unknown>
+): string | undefined {
+  if (!keys) return undefined;
+  const parts: string[] = [];
+  for (const key of keys) {
+    const def = section.selectionDefs.find((d) => d.key === key);
+    if (!def) continue;
+    if (selectionDefsForReport([def], selections).length === 0) continue;
+    const value = fieldShownValue(def, selections);
+    const unit = toDisplayUnitLabel(def.unit);
+    parts.push(unit ? `${value} ${unit}` : value);
+  }
+  return parts.length > 0 ? reportRowUpper(parts.join(" · ")) : undefined;
+}
+
+/** Uzun etiket kartın yarım sütununda iki satıra sarar — tahmine girer. */
+const COMPACT_LONG_ROW_CHARS = 52;
+const COMPACT_LONG_CHECK_CHARS = 42;
+
+/**
+ * Bir modülün kompakt kartları. Bölüm süzgeci ve numaralar standart raporla
+ * ortaktır; kartın içeriği plandan, kontroller motordan gelir.
+ */
+function compactCardsFor(
+  adapter: ModuleAdapter,
+  props: ReportProps,
+  deps: ModuleDepsBundle,
+  moduleNo: number
+): { no: string; title: string; cards: CompactCardModel[]; pass: number; total: number } | null {
+  const { input, result } = props;
+  const state = moduleState(input, adapter.key);
+  const mr = moduleResult(result, adapter.key);
+  if (!state || !mr) return null;
+  const ctx = ctxFor(adapter.key, input, result, deps);
+  const hidden = hiddenSetOf(props);
+  const inputs = state.inputs as Record<string, unknown>;
+  const selections = state.selections as Record<string, unknown>;
+  const sectionPrinted = sectionPrintedFor(adapter, input.specs, hidden, inputs);
+  const secNos = sectionDisplayNumbers(adapter.sections, moduleNo, sectionPrinted);
+  const [no, ...rest] = renumberTitle(adapterTitle(adapter, input.specs), moduleNo).split(" · ");
+  const lines = compactSummaryLines(adapter.key, state);
+  const family = moduleFamily(adapter.key);
+  const displayedInputs = (
+    adapter.key === "cabin" ? cabinInputsForDisplay(state.inputs as CabinInputs, mr.cells) : inputs
+  ) as Record<string, unknown>;
+
+  const cards: CompactCardModel[] = [];
+  let pass = 0;
+  let total = 0;
+
+  for (const section of adapter.sections.filter(sectionPrinted)) {
+    const plan = compactPlanFor(family, section.rawId);
+    if (plan.skip) continue;
+    const scoped = (
+      section.inputScope ? section.inputScope.get(displayedInputs) : displayedInputs
+    ) as Record<string, unknown>;
+    const rows: CompactRow[] = [];
+
+    // Girdiler / tasarım kabulleri — plandaki sırayla. `visibleWhen` ekranla
+    // aynı süzgeçtir: T profil kapalıyken ölçüleri basılmaz.
+    for (const key of plan.inputs ?? []) {
+      const own = section.inputDefs.find((d) => d.key === key);
+      const field = own ?? section.extraInputDefs?.find((d) => d.key === key);
+      if (!field) continue;
+      const rec = own ? scoped : displayedInputs;
+      if (field.visibleWhen && !field.visibleWhen(rec)) continue;
+      const raw = rec[key];
+      if (plan.hideZero && typeof raw === "number" && raw === 0) continue;
+      const shown = fieldShownValue(field, rec);
+      if (isBlankShownValue(shown)) continue;
+      rows.push({
+        label: fieldLabel(field, input.specs),
+        value: shown,
+        unit: toDisplayUnitLabel(field.unit),
+        upper: true,
+      });
+    }
+
+    // Katalog seçimi satırları — belgeye basılan seçim süzgeciyle.
+    for (const key of plan.selections ?? []) {
+      const def = section.selectionDefs.find((d) => d.key === key);
+      if (!def) continue;
+      if (selectionDefsForReport([def], selections).length === 0) continue;
+      rows.push({
+        label: fieldLabel(def, input.specs),
+        value: fieldShownValue(def, selections),
+        unit: toDisplayUnitLabel(def.unit),
+        mono: true,
+        upper: true,
+      });
+    }
+
+    // Hesap sonucu satırları — formülsüz, yalnız değer.
+    for (const key of plan.rows ?? []) {
+      const row = section.rows.find((r) => r.key === key);
+      if (!row || !reportCalculationRowVisible(row.key)) continue;
+      if (row.visible && !row.visible(ctx)) continue;
+      let raw: number | string | undefined;
+      try {
+        raw = row.read(ctx);
+      } catch {
+        raw = undefined;
+      }
+      const { value, unit } = toDisplayUnit(raw, row.unit);
+      const text = fmt(value, row.digits ?? 2);
+      if (text === "—") continue;
+      rows.push({
+        label: row.label,
+        value: `${row.diameter ? "Ø" : ""}${text}`,
+        unit: typeof value === "string" ? undefined : unit,
+      });
+    }
+
+    // Bilgilendirme kontrolleri ("rüzgâr modellenmiyor", "tepki aktarılır")
+    // yargı değildir; kompakt raporda yalnız yargılar basılır.
+    const checks = sectionChecks(adapter, section, mr).filter((c) => checkKind(c) !== "bilgi");
+    const shortLabels = new Map<string, string>();
+    for (const h of section.headline?.checks ?? []) {
+      if (h.label) shortLabels.set(`${adapter.checkPrefix}${h.suffix}`, h.label);
+    }
+    const line = lines.get(section.rawId) ?? compactPlanLine(section, plan.line, selections);
+    const tableNodes = plan.table && section.table ? sectionTableParts(section.table, ctx) : [];
+    let tableRows = 0;
+    if (plan.table && section.table) {
+      try {
+        tableRows = section.table.build(ctx).length;
+      } catch {
+        tableRows = 0;
+      }
+    }
+    const note = props.sectionNotes?.[sectionNoteKeyFor(adapter.key, section.rawId)]?.trim();
+    if (!line && rows.length === 0 && checks.length === 0 && tableNodes.length === 0 && !note) {
+      continue;
+    }
+
+    pass += checks.filter((c) => c.pass).length;
+    total += checks.length;
+    const wide = Boolean(plan.wide);
+    const longRows = rows.filter((r) => r.label.length + r.value.length > COMPACT_LONG_ROW_CHARS).length;
+    const longChecks = checks.filter(
+      (c) => (shortLabels.get(c.id) ?? c.label).length + (c.standard?.length ?? 0) > COMPACT_LONG_CHECK_CHARS
+    ).length;
+    cards.push({
+      id: `${adapter.key}-${section.rawId}`,
+      no: secNos.get(section.rawId) ?? renumberSectionId(section.id, moduleNo),
+      title: section.title,
+      wide,
+      line,
+      rows,
+      checks,
+      shortLabels,
+      tableNodes,
+      note,
+      height: estimateCompactCardHeight({
+        lineChars: line?.length ?? 0,
+        rows: rows.length,
+        longRows,
+        checks: checks.length,
+        longChecks,
+        tableRows,
+        noteChars: note?.length ?? 0,
+        wide,
+      }),
+    });
+  }
+  return { no, title: rest.join(" · "), cards, pass, total };
+}
+
+function CompactKvRow({ row }: { row: CompactRow }) {
+  const label = row.upper ? reportRowUpper(row.label) : row.label;
+  const value = row.upper ? reportRowUpper(row.value) : row.value;
+  return (
+    <View style={cs.row} wrap={false}>
+      <Text style={row.mono ? cs.rowLabelMono : cs.rowLabel}>{label}</Text>
+      <Text style={cs.rowValue}>
+        {value}
+        {row.unit ? <Text style={cs.rowUnit}> {row.unit}</Text> : null}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Kart kontrol satırı: ✓/✗ + kısa ad (+ standart) + `6,14 ≥ 5,60`.
+ *
+ * HESAPLANAN / İZİN VERİLEN sözcükleri bilerek yoktur — yarım sütunda yer
+ * yoktur ve hesaplanan taraf zaten renklidir. Aralık kontrolünde bağıntı
+ * işareti yerine ayraç basılır: "−1,07 % · −10 … 5 %" (standart raporla aynı
+ * karar; "≤" bir aralığı yanlış okutur). Onay/varlık kontrolünde sayı yoktur.
+ */
+function CompactCheckLine({ check, label }: { check: AnyCheck; label: string }) {
+  const color = check.pass ? BRAND.success : BRAND.red;
+  const d = checkDisplay(check);
+  const conv = (v: number) => toDisplayUnit(v, d.unit);
+  const computed = conv(d.computed);
+  const unit = computed.unit === "-" || !computed.unit ? "" : ` ${computed.unit}`;
+  const limitText =
+    d.operator === "…"
+      ? `${fmt(conv(d.min ?? 0).value)} … ${fmt(conv(d.max ?? 0).value)}`
+      : fmt(conv(d.limit ?? 0).value);
+  return (
+    <View
+      style={[cs.check, { backgroundColor: check.pass ? BRAND.white : "#FBF2F1" }]}
+      wrap={false}
+    >
+      <CheckGlyph pass={check.pass} size={6.5} />
+      <Text style={cs.checkLabel}>
+        {label}
+        {check.standard ? <Text style={cs.checkStd}> · {check.standard}</Text> : null}
+      </Text>
+      {isExistenceCheck(check) ? (
+        <Text style={[cs.checkVerdict, { color }]}>{check.pass ? "UYGUN" : "UYGUN DEĞİL"}</Text>
+      ) : (
+        <View style={cs.checkCmp}>
+          <Text style={[cs.checkValue, { color }]}>
+            {fmt(computed.value)}
+            {unit ? <Text style={cs.rowUnit}>{unit}</Text> : null}
+          </Text>
+          <Text style={cs.checkOp}>{d.operator === "…" ? "·" : d.operator}</Text>
+          <Text style={cs.checkLimit}>
+            {limitText}
+            {unit ? <Text style={cs.rowUnit}>{unit}</Text> : null}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function CompactCard({ card }: { card: CompactCardModel }) {
+  const total = card.checks.length;
+  const pass = card.checks.filter((c) => c.pass).length;
+  const allPass = total === 0 || pass === total;
+  const accent = total === 0 ? BRAND.line350 : allPass ? BRAND.success : BRAND.red;
+  const kv = card.rows.map((row, i) => <CompactKvRow key={i} row={row} />);
+  const half = Math.ceil(kv.length / 2);
+  return (
+    <View style={[cs.card, { borderLeftColor: accent }]} wrap={false}>
+      <View style={cs.cardHead}>
+        <Text style={cs.cardNo}>{card.no}</Text>
+        <Text style={cs.cardTitle}>{trUpper(card.title)}</Text>
+        {total > 0 ? (
+          <View style={[cs.badge, { backgroundColor: allPass ? BRAND.success : BRAND.red }]}>
+            <Text style={cs.badgeText}>
+              {pass}/{total} UYGUN
+            </Text>
+          </View>
+        ) : null}
+      </View>
+      {card.line ? <Text style={cs.line}>{card.line}</Text> : null}
+      {card.wide && kv.length > 1 ? (
+        <View style={cs.wideGrid}>
+          <View style={cs.col}>{kv.slice(0, half)}</View>
+          <View style={cs.col}>{kv.slice(half)}</View>
+        </View>
+      ) : (
+        kv
+      )}
+      {card.checks.map((c) => (
+        <CompactCheckLine key={c.id} check={c} label={card.shortLabels.get(c.id) ?? c.label} />
+      ))}
+      {card.tableNodes}
+      {card.note ? <Text style={cs.note}>{card.note}</Text> : null}
+    </View>
+  );
+}
+
+/**
+ * Bir modülün kompakt parçaları: koyu bölüm bandı + kart blokları. Bant, ilk
+ * blokla aynı bölünemez kutudadır (madde 29 — başlık sayfa dibinde yalnız
+ * kalmaz); kalan bloklar düz kardeş olarak akar.
+ */
+function compactModuleNodes(
+  adapter: ModuleAdapter,
+  props: ReportProps,
+  deps: ModuleDepsBundle,
+  moduleNo: number
+): React.ReactNode[] {
+  const model = compactCardsFor(adapter, props, deps, moduleNo);
+  if (!model || model.cards.length === 0) return [];
+  const blocks = packCompactBlocks(
+    model.cards,
+    COMPACT_COLUMN_CAP,
+    COMPACT_FIRST_COLUMN_CAP
+  ).map((block, i) =>
+    block.kind === "wide" ? (
+      <View key={i} wrap={false}>
+        <CompactCard card={block.item} />
+      </View>
+    ) : (
+      <View key={i} style={cs.grid} wrap={false}>
+        <View style={cs.col}>
+          {block.left.map((card) => (
+            <CompactCard key={card.id} card={card} />
+          ))}
+        </View>
+        <View style={cs.col}>
+          {block.right.map((card) => (
+            <CompactCard key={card.id} card={card} />
+          ))}
+        </View>
+      </View>
+    )
+  );
+  return [
+    <View key={`${adapter.key}-band`} wrap={false} style={cs.module}>
+      <SectionTag
+        no={model.no}
+        title={model.title}
+        status={model.total > 0 ? { pass: model.pass, total: model.total } : undefined}
+      />
+      {blocks[0]}
+    </View>,
+    ...blocks.slice(1).map((node, i) => (
+      <React.Fragment key={`${adapter.key}-b${i + 1}`}>{node}</React.Fragment>
+    )),
+  ];
+}
+
+/**
+ * Kompakt raporun hesap sayfaları — bütün modüller TEK BrandPage'de akar.
+ * Standart rapordaki gibi her modüle yeni yaprak açılsaydı, üç kartlık bir
+ * bölüm yarım sayfayı boş bırakırdı; kompaktlığın asıl kaynağı bu akıştır.
+ */
+function CompactModulesPage({
+  props,
+  deps,
+  numbers,
+  present,
+}: {
+  props: ReportProps;
+  deps: ModuleDepsBundle;
+  numbers: Partial<Record<ModuleKey, number>>;
+  present: (k: ModuleKey) => boolean;
+}) {
+  const { project, revision, reportBrand } = props;
+  const nodes = MODULE_ADAPTERS.filter((a) => present(a.key)).flatMap((a) =>
+    compactModuleNodes(a, props, deps, numbers[a.key] ?? 0)
+  );
+  if (nodes.length === 0) return null;
+  return (
+    <BrandPage
+      docLine={docLineFor(revision, props.level)}
+      docCode={docCodeFor(project, revision)}
+      footerNotice={REPORT_FOOTER_NOTICE}
+      repeatedHeader={(
+        <PageHeader
+          kicker="ORION CRANES · HESAP RAPORU"
+          title="Hesap Sonuçları"
+          meta="FEM 1.001 · DIN 15018 · CMAA 70"
+          logo={brandLogoFromBuffer(reportBrand?.logo)}
+          fixed
+        />
+      )}
+    >
+      {nodes}
+    </BrandPage>
+  );
+}
+
 // ---------------------------------------------------------------- Belge
 
 export function ReportDocument(
@@ -2756,6 +3310,9 @@ export function ReportDocument(
   const { input, result, project, revision, pageOf, collect } = props;
   const level: ReportLevel = props.level ?? "detayli";
   const wheelLoadsOnly = level === "teker_yukleri";
+  // KOMPAKT rapor: hesap bölümleri tek sayfa akışında iki sütunlu kartlarla
+  // basılır (bkz. CompactModulesPage); içindekiler ve kontrol dizini yoktur.
+  const compact = level === "basit";
   const deps = buildModuleDeps(input, result);
   // Esnek modüller: revizyonda olmayan modül (yardımcı kaldırma / kanca bloğu
   // kapalı) rapora girmez; numaralar mevcut modüllere göre yeniden dizilir.
@@ -2773,7 +3330,7 @@ export function ReportDocument(
       <CoverPage {...props} />
       {/* ÖZET rapor içindekiler taşımaz (kullanıcı kararı): iki sayfalık bir
           belgede dizin, gösterdiği içerikten uzun olurdu. */}
-      {level !== "ozet" && !wheelLoadsOnly && (
+      {level !== "ozet" && !compact && !wheelLoadsOnly && (
         <TocPage
           {...props}
           level={level}
@@ -2785,7 +3342,11 @@ export function ReportDocument(
       {!wheelLoadsOnly && (
         <SummarySection {...props} numbers={numbers} collect={collect} />
       )}
+      {compact && (
+        <CompactModulesPage props={props} deps={deps} numbers={numbers} present={present} />
+      )}
       {level !== "ozet" &&
+        !compact &&
         MODULE_ADAPTERS.filter(
           (adapter) => present(adapter.key) && (!wheelLoadsOnly || adapter.key === "wheelLoads")
         ).map((adapter) => (

@@ -30,6 +30,13 @@ describe("downloadFileName", () => {
     ).toMatch(/ - ÖZET\.pdf$/);
   });
 
+  it("basit seviyesi müşteriye KOMPAKT diye gider — dosya adında 'basit' geçmez", () => {
+    expect(REPORT_LEVEL_LABELS.basit).toBe("Kompakt");
+    const ad = downloadFileName(["Vinç", docCode("HR", "0055", 1), "V1", REPORT_LEVEL_LABELS.basit]);
+    expect(ad).toBe("VİNÇ - ORC-HR-0055-R01 - V1 - KOMPAKT.pdf");
+    expect(ad).not.toContain("BASİT");
+  });
+
   it("özel teker yükleri dosyasının kapsamı adından anlaşılır", () => {
     expect(
       downloadFileName([

@@ -277,6 +277,9 @@
   sütuna sığıyor mu, uydurma küçük sayılarla bu görülmezdi)
 - `src/lib/diagrams/` — parametrik teknik resimler (saf veri modeli; web + PDF ortak)
 - `src/lib/pdf/`, `src/lib/excel/` — rapor, ekipman listesi ve iş takibi çıktıları
+- `src/lib/pdf/report-compact.ts` — KOMPAKT (basit) hesap raporunun planı
+  (bölüm başına basılacak girdi/seçim/sonuç anahtarları) ve iki sütunlu blok
+  paketleyicisi; saf, çizim `report.tsx`te (`CompactModulesPage`)
 - `src/lib/pdf/diagram.tsx` — `Diagram` modelinin react-pdf çevirisi ve
   `PdfDiagram` kabı. TEK ÇEVİRİCİ: hesap raporu, ekipman listesi ve kesim planı
   aynı dosyayı kullanır (ikinci kopya `circle`/`bold`/çizgi ucunu düşürüyordu)

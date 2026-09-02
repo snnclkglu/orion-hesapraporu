@@ -1,6 +1,6 @@
 "use client";
 
-// PDF rapor indirme menüsü — üç ana seviye + özel Teker Yükleri çıktısı.
+// PDF rapor indirme menüsü — dört ana seviye + özel Teker Yükleri çıktısı.
 // Seçilen kapsam report route'una ?level= query paramıyla iletilir.
 
 import { ChevronDown, FileJson2, FileText, Gauge } from "lucide-react";
@@ -33,6 +33,13 @@ const LEVELS = [
     level: "standart",
     label: "Standart",
     hint: "Hesap sonuçları ve diyagramlar (formülsüz)",
+  },
+  {
+    // İç adı "Basit"; müşteriye giden dosya adı ve portal başlığı "KOMPAKT"
+    // (kullanıcı kararı, 02.09.2026 — müşteri "basit" sözcüğünü görmez).
+    level: "basit",
+    label: "Basit",
+    hint: "Seçimler, sonuçlar ve kontroller iki sütunda; şemasız (dosya adı: KOMPAKT)",
   },
   {
     level: "ozet",

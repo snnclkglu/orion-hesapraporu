@@ -1023,3 +1023,49 @@ olabilir). Çizimde kesitin YATAY ZARFI gerçek uçlardan hesaplanır
 (`spanLeftMm` / `spanRightMm`): yalnız b2'ye bakan ölçek, taşan flanşı çerçeve
 dışında bırakıyordu. `BoxLayout.cx` (çerçeve ortası) ile `plateCx` (b2 merkezi)
 artık AYRI — alt/ek flanşlar ikinciye göre ortalanır.
+
+---
+
+## Kompakt (Basit) hesap raporu — dördüncü seviye (02.09.2026)
+
+Kullanıcı isteği: *"Özet, Standart ve Detaylı olarak 3 farklı hesap raporu
+oluşturuyorum. Bir de Basit hesap raporu yapmak istiyorum. Müşteri tabi basit
+olarak bilmeyecek. Daha kompakt, özet kadar az değil standart kadar da değil.
+Şemaların hiçbiri olmasın, sade kompakt bir yapıda olsun. Sayfayı yatayda ikiye
+de bölebiliriz. Hesapların tamamı, formüllerin tamamı olmasına da gerek yok."*
+
+### Ne yapıldı
+
+- `ReportLevel` dört seviye: `detayli` · `standart` · **`basit`** · `ozet`
+  (+ özel `teker_yukleri`). Menüde Standart ile Özet arasında.
+- **İç ad "Basit", dış ad "Kompakt".** Dosya adı `… - V5 - KOMPAKT.pdf`
+  (`REPORT_LEVEL_LABELS`), portal belge başlığı "Hesap Raporu · Kompakt · V3"
+  (`PORTAL_REPORT_TITLE_LABELS`), belgenin kapağı ve altbilgisi her seviyedeki
+  gibi yalnız "HESAP RAPORU". Duman testi belgenin METNİNDEN ölçer.
+- Belge: kapak → özet sayfası (teknik özellikler + ana ekipman seçimleri,
+  diğer seviyelerle aynı) → **HESAP SONUÇLARI** (tek sayfa akışı, koyu bölüm
+  bandı + iki sütunlu kartlar) → Ek (kaynaklar + KISA gizlilik metni).
+  İçindekiler, şema, formül, "Seçenekler" bloğu ve kontrol dizini yok.
+- Kart: numara + ad + `n/m UYGUN` rozeti · ürün satırı (özet sayfasıyla ortak
+  biçimleyici) · planla seçilmiş girdi/seçim/sonuç satırları · kontroller
+  (kısa ad + standart + `hesaplanan ≤ izin verilen`). Geniş kartlar (ana kiriş
+  kesiti, kaldırma kirişi, teker yükleri özet tablosu) iki sütunu kaplar.
+- Plan `src/lib/pdf/report-compact.ts` — bölüm başına anahtar listesi;
+  `report-compact.test.ts` her anahtarın adaptörde var olduğunu doğrular.
+  Planı olmayan bölüm ürün satırı + kontrollerle basılır.
+- Yerleşim: kartlar sayfaya bölünmez; yükseklik tahminiyle dengeli bloklara
+  paketlenir (`packCompactBlocks`), bölüm bandı ilk blokla taşınır.
+  V5 ölçümü: 10 sayfa (özet 2 · standart 75 · detaylı 99), doluluk ort. %88,
+  `check-pdf-layout.py` 0 sorun.
+- Bağlı yüzeyler: PDF Rapor menüsü, `report` route, vinç kimliği belge
+  seçimi (`PORTAL_REPORT_LEVELS`), el kitabı mekanik hesap eki seçeneği,
+  `scripts/test-pdf.ts --level=…`, yerleşim denetçisi ekleri.
+
+### Bilerek yapılmayanlar
+
+- "Seçenekler" (alternatif ekipman) bloğu kompakt raporda basılmaz; yalnız
+  seçilen ürün gider.
+- Bilgilendirme kontrolleri (`kind: "bilgi"`) ve onay/varlık kontrollerinin
+  sayıları basılmaz (yargı basılır).
+- Yayın arşivi (`issueRevision`) DETAYLI üretmeye devam eder; kompakt rapor
+  isteğe bağlı indirme ve portal seçimidir.

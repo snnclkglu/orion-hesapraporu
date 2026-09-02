@@ -85,6 +85,7 @@ import {
 } from "@/lib/product-portal/nameplate";
 import {
   PORTAL_FOLDER_OPTIONS,
+  PORTAL_REPORT_TITLE_LABELS,
   type CraneUnitRow,
   type CustomerPortalDto,
   type PortalDocumentSelection,
@@ -181,8 +182,14 @@ const FIELD_LABELS: Record<ProductIdentityField, string> = {
   bridgeTravelSummary: "Köprü Yürütme (hız · teker · motor)",
 };
 
+/**
+ * Yönetim seçeneğinin etiketi — İÇ ad. Belge başlığı bu sözlükten DEĞİL,
+ * müşteriye görünen `PORTAL_REPORT_TITLE_LABELS`tan kurulur: "basit" seviyesi
+ * müşteriye "Kompakt" diye gider (kullanıcı kararı, 02.09.2026).
+ */
 const REPORT_LEVEL_LABELS: Record<PortalReportLevel, string> = {
   ozet: "Özet",
+  basit: "Basit · belgede Kompakt",
   standart: "Standart",
   detayli: "Detaylı",
   teker_yukleri: "Teker Yükleri",
@@ -1051,7 +1058,7 @@ export function ProductPortalCard({
                 <div className="min-w-0">
                   <Label>Belge Türü</Label>
                   {document.sourceKind === "report" ? (
-                    <Select value={document.reportLevel ?? "detayli"} disabled={!workspace.editableRevision || !canEdit} onValueChange={(value) => { const level = value as PortalReportLevel; setDocument(document.id, { reportLevel: level, title: documentTitle(document, REPORT_LEVEL_LABELS[level]) }); }}><SelectTrigger className="mt-1 h-11 w-full"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(REPORT_LEVEL_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>
+                    <Select value={document.reportLevel ?? "detayli"} disabled={!workspace.editableRevision || !canEdit} onValueChange={(value) => { const level = value as PortalReportLevel; setDocument(document.id, { reportLevel: level, title: documentTitle(document, PORTAL_REPORT_TITLE_LABELS[level]) }); }}><SelectTrigger className="mt-1 h-11 w-full"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(REPORT_LEVEL_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>
                   ) : document.sourceKind === "equipment" ? (
                     <Select value={document.equipmentDetail ?? "standart"} disabled={!workspace.editableRevision || !canEdit} onValueChange={(value) => { const detail = value as PortalEquipmentDetail; setDocument(document.id, { equipmentDetail: detail, title: documentTitle(document, detail === "detayli" ? "Detaylı" : "Standart") }); }}><SelectTrigger className="mt-1 h-11 w-full"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(EQUIPMENT_DETAIL_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>
                   ) : <div className="mt-1 flex h-11 items-center border bg-muted/30 px-3 text-xs text-muted-foreground">Kaynak dosya</div>}

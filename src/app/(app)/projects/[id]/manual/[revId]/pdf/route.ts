@@ -312,7 +312,7 @@ export async function GET(
 async function raporUret(
   supabase: Awaited<ReturnType<typeof createClient>>,
   projectId: string,
-  level: "ozet" | "standart" | "detayli"
+  level: "ozet" | "basit" | "standart" | "detayli"
 ): Promise<Uint8Array> {
   const bos = new Uint8Array(0);
   const { data: proje } = await supabase
@@ -387,7 +387,7 @@ async function raporUret(
  * Ekin baytları.
  *
  * `option` KAPSAM PAKETİNİN verdiği biçim ayarıdır (KITAP-20):
- *   `mekanikHesap`    → rapor seviyesi (`ozet` · `standart` · `detayli`)
+ *   `mekanikHesap`    → rapor seviyesi (`ozet` · `basit` · `standart` · `detayli`)
  *   `elektrikKatalog` → ürün başına teknik föy sayısı
  * Öteki eklerde karşılığı yoktur ve yok sayılır.
  */
@@ -512,10 +512,11 @@ async function ekBaytlari(
     // SEVİYE BAŞINA AYRI ARŞİV ÜRETİLMEZ: depoyu üçe katlar ve arşiv
     // sözleşmesi hesap raporuna aittir, el kitabına değil. Bedel birkaç
     // saniyedir ve YALNIZ TAM SÜRÜM indirilirken ödenir (`maxDuration = 300`).
-    const seviye = (["ozet", "standart", "detayli"] as const).includes(
-      option as "ozet" | "standart" | "detayli"
+    // "basit" (müşteride KOMPAKT) da talep anında üretilir — arşivde yoktur.
+    const seviye = (["ozet", "basit", "standart", "detayli"] as const).includes(
+      option as "ozet" | "basit" | "standart" | "detayli"
     )
-      ? (option as "ozet" | "standart" | "detayli")
+      ? (option as "ozet" | "basit" | "standart" | "detayli")
       : "detayli";
 
     if (seviye === "detayli") {

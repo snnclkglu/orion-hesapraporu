@@ -290,7 +290,9 @@ def has_module_sections(doc) -> bool:
 
     ÖZET rapor kapak + özetten ibarettir ve İÇİNDEKİLER TAŞIMAZ (kullanıcı
     kararı, 12.08.2026): iki sayfalık bir belgede dizin, gösterdiği içerikten
-    uzun olurdu. Bu ayrım DOSYA ADINDAN değil belgenin kendisinden okunur —
+    uzun olurdu. KOMPAKT (basit) rapor da içindekiler taşımaz: hesap bölümleri
+    tek sayfa akışında, "BÖLÜM nn" antetsiz kartlarla basılır — bu yüzden bu
+    kapı onu da içindekilersiz sayar. Bu ayrım DOSYA ADINDAN değil belgenin kendisinden okunur —
     denetçi `.test-output/` dışındaki bir rapora da doğrulanmış girdi gibi
     bakabilmelidir. Kicker mono ve harf aralıklı dizildiği için (`letterSpacing`)
     metin boşluklarından arındırılarak aranır: "B Ö L Ü M 0 2" → "BÖLÜM02".
@@ -406,7 +408,7 @@ def print_findings(path: str, f: Findings, verbose: bool) -> None:
 # ve elle üretilmiş eski denemelerin PDF'leri de durur; onları hesap raporu
 # ölçütleriyle denetlemek yanıltıcı sayı üretir. Dosya adı açıkça verilirse
 # ek gözetilmez.
-REPORT_SUFFIXES = ("-detayli.pdf", "-standart.pdf", "-ozet.pdf")
+REPORT_SUFFIXES = ("-detayli.pdf", "-standart.pdf", "-basit.pdf", "-ozet.pdf")
 
 
 def collect_pdfs(targets: list[str], every: bool = False) -> list[str]:

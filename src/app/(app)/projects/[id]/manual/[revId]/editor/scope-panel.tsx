@@ -43,6 +43,8 @@ import { cn } from "@/lib/utils";
 /** Hesap raporu eki için seçenekler — rapor seviyeleriyle AYNI dilbilgisi. */
 const RAPOR_SEVIYELERI: { value: string; label: string }[] = [
   { value: "ozet", label: "Özet" },
+  // İç adı "Basit"; belgeye ve dosya adına "Kompakt" olarak gider.
+  { value: "basit", label: "Basit (belgede Kompakt)" },
   { value: "standart", label: "Standart" },
   { value: "detayli", label: "Detaylı" },
 ];

@@ -1,6 +1,8 @@
 // PDF rapor duman testi — V5 şablonu + sahte proje bilgisiyle raporu
-// üç seviye + özel teker yükleri kapsamında üretir.
-// Çalıştırma: npx tsx scripts/test-pdf.ts [çıktı-dizini]
+// dört seviye + özel teker yükleri kapsamında üretir.
+// Çalıştırma: npx tsx scripts/test-pdf.ts [çıktı-dizini] [--level=basit]
+//   --level=<seviye> yalnız o seviyeyi üretir (bir seviye üzerinde çalışırken
+//   99 sayfalık detaylı raporu her seferinde beklememek için).
 // Doğrular: dosya %PDF ile başlar, >20KB (detaylı), sayfa sayılarını raporlar.
 //
 // Rapor ALTERNATİFLİ (seçenekli) bir revizyonla üretilir (madde 23/25): 2.1
@@ -47,8 +49,14 @@ const ALTS: RevisionAlts = {
 };
 
 async function main() {
-  const outDir = process.argv[2] ?? path.join(process.cwd(), ".test-output");
+  const args = process.argv.slice(2);
+  const levelArg = args.find((a) => a.startsWith("--level="))?.slice("--level=".length);
+  const outDir = args.find((a) => !a.startsWith("--")) ?? path.join(process.cwd(), ".test-output");
   fs.mkdirSync(outDir, { recursive: true });
+  const levels = levelArg
+    ? REPORT_LEVELS.filter((level) => level === levelArg)
+    : REPORT_LEVELS;
+  if (levels.length === 0) throw new Error(`Bilinmeyen seviye: ${levelArg}`);
 
   const input = V5_TEMPLATE;
   const result = runCalc(input);
@@ -56,11 +64,12 @@ async function main() {
   const minSizeKb: Record<ReportLevel, number> = {
     detayli: 20,
     standart: 20,
+    basit: 15,
     ozet: 10,
     teker_yukleri: 10,
   };
 
-  for (const level of REPORT_LEVELS) {
+  for (const level of levels) {
     const buffer = await renderReportPdf({
       project: {
         // Doküman no = İŞ KALEMİ NUMARASI; belge kodu ORC-HR-0055-01-R05 olur.

@@ -1,5 +1,5 @@
 // PDF hesap raporu indirme ucu.
-// GET /projects/[id]/revisions/[revId]/report?level=detayli|standart|ozet|teker_yukleri
+// GET /projects/[id]/revisions/[revId]/report?level=detayli|standart|basit|ozet|teker_yukleri
 //   -> application/pdf (attachment)
 // Auth'lu Supabase istemcisiyle revizyon + proje + hazırlayan profili çekilir,
 // hesap sunucuda yeniden koşturulur ve rapor @react-pdf ile üretilir.

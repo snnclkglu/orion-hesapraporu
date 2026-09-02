@@ -9,7 +9,9 @@
 - `npm run dev` — dev sunucu
 - `npm test` — vitest (mühendislik doğrulama + tarihsel karşılaştırma)
 - `npm run build` — production build
-- `npx tsx scripts/test-pdf.ts` — PDF raporu üç seviyede üret (duman testi)
+- `npx tsx scripts/test-pdf.ts [dizin] [--level=basit]` — PDF raporu dört
+  seviyede + teker yükleri kapsamında üret (duman testi); `--level` yalnız o
+  seviyeyi üretir. Ardından `python scripts/check-pdf-layout.py` yerleşimi ölçer
 - `npx tsx scripts/test-equipment.ts` — ekipman listesi duman testi
 - `npx tsx scripts/test-offer-pdf.ts` — TEKLİF belgesini ÜÇ fikstürle üret ve
   `unpdf` ile GERİ OKU: sade (tek kalem) · **gizlemeli** (bir satır, bir grup ve

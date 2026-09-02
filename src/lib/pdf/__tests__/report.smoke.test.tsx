@@ -21,6 +21,7 @@ import {
   type ReportLevel,
   type ReportProps,
 } from "@/lib/pdf/report";
+import { REPORT_LEVEL_LABELS, docCode, downloadFileName } from "@/lib/pdf/doc-naming";
 
 const input = V5_TEMPLATE;
 const result = runCalc(input);
@@ -260,7 +261,7 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
   }, 300_000);
 
   it("mülkiyet ve gizlilik satırını kapakta değil bütün iç sayfalarda tekrarlar", async () => {
-    for (const level of ["ozet", "standart", "detayli"] as const) {
+    for (const level of ["ozet", "basit", "standart", "detayli"] as const) {
       const { pages } = await pagesOf(await atLevel(level));
       const notice = "ORİON VİNÇ SAN. TİC. LTD. ŞTİ. MÜLKİYETİDİR";
       expect(pages[0], `${level}: kapak`).not.toContain(notice);
@@ -293,11 +294,63 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
   it("kontrol özeti yalnız DETAYLI raporda basılır", async () => {
     const detayli = await pagesOf(await atLevel("detayli"));
     const standart = await pagesOf(await atLevel("standart"));
+    const basit = await pagesOf(await atLevel("basit"));
     const ozet = await pagesOf(await atLevel("ozet"));
 
     expect(detayli.squeezed).toContain("KONTROLÖZETİ");
     expect(standart.squeezed).not.toContain("KONTROLÖZETİ");
+    expect(basit.squeezed).not.toContain("KONTROLÖZETİ");
     expect(ozet.squeezed).not.toContain("KONTROLÖZETİ");
+  }, 300_000);
+
+  // ---- kullanıcı kararı, 02.09.2026: Özet ile Standart arasında KOMPAKT seviye
+  it("kompakt (basit) rapor: özet + iki sütunlu hesap sonuçları; içindekiler, şema ve formül yok", async () => {
+    const buffer = await atLevel("basit");
+    const outDir = path.join(process.cwd(), ".smoke");
+    fs.mkdirSync(outDir, { recursive: true });
+    fs.writeFileSync(path.join(outDir, "report-compact.pdf"), buffer);
+    const basit = await pagesOf(buffer);
+    const standart = await pagesOf(await atLevel("standart"));
+    const ozet = await pagesOf(await atLevel("ozet"));
+
+    // Kapak + özet sayfası + hesap sonuçları + Ek — dizin ve kontrol dizini yok
+    expect(basit.squeezed).toContain("ÖZETHESAPRAPORU");
+    expect(basit.squeezed).toContain("HESAPSONUÇLARI");
+    expect(basit.squeezed).not.toContain("İÇİNDEKİLER");
+    expect(basit.squeezed).not.toContain("KONTROLÖZETİ");
+    // Standart raporun bölüm anteti ("BÖLÜM 02") ve alt başlıkları basılmaz:
+    // kartlar formülsüz, şemasız ve "Girdiler / Katalog Seçimi" bandsızdır.
+    expect(basit.squeezed).not.toContain("BÖLÜM02");
+    expect(basit.squeezed).not.toContain("HESAPVEKONTROLLER");
+    expect(basit.squeezed).not.toContain("KATALOGSEÇİMİ");
+    expect(basit.squeezed).not.toContain("GİRDİLER/TASARIMKABULLERİ");
+    // Kart: bölüm başlığı + seçilen ekipman + kontrol kısa adı
+    expect(basit.squeezed).toContain("2.1HALAT");
+    expect(basit.squeezed).toContain("HASÇELİKØ18mm");
+    expect(basit.squeezed).toContain("Emniyetkatsayısı");
+    expect(basit.squeezed).toContain("ANAKALDIRMA");
+    // Ek: kaynaklar + KISA gizlilik metni (standartla aynı)
+    expect(basit.squeezed).toContain("KAYNAKLARVESTANDARTLAR");
+    expect(basit.all).toContain("Mülkiyet ve Gizlilik.");
+    expect(basit.all).not.toContain("Teknik bilginin kullanımı.");
+    // Kapsam: özetten uzun, standartın üçte birinden kısa
+    expect(basit.pages.length).toBeGreaterThan(ozet.pages.length);
+    expect(basit.pages.length).toBeLessThan(standart.pages.length / 3);
+  }, 300_000);
+
+  it("kompakt raporda müşteri 'basit' sözcüğünü görmez — belge, dosya adı ve kapak KOMPAKT/HESAP RAPORU der", async () => {
+    const basit = await pagesOf(await atLevel("basit"));
+    // Kapakta ve altbilgide belge adı "HESAP RAPORU"dur; seviye adı geçmez.
+    expect(basit.pages[0].replace(/\s+/g, "")).toContain("HESAPRAPORU");
+    expect(basit.pages[0]).not.toContain("BASİT");
+    expect(basit.pages[0]).not.toContain("Basit");
+    // "BASİT" bir bölüm adında geçebilir ("Basit Dinamik Tarama"); belge adı olarak geçmez.
+    expect(basit.squeezed).not.toContain("BASİTHESAP");
+    expect(basit.squeezed).not.toContain("RAPORU·BASİT");
+    expect(basit.squeezed).not.toContain("KOMPAKTHESAP");
+    // Dosya adı: müşteri KOMPAKT görür
+    const ad = downloadFileName(["Vinç", docCode("HR", "0055", 1), "V1", REPORT_LEVEL_LABELS.basit]);
+    expect(ad).toMatch(/ - KOMPAKT\.pdf$/);
   }, 300_000);
 
   it("özet rapor içindekiler, Ek ve gizlilik koşulları taşımaz", async () => {
@@ -375,7 +428,7 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
 
   // ---- kullanıcı kararı: "Ek ve bu yazı 1 sayfayı geçmesin"
   it("Ek ile gizlilik koşulları TEK sayfaya sığar ve belgenin son sayfasıdır", async () => {
-    for (const level of ["detayli", "standart"] as const) {
+    for (const level of ["detayli", "standart", "basit"] as const) {
       const { pages } = await pagesOf(await atLevel(level));
       const son = pages.length - 1;
       const squeezedPage = (i: number) => pages[i].replace(/\s+/g, "");

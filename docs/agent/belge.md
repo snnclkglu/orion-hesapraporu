@@ -72,19 +72,51 @@ Marka altyapısı `pdf/brand.tsx`tedir ve TÜM belgeler onu paylaşır:
   belgelere yaymak AYRI bir karardır ve yerleşim denetçilerini birlikte
   götürür.
 
-### Hesap raporunun üç seviyesi ve özel teker yükleri çıktısı
+### Hesap raporunun dört seviyesi ve özel teker yükleri çıktısı
 
 `ReportLevel` yalnız ayrıntı düzeyi değil BÖLÜM KAPSAMI da seçer (kullanıcı
-kararı, 12.08.2026):
+kararı, 12.08.2026; dördüncü seviye 02.09.2026):
 
-| | Özet | Standart | Detaylı |
-|---|---|---|---|
-| Kapak + Özet bölümü | ✓ | ✓ | ✓ |
-| İçindekiler | — | ✓ | ✓ |
-| Hesap bölümleri | — | ✓ (yalnız sonuç) | ✓ (formüllerle) |
-| Kontrol Özeti | — | — | ✓ |
-| Ek — Kaynaklar | — | ✓ | ✓ |
-| Gizlilik koşulları | — | KISA | TAM |
+| | Özet | Basit (Kompakt) | Standart | Detaylı |
+|---|---|---|---|---|
+| Kapak + Özet bölümü | ✓ | ✓ | ✓ | ✓ |
+| İçindekiler | — | — | ✓ | ✓ |
+| Hesap bölümleri | — | ✓ (iki sütunlu KART; planlı satırlar) | ✓ (yalnız sonuç) | ✓ (formüllerle) |
+| Şemalar | — | — | ✓ | ✓ |
+| Kontrol Özeti | — | — | — | ✓ |
+| Ek — Kaynaklar | — | ✓ | ✓ | ✓ |
+| Gizlilik koşulları | — | KISA | KISA | TAM |
+
+**BASİT SEVİYE MÜŞTERİYE "KOMPAKT" DİYE GİDER** (kullanıcı kararı, 02.09.2026:
+*"Müşteri tabi basit olarak bilmeyecek."*). Uygulama içinde — PDF Rapor
+menüsü, vinç kimliği belge seçimi, el kitabı ek ayarı — seviyenin adı
+"Basit"tir; dosya adı (`REPORT_LEVEL_LABELS.basit = "Kompakt"`), portal belge
+başlığı (`PORTAL_REPORT_TITLE_LABELS`) ve belgenin kendisi "basit" sözcüğünü
+taşımaz. Kapakta ve altbilgide belge adı her seviyede olduğu gibi **HESAP
+RAPORU**dur; seviye adı belgeye hiç yazılmaz.
+
+**KOMPAKT RAPORUN HESAP SAYFALARI TEK AKIŞTIR, İKİ SÜTUNDUR.** Bütün modüller
+tek `BrandPage`de ("HESAP SONUÇLARI" anteti) art arda akar; her modül koyu
+bölüm bandıyla (`SectionTag`, `12/13 UYGUN` sayacıyla) başlar ve alt bölümleri
+yarım sütunluk KARTLARDIR: numara + ad + uygunluk rozeti, ürün satırı (özet
+sayfasındaki "Ana Ekipman Seçimleri" satırının KENDİSİ — iki yerde iki ayrı
+biçimleyici aynı motoru farklı yazardı), planla seçilmiş girdi/seçim/sonuç
+satırları ve kontroller (`✓ Tork kapasitesi · CMAA 70 … 22,07 kNm ≤ 22 kNm`).
+Hangi satırın basılacağı `pdf/report-compact.ts`teki PLANDAN gelir — genel bir
+kural rastgele sonuç üretiyordu; seçim mühendislik yargısıdır ve
+`report-compact.test.ts` her anahtarın adaptörde var olduğunu doğrular.
+Planı olmayan bölüm ürün satırı + kontrollerle basılır. Bilgilendirme
+(`kind: "bilgi"`) kontrolleri ve onay/varlık kontrollerinin sayıları basılmaz.
+
+**KARTLAR SAYFAYA BÖLÜNMEZ, BLOKLAR HÂLİNDE TAŞINIR.** react-pdf satır yönlü bir
+kabı sayfa sınırında bölemez; iki uzun sütunu yan yana akıtmak bu yüzden
+yasaktır. Kartlar yükseklik TAHMİNİYLE (`estimateCompactCardHeight`) küçük
+bloklara paketlenir (`packCompactBlocks`: dengeli bölme, sırayı koruyan iki
+sütun, bölüm bandıyla taşınan küçük ilk blok, geniş kart kendi bloğu) ve her
+blok `wrap={false}`tir. Tahmin bilerek üstten verilir; taşmayı
+`check-pdf-layout.py` ölçer. Sayfa doluluğu V5'te ortalama %88 (ölçüldü,
+02.09.2026); bir bloğun sığmadığı sayfa dibinde en çok bir blok kadar boşluk
+kalır ve bu kabul edilmiş bedeldir.
 
 **TEKER YÜKLERİ**, bu üç seviyeden birinin yeni adı değildir; müşterinin hesap
 öncesinde yalnız ray yüklerini istediği durumlar için PDF Rapor menüsünün EN
@@ -115,11 +147,12 @@ BEYANdır: sözcükleri kullanıcı yazmıştır ve düzenlenmez; standart rapor
 sürümü hiçbir koşulu GEVŞETMEZ, aynı koşulları daha az sözcükle söyler. Hukukî
 metinde ticari ad değil TÜZEL KİŞİ adı geçer (`LEGAL_ENTITY`).
 
-Üç kural da PDF'in METNİNDEN ölçülerek korunur
+Kurallar PDF'in METNİNDEN ölçülerek korunur
 (`__tests__/report.smoke.test.tsx` — "rapor seviyeleri" bloğu): bileşen ağacına
 bakmak, seviyenin gerçekten belgeye yansıdığını göstermez. Yerleşim denetçisi
-(`scripts/check-pdf-layout.py`) özet raporda içindekiler ARAMAZ; ayrımı dosya
-adından değil belgenin kendisinden okur (`has_module_sections`).
+(`scripts/check-pdf-layout.py`) özet ve kompakt raporda içindekiler ARAMAZ;
+ayrımı dosya adından değil belgenin kendisinden okur (`has_module_sections` —
+kompakt rapor "BÖLÜM nn" anteti basmadığı için o kapıdan geçmez).
 
 **HESAP RAPORUNUN HER İÇ YAPRAĞINDA TEK SATIRLIK BELGE UYARISI VARDIR.**
 `BrandPage.footerNotice` ile mevcut altbilgi satırının altında 4,5pt basılır;
