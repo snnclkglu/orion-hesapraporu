@@ -27,6 +27,7 @@
 import {
   CABIN_DOOR_SIZE_M,
   computeClimateLoad,
+  GLAZING,
   ROOM_DESIGN_TEMP_C,
   ROOM_DOOR_SIZE_M,
   type ClimateLoadResult,
@@ -50,6 +51,44 @@ export const DEFAULT_ROOM_PANEL_HEIGHT_MM = 1800;
 export const DEFAULT_ROOM_PANEL_DEPTH_MM = 600;
 export const DEFAULT_ROOM_DOOR_WIDTH_MM = 800;
 export const DEFAULT_ROOM_DOOR_HEIGHT_MM = 2000;
+
+/**
+ * KAPI ÖLÇÜSÜ TEK KUTUDUR (kullanıcı isteği, 02.09.2026, md. 3).
+ *
+ * Genişlik ve yükseklik ayrı iki sayı kutusuydu; ikisi de sayı olduğu için
+ * "700 × 2.100" gibi imal edilmeyen bir birleşim yazılabiliyordu. Kapı bir
+ * ÜRÜNDÜR ve boyları defterlidir; seçim tek bir listeden yapılır.
+ *
+ * Kayıtta ESKİ İKİ ALAN DA KALIR: `roomDoorSize` boşsa onlar okunur, yani
+ * yayımlanmış eski revizyonların kapı ölçüsü değişmez.
+ */
+export const ROOM_DOOR_SIZE_OPTIONS = [
+  "800x2000", "800x1900", "800x2100",
+  "700x2000", "700x1900", "700x2100",
+] as const;
+export const DEFAULT_ROOM_DOOR_SIZE = "800x2000";
+
+/** `"800x2000"` → `{ width: 800, height: 2000 }`; tanınmazsa `null`. */
+export function parseRoomDoorSize(
+  value: string | undefined
+): { widthMm: number; heightMm: number } | null {
+  const m = /^(\d{3,4})x(\d{3,4})$/.exec((value ?? "").trim());
+  if (!m) return null;
+  return { widthMm: Number(m[1]), heightMm: Number(m[2]) };
+}
+
+/**
+ * MAHALLİN TASARIM İÇ SICAKLIĞI [°C] — mahal başına ayrı (md. 2).
+ *
+ * Elektrik odasında soru elektroniğin ömrüdür (24 °C tipik tasarım noktası);
+ * kabinde ise operatörün konforudur ve bir derece aşağısı gerçek bir fark
+ * yaratır. Liste dar tutuldu: bunlar bir tercih değil, sektörün fiilen
+ * kullandığı üç-dört noktadır.
+ */
+export const ROOM_INDOOR_TEMP_OPTIONS_C = [23, 24, 25] as const;
+export const CABIN_INDOOR_TEMP_OPTIONS_C = [21, 22, 23, 24] as const;
+export const DEFAULT_ROOM_INDOOR_TEMP_C = 24;
+export const DEFAULT_CABIN_INDOOR_TEMP_C = 23;
 
 /** Bir mahallin iklimlendirme seçimi — kabin, elektrik odası ve pano ortak. */
 export interface AirConditionerPick {
@@ -98,8 +137,12 @@ export interface CabinInputs {
    * içeri alır.
    */
   cabinGlazingAreaM2: number;
-  /** Cam tipi (`GlazingKind`): tek cam / çift cam / ısıcam + reflektif. */
+  /** Cam alanı OTOMATİK: kabin ölçülerinden türetilir (bkz. `camAlaniTahmini`). */
+  cabinGlazingAreaAuto?: boolean;
+  /** Cam tipi (`GlazingKind`): tek cam / çift cam / ısıcam + reflektif / balistik. */
   cabinGlazingKind: string;
+  /** Kabinin tasarım iç sıcaklığı [°C]; boşsa `DEFAULT_CABIN_INDOOR_TEMP_C`. */
+  cabinIndoorTempC?: number;
 
   // --- Elektrik odası
   roomWidthM: number;
@@ -109,9 +152,18 @@ export interface CabinInputs {
   /** Kurulu yedek klima düzeni (`AirConditioningRedundancy`) */
   roomAcRedundancy: string;
   roomDoorCount: number;
-  /** Elektrik odası kapısının net eni ve yüksekliği [mm]. */
+  /**
+   * Elektrik odası kapısının net eni ve yüksekliği [mm].
+   *
+   * DEVRALINAN ALANLAR: bugün ölçü `roomDoorSize` tek kutusundan seçilir;
+   * bunlar yalnız o kutu boşken (eski revizyonlar) okunur.
+   */
   roomDoorWidthMm: number;
   roomDoorHeightMm: number;
+  /** Kapı net ölçüsü, tek seçim (`ROOM_DOOR_SIZE_OPTIONS`, ör. "800x2000"). */
+  roomDoorSize?: string;
+  /** Odanın tasarım iç sıcaklığı [°C]; boşsa `DEFAULT_ROOM_INDOOR_TEMP_C`. */
+  roomIndoorTempC?: number;
   /**
    * Oda içindeki panoların enleri [mm], pano sırasıyla noktalı virgül ayrımlı.
    * Adet `panelCount` alanındadır; yükseklik ve derinlik bütün panolarda ortaktır.
@@ -144,6 +196,17 @@ export interface RoomPanelLayout {
   baseHeightMm: number;
   overallHeightMm: number;
   totalWidthMm: number;
+  /**
+   * PANO DİZİSİNDEN SONRA BOYDA KALAN MESAFE [mm] = oda boyu − Σ pano eni.
+   *
+   * `walkingClearanceMm` İLE KARIŞTIRILMAZ: o, oda GENİŞLİĞİ eksi pano
+   * DERİNLİĞİdir (yan görünüşteki servis koridoru). Bu ise ÖN görünüşteki
+   * boydur ve panoların sığıp sığmadığını söyler.
+   *
+   * NEGATİF OLABİLİR ve mutlak değere çevrilmez: işaret bilginin kendisidir
+   * ("−400 mm" = 400 mm taşıyor).
+   */
+  remainingLengthMm: number;
   walkingClearanceMm: number;
   doorWidthMm: number;
   doorHeightMm: number;
@@ -213,9 +276,17 @@ export function roomPanelLayout(inp: CabinInputs): RoomPanelLayout {
     baseHeightMm: ROOM_PANEL_BASE_HEIGHT_MM,
     overallHeightMm: panelHeightMm + ROOM_PANEL_BASE_HEIGHT_MM,
     totalWidthMm: widthsMm.reduce((sum, width) => sum + width, 0),
+    remainingLengthMm:
+      positiveOr(inp.roomLengthM, 0) * 1000 -
+      widthsMm.reduce((sum, width) => sum + width, 0),
     walkingClearanceMm: positiveOr(inp.roomWidthM, 0) * 1000 - panelDepthMm,
-    doorWidthMm: positiveOr(inp.roomDoorWidthMm, DEFAULT_ROOM_DOOR_WIDTH_MM),
-    doorHeightMm: positiveOr(inp.roomDoorHeightMm, DEFAULT_ROOM_DOOR_HEIGHT_MM),
+    // TEK KUTU ÖNCE OKUNUR, eski iki alan YEDEKTİR (md. 3).
+    doorWidthMm:
+      parseRoomDoorSize(inp.roomDoorSize)?.widthMm ??
+      positiveOr(inp.roomDoorWidthMm, DEFAULT_ROOM_DOOR_WIDTH_MM),
+    doorHeightMm:
+      parseRoomDoorSize(inp.roomDoorSize)?.heightMm ??
+      positiveOr(inp.roomDoorHeightMm, DEFAULT_ROOM_DOOR_HEIGHT_MM),
   };
 }
 
@@ -229,17 +300,27 @@ export function cabinInputsForDisplay(
   cells: Record<string, number | string> | undefined
 ): CabinInputs {
   const derived = cells?.["drive.panelHeat"];
-  if (typeof derived !== "number" || !Number.isFinite(derived)) return inp;
-  // IEEE-754 artıkları (örn. 1.7280000000000002) kullanıcı girdisi gibi
-  // görünmemeli; hesap satırlarının kW hassasiyetiyle aynı çözünürlüğü kullan.
-  const displayed = Math.round(derived * 1000) / 1000;
-  const roomDiffers = inp.roomDeviceHeatAuto === true && inp.roomDeviceHeatKw !== displayed;
-  const panelDiffers = inp.panelDeviceHeatAuto === true && inp.panelDeviceHeatKw !== displayed;
-  if (!roomDiffers && !panelDiffers) return inp;
+  const displayed =
+    typeof derived === "number" && Number.isFinite(derived)
+      ? // IEEE-754 artıkları (örn. 1.7280000000000002) kullanıcı girdisi gibi
+        // görünmemeli; hesap satırlarının kW hassasiyetiyle aynı çözünürlük.
+        Math.round(derived * 1000) / 1000
+      : null;
+  const roomDiffers =
+    displayed !== null && inp.roomDeviceHeatAuto === true && inp.roomDeviceHeatKw !== displayed;
+  const panelDiffers =
+    displayed !== null && inp.panelDeviceHeatAuto === true && inp.panelDeviceHeatKw !== displayed;
+  // CAM ALANI da aynı yamadan geçer (md. 9): otomatik açıkken kutuda türetilen
+  // alan görünür, anahtar kapatılınca mühendisin kendi değeri geri gelir.
+  const cam = camAlaniTahmini(inp);
+  const camDiffers =
+    cam !== null && inp.cabinGlazingAreaAuto !== false && inp.cabinGlazingAreaM2 !== cam;
+  if (!roomDiffers && !panelDiffers && !camDiffers) return inp;
   return {
     ...inp,
-    ...(roomDiffers ? { roomDeviceHeatKw: displayed } : {}),
-    ...(panelDiffers ? { panelDeviceHeatKw: displayed } : {}),
+    ...(roomDiffers ? { roomDeviceHeatKw: displayed as number } : {}),
+    ...(panelDiffers ? { panelDeviceHeatKw: displayed as number } : {}),
+    ...(camDiffers ? { cabinGlazingAreaM2: cam as number } : {}),
   };
 }
 
@@ -306,7 +387,10 @@ export interface CabinValues {
   ambientTempMaxC: number;
   ambientRhPct: number;
   environment: InstallationEnvironment;
+  /** ELEKTRİK ODASININ tasarım iç sıcaklığı [°C] (md. 2). */
   roomDesignTempC: number;
+  /** OPERATÖR KABİNİNİN tasarım iç sıcaklığı [°C] — odadan ayrıdır. */
+  cabinDesignTempC: number;
   /** Yalıtımın ortalama sıcaklığı [°C] — λ bu sıcaklıkta okunur */
   insulationMeanTempC: number;
   /** Mahal başına iklimlendirme yükü sonucu (mahal yoksa undefined) */
@@ -388,10 +472,48 @@ function insulationKind(value: string | undefined): RoomInsulationKind {
   return value === "rockWool100" ? "rockWool100" : "rockWool50";
 }
 
-/** Cam tipini hesap çekirdeğinin beklediği türe indirger. */
+/**
+ * Cam tipini hesap çekirdeğinin beklediği türe indirger.
+ *
+ * BEYAZ LİSTE DEĞİL, DEFTERİN KENDİSİ sorulur. Eski hâli üç değeri elle
+ * sayıyordu ve yeni bir cam tipi eklendiğinde — seçeneklere ve etiketlere
+ * eklense bile — hesap SESSİZCE "double" ile koşardı (derleme hatası vermez,
+ * test yoksa fark edilmez). Artık defterde olan her tip geçer.
+ */
 function glazingKind(value: string | undefined): GlazingKind {
-  if (value === "single" || value === "reflective") return value;
-  return "double";
+  const key = (value ?? "").trim();
+  return key in GLAZING ? (key as GlazingKind) : "double";
+}
+
+/**
+ * KABİN CAM ALANI [m²] — ölçülerden türetilir (kullanıcı isteği, md. 9).
+ *
+ * Kullanıcının verdiği kabul: ÖN yüz tamamen cam, iki YAN yüzün yarısı cam;
+ * çerçeve ve kayıt payı için %80'i alınır.
+ *
+ *   A = 0,80 × yükseklik × (genişlik + uzunluk)
+ *     = 0,80 × [ (G × Y) + 2 × (U × Y) / 2 ]
+ *
+ * Bir ondalığa yuvarlanır: cam alanı 0,01 m² duyarlıkla ölçülmez ve kutuda
+ * "2,4832" görmek mühendisi yanıltır.
+ */
+/**
+ * HESABA GİREN cam alanı: otomatik açıksa türetilen, kapalıysa elle yazılan.
+ *
+ * Otomatik açıkken ölçüler eksikse türetilemez; o zaman kutudaki değer
+ * kullanılır — uydurma bir alan üretmektense mühendisin son değeri doğrudur.
+ */
+export function camAlaniEtkin(inp: CabinInputs): number {
+  if (inp.cabinGlazingAreaAuto === false) return nonNeg(inp.cabinGlazingAreaM2);
+  return camAlaniTahmini(inp) ?? nonNeg(inp.cabinGlazingAreaM2);
+}
+
+export function camAlaniTahmini(inp: CabinInputs): number | null {
+  const g = nonNeg(inp.cabinWidthM);
+  const u = nonNeg(inp.cabinLengthM);
+  const y = nonNeg(inp.cabinHeightM);
+  if (g <= 0 || u <= 0 || y <= 0) return null;
+  return Math.round(0.8 * y * (g + u) * 10) / 10;
 }
 
 export function computeCabin(
@@ -440,11 +562,14 @@ export function computeCabin(
       occupantCount: number;
       glazingAreaM2: number;
       glazingKind: GlazingKind;
-    }
+    },
+    /** Mahallin tasarım iç sıcaklığı [°C]; verilmezse çekirdeğin yedeği. */
+    roomTempC?: number
   ) => computeClimateLoad({
     widthM, lengthM, heightM,
     insulation: insulationKind(insulation),
     doorCount,
+    roomTempC,
     doorSize: cabinSpecific ? CABIN_DOOR_SIZE_M : (roomDoorSize ?? ROOM_DOOR_SIZE_M),
     glazingAreaM2: cabinSpecific?.glazingAreaM2,
     glazingKind: cabinSpecific?.glazingKind,
@@ -459,6 +584,10 @@ export function computeCabin(
 
   // Pano kayıp gücü OTOMATİK: seçilmiş motor güçlerinden türetilen sürücü
   // kayıpları. Anahtar kapalıysa mühendisin yazdığı değer geçerlidir.
+  // TASARIM İÇ SICAKLIKLARI (md. 2) — mahal başına ayrı, boşsa firma kabulü.
+  const roomIndoorTempC = positiveOr(inp.roomIndoorTempC, DEFAULT_ROOM_INDOOR_TEMP_C);
+  const cabinIndoorTempC = positiveOr(inp.cabinIndoorTempC, DEFAULT_CABIN_INDOOR_TEMP_C);
+
   const autoPanelHeat = deps.panelHeatKw;
   const roomDeviceHeatKw = inp.roomDeviceHeatAuto ? autoPanelHeat : nonNeg(inp.roomDeviceHeatKw);
   const panelDeviceHeatKw = inp.panelDeviceHeatAuto ? autoPanelHeat : nonNeg(inp.panelDeviceHeatKw);
@@ -469,16 +598,17 @@ export function computeCabin(
         undefined,
         {
           occupantCount: nonNeg(inp.cabinOccupantCount),
-          glazingAreaM2: nonNeg(inp.cabinGlazingAreaM2),
+          glazingAreaM2: camAlaniEtkin(inp),
           glazingKind: glazingKind(inp.cabinGlazingKind),
-        })
+        },
+        cabinIndoorTempC)
     : undefined;
   const roomLoad = roomPresent
     ? loadFor(inp.roomWidthM, inp.roomLengthM, inp.roomHeightM, inp.roomInsulation,
         inp.roomDoorCount, roomDeviceHeatKw, nonNeg(inp.roomRadiationKw), {
           width: panelLayout.doorWidthMm / 1000,
           height: panelLayout.doorHeightMm / 1000,
-        })
+        }, undefined, roomIndoorTempC)
     : undefined;
   // Pano yerleşiminde "mahal" panoların dizildiği hacimdir; ölçüsü ayrıca
   // sorulmaz, oda ölçüleri kullanılır ve kapı yerine PANO adedi sızıntıyı
@@ -504,6 +634,7 @@ export function computeCabin(
     set("room.panelOverallHeight", panelLayout.overallHeightMm);
     set("room.panelDepth", panelLayout.panelDepthMm);
     set("room.panelTotalWidth", panelLayout.totalWidthMm);
+    set("room.panelRemainingLength", panelLayout.remainingLengthMm);
     set("room.walkingClearance", panelLayout.walkingClearanceMm);
 
     const roomLengthMm = nonNeg(inp.roomLengthM) * 1000;
@@ -643,6 +774,30 @@ export function computeCabin(
           }
     );
 
+    // KATALOG KAPASİTESİ L35/L35'TE YAYIMLANIR (DIN 3168 / EN 14511: 35 °C
+    // ortam, 35 °C mahal içi). Yukarıdaki kontrol o sayıyı doğrudan kullanır
+    // ve ortam sıcaklığına göre DÜŞÜRMEZ; oysa ölçülmüş bir üretici verisinde
+    // L35/L35'te 0,52 kW veren ünite L35/L50'de 0,32 kW verir (%38 düşüş) —
+    // üstelik bu hesap mahalli 25 °C civarında tutuyor, yani L35'ten de zor
+    // bir noktada. Kontrolün "geçti" demesi yetmez; mühendis üreticinin
+    // kapasite eğrisine bakmalıdır.
+    //
+    // DÜŞÜRME YAPILMAZ, UYARILIR: her üreticinin eğrisi farklıdır ve tek bir
+    // düşürme katsayısı uydurmak (değişmez md. 4) yayımlanmamış bir kesinlik
+    // üretirdi.
+    if (capacityKw > 0 && ambientTempMaxC > 40) {
+      checks.push({
+        id: "cabin." + block + ".derating",
+        label:
+          label +
+          " — Katalog Kapasitesi L35/L35 Değeridir, Üretici Eğrisinden Doğrulayın",
+        required: ambientTempMaxC, provided: 40, unit: "°C", op: "<=",
+        computedSide: "required",
+        pass: true,
+        kind: "bilgi", severity: "uyari",
+      });
+    }
+
     // Işınım kalemi girilmediyse bunu SESSİZ bırakmayız: mahal çevresinde
     // doğrudan bir ısı kaynağı varsa (arada ısı kalkanı yoksa) yük ciddi
     // olabilir — ışınım görüş hattı ister, uygulama bunu bilemez.
@@ -699,7 +854,8 @@ export function computeCabin(
     ambientTempMaxC,
     ambientRhPct,
     environment,
-    roomDesignTempC: ROOM_DESIGN_TEMP_C,
+    roomDesignTempC: roomIndoorTempC,
+    cabinDesignTempC: cabinIndoorTempC,
     insulationMeanTempC: (ambientTempMaxC + ROOM_DESIGN_TEMP_C) / 2,
     cabinLoad,
     roomLoad,

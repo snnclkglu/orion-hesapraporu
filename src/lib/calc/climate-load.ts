@@ -98,18 +98,66 @@ export const OCCUPANT_LATENT_W = 55;
  */
 export const VENTILATION_PER_PERSON_LPS = 5;
 
-/** Camın ısı geçirgenliği [W/m²K] ve güneş geçirgenliği (g) — cam tipine göre. */
-export type GlazingKind = "single" | "double" | "reflective";
+/**
+ * CAM TİPİ → ısı geçirgenliği U [W/m²K] ve güneş geçirgenliği g.
+ *
+ * Değerler EN 673 (U) ve EN 410 (g) ile yayımlanmış üretici föylerindendir;
+ * 02.09.2026'da tek tek doğrulandı:
+ *   · tek cam 5–6 mm → 5,7 · g 0,87 (Pilkington Glass Handbook 2014)
+ *   · 4-12-4 kaplamasız ısıcam → 2,8 · g 0,77 (Metro Performance Glass M005)
+ *   · solar-kontrol Low-E ısıcam (hava dolgu) → 1,6 · g 0,35 (aynı föy)
+ *   · balistik lamine BR4 35 mm → 4,5 · g 0,66 (Vetrotech VETROGARD BR4-S)
+ *   · balistik + ısıcam BR4-NS Climaplus 58 mm → 1,3 · g 0,47 (aynı üretici)
+ *
+ * TEMPERLİ VE LAMİNE CAM AYRI SEÇENEK DEĞİLDİR: EN 673'e göre U yalnız
+ * kalınlığa, camın öz direncine ve yüzey yayınımına bağlıdır — ısıl işlem
+ * bunların üçünü de değiştirmez. Temperleme bir EMNİYET (EN 12600) kalemidir,
+ * ısı kalemi değil; lamine camda iyileşme yalnız toplam kalınlıktan gelir ve
+ * 6,38 mm'de tek camdan ayırt edilemez.
+ *
+ * KURŞUNGEÇİRMEZ CAM İKİ TÜRLÜDÜR ve fark hesapta 3,5 KATTIR: monolitik
+ * balistik lamine (tek katman) tek camdan yalnız biraz iyidir; ısı yalıtımı
+ * ancak balistik lamine + Low-E ısıcam birleşiminde (Climaplus) sağlanır.
+ * Ağırlıkları da uçtur: BR4 tam cam 80 kg/m², BR4-NS Climaplus 115 kg/m²
+ * (normal ısıcam ≈ 20 kg/m²) — kabin ağırlığı hesabında ayrıca sayılmalıdır.
+ */
+export type GlazingKind =
+  | "single"
+  | "double"
+  | "reflective"
+  | "ballistic"
+  | "ballisticInsulated";
 
 export const GLAZING: Record<GlazingKind, { uValue: number; solarFactor: number }> = {
   // Tek cam: paneli 13 kat aşan bir ısı köprüsü; kabinde yükün baskın kalemi.
-  single: { uValue: 5.7, solarFactor: 0.85 },
-  double: { uValue: 2.8, solarFactor: 0.75 },
+  single: { uValue: 5.7, solarFactor: 0.87 },
+  double: { uValue: 2.8, solarFactor: 0.77 },
   // Isıcam + reflektif kaplama: güneşin çoğunu dışarıda tutar.
   reflective: { uValue: 1.6, solarFactor: 0.35 },
+  // EN 1063 BR4, 35 mm monolitik balistik lamine.
+  ballistic: { uValue: 4.5, solarFactor: 0.66 },
+  // EN 1063 BR4-NS + Low-E ısıcam (Climaplus), 58 mm.
+  ballisticInsulated: { uValue: 1.3, solarFactor: 0.47 },
 };
 
-/** Mahallin tasarım iç sıcaklığı [°C] ve bağıl nemi [%] — firma kabulü. */
+/** Cam tipinin ALAN AĞIRLIĞI [kg/m²] — kabin ağırlığı hesabı için. */
+export const GLAZING_MASS_KG_M2: Record<GlazingKind, number> = {
+  single: 15,
+  double: 20,
+  reflective: 20,
+  ballistic: 80,
+  ballisticInsulated: 115,
+};
+
+/**
+ * Mahallin tasarım iç sıcaklığı [°C] ve bağıl nemi [%] — YEDEK değer.
+ *
+ * 02.09.2026'ya kadar SABİTTİ ve mahal başına ayrılamıyordu. Kullanıcı isteği
+ * (md. 2): elektrik odası ve operatör kabini için ayrı ayrı seçilebilmeli,
+ * çünkü ikisinin gereği farklıdır — odada elektronik için 24 °C yeterlidir,
+ * kabinde operatörün konforu 23 °C ister. `roomTempC` verilmezse bu değer
+ * kullanılır ve eski revizyonlar bugünkü sayılarını birebir korur.
+ */
 export const ROOM_DESIGN_TEMP_C = 25;
 export const ROOM_DESIGN_RH_PCT = 50;
 
@@ -229,6 +277,15 @@ export interface ClimateLoadInput {
   glazingKind?: GlazingKind;
   /** Mahalde bulunan kişi adedi — duyulur + gizli ısı ve temiz hava debisi. */
   occupantCount?: number;
+  /**
+   * MAHALLİN TASARIM İÇ SICAKLIĞI [°C] — verilmezse `ROOM_DESIGN_TEMP_C`.
+   *
+   * Her yüzeyin ΔT'si ayrı ayrı buna göre kurulur (duvar, tavan, taban, kapı,
+   * cam) ve yalıtım iletkenliği de ORTALAMA sıcaklıkta okunur; taze hava
+   * entalpi farkı ile yoğuşma da bu değerden çıkar. Yani bir derece, yükün
+   * her kalemini birden oynatır.
+   */
+  roomTempC?: number;
   /** Dış ortam sıcaklığı [°C] ve bağıl nemi [%] (teknik özellikler). */
   ambientTempC: number;
   ambientRhPct: number;
@@ -285,7 +342,7 @@ export function computeClimateLoad(inp: ClimateLoadInput): ClimateLoadResult {
   const w = positive(inp.widthM);
   const l = positive(inp.lengthM);
   const h = positive(inp.heightM);
-  const roomTemp = ROOM_DESIGN_TEMP_C;
+  const roomTemp = positive(inp.roomTempC) > 0 ? (inp.roomTempC as number) : ROOM_DESIGN_TEMP_C;
   const ambient = inp.ambientTempC;
 
   // --- Zarf ------------------------------------------------------------------

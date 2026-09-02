@@ -2,14 +2,20 @@
 
 // Elektrik odası — pano enleri düzenleyicisi.
 //
-// Pano adedi genel girdi ızgarasındadır. Bu bileşen adet kadar adlandırılmış
-// satır üretir; ortak yükseklik ilk pano satırından, ortak derinlik ana girdi
-// ızgarasından seçilir. Enler `roomPanelWidthsText` alanına pano sırasıyla
-// noktalı virgül ayrımlı yazılır; hesap, çizim, PDF ve ekipman listesi aynı
-// metni `roomPanelWidths` ile okur.
+// PANO ADEDİ VE ORTAK DERİNLİK ARTIK BURADADIR (kullanıcı isteği, 02.09.2026,
+// md. 7): *"Elektrik odası bölümünde pano adedi ve pano derinliği kutusuna
+// gerek yok, zaten aşağıda pano oluşturma bölümündeki toplamdan pano adedini
+// biliyoruz."* Adet zaten bu karttaki ekle/sil düğmelerinden yazılıyordu; ana
+// ızgarada ikinci bir kutu olarak durması, iki sayının ayrışmasının
+// davetiyesiydi. Derinlik de panoların tarif edildiği yere taşındı.
+//
+// Ortak yükseklik ilk pano satırından seçilir. Enler `roomPanelWidthsText`
+// alanına pano sırasıyla noktalı virgül ayrımlı yazılır; hesap, çizim, PDF ve
+// ekipman listesi aynı metni `roomPanelWidths` ile okur.
 
 import {
   ROOM_PANEL_BASE_HEIGHT_MM,
+  ROOM_PANEL_DEPTH_OPTIONS_MM,
   ROOM_PANEL_HEIGHT_OPTIONS_MM,
   ROOM_PANEL_WIDTH_OPTIONS_MM,
   roomPanelWidths,
@@ -23,6 +29,7 @@ export interface RoomPanelWidthsEditorProps {
   panelDepthMm: number;
   onChange: (next: string) => void;
   onHeightChange: (next: number) => void;
+  onDepthChange: (next: number) => void;
   onAddPanel: () => void;
   onRemovePanel: (index: number) => void;
   disabled?: boolean;
@@ -35,6 +42,7 @@ export function RoomPanelWidthsEditor({
   panelDepthMm,
   onChange,
   onHeightChange,
+  onDepthChange,
   onAddPanel,
   onRemovePanel,
   disabled,
@@ -58,8 +66,29 @@ export function RoomPanelWidthsEditor({
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* ORTAK DERİNLİK — bütün panolarda aynıdır ve yan görünüşteki
+              yürüme mesafesini belirler; panoların tarif edildiği yerde durur. */}
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            Ortak Derinlik
+            <select
+              aria-label="Ortak Pano Derinliği [mm]"
+              disabled={disabled}
+              value={panelDepthMm}
+              onChange={(event) => onDepthChange(Number(event.target.value))}
+              className={cn(
+                "oc-tap h-9 border bg-background px-2 text-right font-mono text-base tabular-nums",
+                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring pointer-fine:text-sm",
+                disabled && "opacity-60"
+              )}
+            >
+              {ROOM_PANEL_DEPTH_OPTIONS_MM.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+            <span className="font-mono text-[11px]">mm</span>
+          </label>
           <p className="font-mono text-xs tabular-nums text-muted-foreground">
-            Toplam {totalWidth.toLocaleString("tr-TR")} mm
+            {panelCount} pano · Toplam {totalWidth.toLocaleString("tr-TR")} mm
           </p>
           <button
             type="button"

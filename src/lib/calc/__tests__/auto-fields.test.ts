@@ -30,6 +30,7 @@ import {
   travelGearboxServiceFactor,
 } from "../derive";
 import {
+  CABIN_AUTO_FIELDS,
   GIRDER_AUTO_FIELDS,
   HOIST_AUTO_FIELDS,
   HOIST_AUTO_SELECTION_FIELDS,
@@ -585,6 +586,10 @@ describe("AUTO_FLAGS koruması", () => {
     ["girder", GIRDER_AUTO_FIELDS],
     ["wheelLoads", WHEELLOAD_AUTO_FIELDS],
     ["wheelLoads", WHEELLOAD_AUTO_SELECTION_FIELDS],
+    // KABİN LİSTEDE YOKTU (02.09.2026'da bulundu): üç bayrağı da `AUTO_FLAGS`
+    // taşımıyordu, yani eski bir kayıtta mühendisin elle girdiği pano kayıp
+    // gücü ilk açılışta SESSİZCE eziliyordu. Bu satır boşluğu kalıcı kapatır.
+    ["cabin", CABIN_AUTO_FIELDS],
   ];
 
   for (const [field, map] of CASES) {

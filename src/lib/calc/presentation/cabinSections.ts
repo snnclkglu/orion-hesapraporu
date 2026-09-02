@@ -20,6 +20,7 @@ import {
   type CabinValues,
 } from "../modules/cabin";
 import { GLAZING_KIND_LABELS } from "./cabinFields";
+import { ELEKTRIK_ODASI_NOTU, OPERATOR_KABINI_NOTU } from "./cabinNotes";
 import type { TechnicalSpecs } from "../types";
 
 export interface CabinCtx {
@@ -57,6 +58,13 @@ export interface CabinSectionDef {
   rows: CabinRowDef[];
   /** Elektrik odasındaki pano enlerini satır satır seçen özel düzenleyici. */
   editor?: "roomPanels";
+  /**
+   * «Girdiler / Tasarım Kabulleri» başlığının yanındaki bilgi notu (md. 6, 14).
+   *
+   * Bölümün HESABI nasıl yapıyor sorusunun cevabıdır; alan başına notlardan
+   * (`FieldDef.info`) farkı, tek tek girdileri değil YÖNTEMİ anlatmasıdır.
+   */
+  inputsInfo?: string;
   /** Cihaz atık ısısı gibi değişken satır sayılı mühendislik dökümleri. */
   table?: CabinTableDef;
   /** "cabin." öneki hariç kontrol id sonekleri */
@@ -137,7 +145,9 @@ function climateRows(block: "cabinAc" | "roomAc" | "panelAc"): CabinRowDef[] {
     },
     {
       key: `${block}.calculated`, label: "Hesaplanan Isı Kazancı",
-      formula: "iletim + güneş + ışınım + cihaz + taze hava",
+      // OPERATÖR SATIRDA DA YAZILIR: kod onu topluyordu ama formül metni
+      // saymıyordu; kabin raporunda satırlar elle toplanınca tutmuyordu.
+      formula: "iletim + güneş + ışınım + cihaz + operatör + taze hava",
       unit: "kW", digits: 2,
     },
     {
@@ -186,9 +196,11 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
       "sıcaklığında okunur. Nihai kapasite üreticinin proje bazlı teyidine " +
       "tabidir.",
     visible: (specs) => hasOperatorCabin(specs),
+    inputsInfo: OPERATOR_KABINI_NOTU,
     equipmentSlugs: ["operator-cabin", "cabinAc"],
     inputKeys: [
       "cabinWidthM", "cabinLengthM", "cabinHeightM", "cabinInsulation",
+      "cabinIndoorTempC",
       "cabinDoorCount", "cabinGlazingAreaM2", "cabinGlazingKind",
       "cabinOccupantCount", "cabinDeviceHeatKw", "cabinRadiationKw",
     ],
@@ -236,7 +248,8 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
       ...climateRows("cabinAc"),
     ],
     checkSuffixes: [
-      "cabinAc.selected", "cabinAc.ambient", "cabinAc.capacity", "cabinAc.radiationScope",
+      "cabinAc.selected", "cabinAc.ambient", "cabinAc.capacity",
+      "cabinAc.derating", "cabinAc.radiationScope",
     ],
   },
   {
@@ -249,11 +262,17 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
       "sorulmaz. Kurulu yedekte kapasite kontrolü TEK üniteye göre yapılır — " +
       "ikincisi yedektir, yükü paylaşmaz.",
     visible: (specs) => hasElectricalRoom(specs),
+    inputsInfo: ELEKTRIK_ODASI_NOTU,
     equipmentSlugs: ["electrical-room", "roomAc"],
     inputKeys: [
+      // PANO ADEDİ VE DERİNLİĞİ BU IZGARADA YOK (kullanıcı isteği, md. 7):
+      // adet aşağıdaki pano oluşturma kartından türer (ekle/sil düğmeleri
+      // `panelCount`u zaten yazar), derinlik de o kartta seçilir. İki sayıyı
+      // iki ayrı yerde sormak, ikisinin ayrışmasının davetiyesiydi.
       "roomWidthM", "roomLengthM", "roomHeightM", "roomInsulation",
-      "roomDoorCount", "roomDoorWidthMm", "roomDoorHeightMm",
-      "panelCount", "roomPanelHeightMm", "roomPanelDepthMm",
+      "roomIndoorTempC",
+      "roomDoorCount", "roomDoorSize",
+      "roomPanelHeightMm",
       "roomDeviceHeatKw", "roomRadiationKw", "roomAcRedundancy",
     ],
     editor: "roomPanels",
@@ -310,6 +329,14 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
         unit: "mm", digits: 0,
       },
       {
+        key: "room.panelRemainingLength",
+        label: "Pano Dizisi Sonrası Boyda Kalan Mesafe",
+        formula: "L_kalan = L_oda − Σ pano enleri",
+        subst: (x) =>
+          `${n(x.inp.roomLengthM * 1000, 0)} − ${n(x.v.roomPanelLayout.totalWidthMm, 0)}`,
+        unit: "mm", digits: 0,
+      },
+      {
         key: "room.walkingClearance", label: "Pano Önü Kalan Yürüme Mesafesi",
         formula: "B_yürüme = B_oda − D_pano",
         subst: (x) => `${n(x.inp.roomWidthM * 1000, 0)} − ${n(x.v.roomPanelLayout.panelDepthMm, 0)}`,
@@ -352,7 +379,8 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
     },
     checkSuffixes: [
       "room.panelWidthFit", "room.panelHeightFit", "room.panelDepthFit",
-      "roomAc.selected", "roomAc.ambient", "roomAc.capacity", "roomAc.radiationScope",
+      "roomAc.selected", "roomAc.ambient", "roomAc.capacity",
+      "roomAc.derating", "roomAc.radiationScope",
     ],
   },
   {
@@ -389,7 +417,8 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
       ...climateRows("panelAc"),
     ],
     checkSuffixes: [
-      "panelAc.selected", "panelAc.ambient", "panelAc.capacity", "panelAc.radiationScope",
+      "panelAc.selected", "panelAc.ambient", "panelAc.capacity",
+      "panelAc.derating", "panelAc.radiationScope",
     ],
   },
 ];

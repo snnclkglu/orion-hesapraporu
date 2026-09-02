@@ -175,6 +175,8 @@ export function diagramForSection(
           insulationMm: mm(inp.cabinInsulation),
           doorCount: inp.cabinDoorCount,
           occupantCount: inp.cabinOccupantCount,
+          // KABİNİN KENDİ tasarım sıcaklığı — odanınkiyle aynı değildir (md. 2).
+          roomTempC: v.cabinDesignTempC,
         });
       }
       if (rawSectionId === "11.2" && v.roomLoad) {
@@ -194,6 +196,10 @@ export function diagramForSection(
           panelHeightMm: v.roomPanelLayout.panelHeightMm,
           panelDepthMm: v.roomPanelLayout.panelDepthMm,
           panelBaseHeightMm: v.roomPanelLayout.baseHeightMm,
+          // Kalan mesafe ÇİZİMDEN DEĞİL HESAPTAN gelir: panolar sığmadığında
+          // şema onları ölçekleyerek sığdırılmış gibi gösterir (scale < 1) ve
+          // çizimden okunan boşluk yalan söyler.
+          remainingLengthMm: v.roomPanelLayout.remainingLengthMm,
         });
       }
       if (rawSectionId === "11.3" && v.panelLoad) {

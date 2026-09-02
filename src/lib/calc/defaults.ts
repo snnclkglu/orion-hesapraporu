@@ -14,7 +14,10 @@ import { ROPE_POSITION_AUTO, type HoistInputs, type HoistSelections } from "./mo
 import type { TechnicalSpecs } from "./types";
 import {
   DEFAULT_ROOM_DOOR_HEIGHT_MM,
+  DEFAULT_CABIN_INDOOR_TEMP_C,
+  DEFAULT_ROOM_DOOR_SIZE,
   DEFAULT_ROOM_DOOR_WIDTH_MM,
+  DEFAULT_ROOM_INDOOR_TEMP_C,
   DEFAULT_ROOM_PANEL_DEPTH_MM,
   DEFAULT_ROOM_PANEL_HEIGHT_MM,
   DEFAULT_ROOM_PANEL_WIDTH_MM,
@@ -271,13 +274,20 @@ export const DEFAULT_CABIN_INPUTS: CabinInputs = {
   cabinHeightM: 2.4,
   cabinInsulation: "rockWool50",
   cabinDoorCount: 1,
-  // Kumanda masası, ekranlar, aydınlatma ve operatör — küçük ve sabit.
+  // Kumanda masası, ekranlar, aydınlatma ve kabin donanımı — küçük ve
+  // sabit. OPERATÖR DÂHİL DEĞİLDİR: o ayrıca `occupantKw` olarak toplanır
+  // (metin 02.09.2026'ya kadar "ve operatör" diyordu ve mühendisi 130 W'ı
+  // ikinci kez yazmaya davet ediyordu).
   cabinDeviceHeatKw: 0.3,
   cabinRadiationKw: 0,
   cabinOccupantCount: 1,
-  // Ön ve yan cam — kumanda kabininde tipik görüş alanı.
+  // Ön ve yan cam — kumanda kabininde tipik görüş alanı. Otomatik açıkken
+  // değer kabin ölçülerinden türetilir; bu sayı yalnız anahtar kapatılınca
+  // ya da ölçüler eksikken görünür.
   cabinGlazingAreaM2: 2.5,
+  cabinGlazingAreaAuto: true,
   cabinGlazingKind: "double",
+  cabinIndoorTempC: DEFAULT_CABIN_INDOOR_TEMP_C,
   roomWidthM: 3,
   roomLengthM: 4,
   roomHeightM: 2.6,
@@ -286,6 +296,8 @@ export const DEFAULT_CABIN_INPUTS: CabinInputs = {
   roomDoorCount: 1,
   roomDoorWidthMm: DEFAULT_ROOM_DOOR_WIDTH_MM,
   roomDoorHeightMm: DEFAULT_ROOM_DOOR_HEIGHT_MM,
+  roomDoorSize: DEFAULT_ROOM_DOOR_SIZE,
+  roomIndoorTempC: DEFAULT_ROOM_INDOOR_TEMP_C,
   roomPanelWidthsText: String(DEFAULT_ROOM_PANEL_WIDTH_MM),
   roomPanelHeightMm: DEFAULT_ROOM_PANEL_HEIGHT_MM,
   roomPanelDepthMm: DEFAULT_ROOM_PANEL_DEPTH_MM,

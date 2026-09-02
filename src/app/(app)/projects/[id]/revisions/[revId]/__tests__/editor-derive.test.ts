@@ -644,19 +644,31 @@ describe("elektrik odası pano yerleşimi sunumu", () => {
   const section = MODULE_ADAPTERS.find((a) => a.key === "cabin")!
     .sections.find((s) => s.rawId === "11.2")!;
 
-  it("pano adedi, ortak ölçüler ve kapı ölçülerini aynı bölümde sorar", () => {
-    expect(section.inputDefs.map((field) => field.key)).toEqual(expect.arrayContaining([
-      "roomDoorWidthMm", "roomDoorHeightMm", "panelCount",
-      "roomPanelHeightMm", "roomPanelDepthMm",
+  it("kapı ölçüsünü TEK KUTUDAN, iç sıcaklığı listeden sorar", () => {
+    // 02.09.2026, md. 3 ve md. 2: genişlik/yükseklik iki ayrı sayı kutusuydu
+    // ve imal edilmeyen birleşimler yazılabiliyordu; iç sıcaklık ise hiç
+    // sorulmuyordu (kodda sabit 25 °C idi).
+    const keys = section.inputDefs.map((field) => field.key);
+    expect(keys).toEqual(expect.arrayContaining([
+      "roomDoorSize", "roomIndoorTempC", "roomPanelHeightMm",
     ]));
+    expect(keys).not.toContain("roomDoorWidthMm");
+    expect(keys).not.toContain("roomDoorHeightMm");
     expect(section.editor).toBe("roomPanels");
   });
 
-  it("ortak pano yüksekliği ve derinliği yalnız standart dropdown seçeneklerini taşır", () => {
+  it("PANO ADEDİ VE DERİNLİĞİ ana ızgarada SORULMAZ (md. 7)", () => {
+    // İkisi de aşağıdaki pano oluşturma kartından gelir: adet ekle/sil
+    // düğmelerinden, derinlik o kartın kendi seçim kutusundan. Ana ızgarada
+    // ikinci bir kutu, iki sayının ayrışmasının davetiyesiydi.
+    const keys = section.inputDefs.map((field) => field.key);
+    expect(keys).not.toContain("panelCount");
+    expect(keys).not.toContain("roomPanelDepthMm");
+  });
+
+  it("ortak pano yüksekliği yalnız standart dropdown seçeneklerini taşır", () => {
     expect(section.inputDefs.find((field) => field.key === "roomPanelHeightMm")?.options)
       .toEqual(["1400", "1600", "1800", "2000"]);
-    expect(section.inputDefs.find((field) => field.key === "roomPanelDepthMm")?.options)
-      .toEqual(["400", "600", "700"]);
   });
 
   it("cihaz atık ısısı döküm tablosunu hesap raporuyla paylaşır", () => {

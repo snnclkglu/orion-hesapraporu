@@ -1592,6 +1592,9 @@ export const TRAVEL_AUTO_SELECTION_FIELDS: Record<string, string> = {
 export const CABIN_AUTO_FIELDS: Record<string, string> = {
   roomDeviceHeatKw: "roomDeviceHeatAuto",
   panelDeviceHeatKw: "panelDeviceHeatAuto",
+  // Cam alanı kabin ölçülerinden türetilir (02.09.2026, md. 9); anahtar
+  // kapatılınca mühendis kendi ölçüsünü yazar.
+  cabinGlazingAreaM2: "cabinGlazingAreaAuto",
 };
 
 export const GIRDER_AUTO_FIELDS: Record<string, string> = {

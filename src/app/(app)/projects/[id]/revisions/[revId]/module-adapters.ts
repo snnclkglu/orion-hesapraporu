@@ -325,6 +325,12 @@ export interface AdapterSection {
    * çizer (teker düzeni ölçü zinciri). PDF tarafı bu alanı yok sayar.
    */
   editor?: "wheelSpacing" | "festoon" | "sheaveOffsets" | "roomPanels";
+  /**
+   * «Girdiler / Tasarım Kabulleri» başlığının yanındaki bilgi notu — bölümün
+   * HESABINI anlatır (alan başına notlardan farkı budur). PDF tarafı bu alanı
+   * yok sayar: rapor zaten formül satırlarını basıyor.
+   */
+  inputsInfo?: string;
   /** Bölüm başlığında gösterilen ve uygunluk kontrolünü besleyen ölçü onayı. */
   confirmation?: {
     inputKey: string;
@@ -1256,6 +1262,7 @@ function cabinAdapter(): ModuleAdapter {
         selectionDefs: defs(s.selectionKeys, CABIN_SELECTION_MAP),
         selectionKeys: s.selectionKeys,
         editor: s.editor,
+        inputsInfo: s.inputsInfo,
         checkSuffixes: s.checkSuffixes,
         table: table
           ? {

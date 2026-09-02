@@ -587,6 +587,12 @@ const AUTO_FLAGS = [
   "balanceBearingBrandAuto",
   "sheaveBearingBrandAuto",
   "hookBearingBrandAuto",
+  // KABİN — bu üçü listede YOKTU (02.09.2026'da bulundu). Bayrak kayıtta
+  // bulunmayan eski bir revizyonda şablondaki `true` miras kalıyor ve
+  // mühendisin elle girdiği pano kayıp gücü ilk açılışta SESSİZCE eziliyordu.
+  "roomDeviceHeatAuto",
+  "panelDeviceHeatAuto",
+  "cabinGlazingAreaAuto",
 ] as const;
 
 function keepManualValues<T extends object>(stored: T | null | undefined, merged: T): T {
@@ -945,7 +951,9 @@ export function migrateFestoon(
  */
 export function migrateCabin(
   specs: TechnicalSpecs,
-  merged: { inputs: object; selections?: object }
+  merged: { inputs: object; selections?: object },
+  /** Kayıttaki HAM girdi — hangi alanın gerçekten yazılı olduğunu söyler. */
+  stored?: object | null
 ): { inputs: object; selections?: object } {
   const legacy = specs as unknown as Record<string, unknown>;
   const inputs = merged.inputs as Record<string, unknown>;
@@ -976,6 +984,18 @@ export function migrateCabin(
   carryNum("electricalPanelCount", "panelCount");
   carryText("electricalPanelIpClass", "panelIpClass");
   carryText("electricalPanelAirConditioningRedundancy", "panelAcRedundancy");
+
+  // KAPI ÖLÇÜSÜ TEK KUTUYA TAŞINDI (02.09.2026, md. 3) ve şablonun varsayılanı
+  // "800x2000"dir. Eski bir kayıtta bu alan YOKTUR; `withDefaults` şablonun
+  // varsayılanını miras verir ve `roomPanelLayout` tek kutuyu ÖNCE okuduğu
+  // için mühendisin yazdığı 700 × 2.100 SESSİZCE 800 × 2.000 olurdu.
+  // Alan kayıtta yoksa iki sayısal alandan yeniden kurulur.
+  const kayit = (stored ?? {}) as Record<string, unknown>;
+  if (!("roomDoorSize" in kayit)) {
+    const g = num(next.roomDoorWidthMm);
+    const y = num(next.roomDoorHeightMm);
+    next.roomDoorSize = g !== undefined && y !== undefined ? `${g}x${y}` : undefined;
+  }
 
   return { ...merged, inputs: next };
 }
@@ -1084,7 +1104,7 @@ function fullInput(
       }
     }
     target[field] = key === "cabin"
-      ? migrateCabin(out.specs, merged)
+      ? migrateCabin(out.specs, merged, storedModuleInputs)
       : migrateFestoon(key, out.specs, merged);
   }
   return out;

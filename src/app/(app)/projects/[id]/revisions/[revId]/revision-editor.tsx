@@ -23,6 +23,7 @@ import { activeModules, runCalc, type CalcInput } from "@/lib/calc/engine";
 import { hoistSpecView } from "@/lib/calc/modules/hoistGroup";
 import { commonReevingByLabel } from "@/lib/calc/reeving";
 import {
+  DIAMETER_SIGN,
   SPEC_FIELDS,
   SPEC_GROUPS,
   fieldLabel,
@@ -30,6 +31,7 @@ import {
   specGroupVisibleForModules,
 } from "@/lib/calc/fields";
 import { travelApplicationClass } from "@/lib/calc/derive";
+import { FEM_GROUP_BY_ISO_CLASS, mechanismClassText } from "@/lib/calc/mechanism-class";
 import { drumBrakeSpec, drumBrakeWeightText } from "@/lib/calc/drum-brake";
 import { travelBufferCatalogTypes, travelSpecView } from "@/lib/calc/modules/travelGroup";
 import { parseHoistLoadClass } from "@/lib/calc/types";
@@ -71,6 +73,7 @@ import type { WheelLoadInputs } from "@/lib/calc/modules/wheelLoads";
 import {
   addRoomPanel,
   cabinInputsForDisplay,
+  camAlaniTahmini,
   removeRoomPanel,
   type CabinInputs,
 } from "@/lib/calc/modules/cabin";
@@ -2093,7 +2096,104 @@ export function RevisionEditor({
     );
   }
 
+  /**
+   * KÜNYE ŞERİDİ — vincin on sayısı, TERİM ADI OLMADAN, yan yana.
+   *
+   * Kullanıcı isteği (02.09.2026, md. 1): *"Teknik özellikler başlığı altında
+   * yazan açıklama yerine … bilgilerini terim başlıkları olmadan kalın
+   * harflerle yan yana yaz. Hızlıca girişte görebilmemiz iyi olur."*
+   *
+   * Eski cümle ("Vincin ana teknik verileri…") her raporda AYNIydı ve hiçbir
+   * şey söylemiyordu; şerit ise o raporun kendi vincini söyler. Terim adı
+   * YAZILMAZ ama kaybolmaz: her sayının `title`ında durur (fare üstüne gelince
+   * okunur) ve altındaki ızgarada zaten kendi etiketiyle var.
+   *
+   * BİLİNMEYEN SAYI YAZILMAZ, ÇİZGİ DE BASILMAZ (değişmez md. 4): on kutuluk
+   * bir şeritte yarısı "—" olsaydı şerit gürültüye dönerdi. Kapalı bir bölümün
+   * (ör. köprü yürütme) sayısı da hiç çıkmaz — o vinçte o eksen yoktur.
+   */
+  function ozetSerit(): { deger: string; baslik: string }[] {
+    const out: { deger: string; baslik: string }[] = [];
+    const ekle = (deger: string | null, baslik: string) => {
+      if (deger !== null) out.push({ deger, baslik });
+    };
+    /** Pozitif sayı → biçimli metin; değilse `null` (kutu hiç çıkmaz). */
+    const sayi = (v: unknown, birim: string, digits = 2): string | null =>
+      typeof v === "number" && Number.isFinite(v) && v > 0
+        ? `${fmt(v, digits)} ${birim}`
+        : null;
+    /**
+     * ALAN IZGARADA GÖRÜNMÜYORSA ŞERİTTE DE GÖRÜNMEZ.
+     *
+     * `spanM` gibi alanların kendi `requiresAnyModule` listesi var: sabit
+     * (yürütmesiz) bir kaldırma düzeninde açıklık hem ızgaradan hem PDF'ten
+     * düşer. Şerit `specs`i doğrudan okusaydı, o vinçte OLMAYAN bir açıklığı
+     * başlıkta basmaya devam ederdi — `renderSpecs`in kendi yorumunun uyardığı
+     * "ekrandan düşüp raporda basılan alan" hatasının aynısı.
+     */
+    const gorunurse = (key: string, deger: string | null): string | null => {
+      const def = SPEC_FIELDS.find((f) => f.key === key);
+      if (!def) return deger;
+      if (!specFieldVisibleForModules(def, present)) return null;
+      if (def.visible && !def.visible(specs)) return null;
+      return deger;
+    };
+    /**
+     * Teker: "Ø400 × 4". Okuma `calcInput` üzerinden TİPLİdir ve `calcInput`
+     * yalnız AÇIK bölümleri taşır — `?.` zinciri görünürlük kapısının işini
+     * kendiliğinden yapar, ikinci bir mantık yazılmaz.
+     */
+    const teker = (cap: number | undefined, adet: number | undefined): string | null =>
+      cap && adet ? `${DIAMETER_SIGN}${fmt(cap, 0)} × ${fmt(adet, 0)}` : null;
+
+    ekle(sayi(specs.mainCapacityT, "t"), "Kaldırma kapasitesi");
+    ekle(gorunurse("spanM", sayi(specs.spanM, "m")), "Açıklık (aks)");
+    ekle(sayi(specs.mainLiftHeightM, "m"), "Kaldırma yüksekliği");
+    ekle(sayi(specs.mainLiftSpeedMpm, "m/dak"), "Kaldırma hızı");
+    // FEM SINIFI ISO SINIFI DEĞİLDİR: `hoistMechanismClass` M1…M8'dir (ISO);
+    // kapak ve vinç kimlik plakası FEM GRUBUnu basar. Eşleme TEK dosyadadır
+    // (`mechanism-class.ts`) ve şerit onunla aynı dili konuşmalıdır.
+    ekle(
+      specs.hoistMechanismClass
+        ? `FEM ${FEM_GROUP_BY_ISO_CLASS[specs.hoistMechanismClass] ?? specs.hoistMechanismClass}`
+        : null,
+      specs.hoistMechanismClass
+        ? `Kaldırma mekanizma sınıfı — ${mechanismClassText(specs.hoistMechanismClass)}`
+        : "Kaldırma mekanizma sınıfı"
+    );
+    ekle(
+      teker(calcInput.trolley?.selections.wheelDiaMm, calcInput.trolley?.inputs.wheelCount),
+      "Araba tekerleği — çap × adet"
+    );
+    ekle(
+      calcInput.trolley ? sayi(specs.trolleySpeedMpm, "m/dak") : null,
+      "Araba yürütme hızı"
+    );
+    ekle(
+      teker(calcInput.bridge?.selections.wheelDiaMm, calcInput.bridge?.inputs.wheelCount),
+      "Köprü tekerleği — çap × adet"
+    );
+    ekle(calcInput.bridge ? sayi(specs.bridgeSpeedMpm, "m/dak") : null, "Köprü yürütme hızı");
+    // ORTAM SICAKLIĞI TEK SAYI DEĞİL ARALIKTIR ve alt uç NEGATİF olabilir;
+    // `sayi()`nin "> 0" süzgeci burada yanlış cevap verirdi (−20 °C bilinmiyor
+    // sayılırdı).
+    const derece = (v: unknown): number | null =>
+      typeof v === "number" && Number.isFinite(v) ? v : null;
+    const tMin = derece(specs.ambientTempMinC);
+    const tMax = derece(specs.ambientTempMaxC);
+    ekle(
+      tMin !== null && tMax !== null
+        ? `${fmt(tMin, 0)} … ${fmt(tMax, 0)} °C`
+        : tMax !== null
+          ? `${fmt(tMax, 0)} °C`
+          : null,
+      "Ortam sıcaklığı"
+    );
+    return out;
+  }
+
   function renderSpecs() {
+    const serit = ozetSerit();
     return (
       <Card className={cardSpacing}>
         <CardHeader className="border-b pb-2 sm:pb-4">
@@ -2103,9 +2203,36 @@ export function RevisionEditor({
             </span>
             <span className="tracking-tight">Teknik Özellikler</span>
           </CardTitle>
-          <p className="text-xs text-muted-foreground sm:text-sm">
-            Vincin ana teknik verileri. Tüm hesap bölümleri bu değerlerden beslenir.
-          </p>
+          {serit.length > 0 ? (
+            /* `relative`: kart `overflow-hidden` taşır ama `position` vermez;
+               mutlak konumlu `sr-only` çocuğu en yakın konumlu ataya göre
+               yerleşir ve konumsuz bir kapta kırpılmadan kaçabilir. */
+            <div className="relative flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm sm:text-base">
+              {serit.map((k, i) => (
+                <span key={k.baslik} className="inline-flex items-baseline gap-2">
+                  {/* Ayraç ÖĞENİN İÇİNDE değil ÖNÜNDE: `flex-wrap` alt satıra
+                      geçtiğinde satır başında bir "·" kalmasın diye ilk kutuda
+                      hiç basılmaz. */}
+                  {i > 0 ? <span aria-hidden className="text-muted-foreground/50">·</span> : null}
+                  {/* Terim adı `title`da DA durur ama ORADA KALMAZ: telefonda
+                      `title` görünmez ve ekran okuyucu bir `span`ın title'ını
+                      güvenilir bir ad saymaz — okuyucu "25 t · 22,5 m …" duyardı.
+                      `sr-only` adı taşır. */}
+                  <span
+                    className="font-mono font-semibold tabular-nums text-foreground"
+                    title={k.baslik}
+                  >
+                    <span className="sr-only">{k.baslik}: </span>
+                    {k.deger}
+                  </span>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground sm:text-sm">
+              Vincin ana teknik verileri. Tüm hesap bölümleri bu değerlerden beslenir.
+            </p>
+          )}
         </CardHeader>
         <CardContent className="grid gap-4 sm:gap-6">
           {SPEC_GROUPS.map((group) => {
@@ -2459,12 +2586,23 @@ export function RevisionEditor({
           const patch: Record<string, unknown> = { ...(inputs as object), [flag]: next };
           // Otomatik değer elle girişe çevrilirken ekranda görünen son doğru
           // değeri başlangıç olarak koru; kullanıcı sıfırla karşılaşmasın.
-          if (!next && key === "cabin" && (
-            fieldKey === "roomDeviceHeatKw" || fieldKey === "panelDeviceHeatKw"
-          )) {
+          //
+          // KAYNAK HÜCRESİ ALANA GÖRE DEĞİŞİR: pano kaybı hesap hücresinden,
+          // cam alanı ise kabin ölçülerinden türetilir. Alan adları burada
+          // SABİT KODLUDUR — kabine yeni bir otomatik eklenirse bu haritaya da
+          // eklenmeli, yoksa anahtar kapatıldığında kutu sıfıra düşer.
+          if (!next && key === "cabin") {
             const derived = moduleResult(key)?.cells?.["drive.panelHeat"];
-            if (typeof derived === "number" && Number.isFinite(derived)) {
+            if (
+              (fieldKey === "roomDeviceHeatKw" || fieldKey === "panelDeviceHeatKw") &&
+              typeof derived === "number" &&
+              Number.isFinite(derived)
+            ) {
               patch[fieldKey] = Math.round(derived * 1000) / 1000;
+            }
+            if (fieldKey === "cabinGlazingAreaM2") {
+              const cam = camAlaniTahmini(inputs as CabinInputs);
+              if (cam !== null) patch[fieldKey] = cam;
             }
           }
           setModuleInputs(key, patch);
@@ -2759,9 +2897,37 @@ export function RevisionEditor({
           )}
           {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
             <div>
-              <h3 className="oc-kicker mb-2 text-muted-foreground">
-                Girdiler / Tasarım Kabulleri
-              </h3>
+              {/* BAŞLIĞIN YANINDA BİLGİ NOTU (02.09.2026, md. 6 ve 14):
+                  *"bu hesabın nasıl yapıldığını detaylı ve açıklayıcı pop-up'ta
+                  verelim; kullanıcı anlasın, unutursa hatırlasın."* Alan başına
+                  notlardan farkı, tek tek girdileri değil YÖNTEMİ anlatmasıdır. */}
+              <div className="mb-2 flex items-center gap-1.5">
+                <h3 className="oc-kicker text-muted-foreground">
+                  Girdiler / Tasarım Kabulleri
+                </h3>
+                {section.inputsInfo ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`${section.title} — hesap nasıl yapılıyor`}
+                        title="Bu bölümün hesabı nasıl yapılıyor?"
+                        className="oc-tap-square inline-flex size-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px] text-muted-foreground hover:border-primary/50 hover:text-primary"
+                      >
+                        i
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      className="max-h-[min(75dvh,44rem)] w-[min(46rem,calc(100vw-2rem))] overflow-y-auto"
+                    >
+                      <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+                        {section.inputsInfo}
+                      </p>
+                    </PopoverContent>
+                  </Popover>
+                ) : null}
+              </div>
               {/* ÖBEKLİ IZGARA — alanlar kesitin PARÇALARINA göre ayrılmışsa
                   (ana kiriş 7.1) her öbek kendi başlığı ve RENGİYLE çizilir;
                   aynı ton kesit çiziminde de kullanılır, göz ikisini renkten
@@ -2841,6 +3007,12 @@ export function RevisionEditor({
                 setModuleInputs(key, {
                   ...(inputs as object),
                   roomPanelHeightMm: next,
+                })
+              }
+              onDepthChange={(next) =>
+                setModuleInputs(key, {
+                  ...(inputs as object),
+                  roomPanelDepthMm: next,
                 })
               }
               onAddPanel={() => {

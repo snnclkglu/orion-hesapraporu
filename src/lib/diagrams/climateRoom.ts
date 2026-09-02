@@ -21,8 +21,8 @@
 // okunabilirlik için abartılır; ölçüler etiketle verilir.
 
 import {
-  DCOL, type Diagram, type DiagramEl, type LineEl,
-  arrowHead, caption, fitDiagram, fmtN, ln, txt,
+  DCOL, type Diagram, type DiagramEl, type LineEl, type TextEl,
+  arrowHead, caption, dimH, fitDiagram, fmtN, ln, textWidth, txt,
 } from "./model";
 
 export interface ClimateRoomParams {
@@ -36,6 +36,11 @@ export interface ClimateRoomParams {
   doorCount: number;
   /** Kapı etiketi — pano yerleşiminde sızıntı yolu "Pano Kapağı"dır */
   doorLabel?: string;
+  /**
+   * Pano dizisinden sonra BOYDA kalan mesafe [mm] — HESAPTAN gelir.
+   * Negatif olabilir (panolar sığmıyor); işaret bilginin kendisidir.
+   */
+  remainingLengthMm?: number;
   /** Elektrik odası kapı net ölçüsü [mm] — ısı hesabında kullanılır, çizilmez. */
   doorWidthMm?: number;
   doorHeightMm?: number;
@@ -180,15 +185,21 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
   // burada bir kez kurulur; hem çizim hem klima yerleşimi aynı sınırları okur.
   const sideLayout = (() => {
     if (!hasRoomPanelLayout) return undefined;
-    const sideMaxW = 170;
-    const sideMaxH = 116;
+    // YÜKSEKLİK ÖN GÖRÜNÜŞTEN TÜRETİLİR, KENDİ TAVANINDAN DEĞİL.
+    //
+    // Kullanıcı bildirimi (02.09.2026, md. 5): *"Ön görünüşle yan görünüş
+    // yüksekliği şemada eşit olmalı yoksa yanlış gösterimi olur."* Haklı ve
+    // sebebi ölçüldü: iki kutu İKİ AYRI tavana (168 ve 116) çarpıyordu, yani
+    // aynı 2,6 m'lik oda solda 154 px, sağda 104 px çiziliyordu — 1,62 kat
+    // fark. Teknik resimde ön ve yan görünüş aynı yükseklik ölçeğinde olmak
+    // zorundadır; izdüşüm çizgileri ancak öyle hizalanır.
+    //
+    // Bu yüzden `sideH = bh` ve duvar kalınlığı da aynıdır. Genişlik tavanına
+    // takılırsa YALNIZ GENİŞLİK kırpılır — yüksekliğe asla dokunulmaz.
+    const sideMaxW = 190;
     const sideRatio = p.widthM > 0 ? p.heightM / p.widthM : 0.8;
-    let sideW = sideMaxW;
-    let sideH = sideW * sideRatio;
-    if (sideH > sideMaxH) {
-      sideH = sideMaxH;
-      sideW = sideH / Math.max(sideRatio, 0.001);
-    }
+    const sideH = bh;
+    const sideW = Math.min(sideMaxW, sideH / Math.max(sideRatio, 0.001));
     const sideX = boxRight + 36;
     const sideY = by;
     return {
@@ -245,6 +256,26 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
   const belowY = boxBottom + 13;
   const inner1 = bx + t;
   const inner2 = boxRight - t;
+  /**
+   * KUTUNUN ALTINDAKİ ETİKET ŞERİDİ — TEK SATIRDA, ÇÖZÜCÜYE BIRAKILMADAN.
+   *
+   * Kullanıcı bildirimi (02.09.2026, md. 13): *"operatör kabin şemasındaki
+   * yazıların düzgünlüğünü düzeltelim, aşağılı yukarılı yazılar var."*
+   *
+   * Eskiden dört etiket (kapı · cam · cihazlar · operatör) AYNI taban
+   * çizgisine ayrı ayrı yazılıyordu ve toplam genişlikleri kutunun içine
+   * sığmıyordu (ölçüm: 163 px metin, 161 px yer). Çakışma çözücü ikisini
+   * 7,6 px aşağı itiyor, kalan ikisi yerinde kalıyordu — kullanıcının gördüğü
+   * basamak buydu. Çözücü çakışmayı ÇÖZMEZ, KAÇIRIR; doğru düzeltme
+   * yerleşimi ÖLÇMEKTİR.
+   *
+   * Etiketler burada TOPLANIR, sonda tek (gerekirse iki) SABİT satır olarak
+   * basılır. İki satır kasıtlı ve hizalıdır; 7,6 px'lik rastgele bir basamak
+   * değildir.
+   */
+  const altEtiketler: string[] = [];
+  /** Şerit iki satıra çıkarsa çizimin alt sınırı — `contentBottom`a katılır. */
+  let altSeritAlt = 0;
   if (p.doorCount > 0 && !hasRoomPanelLayout) {
     const doorHeightM = DOOR_H_M;
     const dh = Math.min(bh - 2 * t - 6, Math.max(26, doorHeightM * pxPerM));
@@ -254,11 +285,7 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
       y: floorY - dh, w: dw, h: dh,
       fill: DCOL.line, stroke: DCOL.ink, strokeWidth: 1,
     });
-    els.push(
-      txt(inner1, belowY, `${fmtN(p.doorCount, 0)} ${p.doorLabel ?? "Kapı"}`, 8, {
-        fill: DCOL.muted, push: "down",
-      })
-    );
+    altEtiketler.push(`${fmtN(p.doorCount, 0)} ${p.doorLabel ?? "Kapı"}`);
   }
 
   // ---------------------------------------------------------------- cam
@@ -272,11 +299,7 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
     els.push(ln(boxRight - t - 4, gy + gh / 3, boxRight - t + 1, gy + gh / 3, DCOL.faint, 0.7));
     // Cam etiketi kutunun ALTINDA: içeride operatör figürünün, sağda ise
     // klima şeridinin altında kalıyordu.
-    els.push(
-      txt(inner2, boxBottom + 13, `Cam ${fmtN(p.glazingAreaM2, 1)} m²`, 8, {
-        anchor: "end", fill: DCOL.muted, push: "down",
-      })
-    );
+    altEtiketler.push(`Cam ${fmtN(p.glazingAreaM2, 1)} m²`);
   }
 
   // ---------------------------------------------- mahalin içindekiler (zeminde)
@@ -298,7 +321,10 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
     // 0,8 m'lik eşit gözlerdir. Sığmıyorsa yalnız çizim okunabilirliği için
     // mevcut zemine oransal daraltılır; hesap satırı gerçek toplamı korur.
     const gap = 2.5;
-    const avail = (inner2 - inner1) * (hasRoomPanelLayout ? 0.68 : 0.62);
+    // Oda görünüşünde panolara AYRILAN pay yükseltildi (0,68 → 0,90): eski
+    // payda 800 mm'lik bir pano 29 px'e düşüyor ve 34 px'lik etiketi
+    // taşıyamıyordu. Tuvalde (ROM_W = 840) sağda yer var.
+    const avail = (inner2 - inner1) * (hasRoomPanelLayout ? 0.9 : 0.62);
     const widths = hasRoomPanelLayout
       ? Array.from({ length: cabCount }, (_, index) =>
           Math.max(6, ((p.panelWidthsMm?.[index] ?? 800) / 1000) * pxPerLengthM)
@@ -332,23 +358,58 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
         const yy = floorY - cabH + (cabH - baseH) * (0.16 * k);
         els.push(ln(x + 2, yy, x + wCab - 4, yy, DCOL.muted, 0.5));
       }
-      if (hasRoomPanelLayout && wCab >= 18) {
-        els.push(txt(x + wCab / 2, floorY - cabH - 5,
-          `P${i + 1} · ${fmtN(p.panelWidthsMm?.[i] ?? 800, 0)}`, 7, {
-            anchor: "middle", fill: DCOL.muted,
-          }));
+      // PANO ETİKETİ ÖLÇÜLEREK YAZILIR, sabit bir px eşiğiyle değil.
+      //
+      // Kullanıcı bildirimi (02.09.2026, md. 5): *"pano P1 · 600 şeklinde
+      // yazılar pano genişliğine sığmıyor daha sıkışık yazalım P1-600 gibi."*
+      // Eski kapı `wCab >= 18` idi ve `textWidth` hiç çağrılmıyordu; 8
+      // karakterlik "P1 · 600" 33,6 px eder, 800 mm'lik bir pano ise 29 px
+      // çiziliyordu — etiketler yan yana yapışıp "P3 · 800P4 · 800" oluyordu.
+      // Yeni biçim 6 karakter (25,2 px) ve karar ÖLÇÜMLE veriliyor. Çarpan
+      // 1,08: ekranda yazı IBM Plex Mono (genişlik tam), PDF'te DejaVu
+      // (orantılı) — ekranda sığan PDF'te taşabilir.
+      if (hasRoomPanelLayout) {
+        const genis = fmtN(p.panelWidthsMm?.[i] ?? 800, 0);
+        const tam = txt(x + wCab / 2, floorY - cabH - 5, `P${i + 1}-${genis}`, 7, {
+          anchor: "middle", fill: DCOL.muted, fixed: true,
+        });
+        const kisa = txt(x + wCab / 2, floorY - cabH - 5, `P${i + 1}`, 7, {
+          anchor: "middle", fill: DCOL.muted, fixed: true,
+        });
+        // Sığmayan etiket ATILMAZ, KISALIR: numara her zaman görünür, enler
+        // alt şeritteki lejantta zaten toplu hâlde yazılıyor.
+        if (textWidth(tam) * 1.08 <= wCab) els.push(tam);
+        else if (textWidth(kisa) * 1.08 <= wCab) els.push(kisa);
       }
       panelX += wCab + gap;
     }
-    els.push(
-      txt((deviceLeft + deviceRight) / 2, belowY,
-        hasRoomPanelLayout
-          ? `${fmtN(cabCount, 0)} ${p.deviceLabel ?? "Pano"} · H ${fmtN(p.panelHeightMm ?? 1800, 0)} + ${fmtN(p.panelBaseHeightMm ?? 0, 0)} Baza mm`
-          : `${fmtN(cabCount, 0)} ${p.deviceLabel ?? "Pano"}`,
-        8, {
-        anchor: "middle", fill: DCOL.muted, push: "down",
-      })
+    altEtiketler.push(
+      hasRoomPanelLayout
+        ? `${fmtN(cabCount, 0)} ${p.deviceLabel ?? "Pano"} · H ${fmtN(p.panelHeightMm ?? 1800, 0)} + ${fmtN(p.panelBaseHeightMm ?? 0, 0)} Baza mm`
+        : `${fmtN(cabCount, 0)} ${p.deviceLabel ?? "Pano"}`
     );
+
+    // PANOLARDAN SONRA BOYDA KALAN MESAFE (kullanıcı isteği, 02.09.2026, md. 4).
+    //
+    // Panolar SAĞA yaslıdır, boş zemin SOLDA kalır — ölçü zinciri tam oraya,
+    // yan görünüşteki "Yürüme Mesafesi" zincirinin aynası olarak çizilir.
+    // Sayı HESAPTAN gelir: `scale < 1` olduğunda çizilen boşluk gerçek oranı
+    // yansıtmaz ve çizimden okunan mesafe yalan söylerdi.
+    if (hasRoomPanelLayout && p.remainingLengthMm !== undefined) {
+      const sigmiyor = p.remainingLengthMm < 0;
+      dimH(
+        els, inner1, deviceLeft, floorY - 9,
+        sigmiyor
+          ? `SIĞMIYOR ${fmtN(p.remainingLengthMm, 0)} mm`
+          : `Kalan ${fmtN(p.remainingLengthMm, 0)} mm`,
+        {
+          size: 7,
+          color: sigmiyor ? DCOL.accent : DCOL.faint,
+          labelColor: sigmiyor ? DCOL.accent : DCOL.muted,
+          clearLabel: true,
+        }
+      );
+    }
   } else {
     const eqW = Math.min(52, (inner2 - inner1) * 0.34);
     const eqH = Math.min(bh - 2 * t - 8, Math.max(20, 0.9 * pxPerM));
@@ -362,11 +423,7 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
       const yy = floorY - eqH + (eqH / 3) * k;
       els.push(ln(deviceLeft + 5, yy, deviceRight - 5, yy, DCOL.muted, 0.7));
     }
-    els.push(
-      txt((deviceLeft + deviceRight) / 2, belowY, "Cihazlar", 8, {
-        anchor: "middle", fill: DCOL.muted, push: "down",
-      })
-    );
+    altEtiketler.push("Cihazlar");
   }
 
   // Operatörler — cihazların SOLUNDA kalan SERBEST ZEMİNE eşit aralıklarla,
@@ -381,11 +438,37 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
     const slot = Math.max((freeR - freeL) / n, personHalfWidth(ph));
     const cxOf = (i: number) => freeL + slot * (i + 0.5);
     for (let i = 0; i < n; i++) person(els, cxOf(i), floorY, ph);
-    els.push(
-      txt((cxOf(0) + cxOf(n - 1)) / 2, belowY, `${fmtN(p.occupantCount, 0)} Operatör`, 8, {
-        anchor: "middle", fill: DCOL.muted, push: "down",
-      })
-    );
+    altEtiketler.push(`${fmtN(p.occupantCount, 0)} Operatör`);
+  }
+
+  // ŞERİDİ ELLE KUR: tek satıra sığıyorsa tek satır, sığmıyorsa KASITLI iki
+  // satır. `fixed: true` — çözücü bunları kaydıramaz (model.ts sabit etiketleri
+  // önce yerleştirir), yani hizalar bir daha bozulmaz.
+  if (altEtiketler.length > 0) {
+    const merkez = bx + bw / 2;
+    const olcu = (metin: string) =>
+      textWidth(txt(0, 0, metin, 8, { anchor: "middle" }));
+    const kullanilabilir = Math.max(inner2 - inner1, bw) + 40;
+    const hepsi = altEtiketler.join(" · ");
+    const satirlar: string[] =
+      olcu(hepsi) <= kullanilabilir
+        ? [hepsi]
+        : (() => {
+            // Ortadan böl: iki satırın genişlikleri birbirine yakın olsun.
+            const orta = Math.ceil(altEtiketler.length / 2);
+            return [
+              altEtiketler.slice(0, orta).join(" · "),
+              altEtiketler.slice(orta).join(" · "),
+            ].filter((satir) => satir !== "");
+          })();
+    satirlar.forEach((satir, i) => {
+      els.push(
+        txt(merkez, belowY + i * 11, satir, 8, {
+          anchor: "middle", fill: DCOL.muted, fixed: true,
+        })
+      );
+    });
+    altSeritAlt = belowY + (satirlar.length - 1) * 11 + 6;
   }
 
   // ---------------------------------------------------------------- ısı okları
@@ -460,6 +543,7 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
   let contentBottom = Math.max(
     boxBottom,
     acY + acH,
+    altSeritAlt,
     hasRoomPanelLayout && p.radiationKw > 0 ? boxBottom + 50 : boxBottom
   );
   els.push({
@@ -509,7 +593,9 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
   // kullanıcının oda içindeki yürüme/servis koridorudur.
   if (sideLayout) {
     const { sideX, sideY, sideW, sideH, sideRight, sideBottom } = sideLayout;
-    const sideT = 6;
+    // Duvar kalınlığı da ön görünüşle AYNI: iki görünüşün iç yüksekliği ancak
+    // böyle eşit olur (7 ≠ 6 farkı 2 px'lik bir kaçıklık bırakıyordu).
+    const sideT = t;
     const sideInnerLeft = sideX + sideT;
     const sideInnerRight = sideRight - sideT;
     const sideFloor = sideBottom - sideT;
