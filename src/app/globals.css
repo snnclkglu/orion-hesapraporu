@@ -768,6 +768,161 @@
   }
 
   /*
+   * TEKLİF FİYAT SATIRI YATAYDA KAYMAZ.
+   *
+   * Bu çizelgede on bir düzenlenebilir alan vardır; kalem başlığı veriyle
+   * uzadığında `table-layout: auto` dar alanları ezip son sütunları iç
+   * kaydırmaya sürüyordu. Satır dar kapta iki sütunlu karta, yeterli kapta ise
+   * iki yatay banda dönüşür. Kırılım PENCEREYE değil gerçek tablo kabına
+   * bakar: bölüm rayının açık/kapalı olması kullanılabilir genişliği değiştirir.
+   */
+  .oc-price-editor-table-wrap {
+    container-type: inline-size;
+    overflow-x: hidden !important;
+    background-image: none;
+  }
+
+  .oc-price-editor-table,
+  .oc-price-editor-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .oc-price-editor-table thead {
+    display: none;
+  }
+
+  .oc-price-editor-table tbody {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .oc-price-editor-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--card);
+  }
+
+  .oc-price-editor-table td {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 0.25rem;
+    padding: 0;
+    white-space: normal;
+    text-align: left;
+  }
+
+  .oc-price-editor-table td::before {
+    content: attr(data-label);
+    min-height: 0.875rem;
+    color: var(--muted-foreground);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+    text-align: left;
+  }
+
+  .oc-price-editor-table td[data-mobile-span="full"] {
+    grid-column: 1 / -1;
+  }
+
+  .oc-price-editor-table [data-mobile-hidden] {
+    display: none !important;
+  }
+
+  .oc-price-editor-table [data-mobile-actions] {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .oc-price-editor-table tr[data-mobile-summary] {
+    background: color-mix(in oklab, var(--muted) 45%, var(--card));
+  }
+
+  @container (min-width: 64rem) {
+    .oc-price-editor-table tr {
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 0.75rem 0.5rem;
+    }
+
+    .oc-price-editor-table td[data-price-field="order"] {
+      grid-column: span 1;
+    }
+
+    .oc-price-editor-table td[data-price-field="description"] {
+      grid-column: span 3;
+    }
+
+    .oc-price-editor-table td[data-price-field="item"] {
+      grid-column: span 8;
+    }
+
+    .oc-price-editor-table[data-price-lead-time="on"] td[data-price-field="leadTime"] {
+      grid-column: span 2;
+    }
+
+    .oc-price-editor-table td[data-price-field="qty"] {
+      grid-column: span 1;
+    }
+
+    .oc-price-editor-table[data-price-lead-time="on"] td[data-price-field="unit"] {
+      grid-column: span 1;
+    }
+
+    .oc-price-editor-table[data-price-lead-time="off"] td[data-price-field="unit"] {
+      grid-column: span 2;
+    }
+
+    .oc-price-editor-table td[data-price-field="unitPrice"] {
+      grid-column: span 2;
+    }
+
+    .oc-price-editor-table td[data-price-field="discount"] {
+      grid-column: span 1;
+    }
+
+    .oc-price-editor-table[data-price-lead-time="on"] td[data-price-field="cost"] {
+      grid-column: span 1;
+    }
+
+    .oc-price-editor-table[data-price-lead-time="off"] td[data-price-field="cost"] {
+      grid-column: span 2;
+    }
+
+    .oc-price-editor-table td[data-price-field="amount"],
+    .oc-price-editor-table td[data-price-field="actions"] {
+      grid-column: span 2;
+    }
+
+    .oc-price-editor-table td[data-price-field="cost"],
+    .oc-price-editor-table td[data-price-field="amount"],
+    .oc-price-editor-table td[data-price-field="summaryCost"],
+    .oc-price-editor-table td[data-price-field="summaryAmount"] {
+      text-align: right;
+    }
+
+    .oc-price-editor-table td[data-price-field="actions"] [data-mobile-actions] {
+      justify-content: flex-end;
+    }
+
+    .oc-price-editor-table td[data-price-field="summaryLabel"] {
+      grid-column: span 8;
+      align-content: center;
+    }
+
+    .oc-price-editor-table td[data-price-field="summaryCost"],
+    .oc-price-editor-table td[data-price-field="summaryAmount"] {
+      grid-column: span 2;
+    }
+  }
+
+  /*
    * HESAP ŞEMASI PALETİ — model/PDF renklerinden bağımsız web görünümü.
    *
    * Diyagram veri modeli gerçek baskı hex'lerini taşır; `DiagramSvg` uygulama

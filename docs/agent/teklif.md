@@ -1780,3 +1780,34 @@ Analiz ekranının ilk penceresi **12 Ay**dır; **Tümü** seçeneği erişilebi
 kalmaya devam eder. Bu karar TEKLIF-10'daki eski ilk-açılış tercihini geçersiz
 kılar. Varsayılan, istemci içinde çıplak metin olarak tekrarlanmaz;
 `DEFAULT_PROJEKSIYON_PENCERE` tek kaynaktır.
+
+## TEKLIF-77 — Editörün ızgara SATIRI görünür yüksekliğe kelepçelenir.
+
+Kullanıcı bildirimi (03.09.2026): uzun bir teklif kaleminde en alttaki kalemi
+kopyala/sil eylemlerine ulaşılamıyordu. Kaydırma kabı doğru yerdeydi fakat onu
+ve bölüm rayını taşıyan iki sütunlu ızgaranın satırı `auto` idi. Uzun bölüm
+rayı satırı görünür çerçeveden daha yüksek yapıyor; içerik kaydırıcısı da bu
+yüksekliğe uzayıp alt kısmı kabuğun `overflow-hidden` sınırında kırpılıyordu.
+
+İki sütunlu kap `lg:grid-rows-[minmax(0,1fr)]` taşır. Böylece bölüm rayının
+içsel boyu satırı büyütemez; sağdaki içerik kabı kalan gerçek yüksekliği alır
+ve kendi `overflow-y-auto` alanında son eylem satırına kadar kayar. Yalnız
+kaydırma kabına alt boşluk ya da yapışkan düğme eklemek kökü düzeltmezdi:
+kırpılan şey düğme değil, kaydırıcının kendisiydi.
+
+## TEKLIF-78 — Fiyat editöründe satır KABA göre katlanır; yatay kaydırma yoktur.
+
+Kullanıcı bildirimi (03.09.2026): kalem bazında teslim süresi açık ve bağlı
+kalem adı uzun olduğunda fiyat çizelgesinin sağındaki maliyet, tutar ve işlem
+alanları görünüm dışına taşıyordu. `table-layout: auto`, uzun kalem adının
+minimum genişliğini korumak için daha kısa kutuları eziyor ve tabloyu içten
+yatay kaydırıyordu.
+
+Fiyat çizelgesi tek işaretlemedir fakat görünümü uyarlanır: dar kapta iki
+sütunlu karta, en az 64 rem'lik gerçek kapta iki yatay banda dönüşür. İlk bant
+sıra + tanım + bağlı kalemi, ikinci bant teslim + adet + birim + fiyat +
+iskonto + maliyet + tutar + işlemleri taşır. Kırılım pencereye değil
+`container-type: inline-size` taşıyan tablo kabına bakar; çünkü bölüm rayının
+açılması aynı pencerede kullanılabilir genişliği değiştirir. Kap
+`overflow-x: hidden` taşır ve bütün bilgi aynı satır işaretlemesinde kaldığı
+için mobil/masaüstü kaydetme yolları ayrışmaz.
