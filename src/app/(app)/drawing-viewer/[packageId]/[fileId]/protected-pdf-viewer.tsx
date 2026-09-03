@@ -326,8 +326,8 @@ function LazyPdfPage({
     // Ortam gözlemciyi desteklemiyorsa (çok eski tarayıcı) hepsini çiz:
     // yavaş olması, hiç görünmemesinden iyidir.
     if (typeof IntersectionObserver === "undefined") {
-      setVisible(true);
-      return;
+      const timeout = window.setTimeout(() => setVisible(true), 0);
+      return () => window.clearTimeout(timeout);
     }
     const observer = new IntersectionObserver(
       (entries) => {

@@ -22,7 +22,7 @@
 // çağırır (bkz. o dosyanın başlığı: kullanıcının süzüp indirdiği dosya
 // ekranda gördüğünden başka satır taşıyamaz).
 
-import { Fragment, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { BookOpen, FileText } from "lucide-react";
 import {
   Table,

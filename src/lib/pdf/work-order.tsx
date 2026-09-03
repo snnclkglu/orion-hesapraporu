@@ -284,7 +284,6 @@ function Tail({
 
 export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; settings?: ReportSettings }) {
   const st = { ...DEFAULT_REPORT_SETTINGS, ...settings };
-  const sc = data.scope ?? {};
   // REVİZYON HARFİ künyeye girer (kullanıcı kararı, 18.08.2026): iş emri
   // yayımlandıktan sonra kalem eklenip çıkarılabildiği için atölyedeki asıl
   // soru "elimdeki kâğıt hangi revizyon"dur. İLK YAYINDA HARF YOKTUR ve künye

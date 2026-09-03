@@ -10,7 +10,7 @@
 
 import {
   DCOL, type Diagram, type DiagramEl,
-  caption, dimV, fitDiagram, fmtN, ln, txt, arrowHead, loadArrow,
+  caption, dimV, fitDiagram, fmtN, ln, txt, arrowHead,
 } from "./model";
 
 export interface BalanceParams {

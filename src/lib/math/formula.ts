@@ -74,7 +74,7 @@ function tokenize(src: string): Tok[] | null {
       // tr sayı: 1.234,56 → grup ayıracı nokta, ondalık virgül
       while (i < n && (/[0-9.,]/.test(src[i]))) { v += src[i]; i++; }
       // sondaki virgülü (operatör olabilir) geri bırak
-      v = v.replace(/,$/, (m) => { i--; return ""; });
+      v = v.replace(/,$/, () => { i--; return ""; });
       t.push({ k: "num", v });
       continue;
     }

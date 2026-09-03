@@ -13,7 +13,6 @@
 // ŞEKİL BURADA DEĞİL `lib/manual/marks.ts`TE tanımlıdır: aynı üçgeni editörün
 // kâğıt önizlemesi de çizer ve iki çizici tek geometriden okur.
 
-import React from "react";
 import { Circle, Path, Polygon, Rect, Svg, Text, View } from "@react-pdf/renderer";
 import { BRAND, FONTS, T, trUpper } from "./brand";
 import {

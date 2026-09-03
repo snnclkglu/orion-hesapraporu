@@ -1,4 +1,3 @@
-import React from "react";
 import { Document, Link, Text, View } from "@react-pdf/renderer";
 import { BRAND, BrandBand, BrandPage, FONTS, PAGE, RuleRed, T, mm } from "@/lib/pdf/brand";
 

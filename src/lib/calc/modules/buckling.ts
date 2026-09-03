@@ -341,8 +341,6 @@ interface PanelCheckContext {
 /** Bir panelin kontrollerini üretir. */
 function panelChecks(
   v: BucklingPanelValues,
-  deps: BucklingDeps,
-  auto: boolean,
   ctx: PanelCheckContext
 ): AnyCheck[] {
   const checks: AnyCheck[] = [];
@@ -416,7 +414,7 @@ export function computeBuckling(
   // --- 8.1 Yan sac (gövde) paneli --------------------------------------------
   const side = computePanel(sideInput, deps, "sidePanel", cells);
   checks.push(
-    ...panelChecks(side, deps, auto, {
+    ...panelChecks(side, {
       block: "sidePanel", idPrefix: "side",
       widthLimitMm: deps.webHeightMm, widthLimitLabel: "Gövde Yüksekliği h3",
       thicknessMm: deps.webThicknessMm, thicknessLabel: "Gövde Sacı t3",
@@ -426,7 +424,7 @@ export function computeBuckling(
   // --- 8.2 Üst sac (basınç başlığı) paneli -----------------------------------
   const top = computePanel(topInput, deps, "topPanel", cells);
   checks.push(
-    ...panelChecks(top, deps, auto, {
+    ...panelChecks(top, {
       block: "topPanel", idPrefix: "top",
       widthLimitMm: deps.webGapMm, widthLimitLabel: "Gövde Sacları Arası a",
       thicknessMm: deps.topFlangeThicknessMm, thicknessLabel: "Üst İç Başlık t2",

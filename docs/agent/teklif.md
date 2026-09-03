@@ -109,7 +109,7 @@ farkında değildir; seed bu yüzden `scripts/gen-offer-seed.ts` ile ÜRETİLİR
 
 Kullanıcı listede olmayan bir değeri yazıp teklifini kaydedebilir;
 `ensureOfferOption` yalnız bir dahaki sefere listede çıkmasını sağlar
-(`YeniFirma` bileşeninin kuralı: **kayıt, teklifin ŞARTI değildir**).
+(akış içi defter kuralı: **kayıt, teklifin ŞARTI değildir**).
 
 **SEED'DE UYDURULMUŞ DEĞER YOKTUR** (değişmez md. 4): 247 madde firmanın
 2026'da verdiği on dört teklifin metninden ve uygulamanın kendi

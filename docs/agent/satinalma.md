@@ -229,9 +229,9 @@ migration'ın kendisini düşürürdü.
 
 **YENİ TEDARİKÇİ ADI KENDİLİĞİNDEN DEFTERE GİRER** (kullanıcı kararı:
 *"Sipariş Aç bölümüne yeni bir tedarikçi ismi girilirse, otomatik yeni bir
-tedarikçi açılsın."*). Eskiden alanın yanında bir "+" düğmesi vardı ve
-BASILMASI gerekiyordu (`components/yeni-firma.tsx`, teklif penceresinde
-hâlâ öyle); basılmadığında firma defterde görünmüyordu. Sipariş
+tedarikçi açılsın."*). Eskiden alanın yanında ayrı bir "+" bileşeni vardı ve
+BASILMASI gerekiyordu; bu kullanılmayan eski bileşen kaldırıldı. Teklif ve
+sipariş pencereleri yeni firmayı artık kendi alanlarının içinden kaydeder. Sipariş
 penceresinde kayıt alandan ÇIKILDIĞINDA yapılır, çünkü kod hemen gerekir —
 sipariş numarası ondan türüyor.
 

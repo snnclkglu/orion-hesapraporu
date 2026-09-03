@@ -7,7 +7,6 @@
 // adresi doğrudan yazılabilir.
 
 import { revalidatePath } from "next/cache";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeWorkLog } from "@/lib/roles";
 import { nextDistinctHue } from "@/lib/tags";

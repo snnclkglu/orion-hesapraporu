@@ -14,8 +14,8 @@
 //
 // LİSTELER KAPALI DEĞİLDİR: `EditableCombobox` hem yazmaya hem seçmeye açıktır
 // ve defterde olmayan bir değer yazıldığında satırın yanında "deftere ekle"
-// düğmesi belirir (`YeniFirma` bileşeninin kuralı: kayıt, teklifin ŞARTI
-// değildir — yalnız bir dahaki sefere listede çıkmasını sağlar).
+// düğmesi belirir (kayıt, teklifin ŞARTI değildir — yalnız bir dahaki sefere
+// listede çıkmasını sağlar).
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -394,8 +394,8 @@ function ListeAlani({
 /**
  * "DEFTERE EKLE" YALNIZ GEREKİNCE BELİRİR: yazılan değer listede zaten varsa
  * hiçbir şey çizilmez. Her kutunun yanında duran bir kaydet düğmesi, vakaların
- * çoğunda gürültü olurdu ve asıl gerektiği anda fark edilmezdi (`YeniFirma`
- * bileşeninin kuralı). Çok değerli alanda düğme MADDE BAŞINA durur — deftere
+ * çoğunda gürültü olurdu ve asıl gerektiği anda fark edilmezdi. Çok değerli
+ * alanda düğme MADDE BAŞINA durur — deftere
  * giren şey "SEW/FLENDER" değil, SEW ve FLENDER'dır.
  */
 function DeftereEkle({

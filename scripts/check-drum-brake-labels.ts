@@ -7,9 +7,7 @@
 // bütün fren boylarını üretip üçünü birden ölçer ve çakışan her etiketi
 // dosya/ölçü adıyla yazar. Sıfır satır beklenir.
 
-import {
-  textBounds, type Diagram, type DiagramEl, type TextEl,
-} from "@/lib/diagrams/model";
+import { textBounds, type Diagram, type TextEl } from "@/lib/diagrams/model";
 import { DRUM_BRAKES } from "@/lib/calc/drum-brake";
 import { drumBrakeDiagram } from "@/lib/diagrams/drumBrake";
 

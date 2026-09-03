@@ -21,7 +21,7 @@
 // okunabilirlik için abartılır; ölçüler etiketle verilir.
 
 import {
-  DCOL, type Diagram, type DiagramEl, type LineEl, type TextEl,
+  DCOL, type Diagram, type DiagramEl, type LineEl,
   arrowHead, caption, dimH, fitDiagram, fmtN, ln, textWidth, txt,
 } from "./model";
 

@@ -36,7 +36,6 @@ import { EventTimeline, type PackageEvent } from "./event-timeline";
 import { VersionList, type VersionBlockData } from "./version-list";
 
 /** PostgREST `max_rows` sınırının altında bir sayfa. */
-const SAYFA = 900;
 /** Zincirde en çok kaç sürüm gezilir — döngü ve kopyalama patlamasına karşı. */
 const ZINCIR_SINIRI = 12;
 /** Kaç sürümün dosya/parça verisi okunur — gerisi fark HESAPLANMADAN listelenir. */

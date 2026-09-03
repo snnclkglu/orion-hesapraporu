@@ -74,7 +74,6 @@ function satirdan(row: Record<string, unknown> | null): CustomerCompany | null {
  * o yüzden süzgeç de çağırana bırakılır.
  */
 async function defterSorgusu(
-  supabase: SupabaseClient,
   kurgu: (sutunlar: string, yeniSurum: boolean) => PromiseLike<{ data: unknown; error: unknown }>
 ): Promise<Record<string, unknown>[]> {
   if (yeniSutunlarVar) {
@@ -97,7 +96,7 @@ async function defterSorgusu(
 export async function loadSelfCompany(
   supabase: SupabaseClient
 ): Promise<CustomerCompany | null> {
-  const rows = await defterSorgusu(supabase, (sutunlar, yeniSurum) =>
+  const rows = await defterSorgusu((sutunlar, yeniSurum) =>
     yeniSurum
       ? supabase.from("customers").select(sutunlar).eq("is_self", true).limit(1)
       : supabase.from("customers").select(sutunlar).eq("short_name", "ORION").limit(1)
@@ -111,7 +110,7 @@ export async function loadCustomerCompany(
   customerId: string | null | undefined
 ): Promise<CustomerCompany | null> {
   if (!customerId) return null;
-  const rows = await defterSorgusu(supabase, (sutunlar) =>
+  const rows = await defterSorgusu((sutunlar) =>
     supabase.from("customers").select(sutunlar).eq("id", customerId).limit(1)
   );
   return satirdan(rows[0] ?? null);
@@ -121,7 +120,7 @@ export async function loadCustomerCompany(
 export async function loadCustomerBook(
   supabase: SupabaseClient
 ): Promise<CustomerCompany[]> {
-  const rows = await defterSorgusu(supabase, (sutunlar) =>
+  const rows = await defterSorgusu((sutunlar) =>
     supabase.from("customers").select(sutunlar).order("name", { ascending: true })
   );
   return rows

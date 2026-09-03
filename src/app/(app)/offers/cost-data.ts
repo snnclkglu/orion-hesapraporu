@@ -206,11 +206,6 @@ export async function loadLatestOfferCost(
   };
 }
 
-/** Maliyet revizyonunun etiketi — teklifin R'siyle karışmasın diye M'dir. */
-export function costRevLabel(revNo: number): string {
-  return `M${revNo}`;
-}
-
 /**
  * TEKLİF EDİTÖRÜNÜN "MALİYET" SÜTUNUNUN kaynağı.
  *

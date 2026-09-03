@@ -891,8 +891,8 @@ export async function issueOfferRevision(
 /**
  * Yazılan değeri deftere ekler — akışı kesmeden.
  *
- * `YeniFirma` bileşeninin kuralı burada da geçerlidir: DEFTERE YAZMAK TEKLİFİN
- * ŞARTI DEĞİLDİR. Kullanıcı listede olmayan bir markayı yazıp teklifini
+ * Akış içi defter kuralı burada da geçerlidir: DEFTERE YAZMAK TEKLİFİN ŞARTI
+ * DEĞİLDİR. Kullanıcı listede olmayan bir markayı yazıp teklifini
  * kaydedebilir; düğmeye basmak yalnız bir dahaki sefere listede çıkmasını
  * sağlar. Upsert DEĞİL: önce katlanmış anahtarla aranır, yoksa yazılır —
  * `ensureQuality` ile aynı düzen.

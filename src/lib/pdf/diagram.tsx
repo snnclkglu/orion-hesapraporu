@@ -12,7 +12,6 @@
 // `node:path`i ve bütün modül adaptör zincirini her tüketiciye taşırdı.
 // "DejaVu" ailesi `brand.tsx` yüklendiğinde zaten kayıtlıdır.
 
-import React from "react";
 import {
   Circle, Line, Path, Polygon, Rect, Svg, Text, View,
 } from "@react-pdf/renderer";

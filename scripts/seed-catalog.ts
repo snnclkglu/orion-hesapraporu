@@ -175,7 +175,9 @@ for (const { file, application } of REDUCER_FILES) {
             throw new Error(`${file}: variants satırı [size, torque_nm, ratio_min, ratio_max] olmalı.`);
           }
           const [frameSize, outputTorqueNm, ratioMin, ratioMax] = variant;
-          const { variants: _variants, details_by_size: _detailsBySize, ...base } = raw;
+          const base = { ...raw };
+          delete base.variants;
+          delete base.details_by_size;
           const detailBySize = raw.details_by_size as Record<string, unknown> | undefined;
           const detail = detailBySize?.[String(frameSize).padStart(2, "0")];
           return {

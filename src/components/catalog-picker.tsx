@@ -161,9 +161,8 @@ export function CatalogPicker({
   const [resultPage, setResultPage] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Pencere açıldığında sıfırla
-  useEffect(() => {
-    if (open) {
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) {
       setBrand(null);
       setRows(null);
       setTruncated(false);
@@ -172,14 +171,15 @@ export function CatalogPicker({
       setNearestValue(inputNumber(initialNearestValue));
       setQuery("");
       setResultPage(1);
+      setLoading(true);
     }
-  }, [open, initialMinValue, initialNearestValue]);
+    setOpen(nextOpen);
+  }
 
   // Marka listesi
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setLoading(true);
     (async () => {
       const supabase = createClient();
       // Marka kartındaki ürün adedi doğru olmalı: tek istek 1000'de kesileceği
@@ -220,7 +220,6 @@ export function CatalogPicker({
   useEffect(() => {
     if (!open || !brand) return;
     let cancelled = false;
-    setLoading(true);
     (async () => {
       const supabase = createClient();
       const { rows: list, truncated: cut } = await fetchAllPages<CatalogRow>(
@@ -379,7 +378,7 @@ export function CatalogPicker({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5 text-xs">
           <BrandIcon name="panel" className="size-3.5" />
@@ -410,6 +409,7 @@ export function CatalogPicker({
                   setNearestValue(inputNumber(initialNearestValue));
                   setQuery("");
                   setResultPage(1);
+                  setLoading(false);
                 }}
                 // Pencerenin tek geri yolu — 28px'lik hedef parmakla ıskalanıyordu.
                 className="grid size-9 shrink-0 place-items-center border hover:bg-muted pointer-coarse:size-10"
@@ -474,6 +474,7 @@ export function CatalogPicker({
                   type="button"
                   onClick={() => {
                     setResultPage(1);
+                    setLoading(true);
                     setBrand(b.brand);
                   }}
                   className="flex min-h-11 items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"

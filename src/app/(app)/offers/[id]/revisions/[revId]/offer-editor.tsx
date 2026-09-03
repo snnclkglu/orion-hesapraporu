@@ -2203,7 +2203,7 @@ function IskontoAlani({
  *      izlenimi verirdi.
  *   3. EKLEME — yazılan madde belgeye girer; "deftere de ekle" düğmesi ONU
  *      kalıcı yapar. Deftere yazmak belgeye eklemenin ŞARTI DEĞİLDİR
- *      (`YeniFirma` bileşeninin kuralı).
+ *      (uygulamanın akış içi defter kuralı).
  *
  * SIRA TIKLAMA SIRASIDIR, defterin sırası değil: kullanıcı maddeleri önem
  * sırasına göre seçer ve belgede o sırayla görmek ister.
