@@ -13,6 +13,7 @@ import {
   allCatalogSheets,
   catalogSheetDownloadUrl,
   catalogSheetFiles,
+  catalogSheetLookupUrl,
   catalogSheetPageUrl,
   catalogSheetUrl,
   findCatalogSheet,
@@ -348,6 +349,16 @@ describe("katalog sayfası adresi (ekipman listesi bağlantıları)", () => {
     expect(url.searchParams.get("tur")).toBe("rope");
     expect(url.searchParams.get("marka")).toBe("İzmit A.Ş.");
     expect(url.searchParams.get("model")).toBe("Ø8 6x36 WS FC 1770 MPa");
+  });
+
+  it("sunucu eşleme adresi açık sayfayla aynı ürün kimliğini taşır", () => {
+    const url = new URL(catalogSheetLookupUrl(
+      "rope", "İzmit A.Ş.", "Ø22 18x7 NUFLEX IWRC 1770 MPa"
+    ), "https://ornek");
+    expect(url.pathname).toBe("/api/catalog-sheet/lookup");
+    expect(url.searchParams.get("tur")).toBe("rope");
+    expect(url.searchParams.get("marka")).toBe("İzmit A.Ş.");
+    expect(url.searchParams.get("model")).toBe("Ø22 18x7 NUFLEX IWRC 1770 MPa");
   });
 
   it("H serisi adresinde gerçek katalog giriş devrini taşır", () => {

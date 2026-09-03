@@ -162,6 +162,16 @@ etkisiz bırakamaz. Görünen model anahtar değildir: ana ve yardımcı kaldır
 ikisi de `6X36 WS SAĞ HELİS` yazarken çapları farklı olabilir; gerçek katalog
 modeli kullanılmazsa yardımcı satır ana halatın URL'sini alır.
 
+**Açık kalmış editör yeni katalog föyünü kaçırmaz.** Katalog defteri istemci
+paketine de gömülür; buna karşılık `Katalogdan Seç` penceresinin ürünleri canlı
+DB'den gelir. Kullanıcı bir dağıtım boyunca editörü açık bırakırsa yeni ürün
+seçilebilirken eski istemci manifesti onun föyünü henüz tanımayabilir. Yerel
+eşleme bulunamadığında `Katalog Sayfası` düğmesi bu yüzden oturumlu ve
+`no-store` `/api/catalog-sheet/lookup` ucuyla aynı tür + marka + model (+ n1)
+kimliğini güncel sunucu manifestinde bir kez doğrular; bulunan gerçek yaprakları
+aynı açılır pencerede gösterir. Bilinmeyen ürün yine 404'tür, yakın sayfa
+tahmini yapılmaz.
+
 **Eşleme MARKA sütunundaki "-"yi marka SAYMAZ.** Ekipman listesi markası
 olmayan satıra "-" yazar; bu metin marka gibi ele alındığında kimliği tek
 birleşik "MARKA MODEL" alanında duran bölümlerin (redüktör 2.3/5.5, tampon

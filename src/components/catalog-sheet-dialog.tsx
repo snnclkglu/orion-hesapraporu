@@ -11,11 +11,12 @@
 // Düğme, katalog seçiminin YANINDA durur ve ürün seçilene kadar pasiftir —
 // hangi sayfanın açılacağı seçilen modele bağlıdır.
 
-import { useState } from "react";
-import { BookOpen, Download, ExternalLink, Maximize2, Minimize2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BookOpen, Download, ExternalLink, Loader2, Maximize2, Minimize2 } from "lucide-react";
 import {
   catalogSheetDownloadUrl,
   catalogSheetImages,
+  catalogSheetLookupUrl,
   catalogSheetPageUrl,
   catalogSheetUrl,
   findCatalogSheet,
@@ -90,17 +91,63 @@ export function CatalogSheetButton({
   const [zoom, setZoom] = useState(0);
   const level = ZOOM_LEVELS[zoom];
 
-  // Bu ekipman türü için defterde hiç sayfa yoksa düğme hiç görünmez —
-  // henüz kapsanmayan türlerde ölü bir düğme durmaz.
-  if (!hasCatalogSheets(kind)) return null;
+  const supportsKind = hasCatalogSheets(kind);
+  const localSheet = findCatalogSheet(kind, brand, model, { inputRpm });
+  const lookupUrl = model
+    ? catalogSheetLookupUrl(kind, brand, model, { inputRpm })
+    : undefined;
+  const [serverResult, setServerResult] = useState<{
+    lookupUrl: string;
+    sheet: CatalogSheet | null;
+  } | null>(null);
 
-  const sheet = findCatalogSheet(kind, brand, model, { inputRpm });
+  // Katalog defteri istemci paketine gömülür. Kullanıcı editörü bir dağıtım
+  // boyunca açık bırakırsa katalog seçicisi güncel DB satırını getirebilir,
+  // fakat eski istemci manifesti aynı ürünün yeni föyünü henüz bilmez. Bu
+  // durumda düğmeyi sonsuza kadar pasif bırakmak yerine güncel sunucu
+  // manifestini bir kez doğrularız. Kimlik değişince eski yanıt kullanılmaz.
+  useEffect(() => {
+    if (!supportsKind || !lookupUrl || localSheet) return;
+    const controller = new AbortController();
+    fetch(lookupUrl, {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const body = await response.json() as { sheet?: CatalogSheet };
+        return body.sheet ?? null;
+      })
+      .then((sheet) => setServerResult({ lookupUrl, sheet }))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setServerResult({ lookupUrl, sheet: null });
+      });
+    return () => controller.abort();
+  }, [localSheet, lookupUrl, supportsKind]);
+
+  // Bu ekipman türü için defterde hiç sayfa yoksa düğme hiç görünmez —
+  // henüz kapsanmayan türlerde ölü bir düğme durmaz. Bütün hook'lar bu
+  // dönüşün üstündedir; `kind` değişse bile React hook sırası değişmez.
+  if (!supportsKind) return null;
+
+  const serverSheet = serverResult && serverResult.lookupUrl === lookupUrl
+    ? serverResult.sheet ?? undefined
+    : undefined;
+  const sheet = localSheet ?? serverSheet;
+  const checkingServer = Boolean(
+    lookupUrl && !localSheet && serverResult?.lookupUrl !== lookupUrl
+  );
   const images = sheet ? catalogSheetImages(sheet) : [];
   const reason = !model
     ? "Önce katalogdan bir ürün seçin"
+    : checkingServer
+      ? "Katalog sayfası güncel defterde aranıyor"
     : !sheet
-      ? `${brand ?? ""} ${model} için katalog sayfası deftere eklenmemiş`.trim()
-      : undefined;
+        ? `${brand ?? ""} ${model} için katalog sayfası deftere eklenmemiş`.trim()
+        : undefined;
 
   if (!sheet) {
     return (
@@ -111,8 +158,12 @@ export function CatalogSheetButton({
         title={reason}
         className="gap-1.5 text-xs"
       >
-        <BookOpen className="size-3.5" />
-        Katalog Sayfası
+        {checkingServer ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : (
+          <BookOpen className="size-3.5" />
+        )}
+        {checkingServer ? "Katalog Aranıyor" : "Katalog Sayfası"}
       </Button>
     );
   }

@@ -294,6 +294,27 @@ export function catalogSheetPageUrl(
   return `${origin}/paylas/katalog?${q.toString()}`;
 }
 
+/**
+ * Editördeki istemci manifesti eski kaldığında ürünü güncel sunucu
+ * manifestinden doğrulayan adres. Kimlik, açık katalog sayfasıyla aynıdır;
+ * böylece iki yolun farklı ürüne bakması mümkün olmaz.
+ */
+export function catalogSheetLookupUrl(
+  kind: string,
+  brand: string | null | undefined,
+  model: string,
+  lookup: { inputRpm?: number | null } = {}
+): string {
+  const q = new URLSearchParams({ tur: kind, model });
+  const real = realBrand(brand);
+  if (real) q.set("marka", real);
+  if (lookup.inputRpm !== undefined && lookup.inputRpm !== null &&
+      Number.isFinite(lookup.inputRpm)) {
+    q.set("n1", rpmKey(lookup.inputRpm));
+  }
+  return `/api/catalog-sheet/lookup?${q.toString()}`;
+}
+
 /** Seçilen ürünün bütün katalog yapraklarını tek PDF olarak indiren adres. */
 export function catalogSheetDownloadUrl(
   kind: string,
