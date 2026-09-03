@@ -132,7 +132,14 @@ export function buildCustomerProfileAnalytics(
   now: Date,
   scoreSettings: CustomerScoreSettings
 ): CustomerProfileAnalytics {
-  const offerStatusCounts: Record<OfferStatus, number> = { draft: 0, sent: 0, won: 0, lost: 0, cancelled: 0 };
+  const offerStatusCounts: Record<OfferStatus, number> = {
+    draft: 0,
+    budgetary: 0,
+    sent: 0,
+    won: 0,
+    lost: 0,
+    cancelled: 0,
+  };
   for (const offer of data.offers) offerStatusCounts[offerStatusOf(offer.status)] += 1;
   const jobStatusCounts: Record<JobStatus, number> = { active: 0, passive: 0, completed: 0, archived: 0 };
   for (const job of data.jobs) jobStatusCounts[jobStatusOf(job.status)] += 1;

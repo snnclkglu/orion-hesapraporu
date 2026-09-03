@@ -17,6 +17,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { effectiveOfferDate } from "@/lib/offers/filter";
+import { isOfferIncludedInAnalysis } from "@/lib/offers/status";
 import { loadCustomers, loadOfferList } from "../data";
 import { AnalizView } from "./analiz-view";
 import type { AnalizSatiriDetay } from "./lead-dialog";
@@ -84,33 +85,37 @@ export default async function OfferAnalysisPage() {
   // metinden türetir — satır hiçbir zaman kimliksiz kalmaz.
   const defter = new Map(customers.map((c) => [c.id, c]));
 
-  const teklifSatirlari: AnalizSatiriDetay[] = offers.map((o) => {
-    const puan = puanlar.get(o.id);
-    return {
-      id: o.id,
-      kaynak: "teklif",
-      offerNo: o.offer_no,
-      customerName: o.customer_name,
-      customerShort: o.customerShort,
-      customerHue: o.customerHue,
-      subject: o.subject,
-      status: o.status,
-      // ÇİZELGENİN SIRA TARİHİ — teklifin VERİLDİĞİ gün. Tanım TEK yerdedir
-      // (`effectiveOfferDate`): teklif listesi de aynı soruyu aynı yerden sorar
-      // ve "yayımlandıysa gönderim günü, yoksa açılış günü" kuralı iki ekranda
-      // ayrışamaz.
-      verilisTarihi: effectiveOfferDate(o),
-      expectedOn: puan?.expectedOn ?? null,
-      // TUTAR GÜNCEL REVİZYONUN TOPLAMIDIR; fiyatı girilmemiş teklif `null`
-      // kalır ve `0 €`lık bir teklif sayılmaz (değişmez md. 4).
-      amount: o.latestTotal,
-      currency: o.currency,
-      score: puan?.score ?? null,
-      active: true,
-      customerId: o.customerId,
-      notes: "",
-    };
-  });
+  // BÜTÇESEL teklifler gerçek bir satın alma fırsatı değildir. Tutarı ve puanı
+  // bulunsa bile sunucuda elenir; istemciye/grafiklere hiç taşınmaz.
+  const teklifSatirlari: AnalizSatiriDetay[] = offers
+    .filter((o) => isOfferIncludedInAnalysis(o.status))
+    .map((o) => {
+      const puan = puanlar.get(o.id);
+      return {
+        id: o.id,
+        kaynak: "teklif",
+        offerNo: o.offer_no,
+        customerName: o.customer_name,
+        customerShort: o.customerShort,
+        customerHue: o.customerHue,
+        subject: o.subject,
+        status: o.status,
+        // ÇİZELGENİN SIRA TARİHİ — teklifin VERİLDİĞİ gün. Tanım TEK yerdedir
+        // (`effectiveOfferDate`): teklif listesi de aynı soruyu aynı yerden sorar
+        // ve "yayımlandıysa gönderim günü, yoksa açılış günü" kuralı iki ekranda
+        // ayrışamaz.
+        verilisTarihi: effectiveOfferDate(o),
+        expectedOn: puan?.expectedOn ?? null,
+        // TUTAR GÜNCEL REVİZYONUN TOPLAMIDIR; fiyatı girilmemiş teklif `null`
+        // kalır ve `0 €`lık bir teklif sayılmaz (değişmez md. 4).
+        amount: o.latestTotal,
+        currency: o.currency,
+        score: puan?.score ?? null,
+        active: true,
+        customerId: o.customerId,
+        notes: "",
+      };
+    });
 
   const beklenenSatirlar: AnalizSatiriDetay[] = leads.map((l) => {
     const musteri = l.customer_id ? defter.get(l.customer_id) : undefined;

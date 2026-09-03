@@ -18,8 +18,11 @@ import { describe, expect, it } from "vitest";
 import { siraTarihi, siralaAnaliz } from "@/app/(app)/offers/analiz/analiz-view";
 import { tarihKesin, type AnalizSatiriDetay } from "@/app/(app)/offers/analiz/lead-dialog";
 import {
+  DEFAULT_OFFER_WIN_SCORE,
+  DEFAULT_PROJEKSIYON_PENCERE,
   agirlikliTutar,
   aylikSeri,
+  defaultOfferExpectedOn,
   donemSonu,
   musteriKirilimi,
   pencereBitisi,
@@ -32,6 +35,7 @@ import {
   yilSonu,
   type AnalizSatiri,
 } from "../analiz";
+import { isOfferIncludedInAnalysis, offerStatusLabel } from "../status";
 
 const BUGUN = "2026-08-17";
 
@@ -155,6 +159,42 @@ describe("pencereBitisi", () => {
   it("ay eklerken yıl döner", () => {
     expect(donemSonu("2026-08-17", 6)).toBe("2027-02-17");
     expect(donemSonu("2026-08-17", 12)).toBe("2027-08-17");
+  });
+});
+
+describe("yeni teklif analiz varsayılanları", () => {
+  it("puanı 5, ekran penceresini 12 ay başlatır", () => {
+    expect(DEFAULT_OFFER_WIN_SCORE).toBe(5);
+    expect(DEFAULT_PROJEKSIYON_PENCERE).toBe("12ay");
+  });
+
+  it("beklenen tarihi teklif tarihinden bir takvim ayı sonra verir", () => {
+    expect(defaultOfferExpectedOn("2026-09-03")).toBe("2026-10-03");
+    expect(defaultOfferExpectedOn("2026-12-31")).toBe("2027-01-31");
+  });
+
+  it("ay sonunu izleyen ayın son gününe kelepçeler", () => {
+    expect(defaultOfferExpectedOn("2026-01-31")).toBe("2026-02-28");
+    expect(defaultOfferExpectedOn("2028-01-31")).toBe("2028-02-29");
+  });
+
+  it("veritabanı yazma yolu aynı 5 puan / bir ay kuralını taşır", () => {
+    const migration = readFileSync(
+      join(process.cwd(), "supabase/migrations/20260903000001_offer_budgetary_defaults.sql"),
+      "utf8"
+    );
+    expect(migration).toContain("new.win_score := 5");
+    expect(migration).toContain("new.issue_date + interval '1 month'");
+    expect(migration).toContain("coalesce(win_score, 5)");
+  });
+});
+
+describe("bütçesel durum", () => {
+  it("etiketi görünür ama teklif Analiz'e girmez", () => {
+    expect(offerStatusLabel("budgetary")).toBe("Bütçesel");
+    expect(isOfferIncludedInAnalysis("budgetary")).toBe(false);
+    expect(isOfferIncludedInAnalysis("draft")).toBe(true);
+    expect(isOfferIncludedInAnalysis("sent")).toBe(true);
   });
 });
 

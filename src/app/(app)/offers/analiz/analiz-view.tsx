@@ -70,6 +70,7 @@ import {
 } from "@/lib/currency";
 import { monthLabel } from "@/lib/jobs/calendar";
 import {
+  DEFAULT_PROJEKSIYON_PENCERE,
   PROJEKSIYON_PENCERELERI,
   agirlikliTutar,
   aylikSeri,
@@ -225,16 +226,10 @@ export function AnalizView({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  /**
-   * PENCERE "TÜMÜ" AÇILIR (kullanıcı kararı, 17.08.2026: *"Analiz ekranı ilk
-   * açılışta Tümü olarak açsın."*).
-   *
-   * "12 ay" varsayılanı sayfayı EKSİK açıyordu: beklenen tarihi girilmemiş her
-   * satır (ki puanlanmayı bekleyen satırlar çoğunlukla onlardır) ilk bakışta
-   * yok görünüyor, kullanıcı da orada olmadıklarını sanıyordu. Daraltma bir
-   * KARARdır ve kullanıcının kendi eliyle verilmelidir.
-   */
-  const [pencere, setPencere] = useState<ProjeksiyonPencere>("tumu");
+  // Kullanıcı kararı (03.09.2026): ilk görünüm önümüzdeki 12 aydır. Tarihsiz
+  // eski satırlar “Tümü” seçeneğinde erişilebilir kalır; yeni tekliflerde tarih
+  // artık bir ay sonrası olarak otomatik dolduğu için olağan akışta kaybolmaz.
+  const [pencere, setPencere] = useState<ProjeksiyonPencere>(DEFAULT_PROJEKSIYON_PENCERE);
   const [musteri, setMusteri] = useState<string[]>([]);
   const [kaynak, setKaynak] = useState<string[]>([]);
   const [puanBandi, setPuanBandi] = useState<string[]>([]);

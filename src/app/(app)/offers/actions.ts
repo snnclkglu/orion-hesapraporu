@@ -35,6 +35,7 @@ import { defaultsOf, loadCustomerContacts, loadOfferOptions } from "./data";
 import { withTotal } from "@/lib/offers/pricing";
 import { offerFileName } from "@/lib/pdf/doc-naming";
 import { OFFER_STATUSES, type OfferStatus } from "@/lib/offers/status";
+import { DEFAULT_OFFER_WIN_SCORE, defaultOfferExpectedOn } from "@/lib/offers/analiz";
 import { renderOfferPdf } from "@/lib/pdf/offer";
 import {
   isOfferSignaturePath,
@@ -124,7 +125,13 @@ async function teklifYaz(
   for (let deneme = 0; deneme < 3; deneme += 1) {
     const { data, error } = await supabase
       .from("offers")
-      .insert({ ...kayit, seq, offer_no: offerNo(kayit.lang as "tr" | "en", kayit.issue_date, seq) })
+      .insert({
+        ...kayit,
+        seq,
+        offer_no: offerNo(kayit.lang as "tr" | "en", kayit.issue_date, seq),
+        expected_on: defaultOfferExpectedOn(kayit.issue_date),
+        win_score: DEFAULT_OFFER_WIN_SCORE,
+      })
       .select("id, offer_no")
       .single();
     if (!error && data) return data as { id: string; offer_no: string };

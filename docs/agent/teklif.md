@@ -1756,3 +1756,27 @@ orada da tek düzeydir, yalnız daha okunur olur.
 **BEDEL:** gizleme artık iki dokunuştur (tabakayı aç → göze bas). Kabul edildi.
 Rahatsız ederse çözüm rayı yeniden sabitlemek DEĞİL, gözü bölümün kendi
 başlığına da koymaktır — kullanıcı zaten oraya bakıyordur.
+
+## TEKLIF-76 — Bütçesel teklif analiz dışıdır; yeni teklif analiz alanları dolu açılır.
+
+Kullanıcı kararı (03.09.2026): teklif durumlarına **Bütçesel** eklenir. Bu
+durum, yatırım bütçesi oluşturmak için verilen yaklaşık çalışmayı ifade eder;
+gerçek bir satın alma fırsatı değildir. Teklif listesinde, müşteri profilinde,
+revizyonunda ve PDF'inde olağan teklif gibi yaşamaya devam eder fakat **Analiz
+ekranına hiç taşınmaz**. Yalnız kapalıları gizlemek yeterli değildir: kullanıcı
+kapalıları açsa da bütçesel tutar projeksiyon, grafik, müşteri kırılımı ve puan
+dağılımına giremez. Sunucu sayfası satırı istemciye göndermeden önce
+`isOfferIncludedInAnalysis` ile eler.
+
+Yeni teklifin `win_score` değeri **5**, `expected_on` değeri teklif tarihinden
+**bir takvim ayı sonrası**dır. Ay sonu taşması izleyen ayın son gününe
+kelepçelenir (31 Ocak → 28/29 Şubat). Bu değerler öneridir: kullanıcı Analiz
+ekranından değiştirebilir. Kural hem `teklifYaz`da hem `offers` BEFORE INSERT
+tetikleyicisinde uygulanır; tarayıcı dışındaki güvenilir yazma yolları da boş
+kayıt üretemez. Göç, geçmişte yalnızca boş kalan alanları aynı değerlerle
+tamamlar ve kullanıcının daha önce girdiği tarih/puanı korur.
+
+Analiz ekranının ilk penceresi **12 Ay**dır; **Tümü** seçeneği erişilebilir
+kalmaya devam eder. Bu karar TEKLIF-10'daki eski ilk-açılış tercihini geçersiz
+kılar. Varsayılan, istemci içinde çıplak metin olarak tekrarlanmaz;
+`DEFAULT_PROJEKSIYON_PENCERE` tek kaynaktır.

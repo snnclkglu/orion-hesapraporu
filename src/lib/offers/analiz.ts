@@ -96,6 +96,29 @@ export interface ProjeksiyonOzeti {
   eksik: number;
 }
 
+/** Yeni tekliflerde kullanıcının sonradan değiştirebildiği başlangıç puanı. */
+export const DEFAULT_OFFER_WIN_SCORE = 5;
+
+/**
+ * Yeni teklifin varsayılan karar tarihi: teklif tarihinden bir takvim ayı sonra.
+ *
+ * Ay sonu taşması KELEPÇELENİR: 31 Ocak + 1 ay, mart ayına sarkmak yerine
+ * şubatın son günüdür. Veritabanı tetikleyicisi de aynı takvim kuralını taşır.
+ */
+export function defaultOfferExpectedOn(issueDate: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(issueDate);
+  if (!match) throw new Error("Teklif tarihi ISO biçiminde olmalıdır.");
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const targetMonthIndex = month;
+  const targetYear = year + Math.floor(targetMonthIndex / 12);
+  const targetMonth = targetMonthIndex % 12;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  const result = new Date(Date.UTC(targetYear, targetMonth, Math.min(day, lastDay)));
+  return result.toISOString().slice(0, 10);
+}
+
 /**
  * Dönem penceresi — bugünden ileriye N ay.
  *
@@ -121,6 +144,9 @@ export const PROJEKSIYON_PENCERELERI = [
 ] as const;
 
 export type ProjeksiyonPencere = (typeof PROJEKSIYON_PENCERELERI)[number]["key"];
+
+/** Analiz ekranı ilk açılışta önümüzdeki bir yılı gösterir. */
+export const DEFAULT_PROJEKSIYON_PENCERE: ProjeksiyonPencere = "12ay";
 
 /** Pencerenin bitiş tarihi; "tümü" sınırsızdır. */
 export function pencereBitisi(pencere: ProjeksiyonPencere, bugunIso: string): string | null {
