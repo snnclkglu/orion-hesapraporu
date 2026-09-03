@@ -114,15 +114,28 @@ kural rastgele sonuç üretiyordu; seçim mühendislik yargısıdır ve
 Planı olmayan bölüm ürün satırı + kontrollerle basılır. Bilgilendirme
 (`kind: "bilgi"`) kontrolleri ve onay/varlık kontrollerinin sayıları basılmaz.
 
-**KARTLAR SAYFAYA BÖLÜNMEZ, BLOKLAR HÂLİNDE TAŞINIR.** react-pdf satır yönlü bir
-kabı sayfa sınırında bölemez; iki uzun sütunu yan yana akıtmak bu yüzden
-yasaktır. Kartlar yükseklik TAHMİNİYLE (`estimateCompactCardHeight`) küçük
-bloklara paketlenir (`packCompactBlocks`: dengeli bölme, sırayı koruyan iki
-sütun, bölüm bandıyla taşınan küçük ilk blok, geniş kart kendi bloğu) ve her
-blok `wrap={false}`tir. Tahmin bilerek üstten verilir; taşmayı
-`check-pdf-layout.py` ölçer. Sayfa doluluğu V5'te ortalama %88 (ölçüldü,
-02.09.2026); bir bloğun sığmadığı sayfa dibinde en çok bir blok kadar boşluk
-kalır ve bu kabul edilmiş bedeldir.
+**KARTLAR İKİŞERLİ SATIRLARDADIR — GAZETE SÜTUNU DEĞİL** (kullanıcı kararı,
+03.09.2026: *"alt bölüm yerleşimleri … daha düzgün yapılamaz mı"*). İlk sürüm
+kartları yükseklik tahminiyle dengelenmiş bloklara bölüp önce sol sütunu sonra
+sağ sütunu diziyordu; iki kusuru vardı ve ikisi de ölçüldü:
+
+1. **Numaralar zikzak okunuyordu** — sol sütunda 5.1 · 5.3 · 5.4, sağ sütunda
+   5.2 · 5.5 · 5.6. Gazetede doğru olan bu düzen NUMARALI bölümlerde hata gibi
+   görünür; okuyucu 5.2'yi 5.1'in altında arar.
+2. **Blok dikişlerinde bant bant boşluk kalıyordu** — iki sütunun yüksekliği
+   eşitlenemediği için her bloğun altında düzensiz bir hava payı oluşuyor,
+   kartların üst kenarları hiçbir yerde hizalanmıyordu.
+
+`pairCompactRows` kartları SIRAYLA eşler: satırın iki kartı aynı üst kenardan
+başlar ve yoga'nın `alignItems: stretch` öntanımıyla aynı yükseklikte biter.
+Satır `wrap={false}`tir — react-pdf satır yönlü bir kabı sayfa sınırında
+bölemez, sığmayan satır bütün hâlde sonraki yaprağa geçer. Bedel, kısa kartın
+İÇİNDE kalan boşluktur; o boşluk çerçevenin içindedir ve sayfada delik gibi
+durmaz — eski düzendeki bant boşluğu duruyordu. **Yükseklik tahmini
+KALDIRILDI** (`estimateCompactCardHeight` ve metrikleri): eşleştirme sıradan
+geldiği için dengelenecek bir şey yoktur ve tahmin, çizimdeki her punto
+değişiminde bakım isteyen ölü bir kopyaydı. Ölçüm (V5, 03.09.2026): 9 sayfa,
+sayfa doluluğu ortalama %90 (blok düzeninde %85), `check-pdf-layout.py` 0 sorun.
 
 **TEKER YÜKLERİ**, bu üç seviyeden birinin yeni adı değildir; müşterinin hesap
 öncesinde yalnız ray yüklerini istediği durumlar için PDF Rapor menüsünün EN

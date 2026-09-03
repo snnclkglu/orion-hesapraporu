@@ -1076,3 +1076,23 @@ de bölebiliriz. Hesapların tamamı, formüllerin tamamı olmasına da gerek yo
 - Ek (Kaynaklar ve Standartlar) kompakt rapordan çıktı; KISA gizlilik metni
   son hesap sayfasının dibine, sıkıştırılmış payla girdi (ayrı yaprak yok).
   V5: 9 sayfa.
+
+### Sinan'ın turu (02–03.09.2026) — uygulananlar
+
+- **Kart uygunluk rozetleri kaldırıldı.** *"Alt bölümlerde 3/3 uygun yazıları
+  olmasın; sadece ana bölümdeki 14/14 uygun görünse yeter."* Sayaç yalnız koyu
+  modül bandındadır; kartın yargısını sol kenar rengi ve ✓/✗ satırları taşır.
+- **Ek (Kaynaklar ve Standartlar) kompakt rapordan çıktı.** *"Sadece gizlilik
+  ve kullanım koşulları olsun, ayrı sayfada olmasına gerek yok, son sayfada
+  olsa yeterli, sıkıştırılabilir."* KISA metin hesap akışının son parçasıdır
+  (`LegalTermsBlock dense`, `wrap={false}` — hukukî beyan yarım basılamaz).
+- **Kart yerleşimi gazete sütunundan İKİŞERLİ SATIR ızgarasına geçti.**
+  *"Alt bölüm yerleşimleri … daha düzgün yapılamaz mı."* Eski düzende numaralar
+  zikzak okunuyor (sol sütun 5.1·5.3·5.4, sağ 5.2·5.5·5.6) ve blok dikişlerinde
+  bant boşluk kalıyordu. Artık satırın iki kartı aynı üst kenardan başlar, aynı
+  yükseklikte biter ve sıra soldan sağa okunur (`pairCompactRows`). Yükseklik
+  tahmini makinesi kaldırıldı — eşleştirme sıradan geldiği için gereksizdi.
+  Ölçüm: 9 sayfa, doluluk %85 → **%90**, yerleşim denetçisi 0 sorun.
+- **PDF Rapor menüsünde açıklamalar TEK SATIR.** 18rem'lik menüde 48 karakteri
+  aşan açıklama ikinci satıra sarıyordu; beş seçenek de tek satıra indirildi
+  (tarayıcıda ölçüldü: her açıklama 16 px = bir satır).
