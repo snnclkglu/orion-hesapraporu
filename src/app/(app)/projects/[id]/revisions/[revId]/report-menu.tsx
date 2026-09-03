@@ -22,6 +22,12 @@ import {
  * kontrol özeti standart ve özet raporlardan kaldırıldı ama açıklama
  * "Kapak + özet + kontroller" demeye devam ediyordu; kullanıcı, indirdiği
  * belgede olmayan bir bölüm için o seçeneği seçiyordu.
+ *
+ * **AÇIKLAMA TEK SATIRDIR** (kullanıcı kararı, 03.09.2026): menü 18rem
+ * genişliktedir ve 48 karakteri geçen açıklama ikinci satıra sarıp seçenekleri
+ * birbirine yaklaştırıyor. Yeni bir seviye eklerken açıklama bu sınıra göre
+ * yazılır; sığmayan ayrıntı (ör. dosya adının "KOMPAKT" olması) buraya değil
+ * alan dokümanına yazılır.
  */
 const LEVELS = [
   {
@@ -39,7 +45,7 @@ const LEVELS = [
     // (kullanıcı kararı, 02.09.2026 — müşteri "basit" sözcüğünü görmez).
     level: "basit",
     label: "Basit",
-    hint: "Seçimler, sonuçlar ve kontroller iki sütunda; şemasız (dosya adı: KOMPAKT)",
+    hint: "Seçim, sonuç ve kontroller iki sütunda, şemasız",
   },
   {
     level: "ozet",

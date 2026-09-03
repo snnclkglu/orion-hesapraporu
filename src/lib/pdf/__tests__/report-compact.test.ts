@@ -11,9 +11,8 @@ import type { AnyCheck } from "@/lib/calc/types";
 import {
   COMPACT_PLAN,
   compactPlanFor,
-  estimateCompactCardHeight,
   isExistenceCheck,
-  packCompactBlocks,
+  pairCompactRows,
 } from "../report-compact";
 
 describe("kompakt rapor planı — adaptörle tutarlılık", () => {
@@ -95,104 +94,44 @@ describe("onay / varlık kontrolü", () => {
   });
 });
 
-describe("iki sütunlu paketleme", () => {
-  const item = (height: number, wide = false) => ({ height, wide });
+describe("ikişerli satır düzeni", () => {
+  const item = (id: string, wide = false) => ({ id, wide });
 
-  it("sırayı korur ve sütunları dengeler", () => {
-    const blocks = packCompactBlocks([item(40), item(40), item(40), item(40)], 100);
-    expect(blocks).toHaveLength(1);
-    const b = blocks[0];
-    expect(b.kind).toBe("columns");
-    if (b.kind !== "columns") return;
-    expect(b.left).toHaveLength(2);
-    expect(b.right).toHaveLength(2);
-  });
-
-  it("tavanı aşınca yeni blok açar ve blokları DENGELİ böler (kuyrukta tek kart kalmaz)", () => {
-    const items = Array.from({ length: 10 }, () => item(50));
-    const blocks = packCompactBlocks(items, 100);
-    // 10 × 50 = 500 → 200'lük tavanla ÜÇ blok; açgözlü 4 + 4 + 2 yerine 4 + 3 + 3
-    expect(blocks.map((b) => (b.kind === "columns" ? b.left.length + b.right.length : 1))).toEqual([
-      4, 3, 3,
-    ]);
-    for (const b of blocks) {
-      if (b.kind !== "columns") continue;
-      const sum = (col: { height: number }[]) => col.reduce((s, it) => s + it.height, 0);
-      expect(sum(b.left) + sum(b.right)).toBeLessThanOrEqual(200);
-      // Her blokta iki sütun da dolu
-      expect(b.left.length).toBeGreaterThan(0);
-      expect(b.right.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("ilk blok küçük tutulabilir (bölüm bandıyla taşınır)", () => {
-    const items = Array.from({ length: 6 }, () => item(50));
-    const blocks = packCompactBlocks(items, 100, 50);
-    // İlk blok ≤ 2 × 50 = 100 → 2 kart; kalan 4 kart (200) tek blok
-    expect(blocks.map((b) => (b.kind === "columns" ? b.left.length + b.right.length : 1))).toEqual([
-      2, 4,
-    ]);
-    // Küçük ilk blok yalnız İLK blok için: geniş karttan sonraki dizi normal
-    // tavanla ve dengeli bölünür (6 × 50 = 300 → 200'lük tavanla 3 + 3)
-    const withWide = packCompactBlocks([item(200, true), ...items], 100, 50);
-    expect(withWide[0].kind).toBe("wide");
-    expect(withWide.slice(1).map((b) => (b.kind === "columns" ? b.left.length + b.right.length : 1))).toEqual([
-      3, 3,
+  it("kartları sırayla eşler — soldan sağa okunur", () => {
+    const rows = pairCompactRows([item("5.1"), item("5.2"), item("5.3"), item("5.4")]);
+    expect(rows).toEqual([
+      { kind: "pair", left: item("5.1"), right: item("5.2") },
+      { kind: "pair", left: item("5.3"), right: item("5.4") },
     ]);
   });
 
-  it("geniş kart kendi bloğudur ve öncesindeki birikimi kapatır", () => {
-    const blocks = packCompactBlocks([item(30), item(200, true), item(30), item(30)], 100);
-    expect(blocks.map((b) => b.kind)).toEqual(["columns", "wide", "columns"]);
-    const last = blocks[2];
-    if (last.kind === "columns") {
-      expect(last.left).toHaveLength(1);
-      expect(last.right).toHaveLength(1);
-    }
+  it("tek kalan kart yarım satırda durur (sağ hücre boş)", () => {
+    const rows = pairCompactRows([item("5.1"), item("5.2"), item("5.3")]);
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toEqual({ kind: "pair", left: item("5.3") });
   });
 
-  it("tek kart sol sütuna düşer, sağ boş kalır", () => {
-    const blocks = packCompactBlocks([item(30)], 100);
-    expect(blocks).toEqual([{ kind: "columns", left: [item(30)], right: [] }]);
+  it("geniş kart kendi satırıdır ve bekleyen yarım satırı kapatır", () => {
+    const rows = pairCompactRows([
+      item("7.1", true), item("7.2"), item("7.3", true), item("7.4"), item("7.5"),
+    ]);
+    expect(rows.map((r) => r.kind)).toEqual(["wide", "pair", "wide", "pair"]);
+    // 7.2 eşini bekliyordu; geniş 7.3 gelince yarım satır olarak kapandı —
+    // sıra korunur, 7.2 hiçbir zaman 7.4'ün yanına düşmez.
+    expect(rows[1]).toEqual({ kind: "pair", left: item("7.2") });
+    expect(rows[3]).toEqual({ kind: "pair", left: item("7.4"), right: item("7.5") });
   });
 
-  it("dengesiz yükseklikte bölme noktası yarıya en yakın prefix'tir", () => {
-    // 10 + 10 + 10 | 30 → sol 30, sağ 30
-    const blocks = packCompactBlocks([item(10), item(10), item(10), item(30)], 100);
-    const b = blocks[0];
-    if (b.kind !== "columns") throw new Error("columns bekleniyordu");
-    expect(b.left).toHaveLength(3);
-    expect(b.right).toHaveLength(1);
-  });
-});
-
-describe("kart yüksekliği tahmini", () => {
-  it("satır ve kontrol sayısıyla artar, geniş kart gövdesini yarılar", () => {
-    const small = estimateCompactCardHeight({
-      lineChars: 20, rows: 2, longRows: 0, checks: 1, longChecks: 0, tableRows: 0, noteChars: 0,
-    });
-    const big = estimateCompactCardHeight({
-      lineChars: 20, rows: 8, longRows: 2, checks: 3, longChecks: 1, tableRows: 0, noteChars: 0,
-    });
-    const wide = estimateCompactCardHeight({
-      lineChars: 20, rows: 8, longRows: 2, checks: 3, longChecks: 1, tableRows: 0, noteChars: 0, wide: true,
-    });
-    expect(big).toBeGreaterThan(small);
-    expect(wide).toBeLessThan(big);
-    expect(small).toBeGreaterThan(0);
+  it("boş liste satır üretmez", () => {
+    expect(pairCompactRows([])).toEqual([]);
   });
 
-  it("tablo ve not yüksekliğe girer", () => {
-    const bare = estimateCompactCardHeight({
-      lineChars: 0, rows: 0, longRows: 0, checks: 0, longChecks: 0, tableRows: 0, noteChars: 0,
-    });
-    const withTable = estimateCompactCardHeight({
-      lineChars: 0, rows: 0, longRows: 0, checks: 0, longChecks: 0, tableRows: 12, noteChars: 0,
-    });
-    const withNote = estimateCompactCardHeight({
-      lineChars: 0, rows: 0, longRows: 0, checks: 0, longChecks: 0, tableRows: 0, noteChars: 200,
-    });
-    expect(withTable).toBeGreaterThan(bare + 100);
-    expect(withNote).toBeGreaterThan(bare + 30);
+  it("SIRA HİÇ DEĞİŞMEZ — satırlar düzleştirilince girdi dizisi çıkar", () => {
+    const cards = ["2.1", "2.2", "2.3", "2.4", "2.5"].map((id) => item(id));
+    cards.splice(2, 0, item("2.9", true));
+    const flat = pairCompactRows(cards).flatMap((r) =>
+      r.kind === "wide" ? [r.item] : [r.left, ...(r.right ? [r.right] : [])]
+    );
+    expect(flat).toEqual(cards);
   });
 });

@@ -64,9 +64,8 @@ import {
 // Kompakt (basit) raporun planı ve yerleşim çekirdeği — saf, ayrı sınanır.
 import {
   compactPlanFor,
-  estimateCompactCardHeight,
   isExistenceCheck,
-  packCompactBlocks,
+  pairCompactRows,
 } from "@/lib/pdf/report-compact";
 import {
   ctxFor,
@@ -1900,7 +1899,7 @@ function summaryGroups(input: CalcInput, hidden: ReadonlySet<string>): SummaryGr
 }
 
 function SummarySection({
-  input, result, project, revision, numbers, collect, hiddenSections, reportBrand,
+  input, project, revision, collect, hiddenSections, reportBrand,
 }: ReportProps & {
   numbers: Partial<Record<ModuleKey, number>>;
   collect?: (anchor: string, page: number) => void;
@@ -2787,15 +2786,27 @@ function ModulePage({
 // Hangi SATIRIN basılacağı `report-compact.ts`teki plandan gelir; hangi
 // BÖLÜMÜN basılacağı standart raporla AYNI yüklemden (`sectionPrintedFor`,
 // `modulePrintedIn`) — gizlenen alt bölüm burada da düşer, numaralar da
-// oradaki gibi kayar. Kartlar sayfaya BÖLÜNMEZ: react-pdf satır yönlü bir kabı
-// sayfa sınırında bölemez, bu yüzden kartlar `packCompactBlocks` ile küçük
-// bloklara paketlenir ve her blok bütün hâlde taşınır.
+// oradaki gibi kayar. Kartlar İKİŞERLİ SATIRLARDA dizilir (`pairCompactRows`):
+// satırın iki kartı aynı üst kenardan başlar, aynı yükseklikte biter ve sıra
+// soldan sağa okunur. Satır `wrap={false}`tir — react-pdf satır yönlü bir kabı
+// sayfa sınırında bölemez, sığmayan satır bütün hâlde sonraki sayfaya geçer.
 
 const cs = StyleSheet.create({
   module: { marginTop: 4 },
-  grid: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  /* Kart satırı: iki hücre eşit genişlikte ve `stretch` ile EŞİT YÜKSEKLİKTE.
+     `alignItems` yazılmaz — yoga'nın öntanımı zaten `stretch`tir ve kısa kart
+     kendiliğinden eşinin boyuna uzar; `flex-start` yazmak eski düzenin ragged
+     görünümünü geri getirirdi. */
+  cardRow: { flexDirection: "row", gap: 8, marginBottom: 6 },
+  /** Tek kartlık satırda sağdaki boş hücre — kart yarım sütunda kalır. */
+  cellEmpty: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
   col: { flex: 1, minWidth: 0 },
   card: {
+    // Satırın hücresi: eşit genişlik (flexBasis 0) + eşit yükseklik (stretch).
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 0,
     borderWidth: 0.5,
     borderColor: BRAND.line300,
     borderLeftWidth: 2,
@@ -2804,7 +2815,6 @@ const cs = StyleSheet.create({
     paddingBottom: 3,
     paddingLeft: 6,
     paddingRight: 5,
-    marginBottom: 6,
   },
   cardHead: {
     flexDirection: "row",
@@ -2884,14 +2894,6 @@ const cs = StyleSheet.create({
   },
 });
 
-/**
- * Bir bloğun sütun yüksekliği tavanı (yerleşim pt). Blok en çok bunun iki
- * katıdır; sayfa dibinde boş kalan alan da en çok bir blok kadardır.
- * Modülün İLK bloğu bölüm bandıyla birlikte taşındığından daha küçük tutulur.
- */
-const COMPACT_COLUMN_CAP = 130;
-const COMPACT_FIRST_COLUMN_CAP = 70;
-
 interface CompactRow {
   label: string;
   value: string;
@@ -2914,8 +2916,6 @@ interface CompactCardModel {
   shortLabels: Map<string, string>;
   tableNodes: React.ReactNode[];
   note?: string;
-  /** Paketleme için tahmini yükseklik */
-  height: number;
 }
 
 /** Boş / seçilmemiş değer satır açmaz (FieldTable ile aynı süzgeç). */
@@ -2964,10 +2964,6 @@ function compactPlanLine(
   }
   return parts.length > 0 ? reportRowUpper(parts.join(" · ")) : undefined;
 }
-
-/** Uzun etiket kartın yarım sütununda iki satıra sarar — tahmine girer. */
-const COMPACT_LONG_ROW_CHARS = 52;
-const COMPACT_LONG_CHECK_CHARS = 42;
 
 /**
  * Bir modülün kompakt kartları. Bölüm süzgeci ve numaralar standart raporla
@@ -3072,14 +3068,6 @@ function compactCardsFor(
     }
     const line = lines.get(section.rawId) ?? compactPlanLine(section, plan.line, selections);
     const tableNodes = plan.table && section.table ? sectionTableParts(section.table, ctx) : [];
-    let tableRows = 0;
-    if (plan.table && section.table) {
-      try {
-        tableRows = section.table.build(ctx).length;
-      } catch {
-        tableRows = 0;
-      }
-    }
     const note = props.sectionNotes?.[sectionNoteKeyFor(adapter.key, section.rawId)]?.trim();
     if (!line && rows.length === 0 && checks.length === 0 && tableNodes.length === 0 && !note) {
       continue;
@@ -3087,32 +3075,17 @@ function compactCardsFor(
 
     pass += checks.filter((c) => c.pass).length;
     total += checks.length;
-    const wide = Boolean(plan.wide);
-    const longRows = rows.filter((r) => r.label.length + r.value.length > COMPACT_LONG_ROW_CHARS).length;
-    const longChecks = checks.filter(
-      (c) => (shortLabels.get(c.id) ?? c.label).length + (c.standard?.length ?? 0) > COMPACT_LONG_CHECK_CHARS
-    ).length;
     cards.push({
       id: `${adapter.key}-${section.rawId}`,
       no: secNos.get(section.rawId) ?? renumberSectionId(section.id, moduleNo),
       title: section.title,
-      wide,
+      wide: Boolean(plan.wide),
       line,
       rows,
       checks,
       shortLabels,
       tableNodes,
       note,
-      height: estimateCompactCardHeight({
-        lineChars: line?.length ?? 0,
-        rows: rows.length,
-        longRows,
-        checks: checks.length,
-        longChecks,
-        tableRows,
-        noteChars: note?.length ?? 0,
-        wide,
-      }),
     });
   }
   return { no, title: rest.join(" · "), cards, pass, total };
@@ -3216,9 +3189,9 @@ function CompactCard({ card }: { card: CompactCardModel }) {
 }
 
 /**
- * Bir modülün kompakt parçaları: koyu bölüm bandı + kart blokları. Bant, ilk
- * blokla aynı bölünemez kutudadır (madde 29 — başlık sayfa dibinde yalnız
- * kalmaz); kalan bloklar düz kardeş olarak akar.
+ * Bir modülün kompakt parçaları: koyu bölüm bandı + kart satırları. Bant, ilk
+ * satırla aynı bölünemez kutudadır (madde 29 — başlık sayfa dibinde yalnız
+ * kalmaz); kalan satırlar düz kardeş olarak akar.
  */
 function compactModuleNodes(
   adapter: ModuleAdapter,
@@ -3228,30 +3201,20 @@ function compactModuleNodes(
 ): React.ReactNode[] {
   const model = compactCardsFor(adapter, props, deps, moduleNo);
   if (!model || model.cards.length === 0) return [];
-  const blocks = packCompactBlocks(
-    model.cards,
-    COMPACT_COLUMN_CAP,
-    COMPACT_FIRST_COLUMN_CAP
-  ).map((block, i) =>
-    block.kind === "wide" ? (
-      <View key={i} wrap={false}>
-        <CompactCard card={block.item} />
-      </View>
-    ) : (
-      <View key={i} style={cs.grid} wrap={false}>
-        <View style={cs.col}>
-          {block.left.map((card) => (
-            <CompactCard key={card.id} card={card} />
-          ))}
-        </View>
-        <View style={cs.col}>
-          {block.right.map((card) => (
-            <CompactCard key={card.id} card={card} />
-          ))}
-        </View>
-      </View>
-    )
-  );
+  const rows = pairCompactRows(model.cards).map((row, i) => (
+    <View key={i} style={cs.cardRow} wrap={false}>
+      {row.kind === "wide" ? (
+        <CompactCard card={row.item} />
+      ) : (
+        <>
+          <CompactCard card={row.left} />
+          {/* Eşi olmayan son kart yarım sütunda kalır: boş hücre olmadan
+              satırın tek çocuğu bütün genişliğe yayılır ve ızgara bozulur. */}
+          {row.right ? <CompactCard card={row.right} /> : <View style={cs.cellEmpty} />}
+        </>
+      )}
+    </View>
+  ));
   return [
     <View key={`${adapter.key}-band`} wrap={false} style={cs.module}>
       <SectionTag
@@ -3259,10 +3222,10 @@ function compactModuleNodes(
         title={model.title}
         status={model.total > 0 ? { pass: model.pass, total: model.total } : undefined}
       />
-      {blocks[0]}
+      {rows[0]}
     </View>,
-    ...blocks.slice(1).map((node, i) => (
-      <React.Fragment key={`${adapter.key}-b${i + 1}`}>{node}</React.Fragment>
+    ...rows.slice(1).map((node, i) => (
+      <React.Fragment key={`${adapter.key}-r${i + 1}`}>{node}</React.Fragment>
     )),
   ];
 }

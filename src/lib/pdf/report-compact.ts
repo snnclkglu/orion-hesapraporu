@@ -311,194 +311,62 @@ export function isExistenceCheck(check: AnyCheck): boolean {
 
 // ---------------------------------------------------------------- Yerleşim
 
-export interface CompactItemSize {
-  /** Kartın TAHMİNİ yüksekliği (pt, yerleşim biriminde). */
-  height: number;
-  /** Kart iki sütunu birden kaplar. */
-  wide?: boolean;
-}
-
-export type CompactBlock<T> =
+export type CompactRow<T> =
   | { kind: "wide"; item: T }
-  | { kind: "columns"; left: T[]; right: T[] };
+  | { kind: "pair"; left: T; right?: T };
 
 /**
- * Kartları iki sütunlu, sayfaya BÖLÜNMEYEN bloklara paketler.
+ * Kartları İKİŞERLİ SATIRLARA dizer — numara sırasıyla, soldan sağa.
  *
- * NEDEN ELLE PAKETLEME: react-pdf satır yönlü bir kabı sayfa sınırında
- * bölemez (zorlanınca içindeki satırları ezip üst üste bindirir — `FieldTable`
- * yorumundaki ders). İki uzun sütunu yan yana koyup akmasına bırakmak bu
- * yüzden yasak; onun yerine kartlar yükseklik tahminiyle KÜÇÜK bloklara
- * bölünür, her blok `wrap={false}` bir satırdır ve sığmadığı yerde bütün
- * hâlde sonraki sayfaya geçer. Blok küçük tutulur (`columnCap`) ki sayfa
- * dibinde boş kalan alan bir bloğu geçmesin.
+ * ÖNCEKİ DÜZEN GAZETE SÜTUNUYDU ve kullanıcı onu düzeltmemi istedi
+ * (03.09.2026: *"alt bölüm yerleşimleri ekteki resimlerdeki gibi olmak zorunda
+ * mı, daha düzgün yapılamaz mı"*). İki kusuru vardı:
  *
- * SIRA KORUNUR: blok içinde önce sol sütun yukarıdan aşağı, sonra sağ sütun
- * okunur (gazete düzeni). Sütunlar, prefix toplamı yarıya EN YAKIN olan
- * noktadan bölünür; iki sütun dengeli olsun diye kart sırası değiştirilmez.
+ *  1. **Numaralar zikzak okunuyordu.** Kartlar yükseklik tahminiyle dengelenmiş
+ *     bloklara bölünüyor, blok içinde önce sol sütun sonra sağ sütun
+ *     okunuyordu: sol sütunda 5.1 · 5.3 · 5.4, sağ sütunda 5.2 · 5.5 · 5.6.
+ *     Gazetede doğru olan bu düzen, NUMARALI bölümlerde hata gibi görünür —
+ *     okuyucu 5.2'yi 5.1'in altında arar.
+ *  2. **Blok dikişlerinde bant bant boşluk kalıyordu.** İki sütunun yüksekliği
+ *     eşitlenemediği için her bloğun altında düzensiz bir hava payı oluşuyor,
+ *     kartların üst kenarları hiçbir yerde hizalanmıyordu.
  *
- * BLOKLAR DENGELİ BÖLÜNÜR, açgözlü değil: ardışık kartların toplamı tavana
- * göre kaç blok gerektiriyorsa o kadar blok açılır ve her blok aynı hedefe
- * doldurulur. Açgözlü doldurma sonda TEK KARTLIK bir blok bırakıyordu ve o
- * kart sol sütunda yalnız, sağ sütun boş basılıyordu (başkiriş 10.4 böyle
- * çıktı). Bir blok hedefi bir kart kadar aşabilir; sayfa payı bunu taşır.
+ * Satır düzeninde ikisi de biter: satırın iki kartı AYNI ÜST KENARDAN başlar
+ * ve yoga'nın `alignItems: stretch` öntanımıyla AYNI YÜKSEKLİKTE biter, sıra
+ * 1→2 / 3→4 diye okunur. Bedeli, kısa kartın içinde kalan boşluktur; o boşluk
+ * kartın ÇERÇEVESİNİN İÇİNDEDİR ve sayfada delik gibi durmaz — eski düzendeki
+ * bant boşluğu ise duruyordu.
  *
- * İLK BLOK KÜÇÜK TUTULABİLİR (`firstColumnCap`): bölüm bandı ilk blokla
- * birlikte taşınır (başlık yalnız kalmasın diye); küçük bir ilk blok sayfa
- * dibine daha sık sığar, kalan bloklar kendi başlarına akar.
+ * YÜKSEKLİK TAHMİNİ ARTIK GEREKMİYOR: eşleştirme sıradan gelir, dengelenecek
+ * bir şey yoktur. Tahmin makinesi (`estimateCompactCardHeight` ve metrikleri)
+ * bu yüzden kaldırıldı — çizimdeki her punto değişiminde bakımı gereken,
+ * yalnız bloklama için var olan bir kopyaydı.
  *
- * Geniş kart (`wide`) kendi başına bir bloktur; öncesindeki dizi kapatılır.
+ * Geniş kart (`wide`) tek başına bir satırdır; eşini bekleyen yarım satır
+ * ondan önce kapanır (sıra bozulmaz).
  */
-export function packCompactBlocks<T extends CompactItemSize>(
-  items: readonly T[],
-  columnCap: number,
-  firstColumnCap: number = columnCap
-): CompactBlock<T>[] {
-  const blocks: CompactBlock<T>[] = [];
-  let run: T[] = [];
-
-  const flushRun = () => {
-    if (run.length === 0) return;
-    const first = blocks.length === 0 ? firstColumnCap : columnCap;
-    for (const group of partitionRun(run, 2 * columnCap, 2 * first)) {
-      blocks.push(splitColumns(group));
-    }
-    run = [];
-  };
+export function pairCompactRows<T extends { wide?: boolean }>(
+  items: readonly T[]
+): CompactRow<T>[] {
+  const rows: CompactRow<T>[] = [];
+  let pending: T | undefined;
 
   for (const item of items) {
     if (item.wide) {
-      flushRun();
-      blocks.push({ kind: "wide", item });
+      if (pending) {
+        rows.push({ kind: "pair", left: pending });
+        pending = undefined;
+      }
+      rows.push({ kind: "wide", item });
       continue;
     }
-    run.push(item);
-  }
-  flushRun();
-  return blocks;
-}
-
-/**
- * Ardışık kart dizisini bloklara böler: (isteğe bağlı küçük) ilk grup, sonra
- * kalanı eşit hedefli gruplara. Her grupta en az bir kart vardır.
- */
-function partitionRun<T extends CompactItemSize>(
-  run: readonly T[],
-  limit: number,
-  firstLimit: number
-): T[][] {
-  const groups: T[][] = [];
-  let rest: readonly T[] = run;
-
-  if (firstLimit < limit) {
-    // EN AZ İKİ KART: tek kartlık ilk blok sağ sütunu boş bırakıyordu (ölçüldü:
-    // 2.1 Halat bandın altında yalnız, yanı boş). İkinci kart tavanı aşsa da
-    // alınır — iki sütunun ikisi de dolar, blok yine küçük kalır.
-    const first: T[] = [];
-    let height = 0;
-    for (const item of run) {
-      if (first.length >= 2 && height + item.height > firstLimit) break;
-      first.push(item);
-      height += item.height;
-    }
-    groups.push(first);
-    rest = run.slice(first.length);
-  }
-  if (rest.length === 0) return groups;
-
-  const total = rest.reduce((sum, it) => sum + it.height, 0);
-  const count = Math.max(1, Math.ceil(total / limit));
-  const target = total / count;
-  let group: T[] = [];
-  let cumulative = 0;
-  for (const item of rest) {
-    group.push(item);
-    cumulative += item.height;
-    if (groups.length - (firstLimit < limit ? 1 : 0) < count - 1 && cumulative >= target * (groups.length - (firstLimit < limit ? 1 : 0) + 1)) {
-      groups.push(group);
-      group = [];
+    if (pending) {
+      rows.push({ kind: "pair", left: pending, right: item });
+      pending = undefined;
+    } else {
+      pending = item;
     }
   }
-  if (group.length > 0) groups.push(group);
-  return groups;
-}
-
-/** Sıralı kart dizisini dengeli iki sütuna böler (sıra korunur). */
-function splitColumns<T extends CompactItemSize>(items: T[]): CompactBlock<T> {
-  if (items.length === 1) return { kind: "columns", left: items, right: [] };
-  const total = items.reduce((sum, it) => sum + it.height, 0);
-  let best = 1;
-  let bestGap = Number.POSITIVE_INFINITY;
-  let prefix = 0;
-  for (let k = 1; k < items.length; k += 1) {
-    prefix += items[k - 1].height;
-    const gap = Math.abs(prefix - (total - prefix));
-    if (gap < bestGap) {
-      bestGap = gap;
-      best = k;
-    }
-  }
-  return { kind: "columns", left: items.slice(0, best), right: items.slice(best) };
-}
-
-/**
- * Kart yüksekliği tahmini — sayımlardan (pt, yerleşim biriminde).
- *
- * Bunlar `report.tsx`teki kompakt stillerin satır adımlarıdır; tahmin
- * yalnız bloklama kararı için kullanılır, çizim yoga'nın gerçek ölçüsüyle
- * yapılır. Tahmin küçük kalırsa blok uzar ve sayfaya sığmayıp taşabilir —
- * o yüzden sayılar bilerek üstten verilir (`check-pdf-layout.py` taşmayı
- * ölçer).
- */
-export interface CompactCardCounts {
-  /** Ürün satırı var mı (ve kabaca kaç karakter) */
-  lineChars: number;
-  /** Etiket-değer satırları (girdi + seçim + sonuç) */
-  rows: number;
-  /** Uzun etiketli satırlar — iki satıra sarar */
-  longRows: number;
-  checks: number;
-  /** Uzun etiketli kontroller — iki satıra sarar */
-  longChecks: number;
-  tableRows: number;
-  noteChars: number;
-  wide?: boolean;
-}
-
-export const COMPACT_CARD_METRICS = {
-  frame: 14,
-  head: 15,
-  line: 10.5,
-  lineWrap: 8.5,
-  row: 10.4,
-  rowWrap: 8,
-  check: 12.2,
-  checkWrap: 8,
-  tableHead: 26,
-  tableRow: 11,
-  noteLine: 10,
-  /** Ürün satırı bu karakter sayısını aşınca sarar (yarım sütun genişliği). */
-  lineWrapChars: 52,
-  /** Not metni satır başına yaklaşık karakter (yarım sütun). */
-  noteChars: 62,
-} as const;
-
-export function estimateCompactCardHeight(counts: CompactCardCounts): number {
-  const m = COMPACT_CARD_METRICS;
-  const lineWraps = counts.lineChars > 0 ? Math.ceil(counts.lineChars / m.lineWrapChars) - 1 : 0;
-  const rowsHeight = counts.rows * m.row + counts.longRows * m.rowWrap;
-  const checksHeight = counts.checks * m.check + counts.longChecks * m.checkWrap;
-  const tableHeight = counts.tableRows > 0 ? m.tableHead + counts.tableRows * m.tableRow : 0;
-  const noteHeight = counts.noteChars > 0 ? Math.ceil(counts.noteChars / m.noteChars) * m.noteLine : 0;
-  const body = rowsHeight + checksHeight;
-  // Geniş kart satırlarını iki iç sütuna yayar: gövde yaklaşık yarıya iner.
-  const packedBody = counts.wide ? body / 2 + m.row : body;
-  return (
-    m.frame +
-    m.head +
-    (counts.lineChars > 0 ? m.line + lineWraps * m.lineWrap : 0) +
-    packedBody +
-    tableHeight +
-    noteHeight
-  );
+  if (pending) rows.push({ kind: "pair", left: pending });
+  return rows;
 }
