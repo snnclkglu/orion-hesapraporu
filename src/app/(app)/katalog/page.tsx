@@ -12,7 +12,13 @@
 
 import Link from "next/link";
 import { BookOpen, Download, ExternalLink } from "lucide-react";
-import { catalogSheetUrl, findCatalogSheet } from "@/lib/catalog-sheets";
+import {
+  catalogSheetDownloadUrl,
+  catalogSheetImages,
+  catalogSheetPageUrl,
+  catalogSheetUrl,
+  findCatalogSheet,
+} from "@/lib/catalog-sheets";
 import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Katalog Sayfası — ORION" };
@@ -27,8 +33,14 @@ export default async function CatalogSheetPage({
   const kind = first(sp.tur);
   const brand = first(sp.marka);
   const model = first(sp.model);
+  const inputRpmRaw = first(sp.n1);
+  const inputRpm = inputRpmRaw !== "" ? Number(inputRpmRaw) : undefined;
 
-  const sheet = kind && model ? findCatalogSheet(kind, brand || null, model) : undefined;
+  const sheet = kind && model
+    ? findCatalogSheet(kind, brand || null, model, {
+        inputRpm: Number.isFinite(inputRpm) ? inputRpm : undefined,
+      })
+    : undefined;
 
   if (!sheet) {
     return (
@@ -49,6 +61,7 @@ export default async function CatalogSheetPage({
       </div>
     );
   }
+  const images = catalogSheetImages(sheet);
 
   return (
     <div className="grid gap-4">
@@ -71,16 +84,19 @@ export default async function CatalogSheetPage({
             payını (`pointer-coarse:h-10`) eziyordu. */}
         <div className="flex flex-wrap gap-1.5">
           <Button asChild variant="outline" size="sm" className="gap-1.5">
-            <a href={catalogSheetUrl(sheet.images[0])} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="size-3.5" /> Görüntüyü aç
+            <a
+              href={catalogSheetPageUrl(kind, brand || null, model, "", { inputRpm })}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="size-3.5" /> Yeni sekmede aç
             </a>
           </Button>
           <Button asChild variant="outline" size="sm" className="gap-1.5">
             <a
-              href={catalogSheetUrl(sheet.images[0])}
-              download={`${sheet.title} — ${sheet.printedPages}.webp`}
+              href={catalogSheetDownloadUrl(kind, brand || null, model, "", { inputRpm })}
             >
-              <Download className="size-3.5" /> İndir
+              <Download className="size-3.5" /> PDF indir ({images.length} sayfa)
             </a>
           </Button>
         </div>
@@ -90,11 +106,11 @@ export default async function CatalogSheetPage({
         <p className="text-[11px] text-muted-foreground md:hidden">
           → Katalog sayfasını yana ve aşağı kaydırarak inceleyin.
         </p>
-        {sheet.images.map((image, i) => (
+        {images.map((image, i) => (
           <figure key={image} className="grid gap-1.5">
-            {sheet.images.length > 1 && (
+            {images.length > 1 && (
               <figcaption className="oc-kicker text-muted-foreground">
-                Sayfa {i + 1} / {sheet.images.length}
+                Sayfa {i + 1} / {images.length}
               </figcaption>
             )}
             {/* next/image KULLANILMAZ — kaynak manifest izin listeli bir uçtur;

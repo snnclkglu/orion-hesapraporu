@@ -75,6 +75,12 @@ performans yaprağı + ölçü sayfası tek manifest kaydıdır. SIBRE USB'de ü
 sayfasına BS fren diski yaprağı, SHI'da model yaprağına ortak teknik-veri
 yaprağı eklenir. Aynı kaynak yaprak dosyada yalnız bir kez saklanır.
 
+**Ürün başına en çok dört önemli sayfa gösterilir.** Açılır pencere, müşteriye
+açık katalog sayfası, tek PDF indirmesi ve detaylı ekipman PDF'i aynı sayfa
+dizisini kullanır. Kaynak föy dört sayfadan uzunsa genel bakış ile en yaygın
+teknik/ölçü aralıklarını taşıyan dört yaprak `MANUAL` içinde açıkça seçilir;
+yalnız ilk görüntüye bağlanan ayrı bir indirme yolu kullanılmaz.
+
 **SEW AC motor kimliği tip kodu + güç satırıdır.** 2014 tarihli
 `SEW_AC motor.pdf` içinden yalnız 400 V, 50 Hz, S1 standart DRS (IE1), DRE
 (IE2) ve DRP (IE3) motorları alınır; verim değeri basılmayan DT56/DR63,

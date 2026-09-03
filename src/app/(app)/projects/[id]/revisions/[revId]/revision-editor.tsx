@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { activeModules, runCalc, type CalcInput } from "@/lib/calc/engine";
 // Alternatiflerin uygunluğu artık burada hesaplanmaz; module-adapters.ts'teki
 // saf `altOptionPass` çağrılır (PDF raporu da aynı kaynağı okur).
-import { hoistSpecView } from "@/lib/calc/modules/hoistGroup";
+import { hoistSpecView, type HoistSelections } from "@/lib/calc/modules/hoistGroup";
 import { commonReevingByLabel } from "@/lib/calc/reeving";
 import {
   DIAMETER_SIGN,
@@ -150,7 +150,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { BolumRayi, type BolumOgesi } from "@/components/bolum-rayi";
 import { trKatla } from "@/lib/drawings/tr-text";
-import { buildEquipmentGroups } from "@/lib/equipment-list";
+import { buildEquipmentGroups, ropeCatalogModelOf } from "@/lib/equipment-list";
 import { agirlikDokumu } from "@/lib/weights/topla";
 import { type AgirlikDokumuDurumu } from "@/lib/weights/types";
 import { AgirlikDokumuDialog } from "./agirlik-dokumu-dialog";
@@ -3236,7 +3236,11 @@ export function RevisionEditor({
                         <CatalogSheetButton
                           kind={catalogMapping.kind}
                           brand={value(brandField)}
-                          model={value(modelField) ?? value(combinedField)}
+                          model={
+                            catalogMapping.kind === "rope"
+                              ? ropeCatalogModelOf(sel as HoistSelections)
+                              : value(modelField) ?? value(combinedField)
+                          }
                           inputRpm={
                             catalogMapping.kind === "gearbox" &&
                             typeof (sel as Record<string, unknown>).gearboxCatalogInputRpm === "number"

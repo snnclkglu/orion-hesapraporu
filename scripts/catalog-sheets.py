@@ -2,15 +2,17 @@
 """Katalog SAYFASI kesici — "o ürünün kataloğundaki gerçek sayfası".
 
 NE YAPAR
-  Üretici katalog PDF'lerinden, seçilen ürünün TABLOSUNUN bulunduğu sayfayı
+  Üretici katalog PDF'lerinden, seçilen ürünün TABLOSUNUN bulunduğu sayfaları
   kesip ekran çözünürlüğünde bir görüntü (.webp) olarak yazar ve uygulamanın
   okuduğu `src/lib/catalog-sheets/manifest.json` defterini üretir: hangi MARKA
   + MODEL hangi sayfaya düşer.
 
   Yalnız GÖRÜNTÜ yazılır, PDF dilimi yazılmaz. Sayfa dilimi PDF'i kaynak
   dosyanın taranmış görüntüsünü olduğu gibi taşıdığı için dosya başına 200–800
-  KB tutuyordu; 250'yi aşkın sayfada bu depoyu gereksiz şişirirdi. Görüntü her
-  tarayıcıda açılır, indirilir ve yazdırılır — kaybedilen tek şey vektör
+  KB tutuyordu; 250'yi aşkın sayfada bu depoyu gereksiz şişirirdi. Bir ürün
+  için en çok dört önemli üretici sayfası tutulur; daha uzun föylerde genel
+  bakış ve en yaygın ölçü aralıklarını taşıyan dört yaprak elle seçilir.
+  Görüntü her tarayıcıda açılır, indirilir ve yazdırılır — kaybedilen tek şey vektör
   kataloglardaki metin seçimidir (kataloğun çoğu zaten taranmıştır).
 
 SAYFA NASIL BULUNUR — İKİ YOL
@@ -45,7 +47,10 @@ import re
 import sys
 from collections import defaultdict
 
-import fitz  # PyMuPDF
+try:
+    import pymupdf as fitz  # PyMuPDF'nin güncel içe aktarma adı
+except ImportError:  # Eski PyMuPDF sürümleri
+    import fitz
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -59,6 +64,7 @@ MANIFEST = os.path.join(REPO, "src", "lib", "catalog-sheets", "manifest.json")
 # küçük rakam ekranda okunur, dosya 120–250 KB bandında kalır.
 IMG_WIDTH = 1500
 WEBP_QUALITY = 76
+MAX_SHEET_PAGES = 4
 
 # --------------------------------------------------------------- kaynak PDF'ler
 
@@ -133,6 +139,17 @@ PDFS = {
     "drako_regulator": "Diğer kataloglar/DRAKO-6x19-S-6x19-W-8x19-S-urun.pdf",
     "drako_180b": "Diğer kataloglar/DRAKO-180-B.pdf",
     "drako_200b": "Diğer kataloglar/DRAKO-200-B.pdf",
+    # İzmit A.Ş. Kırmızı Damar ürün föyleri (resmî ürün sayfası, 2026-09-03).
+    # Dokuz PDF'in her biri iki sayfadır: ürün tanımı + teknik tablo.
+    "izmit_6x7": "Diğer kataloglar/İzmit AŞ/IZMIT-A.S.-6x7-STD-urun.pdf",
+    "izmit_6x19_m": "Diğer kataloglar/İzmit AŞ/IZMIT-A.S.-6x19-M-STD-urun.pdf",
+    "izmit_6x19": "Diğer kataloglar/İzmit AŞ/IZMIT-A.S.-6x19-SINIFI-urun.pdf",
+    "izmit_6x36": "Diğer kataloglar/İzmit AŞ/IZMIT-A.S.-6x36-SINIFI-urun.pdf",
+    "izmit_8x36": "Diğer kataloglar/İzmit AŞ/IZMIT-A.S.-8x36-WS-urun.pdf",
+    "izmit_8x19": "Diğer kataloglar/İzmit AŞ/IZMIT-A.S.-8x19-SINIFI-urun.pdf",
+    "izmit_18x7": "Diğer kataloglar/İzmit AŞ/IZMIT-A.S.-18x7-NUFLEX-urun.pdf",
+    "izmit_35wx7": "Diğer kataloglar/İzmit AŞ/IZMIT-A.S.-35Wx7-NUFLEX-urun.pdf",
+    "izmit_8x19_elevator": "Diğer kataloglar/İzmit AŞ/IZMIT-A.S.-8x19-SINIFI-asansor.pdf",
     "polat_pcs": "Diğer kataloglar/POLAT KALDIRMA REDÜKTÖRÜ pcs_catologue_2024.pdf",
     "yilmaz_k": "Diğer kataloglar/YILMAZ KR KATALOG.pdf",
     "yilmaz_planet": "Diğer kataloglar/YILMAZ R PL PLANET REDÜKTÖRLER.pdf",
@@ -369,8 +386,44 @@ MANUAL = [
     # PDF olduğu hâlde on altı ürün taşır — her ürünün kendi tablosu vardır.
     ("rope", "Haşçelik", "6x36 WS", "hascelik_6x36.json", "hascelik_6x36", [0, 1], "s.1-2",
      "Haşçelik 6x36 WS — ürün tanımı ve teknik halat tablosu"),
-    ("rope", "İzmit A.Ş.", "6x36 WS", "izmit_6x36.json", "guven_rope", [92], "basılı s.182",
-     "İzmit A.Ş. 6x36 WS — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "İzmit A.Ş.", "6x7 (STD)", "izmit_6x7_std.json", "izmit_6x7", [0, 1], "s.1-2",
+     "İzmit A.Ş. 6x7 (STD) — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "6x19 M (STD)", "izmit_6x19_m_std.json", "izmit_6x19_m", [0, 1], "s.1-2",
+     "İzmit A.Ş. 6x19 M (STD) — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "6x19 S", "izmit_6x19_s.json", "izmit_6x19", [0, 1], "s.1-2",
+     "İzmit A.Ş. 6x19 S — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "6x19 F", "izmit_6x19_f.json", "izmit_6x19", [0, 1], "s.1-2",
+     "İzmit A.Ş. 6x19 F — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "6x19 W", "izmit_6x19_w.json", "izmit_6x19", [0, 1], "s.1-2",
+     "İzmit A.Ş. 6x19 W — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "6x26 WS", "izmit_6x26_ws.json", "izmit_6x19", [0, 1], "s.1-2",
+     "İzmit A.Ş. 6x26 WS — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "6x31 WS", "izmit_6x31_ws.json", "izmit_6x36", [0, 1], "s.1-2",
+     "İzmit A.Ş. 6x31 WS — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "6x36 WS", "izmit_6x36.json", "izmit_6x36", [0, 1], "s.1-2",
+     "İzmit A.Ş. 6x36 WS — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "6x41 WS", "izmit_6x41_ws.json", "izmit_6x36", [0, 1], "s.1-2",
+     "İzmit A.Ş. 6x41 WS — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "8x36 WS", "izmit_8x36_ws.json", "izmit_8x36", [0, 1], "s.1-2",
+     "İzmit A.Ş. 8x36 WS — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "8x19 S", "izmit_8x19_s.json", "izmit_8x19", [0, 1], "s.1-2",
+     "İzmit A.Ş. 8x19 S — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "8x19 F", "izmit_8x19_f.json", "izmit_8x19", [0, 1], "s.1-2",
+     "İzmit A.Ş. 8x19 F — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "8x19 W", "izmit_8x19_w.json", "izmit_8x19", [0, 1], "s.1-2",
+     "İzmit A.Ş. 8x19 W — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "8x26 WS", "izmit_8x26_ws.json", "izmit_8x19", [0, 1], "s.1-2",
+     "İzmit A.Ş. 8x26 WS — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "18x7 NUFLEX", "izmit_18x7_nuflex.json", "izmit_18x7", [0, 1], "s.1-2",
+     "İzmit A.Ş. 18x7 NUFLEX — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "35Wx7 NUFLEX", "izmit_35wx7_nuflex.json", "izmit_35wx7", [0, 1], "s.1-2",
+     "İzmit A.Ş. 35Wx7 NUFLEX — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "8x19 S (Asansör)", "izmit_8x19_s_elevator.json", "izmit_8x19_elevator", [0, 1], "s.1-2",
+     "İzmit A.Ş. 8x19 S Asansör — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "8x19 F (Asansör)", "izmit_8x19_f_elevator.json", "izmit_8x19_elevator", [0, 1], "s.1-2",
+     "İzmit A.Ş. 8x19 F Asansör — ürün tanımı ve teknik halat tablosu"),
+    ("rope", "İzmit A.Ş.", "8x19 W (Asansör)", "izmit_8x19_w_elevator.json", "izmit_8x19_elevator", [0, 1], "s.1-2",
+     "İzmit A.Ş. 8x19 W Asansör — ürün tanımı ve teknik halat tablosu"),
     ("rope", "CASAR", "Starlift Plus", "casar_starlift_plus.json", "casar", [16], "s.C17",
      "CASAR STARLIFT PLUS — çap, kopma kuvveti ve metre ağırlığı tablosu"),
     ("rope", "CASAR", "Starlift Xtra", "casar_starlift_xtra.json", "casar", [18], "s.C19",
@@ -413,9 +466,9 @@ MANUAL = [
      "OLIVEIRA HD 8 K PPI — genel bakış ve çelik halat teknik tablosu"),
     ("rope", "DIEPA", "H 43", "diepa_h_43.json", "diepa_h43", [0, 1, 2, 3], "s.1-4",
      "DIEPA H 43 — genel bakış ve çelik halat teknik tabloları"),
-    ("rope", "DIEPA", "8 demetli (X 53)", "diepa_x_53.json", "diepa_x53", [0, 1, 2, 3, 4], "s.1-5",
+    ("rope", "DIEPA", "8 demetli (X 53)", "diepa_x_53.json", "diepa_x53", [0, 1, 2, 3], "s.1-4 (5 sayfalık föyden seçilen)",
      "DIEPA 8 demetli (X 53) — genel bakış ve çelik halat teknik tabloları"),
-    ("rope", "DIEPA", "8 demetli (X 50)", "diepa_x_50.json", "diepa_x53", [0, 1, 2, 3, 4], "s.1-5",
+    ("rope", "DIEPA", "8 demetli (X 50)", "diepa_x_50.json", "diepa_x53", [0, 1, 2, 3], "s.1-4 (5 sayfalık föyden seçilen)",
      "DIEPA 8 demetli (X 50) — genel bakış ve çelik halat teknik tabloları"),
     ("rope", "DIEPA", "6 demetli kompakt (PZ 299)", "diepa_pz_299.json", "diepa_pz299", [0, 1, 2], "s.1-3",
      "DIEPA 6 demetli kompakt (PZ 299) — genel bakış ve çelik halat teknik tabloları"),
@@ -439,7 +492,7 @@ MANUAL = [
      "DIEPA 10 demetli (ML4) — genel bakış ve çelik halat teknik tabloları"),
     ("rope", "DIEPA", "10 demetli kompakt (ML5)", "diepa_ml_5.json", "diepa_ml5", [0, 1, 2, 3], "s.1-4",
      "DIEPA 10 demetli kompakt (ML5) — genel bakış ve çelik halat teknik tabloları"),
-    ("rope", "DIEPA", "18 demetli (B 55)", "diepa_b_55.json", "diepa_b55", [0, 1, 2, 3, 4], "s.1-5",
+    ("rope", "DIEPA", "18 demetli (B 55)", "diepa_b_55.json", "diepa_b55", [0, 1, 2, 3], "s.1-4 (5 sayfalık föyden seçilen)",
      "DIEPA 18 demetli (B 55) — genel bakış ve çelik halat teknik tabloları"),
     ("rope", "DIEPA", "15 demetli (C 45)", "diepa_c_45.json", "diepa_c45", [0, 1, 2], "s.1-3",
      "DIEPA 15 demetli (C 45) — genel bakış ve çelik halat teknik tabloları"),
@@ -728,6 +781,8 @@ def db_model(kind: str, item: dict, meta: dict | None = None) -> str:
         grade = item.get("grade_mpa")
         if grade:
             parts.append("%s MPa" % _fmt_dia(grade))
+        elif (meta or {}).get("include_grade_label_in_model") and item.get("grade_label"):
+            parts.append(str(item["grade_label"]).strip())
         return " ".join(p for p in parts if p)
     if kind == "bearing":
         return str(item.get("designation", "")).strip()
@@ -1022,7 +1077,7 @@ def build(verify_only: bool = False, only: set[str] | None = None) -> None:
         # Onuncu alan, başka bir SIBRE föyünden gelen ortak tamamlayıcı
         # yaprakları taşır (örn. USB ürün sayfası + BS disk ölçüleri).
         extra_pages = sheet[9] if len(sheet) > 9 else []
-        page_refs = [(src_key, idx) for idx in pages] + list(extra_pages)
+        page_refs = ([(src_key, idx) for idx in pages] + list(extra_pages))[:MAX_SHEET_PAGES]
         images = [
             image_for(page_src, kind, idx,
                       "%s-%s-p%d" % (slugify(brand), slugify(series), n + 1))
@@ -1050,7 +1105,7 @@ def build(verify_only: bool = False, only: set[str] | None = None) -> None:
             problems.append("%s: hiçbir ürün sayfaya bağlanamadı" % jf)
             continue
         for group in sorted(groups, key=lambda g: (g["pages"], str(g["variant"]))):
-            pages = group["pages"]
+            pages = group["pages"][:MAX_SHEET_PAGES]
             page_token = "-".join(str(idx + 1) for idx in pages)
             slug = "%s-%s-p%s" % (
                 slugify(brand),

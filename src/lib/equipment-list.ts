@@ -517,14 +517,12 @@ function ropeCatalogConstruction(value: string): string {
  * MPa parçası olmadan denenir. Aday ancak manifestte gerçekten bulunuyorsa
  * seçilir; yakın ürün tahmini yapılmaz.
  */
-function ropeCatalogModelOf(sel: HoistSelections): string | undefined {
+export function ropeCatalogModelOf(sel: HoistSelections): string | undefined {
   const candidates: string[] = [];
   const add = (value: string | undefined) => {
     const trimmed = value?.trim();
     if (trimmed && !candidates.includes(trimmed)) candidates.push(trimmed);
   };
-  add(sel.ropeCatalogModel);
-
   const diameter = Number(sel.ropeDiaMm);
   const construction = ropeCatalogConstruction(sel.ropeConstruction ?? "");
   const core = ropeCatalogCoreCode(sel.ropeCore ?? "");
@@ -534,6 +532,14 @@ function ropeCatalogModelOf(sel: HoistSelections): string | undefined {
     if (grade) add(`${base} ${grade} MPa`);
     add(base);
   }
+
+  // Tam model normalde en güvenilir kimliktir; ancak eski alternatif kayıtları
+  // bu alanı seçenek içinde saklamadığı için önceki aktif ürünün modeli burada
+  // kalmış olabilir (0063: 6x36 WS → 18x7 NUFLEX). Güncel çap/konstrüksiyon/öz
+  // değerlerinden kurulan ve manifestte gerçekten bulunan aday önce denenir;
+  // bileşik sınıflı asansör halatları gibi türetilemeyen ürünlerde tam model
+  // hâlâ güvenli geri dönüştür.
+  add(sel.ropeCatalogModel);
 
   return candidates.find((model) =>
     findCatalogSheet("rope", sel.ropeBrand, model)

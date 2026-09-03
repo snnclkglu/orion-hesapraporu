@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
-import { BookOpen } from "lucide-react";
-import { catalogSheetUrl, findCatalogSheet } from "@/lib/catalog-sheets";
+import { BookOpen, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  catalogSheetDownloadUrl,
+  catalogSheetImages,
+  catalogSheetUrl,
+  findCatalogSheet,
+} from "@/lib/catalog-sheets";
 
 export const metadata: Metadata = {
   title: "Katalog Sayfası — ORION",
@@ -37,6 +43,7 @@ export default async function PublicCatalogSheetPage({
       </main>
     );
   }
+  const images = catalogSheetImages(sheet);
 
   return (
     <main className="mx-auto grid min-h-dvh w-full max-w-6xl content-start gap-4 px-3 py-4 sm:px-5 sm:py-6">
@@ -54,20 +61,28 @@ export default async function PublicCatalogSheetPage({
             Kaynak: {sheet.source} · {sheet.printedPages} — üretici katalog sayfası
           </p>
         </div>
-        <span className="border bg-muted px-2 py-1 font-mono text-[11px] text-muted-foreground">
-          Üyelik gerekmez
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <a href={catalogSheetDownloadUrl(kind, brand || null, model, "", { inputRpm })}>
+              <Download className="size-3.5" />
+              PDF indir ({images.length} sayfa)
+            </a>
+          </Button>
+          <span className="border bg-muted px-2 py-1 font-mono text-[11px] text-muted-foreground">
+            Üyelik gerekmez
+          </span>
+        </div>
       </header>
 
       <p className="text-[11px] text-muted-foreground md:hidden">
         → Katalog sayfasını yana ve aşağı kaydırarak inceleyin.
       </p>
       <div className="grid gap-4">
-        {sheet.images.map((image, index) => (
+        {images.map((image, index) => (
           <figure key={image} className="grid gap-1.5">
-            {sheet.images.length > 1 && (
+            {images.length > 1 && (
               <figcaption className="oc-kicker text-muted-foreground">
-                Sayfa {index + 1} / {sheet.images.length}
+                Sayfa {index + 1} / {images.length}
               </figcaption>
             )}
             <div className="oc-scrollx overflow-auto overscroll-x-contain border bg-white [--oc-scroll-bg:#fff] md:overflow-visible">

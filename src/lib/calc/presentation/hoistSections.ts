@@ -110,7 +110,10 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       "fixedSheaveCount", "hookBlockWeightKg", "ropeWeightKg", "ropeBalancingType",
     ],
     selectionKeys: [
-      "ropeBrand", "ropeDiaMm", "ropeConstruction", "ropeCore",
+      // Tam katalog kimliği alternatifle birlikte saklanır. Bu alan dışarıda
+      // kalırsa alternatif değişiminde önceki ürünün modeli seçimde kalır ve
+      // doğru halat değerlerinin yanında yanlış üretici föyü açılır.
+      "ropeBrand", "ropeCatalogModel", "ropeDiaMm", "ropeConstruction", "ropeCore",
       "ropeWireStrength", "ropeBreakingLoadKn", "ropeWeightKgPerM",
     ],
     rows: [

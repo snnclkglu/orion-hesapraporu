@@ -10,6 +10,14 @@ export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/paylas" || request.nextUrl.pathname.startsWith("/paylas/")) {
     return NextResponse.next({ request });
   }
+  // Paylaşılan katalog sayfasındaki çok-sayfalı PDF düğmesi de müşteri
+  // oturumu olmadan çalışmalıdır. Görsel uçları `.webp` uzantısı sayesinde
+  // matcher dışında kalır; uzantısız bu uç ise ayrıca muaf tutulmazsa
+  // `/login` HTML'ine yönlenir ve indirilen dosya PDF gibi görünse de bozuktur.
+  // Handler yalnız manifestte kayıtlı marka + model kimliklerini kabul eder.
+  if (request.nextUrl.pathname === "/api/catalog-sheet/download") {
+    return NextResponse.next({ request });
+  }
   // `/qr/<kod>` plakaya KAZINAN kalıcı adrestir ve portala rewrite edilir;
   // muafiyet olmadan QR'ı okutan müşteri giriş sayfasına düşerdi.
   if (request.nextUrl.pathname.startsWith("/qr/")) {

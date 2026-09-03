@@ -14,6 +14,9 @@
 import { useState } from "react";
 import { BookOpen, Download, ExternalLink, Maximize2, Minimize2 } from "lucide-react";
 import {
+  catalogSheetDownloadUrl,
+  catalogSheetImages,
+  catalogSheetPageUrl,
   catalogSheetUrl,
   findCatalogSheet,
   hasCatalogSheets,
@@ -40,13 +43,14 @@ const ZOOM_LEVELS: readonly { width: string | null; next: string }[] = [
 ];
 
 function SheetPages({ sheet, zoomWidth }: { sheet: CatalogSheet; zoomWidth: string | null }) {
+  const images = catalogSheetImages(sheet);
   return (
     <div className="grid gap-4">
-      {sheet.images.map((image, i) => (
+      {images.map((image, i) => (
         <figure key={image} className="grid gap-1.5">
-          {sheet.images.length > 1 && (
+          {images.length > 1 && (
             <figcaption className="oc-kicker text-muted-foreground">
-              Sayfa {i + 1} / {sheet.images.length}
+              Sayfa {i + 1} / {images.length}
             </figcaption>
           )}
           {/* Katalog sayfası ölçü tablosu içerir: küçültülmüş hâli okunur
@@ -91,6 +95,7 @@ export function CatalogSheetButton({
   if (!hasCatalogSheets(kind)) return null;
 
   const sheet = findCatalogSheet(kind, brand, model, { inputRpm });
+  const images = sheet ? catalogSheetImages(sheet) : [];
   const reason = !model
     ? "Önce katalogdan bir ürün seçin"
     : !sheet
@@ -169,18 +174,21 @@ export function CatalogSheetButton({
               {level.next}
             </Button>
             <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
-              <a href={catalogSheetUrl(sheet.images[0])} target="_blank" rel="noopener noreferrer">
+              <a
+                href={catalogSheetPageUrl(kind, brand, model!, "", { inputRpm })}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <ExternalLink className="size-3.5" />
                 Yeni sekmede aç
               </a>
             </Button>
             <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
               <a
-                href={catalogSheetUrl(sheet.images[0])}
-                download={`${sheet.title} — ${sheet.printedPages}.webp`}
+                href={catalogSheetDownloadUrl(kind, brand, model!, "", { inputRpm })}
               >
                 <Download className="size-3.5" />
-                İndir
+                PDF indir ({images.length} sayfa)
               </a>
             </Button>
           </div>

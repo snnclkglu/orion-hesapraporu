@@ -21,7 +21,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import { findCatalogSheet } from "@/lib/catalog-sheets";
+import { catalogSheetImages, findCatalogSheet } from "@/lib/catalog-sheets";
 import {
   catalogIdentityOf,
   rowCatalogSheetKey,
@@ -108,7 +108,7 @@ export async function collectCatalogSheetPages(
       }
 
       const images: CatalogSheetPage["images"] = [];
-      for (const image of sheet.images) {
+      for (const image of catalogSheetImages(sheet)) {
         const yaprak = await loadImage(image);
         if (yaprak) images.push(yaprak);
       }

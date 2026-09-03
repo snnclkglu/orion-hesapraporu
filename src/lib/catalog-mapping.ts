@@ -207,6 +207,9 @@ export const ATTR_LABELS: Record<string, string> = {
   // tanımıyla basar ("1570 N/mm² ve 1370/1770 N/mm²"). O satırlarda sayısal
   // sınıf YOKTUR — basılı etiket olduğu gibi taşınır, bir sınıf uydurulmaz.
   grade_label: "Tel Mukavemeti (basılı)",
+  // Sayısal MPa ve asansör halatlarındaki bileşik sınıfları tek seçici
+  // sütununda gösteren, seed sırasında üretilen ortak metin.
+  strength_class: "Tel Mukavemeti",
   wire_strength_kgmm2: "Tel Mukavemeti [kg/mm²]",
   breaking_load_kn: "Kopma Yükü [kN]",
   // Kopma kuvvetini yalnız ton olarak basan föylerde dönüşümün kaynağı.
@@ -515,14 +518,14 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
       // kullanıcı bilerek başka bir alanın halatını da seçebilir.
       { attr: "typical_application", label: "Kullanım Alanı" },
       { attr: "construction", label: "Halat Yapısı" },
-      { attr: "grade_mpa", label: "Tel Mukavemeti", unit: "MPa" },
+      { attr: "strength_class", label: "Tel Mukavemeti" },
       { attr: "core", label: "Öz Tipi" },
     ],
     minFilter: { attr: "breaking_load_kn", label: "En Az Kopma Yükü", unit: "kN" },
     columns: [
       { attr: "dia_mm", label: "Çap", unit: "mm" },
       { attr: "core", label: "Öz" },
-      { attr: "grade_mpa", label: "Mukavemet", unit: "MPa" },
+      { attr: "strength_class", label: "Mukavemet" },
       { attr: "breaking_load_kn", label: "Kopma Yükü", unit: "kN" },
       { attr: "weight_kg_per_m", label: "Metre Ağırlığı", unit: "kg/m" },
       // FEM 1.001 tek katlı ve kılavuzsuz yükte dönmeye dirençli halat ister;

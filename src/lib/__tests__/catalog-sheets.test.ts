@@ -9,7 +9,9 @@ import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  MAX_CATALOG_SHEET_PAGES,
   allCatalogSheets,
+  catalogSheetDownloadUrl,
   catalogSheetFiles,
   catalogSheetPageUrl,
   catalogSheetUrl,
@@ -56,6 +58,8 @@ describe("katalog sayfası defteri", () => {
   it("her kaydın en az bir sayfa görüntüsü ve bir modeli var", () => {
     for (const sheet of sheets) {
       expect(sheet.images.length, sheet.id).toBeGreaterThan(0);
+      expect(sheet.images.length, `${sheet.id}: dört sayfa sınırı aşıldı`)
+        .toBeLessThanOrEqual(MAX_CATALOG_SHEET_PAGES);
       expect(sheet.models.length, sheet.id).toBeGreaterThan(0);
       expect(sheet.images.every((i) => i.endsWith(".webp")), sheet.id).toBe(true);
     }
@@ -277,6 +281,28 @@ describe("model → sayfa eşlemesi", () => {
     expect(hasCatalogSheets("rope", "Haşçelik")).toBe(true);
     expect(hasCatalogSheets("rope", "İzmit A.Ş.")).toBe(true);
   });
+
+  it("İzmit A.Ş. modellerinin ürün tanımı + teknik tablo sayfalarını birlikte verir", () => {
+    const standard = findCatalogSheet(
+      "rope", "İzmit A.Ş.", "Ø8 6x36 WS FC 1770 MPa"
+    );
+    const elevator = findCatalogSheet(
+      "rope", "İzmit A.Ş.", "Ø8 8x19 S (Asansör) FC 1180/1770 N/mm²"
+    );
+    expect(standard?.images).toHaveLength(2);
+    expect(elevator?.images).toHaveLength(2);
+    expect(standard?.source).toContain("IZMIT-A.S.-6x36-SINIFI-urun.pdf");
+    expect(elevator?.source).toContain("IZMIT-A.S.-8x19-SINIFI-asansor.pdf");
+  });
+
+  it("beş sayfalık eski halat föylerinde seçilmiş dört önemli sayfayı korur", () => {
+    for (const model of [
+      "Ø4 8 demetli (X 53) IWRC-PC 1770 MPa",
+      "Ø4 18 demetli (B 55) IWRC 1770 MPa",
+    ]) {
+      expect(findCatalogSheet("rope", "DIEPA", model)?.images).toHaveLength(4);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -312,6 +338,16 @@ describe("katalog sayfası adresi (ekipman listesi bağlantıları)", () => {
   it("marka alanı yoksa (\"-\") adrese yazılmaz", () => {
     const url = new URL(catalogSheetPageUrl("gearbox", "-", "B3SH 13", "https://ornek"));
     expect(url.searchParams.has("marka")).toBe(false);
+  });
+
+  it("çok sayfalı PDF indirme adresi aynı ürün kimliğini taşır", () => {
+    const url = new URL(catalogSheetDownloadUrl(
+      "rope", "İzmit A.Ş.", "Ø8 6x36 WS FC 1770 MPa", "https://ornek"
+    ));
+    expect(url.pathname).toBe("/api/catalog-sheet/download");
+    expect(url.searchParams.get("tur")).toBe("rope");
+    expect(url.searchParams.get("marka")).toBe("İzmit A.Ş.");
+    expect(url.searchParams.get("model")).toBe("Ø8 6x36 WS FC 1770 MPa");
   });
 
   it("H serisi adresinde gerçek katalog giriş devrini taşır", () => {

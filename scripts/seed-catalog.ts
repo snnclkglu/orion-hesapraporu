@@ -261,16 +261,22 @@ for (const file of ropeFiles) {
     a.construction = construction;
     if (metaApplication) a.typical_application = metaApplication;
     const grade = num(a.grade_mpa);
+    const printedGrade = typeof a.grade_label === "string" ? a.grade_label.trim() : "";
+    const strengthClass = grade ? `${a.grade_mpa} MPa` : printedGrade;
+    if (strengthClass) a.strength_class = strengthClass;
     // Tel dayanımı [kg/mm²] — 1770→180, 1960→200, 2160→220 (standart seriler)
     if (grade) a.wire_strength_kgmm2 = Math.round(grade / 9.80665);
     // Model, satın almanın istediği tanımdır. Mukavemet SINIFI basılı olmayan
     // ürünlerde (CASAR Starlift Xtra) o parça atlanır — "undefined MPa"
     // yazmak katalogda olmayan bir sınıf uydururdu.
+    const modelGrade = grade
+      ? `${a.grade_mpa} MPa`
+      : (meta.include_grade_label_in_model === true ? printedGrade : "");
     const model = [
       `Ø${a.dia_mm}`,
       construction,
       a.core,
-      grade ? `${a.grade_mpa} MPa` : "",
+      modelGrade,
     ].filter(Boolean).join(" ");
     push("rope", brand, model, a, metaDatasheet);
   }

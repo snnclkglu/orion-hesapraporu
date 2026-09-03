@@ -18,6 +18,9 @@
 
 import manifest from "./catalog-sheets/manifest.json";
 
+/** Açılır pencere, indirme ve ekipman raporunda ürün başına üst sınır. */
+export const MAX_CATALOG_SHEET_PAGES = 4;
+
 export interface CatalogSheet {
   /** Defter anahtarı — `<tür>/<marka>-<seri>` */
   id: string;
@@ -257,6 +260,11 @@ export function catalogSheetUrl(relativePath: string): string {
   return `/api/catalog-sheet/${relativePath}`;
 }
 
+/** Bir ürün için gösterilecek/indirilecek, katalog sırasındaki en çok 4 sayfa. */
+export function catalogSheetImages(sheet: CatalogSheet): readonly string[] {
+  return sheet.images.slice(0, MAX_CATALOG_SHEET_PAGES);
+}
+
 /**
  * Katalog sayfasının MÜŞTERİYE AÇIK adresi — ekipman listesinden, Excel'den ve
  * PDF'ten aynı sade sayfaya gidilir; müşteri üyeliği gerekmez.
@@ -286,6 +294,24 @@ export function catalogSheetPageUrl(
   return `${origin}/paylas/katalog?${q.toString()}`;
 }
 
+/** Seçilen ürünün bütün katalog yapraklarını tek PDF olarak indiren adres. */
+export function catalogSheetDownloadUrl(
+  kind: string,
+  brand: string | null | undefined,
+  model: string,
+  origin = "",
+  lookup: { inputRpm?: number | null } = {}
+): string {
+  const q = new URLSearchParams({ tur: kind, model });
+  const real = realBrand(brand);
+  if (real) q.set("marka", real);
+  if (lookup.inputRpm !== undefined && lookup.inputRpm !== null &&
+      Number.isFinite(lookup.inputRpm)) {
+    q.set("n1", rpmKey(lookup.inputRpm));
+  }
+  return `${origin}/api/catalog-sheet/download?${q.toString()}`;
+}
+
 /**
  * Uçtan sunulmasına izin verilen dosyaların TAM listesi. Yol defterde yoksa
  * dosya okunmaz; böylece uç bir dizin gezme (path traversal) yüzeyi açmaz.
@@ -293,7 +319,7 @@ export function catalogSheetPageUrl(
 export function catalogSheetFiles(): ReadonlySet<string> {
   const files = new Set<string>();
   for (const sheet of SHEETS) {
-    for (const image of sheet.images) files.add(image);
+    for (const image of catalogSheetImages(sheet)) files.add(image);
   }
   return files;
 }

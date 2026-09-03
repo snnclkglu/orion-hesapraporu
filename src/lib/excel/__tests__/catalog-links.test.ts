@@ -60,6 +60,32 @@ describe("ekipman listesi katalog bağlantıları", () => {
       gearbox.model,
     ]);
     expect(pages[0].source).toContain("Hasçelik 6x36 WS");
+    expect(pages[0].images).toHaveLength(2);
+  }, 120_000);
+
+  it("0063 Halat Alternatif 1'de eski katalog kimliğini taşımayıp iki doğru sayfayı toplar", async () => {
+    const input = structuredClone(V5_TEMPLATE);
+    const selections = input.mainHoist!.selections;
+    // Canlı 0063/V0 kaydındaki durum: seçenek 18x7 NUFLEX'e geçmiş, fakat
+    // alternatiflerin eski şeması yüzünden önceki 6x36 katalog modeli kalmış.
+    selections.ropeBrand = "İzmit A.Ş.";
+    selections.ropeDiaMm = 22;
+    selections.ropeConstruction = "18x7 NUFLEX";
+    selections.ropeCore = "Çelik Öz (IWRC)";
+    selections.ropeWireStrength = 200;
+    selections.ropeCatalogModel = "Ø22 6x36 WS IWRC 1960 MPa";
+
+    const groups = buildEquipmentGroups(input);
+    const rope = groups.flatMap((group) => group.rows)
+      .find((row) => row.rowKey === "main:rope")!;
+    expect(catalogIdentityOf(rope)?.model).toBe("Ø22 18x7 NUFLEX IWRC 1960 MPa");
+
+    const pages = await collectCatalogSheetPages([
+      { name: "Ana Kaldırma", rows: [rope] },
+    ]);
+    expect(pages).toHaveLength(1);
+    expect(pages[0].images).toHaveLength(2);
+    expect(pages[0].source).toContain("IZMIT-A.S.-18x7-NUFLEX-urun.pdf");
   }, 120_000);
 
   it("üretici föyünü GÖRÜNEN modelle değil katalog kimliğiyle bulur", () => {
