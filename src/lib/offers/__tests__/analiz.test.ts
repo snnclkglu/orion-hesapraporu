@@ -31,6 +31,7 @@ import {
   defaultOfferExpectedOn,
   donemSonu,
   musteriKirilimi,
+  pencereAraligi,
   pencereBitisi,
   pencereyeGirer,
   projeksiyon,
@@ -160,6 +161,14 @@ describe("pencereBitisi", () => {
     expect(pencereBitisi("12ay", BUGUN)).toBe(donemSonu(BUGUN, 12));
   });
 
+  it("geçen yılı tam takvim yılı olarak kurar", () => {
+    expect(pencereAraligi("gecenYil", BUGUN)).toEqual({
+      bas: "2025-01-01",
+      bitis: "2025-12-31",
+    });
+    expect(pencereBitisi("gecenYil", BUGUN)).toBe("2025-12-31");
+  });
+
   it("tümü SINIRSIZDIR", () => {
     expect(pencereBitisi("tumu", BUGUN)).toBeNull();
   });
@@ -220,6 +229,18 @@ describe("pencereyeGirer", () => {
     expect(pencereyeGirer(satir({ expectedOn: "2027-01-01" }), "yil", BUGUN)).toBe(false);
     expect(pencereyeGirer(satir({ expectedOn: "2027-02-17" }), "6ay", BUGUN)).toBe(true);
     expect(pencereyeGirer(satir({ expectedOn: "2027-02-18" }), "6ay", BUGUN)).toBe(false);
+  });
+
+  it("geçen yılı önceki yılın sınırlarıyla ayırır", () => {
+    expect(pencereyeGirer(satir({ expectedOn: "2025-01-01" }), "gecenYil", BUGUN)).toBe(true);
+    expect(pencereyeGirer(satir({ expectedOn: "2025-12-31" }), "gecenYil", BUGUN)).toBe(true);
+    expect(pencereyeGirer(satir({ expectedOn: "2024-12-31" }), "gecenYil", BUGUN)).toBe(false);
+    expect(pencereyeGirer(satir({ expectedOn: "2026-01-01" }), "gecenYil", BUGUN)).toBe(false);
+  });
+
+  it("ileri pencerelere bugünden eski beklenen tarih girmez", () => {
+    expect(pencereyeGirer(satir({ expectedOn: "2026-08-16" }), "yil", BUGUN)).toBe(false);
+    expect(pencereyeGirer(satir({ expectedOn: BUGUN }), "yil", BUGUN)).toBe(true);
   });
 });
 
@@ -357,15 +378,27 @@ function kazanilan(ozel: Partial<KazanilanIsSatiri> = {}): KazanilanIsSatiri {
 }
 
 describe("kazanılan işler dönemi", () => {
-  it("bu yılı ocaktan bugüne, son 12 ayı geriye doğru kurar", () => {
+  it("bu yılı on iki ay, son 12 ayı bugünden geriye kurar", () => {
     expect(kazanimDonemAraligi("yil", BUGUN)).toEqual({
       bas: "2026-01-01",
-      bitis: BUGUN,
+      bitis: "2026-12-31",
     });
     expect(kazanimDonemAraligi("12ay", BUGUN)).toEqual({
       bas: "2025-08-17",
       bitis: BUGUN,
     });
+  });
+
+  it("geçen yılı tam takvim yılı olarak kurar", () => {
+    expect(kazanimDonemAraligi("gecenYil", BUGUN)).toEqual({
+      bas: "2025-01-01",
+      bitis: "2025-12-31",
+    });
+  });
+
+  it("bu yılın aylık grafiği yıl bitmeden de 12 ayı gösterir", () => {
+    const aralik = kazanimDonemAraligi("yil", BUGUN);
+    expect(aylikKazanimSerisi([], aralik.bas, aralik.bitis)).toHaveLength(12);
   });
 
   it("tümü görünümünü bilinen ilk kazanımdan bugüne yoğunlaştırır", () => {
@@ -381,6 +414,7 @@ describe("kazanılan işler dönemi", () => {
   it("kazanılma tarihi bilinmeyen satırı yalnız Tümü görünümünde korur", () => {
     const tarihsiz = kazanilan({ wonOn: null });
     expect(kazanilanDonemeGirer(tarihsiz, "yil", BUGUN)).toBe(false);
+    expect(kazanilanDonemeGirer(tarihsiz, "gecenYil", BUGUN)).toBe(false);
     expect(kazanilanDonemeGirer(tarihsiz, "12ay", BUGUN)).toBe(false);
     expect(kazanilanDonemeGirer(tarihsiz, "tumu", BUGUN)).toBe(true);
   });

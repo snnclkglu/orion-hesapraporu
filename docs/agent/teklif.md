@@ -1923,3 +1923,27 @@ Görsel ölçüt `/dev/offer-analysis-preview`dir. İki yüz de 320/375 px'te sa
 yatay kaydırmaz; kazanılan işler çizelgesi telefonda aynı işaretlerin okunabilir
 kart listesine dönüşür. Grafikler doğası gereği kendi görünür yatay kaydırma
 alanını korur (MOBIL-15/19 istisnası).
+
+## TEKLIF-81 — 0064 öncesi iş emirleri kazanılmış teklif arşividir.
+
+Kullanıcı kararı (04.09.2026): Teklif sistemi 0064 işiyle kullanılmaya
+başladığı için 0001–0063 işleri Analiz'de kayıp görünemez. Her eski iş emri için
+iş emri gününde verilmiş ve aynı gün kazanılmış bir `TETR-YYYYMMDD-n` teklif ile
+yayımlanmış R0 oluşturulur. Günlük sıra, o tarihte zaten bulunan tekliflerin
+ardından devam eder; iş bağı tekillik ve tekrar çalıştırma kilididir. 0064'ün
+mevcut `TETR-20260822-1` teklifi yeniden üretilmez, yalnız doğru iş emrine
+bağlanır. 0065 ve sonrası bu tarihsel göçün kapsamı dışındadır.
+
+**Fiyatın tek kaynağı Satış Takibi'dir.** İş emrinin her `job_item` satırı
+teknik kalem ve ona bağlı `job_item_sales` satırı fiyat kalemi olur; açıklama,
+miktar, birim, birim fiyat ve doğal para birimi aynen korunur. Kur çevrimi
+yapılmaz. Fiyatı bulunmayan eski bir satır sıfır fiyat değildir: kalem görünür,
+`unitPrice` ve yalnız tamamı fiyatlanmamış işte teklif toplamı `null` kalır.
+Karışık para birimi, fiyatlı ama miktarsız satır veya eksik Satış Takibi bağı
+göçü açık hatayla durdurur.
+
+**Takvim seçicileri.** Teklif listesi ilk açılışta sunucudan gelen bugünün
+yılını seçer; “Temizle” de güncel yıla döner. Projeksiyon ve Kazanılan İşler'de
+“Geçen Yıl” önceki takvim yılının 1 Ocak–31 Aralık aralığıdır. Kazanılan
+İşler'deki “Bu Yıl” da bugün eylül olsa bile 1 Ocak–31 Aralık arasındaki on iki
+ayı üretir; gelecekteki boş aylar grafikte sıfır kolon olarak kalır.

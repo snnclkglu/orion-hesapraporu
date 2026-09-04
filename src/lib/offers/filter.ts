@@ -134,6 +134,18 @@ export const EMPTY_OFFER_FILTER: OfferFilterInput = {
   q: "",
 };
 
+/**
+ * Teklif listesi açılış süzgeci — içinde bulunulan takvim yılı.
+ *
+ * `bugun` sayfadan gelir; böylece sunucu ve tarayıcı gece yarısında farklı
+ * yıl seçemez. "Temizle" de aynı başlangıca döner: kullanıcı eski yılları
+ * özellikle açar, günlük çalışma ekranı her zaman güncel yıldır.
+ */
+export function defaultOfferFilter(bugun: string): OfferFilterInput {
+  const yil = /^(\d{4})-\d{2}-\d{2}$/.exec(bugun)?.[1] ?? "tumu";
+  return { ...EMPTY_OFFER_FILTER, yil, bugun };
+}
+
 export function matchesOfferFilters(row: OfferListRow, f: OfferFilterInput): boolean {
   if (f.yil !== "tumu" && offerYear(row) !== f.yil) return false;
   if (f.musteri.length > 0 && !f.musteri.includes(row.customer_name.trim())) return false;

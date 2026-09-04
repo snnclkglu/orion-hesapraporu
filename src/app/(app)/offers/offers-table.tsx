@@ -33,8 +33,8 @@ import { customerTag, tagStyle } from "@/lib/tags";
 import {
   CAPACITY_BANDS,
   DEFAULT_OFFER_SORT,
-  EMPTY_OFFER_FILTER,
   TAKIP_BANDS,
+  defaultOfferFilter,
   effectiveOfferDate,
   fmtOfferDate,
   matchesOfferFilters,
@@ -88,7 +88,8 @@ export function OffersTable({
    */
   bugun: string;
 }) {
-  const [filtre, setFiltre] = useState<OfferFilterInput>({ ...EMPTY_OFFER_FILTER, bugun });
+  const varsayilanFiltre = useMemo(() => defaultOfferFilter(bugun), [bugun]);
+  const [filtre, setFiltre] = useState<OfferFilterInput>(varsayilanFiltre);
   const [sira, setSira] = useState<OfferSort>(DEFAULT_OFFER_SORT);
 
   const secenekler = useMemo(() => offerFacets(rows), [rows]);
@@ -104,7 +105,7 @@ export function OffersTable({
 
   const suzgecVar =
     filtre.q.trim() !== "" ||
-    filtre.yil !== "tumu" ||
+    filtre.yil !== varsayilanFiltre.yil ||
     filtre.musteri.length > 0 ||
     filtre.durum.length > 0 ||
     filtre.vincTipi.length > 0 ||
@@ -195,7 +196,7 @@ export function OffersTable({
             variant="ghost"
             size="sm"
             className="oc-tap h-9 min-w-0 truncate px-2"
-            onClick={() => setFiltre({ ...EMPTY_OFFER_FILTER, bugun })}
+            onClick={() => setFiltre(varsayilanFiltre)}
           >
             <X className="size-3.5" /> Temizle
           </Button>

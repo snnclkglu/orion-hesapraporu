@@ -138,6 +138,7 @@ export function yilSonu(bugunIso: string): string {
 
 export const PROJEKSIYON_PENCERELERI = [
   { key: "yil", label: "Bu Yıl" },
+  { key: "gecenYil", label: "Geçen Yıl" },
   { key: "6ay", label: "6 Ay" },
   { key: "12ay", label: "12 Ay" },
   { key: "tumu", label: "Tümü" },
@@ -148,18 +149,38 @@ export type ProjeksiyonPencere = (typeof PROJEKSIYON_PENCERELERI)[number]["key"]
 /** Analiz ekranı ilk açılışta önümüzdeki bir yılı gösterir. */
 export const DEFAULT_PROJEKSIYON_PENCERE: ProjeksiyonPencere = "12ay";
 
-/** Pencerenin bitiş tarihi; "tümü" sınırsızdır. */
-export function pencereBitisi(pencere: ProjeksiyonPencere, bugunIso: string): string | null {
+export interface ProjeksiyonPencereAraligi {
+  bas: string;
+  bitis: string;
+}
+
+/**
+ * Projeksiyonun kesin tarih aralığı; `tumu` iki yönde sınırsızdır.
+ * Geçen yıl ayrı bir TAM takvim yılıdır, bu yıl ise ileriye bakan ekranın
+ * mevcut anlamını koruyarak bugünden 31 Aralık'a uzanır.
+ */
+export function pencereAraligi(
+  pencere: ProjeksiyonPencere,
+  bugunIso: string
+): ProjeksiyonPencereAraligi | null {
+  const yil = Number(bugunIso.slice(0, 4));
   switch (pencere) {
     case "yil":
-      return yilSonu(bugunIso);
+      return { bas: bugunIso, bitis: yilSonu(bugunIso) };
+    case "gecenYil":
+      return { bas: `${yil - 1}-01-01`, bitis: `${yil - 1}-12-31` };
     case "6ay":
-      return donemSonu(bugunIso, 6);
+      return { bas: bugunIso, bitis: donemSonu(bugunIso, 6) };
     case "12ay":
-      return donemSonu(bugunIso, 12);
+      return { bas: bugunIso, bitis: donemSonu(bugunIso, 12) };
     case "tumu":
       return null;
   }
+}
+
+/** Pencerenin bitiş tarihi; "tümü" sınırsızdır. */
+export function pencereBitisi(pencere: ProjeksiyonPencere, bugunIso: string): string | null {
+  return pencereAraligi(pencere, bugunIso)?.bitis ?? null;
 }
 
 /**
@@ -177,8 +198,8 @@ export function pencereyeGirer(
 ): boolean {
   if (pencere === "tumu") return true;
   if (!satir.expectedOn) return false;
-  const bitis = pencereBitisi(pencere, bugunIso);
-  return bitis !== null && satir.expectedOn <= bitis;
+  const aralik = pencereAraligi(pencere, bugunIso);
+  return aralik !== null && satir.expectedOn >= aralik.bas && satir.expectedOn <= aralik.bitis;
 }
 
 export function projeksiyon(satirlar: readonly AnalizSatiri[]): ProjeksiyonOzeti {
@@ -310,6 +331,7 @@ export interface KazanilanIsSatiri {
 
 export const KAZANIM_DONEMLERI = [
   { key: "yil", label: "Bu Yıl" },
+  { key: "gecenYil", label: "Geçen Yıl" },
   { key: "12ay", label: "Son 12 Ay" },
   { key: "tumu", label: "Tümü" },
 ] as const;
@@ -328,8 +350,8 @@ function isoTarih(value: string | null | undefined): value is string {
 }
 
 /**
- * Gerçekleşme ekranı GEÇMİŞE bakar: bu yıl ocaktan bugüne, son 12 ay ise
- * bugünden geriye gider. `Tümü` bilinen ilk kazanımdan bugüne kadar yoğundur;
+ * Gerçekleşme ekranı GEÇMİŞE bakar: bu yıl ve geçen yıl on ikişer tam takvim
+ * ayıdır; son 12 ay bugünden geriye gider. `Tümü` bilinen ilk kazanımdan bugüne kadar yoğundur;
  * aradaki sessiz ayların grafikten kaybolmaması gerekir.
  */
 export function kazanimDonemAraligi(
@@ -337,7 +359,9 @@ export function kazanimDonemAraligi(
   bugunIso: string,
   satirlar: readonly Pick<KazanilanIsSatiri, "wonOn">[] = []
 ): KazanimDonemAraligi {
-  if (donem === "yil") return { bas: `${bugunIso.slice(0, 4)}-01-01`, bitis: bugunIso };
+  const yil = Number(bugunIso.slice(0, 4));
+  if (donem === "yil") return { bas: `${yil}-01-01`, bitis: `${yil}-12-31` };
+  if (donem === "gecenYil") return { bas: `${yil - 1}-01-01`, bitis: `${yil - 1}-12-31` };
   if (donem === "12ay") return { bas: donemSonu(bugunIso, -12), bitis: bugunIso };
 
   const tarihler = satirlar.map((s) => s.wonOn).filter(isoTarih);

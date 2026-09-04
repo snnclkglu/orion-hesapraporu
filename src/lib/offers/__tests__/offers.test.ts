@@ -22,6 +22,7 @@ import {
 import {
   CAPACITY_BANDS,
   EMPTY_OFFER_FILTER,
+  defaultOfferFilter,
   matchesOfferFilters,
   offerFacets,
   offerListSummary,
@@ -694,6 +695,11 @@ describe("liste süzgeci", () => {
     capacities: [20],
     itemCount: 1,
     ...over,
+  });
+
+  it("ilk açılışta ve temizlemede içinde bulunulan yılı seçer", () => {
+    expect(defaultOfferFilter("2026-09-04")).toMatchObject({ yil: "2026", bugun: "2026-09-04" });
+    expect(defaultOfferFilter("geçersiz").yil).toBe("tumu");
   });
 
   it("arama Türkçe katlar — «habas» yazan «HABAŞ»ı bulur", () => {

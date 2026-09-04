@@ -78,7 +78,7 @@ import {
   aylikSeri,
   donemSonu,
   musteriKirilimi,
-  pencereBitisi,
+  pencereAraligi,
   pencereyeGirer,
   projeksiyon,
   puanDagilimi,
@@ -320,21 +320,23 @@ function ProjeksiyonView({
   /**
    * SERİNİN SINIRLARI.
    *
-   * Bitiş pencerenin bitişidir; "tümü"nde en uzak beklenen tarihtir (yoksa bir
-   * yıl). Başlangıç BUGÜN DEĞİL en erken beklenen tarihtir: kararı geçmişte
-   * beklenmiş ama hâlâ açık duran bir teklif grafiğin dışında kalsaydı,
-   * "gecikmiş" olan tam da en çok bakılması gereken satır görünmezdi. Geriye
-   * en fazla altı ay gidilir — daha eskisi eğriyi düzleştirip okunmaz yapar.
+   * Kesin pencerelerde seçicinin aralığı birebir çizilir; bu sayede Geçen Yıl
+   * ve Bu Yıl grafikleri takvim sınırlarını eksiksiz taşır. `Tümü`nde bitiş en
+   * uzak beklenen tarihtir (yoksa bir yıl). Başlangıç BUGÜN DEĞİL en erken
+   * beklenen tarihtir; geriye en fazla altı ay gidilir ki çok eski gecikmeler
+   * eğriyi düzleştirip okunmaz yapmasın.
    */
+  const seciliAralik = useMemo(() => pencereAraligi(pencere, bugun), [pencere, bugun]);
   const { seriBas, seriBitis } = useMemo(() => {
+    if (seciliAralik) return { seriBas: seciliAralik.bas, seriBitis: seciliAralik.bitis };
     const tarihler = suzulmus.map((s) => s.expectedOn).filter((t): t is string => Boolean(t));
     const enErken = tarihler.length ? tarihler.reduce((a, b) => (a < b ? a : b)) : null;
     const enGec = tarihler.length ? tarihler.reduce((a, b) => (a > b ? a : b)) : null;
     const taban = donemSonu(bugun, -6);
     const bas = enErken && enErken < bugun ? (enErken < taban ? taban : enErken) : bugun;
-    const bitis = pencereBitisi(pencere, bugun) ?? enGec ?? donemSonu(bugun, 12);
+    const bitis = enGec ?? donemSonu(bugun, 12);
     return { seriBas: bas, seriBitis: bitis < bas ? bas : bitis };
-  }, [suzulmus, pencere, bugun]);
+  }, [suzulmus, seciliAralik, bugun]);
 
   const seri = useMemo(
     () => aylikSeri(avro, seriBas, seriBitis),
@@ -461,7 +463,7 @@ function ProjeksiyonView({
         <span className="text-xs text-muted-foreground">
           {pencere === "tumu"
             ? "Beklenen tarihi olmayan satırlar da dâhil"
-            : `${fmtOfferDate(bugun)} – ${fmtOfferDate(pencereBitisi(pencere, bugun))}`}
+            : `${fmtOfferDate(seciliAralik?.bas)} – ${fmtOfferDate(seciliAralik?.bitis)}`}
         </span>
       </div>
 
