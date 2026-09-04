@@ -78,6 +78,7 @@ async function audit(
 
 function tazele(offerId?: string) {
   revalidatePath("/offers");
+  revalidatePath("/offers/analiz");
   if (offerId) revalidatePath(`/offers/${offerId}`);
 }
 
@@ -386,7 +387,7 @@ export async function updateOfferDetails(
 
   const { data: onceki } = await supabase
     .from("offers")
-    .select("subject, customer_name, status, currency, issued_on, issue_date")
+    .select("subject, customer_name, status, currency, issued_on, issue_date, won_on")
     .eq("id", id.data)
     .maybeSingle();
 
@@ -398,6 +399,19 @@ export async function updateOfferDetails(
       ? ((onceki?.issue_date as string | null) ?? bugun())
       : null;
 
+  // KAZANILMA TARİHİ durumdan ayrı bir tahmin değildir. Pencere alanı açıkça
+  // yolladıysa o gün kullanılır; hızlı seçiciden ilk kez `won`a geçiliyorsa
+  // bugün önerilir. Zaten kazanılmış ama tarihi bilinmeyen eski bir kaydı
+  // sıradan künye düzenlemesiyle bugüne taşımayız.
+  const kazanmaGunu =
+    parsed.data.status !== "won"
+      ? null
+      : parsed.data.wonOn !== undefined
+        ? parsed.data.wonOn ?? (onceki?.status === "won" ? null : bugun())
+        : onceki?.status === "won"
+          ? ((onceki.won_on as string | null) ?? null)
+          : bugun();
+
   const { data: yazilan, error } = await supabase
     .from("offers")
     .update({
@@ -406,6 +420,7 @@ export async function updateOfferDetails(
       customer_name: customer.name,
       status: parsed.data.status,
       currency: parsed.data.currency,
+      won_on: kazanmaGunu,
       ...(ilkGonderim ? { issued_on: ilkGonderim } : {}),
     })
     .eq("id", id.data)
@@ -418,7 +433,11 @@ export async function updateOfferDetails(
   await audit(supabase, user.id, "offer.update", {
     offer_id: id.data,
     onceki,
-    yeni: { ...parsed.data, ...(ilkGonderim ? { issuedOn: ilkGonderim } : {}) },
+    yeni: {
+      ...parsed.data,
+      wonOn: kazanmaGunu,
+      ...(ilkGonderim ? { issuedOn: ilkGonderim } : {}),
+    },
   });
   tazele(id.data);
   return {};
@@ -510,7 +529,7 @@ export async function updateOfferStatus(
 
   const { data: onceki } = await supabase
     .from("offers")
-    .select("status, issued_on, issue_date")
+    .select("status, issued_on, issue_date, won_on")
     .eq("id", id.data)
     .maybeSingle();
 
@@ -519,9 +538,20 @@ export async function updateOfferStatus(
       ? ((onceki?.issue_date as string | null) ?? bugun())
       : null;
 
+  const kazanmaGunu =
+    durum.data === "won"
+      ? onceki?.status === "won"
+        ? ((onceki.won_on as string | null) ?? null)
+        : bugun()
+      : null;
+
   const { data: yazilan, error } = await supabase
     .from("offers")
-    .update({ status: durum.data, ...(ilkGonderim ? { issued_on: ilkGonderim } : {}) })
+    .update({
+      status: durum.data,
+      won_on: kazanmaGunu,
+      ...(ilkGonderim ? { issued_on: ilkGonderim } : {}),
+    })
     .eq("id", id.data)
     .select("id");
   if (error) return { error: error.message };
@@ -533,6 +563,7 @@ export async function updateOfferStatus(
     offer_id: id.data,
     onceki: onceki?.status ?? null,
     yeni: durum.data,
+    won_on: kazanmaGunu,
     ...(ilkGonderim ? { issued_on: ilkGonderim } : {}),
   });
   tazele(id.data);

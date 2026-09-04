@@ -21,7 +21,13 @@ import {
   DEFAULT_OFFER_WIN_SCORE,
   DEFAULT_PROJEKSIYON_PENCERE,
   agirlikliTutar,
+  aylikKazanimSerisi,
   aylikSeri,
+  kararSuresiGun,
+  kazanimDonemAraligi,
+  kazanimOzeti,
+  kazanilanDonemeGirer,
+  kazanilanMusteriKirilimi,
   defaultOfferExpectedOn,
   donemSonu,
   musteriKirilimi,
@@ -31,9 +37,11 @@ import {
   puanDagilimi,
   scoreHue,
   scoreLabel,
+  siralaKazanilanIsler,
   tekilSatirlar,
   yilSonu,
   type AnalizSatiri,
+  type KazanilanIsSatiri,
 } from "../analiz";
 import { isOfferIncludedInAnalysis, offerStatusLabel } from "../status";
 
@@ -328,6 +336,141 @@ describe("tekilSatirlar", () => {
       satir({ id: "lead", kaynak: "beklenen", offerId: "teklif", amount: 100_000, score: 6 }),
     ];
     expect(projeksiyon(tekilSatirlar(satirlar)).agirlikliToplam).toBe(60_000);
+  });
+});
+
+// ——————————————————————————————————————————————————— kazanılan işler
+
+function kazanilan(ozel: Partial<KazanilanIsSatiri> = {}): KazanilanIsSatiri {
+  return {
+    id: ozel.id ?? "k1",
+    offerNo: ozel.offerNo ?? "TETR-20260801-1",
+    customerName: ozel.customerName ?? "ASTOR ENERJİ A.Ş.",
+    subject: ozel.subject ?? "32T PORTAL VİNÇ",
+    issuedOn: ozel.issuedOn ?? "2026-06-01",
+    wonOn: ozel.wonOn === undefined ? "2026-08-01" : ozel.wonOn,
+    amount: ozel.amount === undefined ? 100_000 : ozel.amount,
+    currency: ozel.currency ?? "EUR",
+    jobId: ozel.jobId === undefined ? null : ozel.jobId,
+    ...ozel,
+  };
+}
+
+describe("kazanılan işler dönemi", () => {
+  it("bu yılı ocaktan bugüne, son 12 ayı geriye doğru kurar", () => {
+    expect(kazanimDonemAraligi("yil", BUGUN)).toEqual({
+      bas: "2026-01-01",
+      bitis: BUGUN,
+    });
+    expect(kazanimDonemAraligi("12ay", BUGUN)).toEqual({
+      bas: "2025-08-17",
+      bitis: BUGUN,
+    });
+  });
+
+  it("tümü görünümünü bilinen ilk kazanımdan bugüne yoğunlaştırır", () => {
+    expect(
+      kazanimDonemAraligi("tumu", BUGUN, [
+        kazanilan({ wonOn: "2024-05-10" }),
+        kazanilan({ wonOn: "2026-03-01" }),
+        kazanilan({ wonOn: null }),
+      ])
+    ).toEqual({ bas: "2024-05-10", bitis: BUGUN });
+  });
+
+  it("kazanılma tarihi bilinmeyen satırı yalnız Tümü görünümünde korur", () => {
+    const tarihsiz = kazanilan({ wonOn: null });
+    expect(kazanilanDonemeGirer(tarihsiz, "yil", BUGUN)).toBe(false);
+    expect(kazanilanDonemeGirer(tarihsiz, "12ay", BUGUN)).toBe(false);
+    expect(kazanilanDonemeGirer(tarihsiz, "tumu", BUGUN)).toBe(true);
+  });
+});
+
+describe("kazanimOzeti", () => {
+  it("para birimlerini birleştirmez, eksikleri ve iş emri bağını ayrıca sayar", () => {
+    const ozet = kazanimOzeti([
+      kazanilan({ id: "a", amount: 100_000, currency: "EUR", jobId: "j1" }),
+      kazanilan({ id: "b", amount: 300_000, currency: "EUR", wonOn: null }),
+      kazanilan({ id: "c", amount: 50_000, currency: "USD" }),
+      kazanilan({ id: "d", amount: null, currency: "EUR" }),
+    ]);
+    expect(ozet).toEqual({
+      adet: 4,
+      eurAdet: 2,
+      eurToplam: 400_000,
+      eurOrtalama: 200_000,
+      digerPara: 1,
+      tutariEksik: 1,
+      tarihiEksik: 1,
+      isEmirli: 1,
+    });
+  });
+});
+
+describe("aylikKazanimSerisi", () => {
+  it("boş ayları atlamaz ve yalnız tarih/tutarı bilinen satırı toplar", () => {
+    const seri = aylikKazanimSerisi(
+      [
+        kazanilan({ id: "a", wonOn: "2026-01-10", amount: 100_000 }),
+        kazanilan({ id: "b", wonOn: "2026-03-20", amount: 50_000 }),
+        kazanilan({ id: "c", wonOn: null, amount: 999_000 }),
+        kazanilan({ id: "d", wonOn: "2026-03-21", amount: null }),
+      ],
+      "2026-01-01",
+      "2026-03-31"
+    );
+    expect(seri).toEqual([
+      { ay: "2026-01", tutar: 100_000, adet: 1 },
+      { ay: "2026-02", tutar: 0, adet: 0 },
+      { ay: "2026-03", tutar: 50_000, adet: 1 },
+    ]);
+  });
+});
+
+describe("kazanılan iş kırılımları", () => {
+  it("müşterileri alınan tutara göre sıralar", () => {
+    const kirilim = kazanilanMusteriKirilimi([
+      kazanilan({ id: "a", customerName: "ETİ BAKIR", amount: 100_000 }),
+      kazanilan({ id: "b", customerName: "ETİ BAKIR", amount: 100_000 }),
+      kazanilan({ id: "c", customerName: "ASTOR", amount: 300_000 }),
+    ]);
+    expect(kirilim.map((k) => k.musteri)).toEqual(["ASTOR", "ETİ BAKIR"]);
+    expect(kirilim[1]).toMatchObject({ tutar: 200_000, adet: 2 });
+  });
+
+  it("gönderimden kazanıma karar süresini ölçer; eksik ve ters tarihte boş döner", () => {
+    expect(kararSuresiGun(kazanilan({ issuedOn: "2026-06-01", wonOn: "2026-06-21" }))).toBe(20);
+    expect(kararSuresiGun(kazanilan({ issuedOn: null }))).toBeNull();
+    expect(kararSuresiGun(kazanilan({ issuedOn: "2026-09-01", wonOn: "2026-08-01" }))).toBeNull();
+  });
+
+  it("yeniden eskiye dizer ve tarihi bilinmeyeni sona bırakır", () => {
+    const sirali = siralaKazanilanIsler([
+      kazanilan({ id: "eski", wonOn: "2026-01-01" }),
+      kazanilan({ id: "tarihsiz", wonOn: null }),
+      kazanilan({ id: "yeni", wonOn: "2026-08-01" }),
+    ]);
+    expect(sirali.map((s) => s.id)).toEqual(["yeni", "eski", "tarihsiz"]);
+  });
+});
+
+describe("kazanılma tarihi veri sözleşmesi", () => {
+  const migration = readFileSync(
+    join(process.cwd(), "supabase/migrations/20260904000002_offer_won_analysis.sql"),
+    "utf8"
+  );
+
+  it("durum geçişinde günü dondurur ve ortak listeye taşır", () => {
+    expect(migration).toContain("new.won_on := coalesce(new.won_on, current_date)");
+    expect(migration).toContain("o.won_on");
+    expect(migration).toContain("offers_won_on_status_check");
+  });
+
+  it("geçmiş tarihi yalnız denetim defterindeki açık kazanım olayından tamamlar", () => {
+    expect(migration).toContain("from public.audit_log");
+    expect(migration).toContain("detail #>> '{yeni,status}' = 'won'");
+    expect(migration).not.toContain("set won_on = updated_at");
+    expect(migration).not.toContain("set won_on = issue_date");
   });
 });
 

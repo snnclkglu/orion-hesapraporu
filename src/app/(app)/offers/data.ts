@@ -26,6 +26,7 @@ interface OfferListRecord {
   currency: string;
   job_id: string | null;
   issued_on: string | null;
+  won_on: string | null;
   created_at: string;
   updated_at: string;
   latest_revision_id: string | null;
@@ -51,6 +52,10 @@ export interface OfferListEntry extends OfferListRow {
   latestRevisionId: string | null;
   latestRevStatus: string | null;
   updatedAt: string;
+  /** Teklifin kazanıldığı gün; tarih bilinmiyorsa boş kalır. */
+  wonOn: string | null;
+  /** Kazanılan tekliften açılmış iş emri bağı. */
+  jobId: string | null;
 }
 
 /**
@@ -87,6 +92,7 @@ export async function loadOfferList(supabase: SupabaseClient): Promise<OfferList
       // Eski kayıtta yalnız durum "Gönderildi" yapılmışsa takip tarihi boş
       // kalmış olabilir; bu yüzden geçerli başlangıç burada normalize edilir.
       issuedOn: takipBaslangici(r.status, r.issued_on, r.issue_date),
+      wonOn: r.won_on,
       currency: r.currency,
       latestTotal: r.latest_total === null ? null : Number(r.latest_total),
       latestRevNo: r.latest_rev_no,
@@ -98,6 +104,7 @@ export async function loadOfferList(supabase: SupabaseClient): Promise<OfferList
       latestRevisionId: r.latest_revision_id,
       latestRevStatus: r.latest_rev_status,
       updatedAt: r.updated_at,
+      jobId: r.job_id,
     };
   });
 }
@@ -117,6 +124,7 @@ export interface OfferRecord {
   currency: string;
   job_id: string | null;
   issued_on: string | null;
+  won_on: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;

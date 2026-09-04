@@ -36,6 +36,7 @@ export interface EditableOffer {
   customerId: string | null;
   status: string | null;
   currency: string;
+  wonOn?: string | null;
 }
 
 export function EditOfferDialog({
@@ -58,6 +59,7 @@ export function EditOfferDialog({
   const [currency, setCurrency] = useState<Currency>(
     CURRENCIES.includes(offer.currency as Currency) ? (offer.currency as Currency) : "EUR"
   );
+  const [wonOn, setWonOn] = useState<string | null>(offer.wonOn ?? null);
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -71,6 +73,7 @@ export function EditOfferDialog({
         subject,
         status,
         currency,
+        wonOn: status === "won" ? wonOn : null,
       });
       if (res.error) {
         toast.error(res.error);
@@ -116,7 +119,16 @@ export function EditOfferDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label htmlFor={`edit_offer_status_${offer.id}`}>Durum</Label>
-              <Select value={status} onValueChange={(value) => setStatus(value as OfferStatus)}>
+              <Select
+                value={status}
+                onValueChange={(value) => {
+                  const next = value as OfferStatus;
+                  setStatus(next);
+                  // Tarih yalnız kullanıcı `Kazanıldı`yı seçtiği ANDA önerilir;
+                  // eski tarihsiz kayıt pencere açılışında sessizce bugüne taşınmaz.
+                  if (next === "won" && !wonOn) setWonOn(new Date().toISOString().slice(0, 10));
+                }}
+              >
                 <SelectTrigger id={`edit_offer_status_${offer.id}`} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -146,6 +158,22 @@ export function EditOfferDialog({
               </Select>
             </div>
           </div>
+
+          {status === "won" ? (
+            <div className="grid gap-1.5 sm:max-w-[calc(50%-0.375rem)]">
+              <Label htmlFor={`edit_offer_won_on_${offer.id}`}>Kazanılma Tarihi</Label>
+              <Input
+                id={`edit_offer_won_on_${offer.id}`}
+                type="date"
+                value={wonOn ?? ""}
+                onChange={(e) => setWonOn(e.target.value || null)}
+                className="font-mono text-base pointer-fine:text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Kazanılan İşler grafiği bu günü kullanır. Bilinmiyorsa boş bırakabilirsiniz.
+              </p>
+            </div>
+          ) : null}
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>

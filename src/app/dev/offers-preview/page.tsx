@@ -49,6 +49,8 @@ function teklif(over: Partial<OfferListEntry> & Pick<OfferListEntry, "id" | "off
     status: "sent",
     issue_date: "2026-01-27",
     issuedOn: "2026-01-27",
+    wonOn: null,
+    jobId: null,
     currency: "EUR",
     latestTotal: null,
     latestRevNo: 0,

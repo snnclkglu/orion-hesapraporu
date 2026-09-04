@@ -286,3 +286,182 @@ export function puanDagilimi(satirlar: readonly AnalizSatiri[]) {
 export function tekilSatirlar(satirlar: readonly AnalizSatiri[]): AnalizSatiri[] {
   return satirlar.filter((s) => !(s.kaynak === "beklenen" && s.offerId));
 }
+
+// ——————————————————————————————————————————————————— kazanılan işler
+
+/** Kazanılan teklifin analiz ve çizelge için gereken tek satırı. */
+export interface KazanilanIsSatiri {
+  id: string;
+  offerNo: string;
+  customerName: string;
+  customerShort?: string | null;
+  customerHue?: number | null;
+  subject: string;
+  /** Müşteriye gönderim günü — karar süresi bundan ölçülür. */
+  issuedOn: string | null;
+  /** Teklifin `won` durumuna geçtiği gerçek gün; bilinmiyorsa boş. */
+  wonOn: string | null;
+  amount: number | null;
+  currency: string;
+  jobId: string | null;
+  jobNo?: string | null;
+  jobTitle?: string | null;
+}
+
+export const KAZANIM_DONEMLERI = [
+  { key: "yil", label: "Bu Yıl" },
+  { key: "12ay", label: "Son 12 Ay" },
+  { key: "tumu", label: "Tümü" },
+] as const;
+
+export type KazanimDonemi = (typeof KAZANIM_DONEMLERI)[number]["key"];
+
+export const DEFAULT_KAZANIM_DONEMI: KazanimDonemi = "yil";
+
+export interface KazanimDonemAraligi {
+  bas: string;
+  bitis: string;
+}
+
+function isoTarih(value: string | null | undefined): value is string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value ?? "");
+}
+
+/**
+ * Gerçekleşme ekranı GEÇMİŞE bakar: bu yıl ocaktan bugüne, son 12 ay ise
+ * bugünden geriye gider. `Tümü` bilinen ilk kazanımdan bugüne kadar yoğundur;
+ * aradaki sessiz ayların grafikten kaybolmaması gerekir.
+ */
+export function kazanimDonemAraligi(
+  donem: KazanimDonemi,
+  bugunIso: string,
+  satirlar: readonly Pick<KazanilanIsSatiri, "wonOn">[] = []
+): KazanimDonemAraligi {
+  if (donem === "yil") return { bas: `${bugunIso.slice(0, 4)}-01-01`, bitis: bugunIso };
+  if (donem === "12ay") return { bas: donemSonu(bugunIso, -12), bitis: bugunIso };
+
+  const tarihler = satirlar.map((s) => s.wonOn).filter(isoTarih);
+  const ilk = tarihler.length ? tarihler.reduce((a, b) => (a < b ? a : b)) : bugunIso;
+  const son = tarihler.length ? tarihler.reduce((a, b) => (a > b ? a : b)) : bugunIso;
+  return { bas: ilk, bitis: son > bugunIso ? son : bugunIso };
+}
+
+/** Tarihi bilinmeyen kazanım yalnız `Tümü` görünümünde kalır. */
+export function kazanilanDonemeGirer(
+  satir: Pick<KazanilanIsSatiri, "wonOn">,
+  donem: KazanimDonemi,
+  bugunIso: string
+): boolean {
+  if (donem === "tumu") return true;
+  if (!isoTarih(satir.wonOn)) return false;
+  const aralik = kazanimDonemAraligi(donem, bugunIso);
+  return satir.wonOn >= aralik.bas && satir.wonOn <= aralik.bitis;
+}
+
+export interface KazanimOzeti {
+  adet: number;
+  eurAdet: number;
+  eurToplam: number;
+  eurOrtalama: number | null;
+  digerPara: number;
+  tutariEksik: number;
+  tarihiEksik: number;
+  isEmirli: number;
+}
+
+/**
+ * Para birimleri dönüştürülmeden toplanmaz. Toplam ve ortalama yalnız Avro
+ * satırlarından çıkar; diğer para birimleri ayrıca sayılır ve çizelgede kendi
+ * simgesiyle kalır.
+ */
+export function kazanimOzeti(satirlar: readonly KazanilanIsSatiri[]): KazanimOzeti {
+  const eur = satirlar.filter((s) => s.currency === "EUR" && s.amount !== null);
+  const eurToplam = eur.reduce((toplam, s) => toplam + (s.amount ?? 0), 0);
+  return {
+    adet: satirlar.length,
+    eurAdet: eur.length,
+    eurToplam,
+    eurOrtalama: eur.length ? eurToplam / eur.length : null,
+    digerPara: satirlar.filter((s) => s.currency !== "EUR").length,
+    tutariEksik: satirlar.filter((s) => s.amount === null).length,
+    tarihiEksik: satirlar.filter((s) => !isoTarih(s.wonOn)).length,
+    isEmirli: satirlar.filter((s) => Boolean(s.jobId)).length,
+  };
+}
+
+export interface KazanimAyNoktasi {
+  ay: string;
+  tutar: number;
+  adet: number;
+}
+
+/** Aylık kazanım serisi YOĞUNDUR; kayıtsız aylar sıfırla görünür. */
+export function aylikKazanimSerisi(
+  satirlar: readonly KazanilanIsSatiri[],
+  basIso: string,
+  bitisIso: string
+): KazanimAyNoktasi[] {
+  const kova = new Map<string, KazanimAyNoktasi>();
+  let imlec = basIso.slice(0, 7);
+  const bitis = bitisIso.slice(0, 7);
+  while (imlec <= bitis) {
+    kova.set(imlec, { ay: imlec, tutar: 0, adet: 0 });
+    const [yil, ay] = imlec.split("-").map(Number);
+    imlec = ay === 12 ? `${yil + 1}-01` : `${yil}-${String(ay + 1).padStart(2, "0")}`;
+  }
+  for (const s of satirlar) {
+    if (!isoTarih(s.wonOn) || s.amount === null) continue;
+    const nokta = kova.get(s.wonOn.slice(0, 7));
+    if (!nokta) continue;
+    nokta.tutar += s.amount;
+    nokta.adet += 1;
+  }
+  return [...kova.values()];
+}
+
+/** Müşteriye göre alınan iş tutarı — büyükten küçüğe. */
+export function kazanilanMusteriKirilimi(satirlar: readonly KazanilanIsSatiri[]) {
+  const kova = new Map<
+    string,
+    { musteri: string; hue: number | null; tutar: number; adet: number }
+  >();
+  for (const s of satirlar) {
+    const musteri = s.customerName.trim() || "—";
+    const mevcut = kova.get(musteri) ?? {
+      musteri,
+      hue: s.customerHue ?? null,
+      tutar: 0,
+      adet: 0,
+    };
+    if (mevcut.hue === null && s.customerHue !== null && s.customerHue !== undefined) {
+      mevcut.hue = s.customerHue;
+    }
+    mevcut.tutar += s.amount ?? 0;
+    mevcut.adet += 1;
+    kova.set(musteri, mevcut);
+  }
+  return [...kova.values()].sort((a, b) => b.tutar - a.tutar || a.musteri.localeCompare(b.musteri, "tr"));
+}
+
+/** Gönderimden kazanıma kadar geçen takvim günü; eksik/ters tarihte boş. */
+export function kararSuresiGun(
+  satir: Pick<KazanilanIsSatiri, "issuedOn" | "wonOn">
+): number | null {
+  if (!isoTarih(satir.issuedOn) || !isoTarih(satir.wonOn)) return null;
+  const bas = Date.parse(`${satir.issuedOn}T00:00:00Z`);
+  const son = Date.parse(`${satir.wonOn}T00:00:00Z`);
+  const gun = Math.round((son - bas) / 86_400_000);
+  return gun < 0 ? null : gun;
+}
+
+/** Kazanılma tarihine göre yeniden eskiye; tarihi bilinmeyenler sonda kalır. */
+export function siralaKazanilanIsler(
+  satirlar: readonly KazanilanIsSatiri[]
+): KazanilanIsSatiri[] {
+  return [...satirlar].sort((a, b) => {
+    if (!a.wonOn && b.wonOn) return 1;
+    if (a.wonOn && !b.wonOn) return -1;
+    const tarih = (b.wonOn ?? "").localeCompare(a.wonOn ?? "");
+    return tarih !== 0 ? tarih : b.offerNo.localeCompare(a.offerNo, "tr");
+  });
+}

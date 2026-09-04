@@ -29,6 +29,8 @@ export interface OfferListRow {
   issue_date: string;
   /** Müşteriye GÖNDERİLDİĞİ tarih; hiç yayımlanmamışsa null (bkz. `takip.ts`). */
   issuedOn: string | null;
+  /** Kazanılma günü — yalnız `won` durumunda doludur. */
+  wonOn?: string | null;
   currency: string;
   latestTotal: number | null;
   latestRevNo: number | null;

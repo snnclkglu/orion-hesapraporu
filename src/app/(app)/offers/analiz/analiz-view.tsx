@@ -1,6 +1,6 @@
 "use client";
 
-// TEKLİF ANALİZİ — açık tekliflerin ve beklenen işlerin İLERİ PROJEKSİYONU.
+// SATIŞ ANALİZİ — ileri PROJEKSİYON ve geriye bakan KAZANILAN İŞLER.
 //
 // Kullanıcı isteği (17.08.2026): *"açık teklifler ve bu tekliflerin sıcaklık
 // soğukluk oranına göre projeksiyon yapacağım … bu sayfadan bu yıl içinde ya
@@ -36,6 +36,7 @@ import {
   Search,
   TrendingUp,
   TriangleAlert,
+  Trophy,
   X,
 } from "lucide-react";
 import { CokluSuzgec } from "@/app/(app)/purchasing/filters";
@@ -53,6 +54,7 @@ import { StatCard } from "@/components/stat-card";
 import { CustomerTag } from "@/components/tags";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -83,6 +85,7 @@ import {
   scoreHue,
   scoreLabel,
   tekilSatirlar,
+  type KazanilanIsSatiri,
   type ProjeksiyonPencere,
 } from "@/lib/offers/analiz";
 import { fmtOfferDate } from "@/lib/offers/filter";
@@ -97,6 +100,7 @@ import {
   PuanSecici,
   type AnalizSatiriDetay,
 } from "./lead-dialog";
+import { KazanilanIslerView } from "./kazanilan-isler-view";
 
 // ————————————————————————————————————————————————————————— adlandırma
 //
@@ -210,10 +214,12 @@ export function siralaAnaliz(satirlar: readonly AnalizSatiriDetay[]): AnalizSati
 
 export function AnalizView({
   satirlar,
+  kazanilanlar,
   customers,
   bugun,
 }: {
   satirlar: readonly AnalizSatiriDetay[];
+  kazanilanlar: readonly KazanilanIsSatiri[];
   customers: readonly CustomerOption[];
   /**
    * BUGÜN SUNUCUDAN GELİR. İstemcide `new Date()` çağırmak, sunucu boyamasıyla
@@ -221,6 +227,36 @@ export function AnalizView({
    * dilimi) bir hidrasyon uyuşmazlığı açardı — üstelik bütün pencere hesabı
    * bu tek tarihe dayanır.
    */
+  bugun: string;
+}) {
+  return (
+    <Tabs defaultValue="projeksiyon" className="gap-4">
+      <TabsList variant="line" className="w-full justify-start border-b sm:w-fit">
+        <TabsTrigger value="projeksiyon" className="min-w-0 px-3">
+          <TrendingUp className="size-4" /> Projeksiyon
+        </TabsTrigger>
+        <TabsTrigger value="kazanilan" className="min-w-0 px-3">
+          <Trophy className="size-4" /> Kazanılan İşler
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="projeksiyon">
+        <ProjeksiyonView satirlar={satirlar} customers={customers} bugun={bugun} />
+      </TabsContent>
+      <TabsContent value="kazanilan">
+        <KazanilanIslerView satirlar={kazanilanlar} bugun={bugun} />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function ProjeksiyonView({
+  satirlar,
+  customers,
+  bugun,
+}: {
+  satirlar: readonly AnalizSatiriDetay[];
+  customers: readonly CustomerOption[];
   bugun: string;
 }) {
   const router = useRouter();

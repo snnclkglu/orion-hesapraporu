@@ -1,10 +1,10 @@
-// TEKLİF ANALİZİ — sunucu ucu.
+// SATIŞ ANALİZİ — projeksiyon ve kazanılan işler için sunucu ucu.
 //
-// İKİ KAYNAK TEK ÇİZELGEDE BULUŞUR: verilmiş teklifler (`offers`) ve henüz
+// PROJEKSİYONDA İKİ KAYNAK TEK ÇİZELGEDE BULUŞUR: verilmiş teklifler (`offers`) ve henüz
 // verilmemiş beklenen işler (`offer_leads`). Birleştirme BURADA yapılır ve
 // aşağıya tek bir satır tipiyle iner — çekirdek (`lib/offers/analiz.ts`) satırın
-// hangi tabloda durduğunu umursamaz, sayfanın sorduğu soru "önümüzdeki bir
-// yılda ne kadar iş alırım"dır.
+// hangi tabloda durduğunu umursamaz. KAZANILAN İŞLER ise `won` teklifleri ayrı
+// bir gerçekleşme satırı olarak okur; iki soru sekmeyle ayrılır.
 //
 // SÜZME VE HESAP İSTEMCİDE: teklif sayısı bir firmanın yıllık üretimi kadardır
 // (yüzler mertebesi) ve her pencere/süzgeç değişiminde sunucuya gitmek ekranı
@@ -17,7 +17,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { effectiveOfferDate } from "@/lib/offers/filter";
-import { isOfferIncludedInAnalysis } from "@/lib/offers/status";
+import type { KazanilanIsSatiri } from "@/lib/offers/analiz";
+import { isOfferIncludedInAnalysis, offerStatusOf } from "@/lib/offers/status";
 import { loadCustomers, loadOfferList } from "../data";
 import { AnalizView } from "./analiz-view";
 import type { AnalizSatiriDetay } from "./lead-dialog";
@@ -36,6 +37,12 @@ interface LeadRecord {
   notes: string;
   active: boolean;
   offer_id: string | null;
+}
+
+interface JobRecord {
+  id: string;
+  job_no: string;
+  title: string;
 }
 
 /**
@@ -71,19 +78,31 @@ async function loadLeads(supabase: SupabaseClient): Promise<LeadRecord[]> {
   return (data ?? []) as LeadRecord[];
 }
 
+/**
+ * Kazanılan teklifin açtığı iş emrini etiketlemek için gereken küçük defter.
+ * Bağ zaten `offers.job_id`dedir; burada ikinci bir ilişki kurulmaz.
+ */
+async function loadJobRefs(supabase: SupabaseClient): Promise<JobRecord[]> {
+  const { data, error } = await supabase.from("jobs").select("id, job_no, title");
+  if (error) return [];
+  return (data ?? []) as JobRecord[];
+}
+
 export default async function OfferAnalysisPage() {
   const supabase = await createClient();
-  const [offers, customers, leads, puanlar] = await Promise.all([
+  const [offers, customers, leads, puanlar, jobs] = await Promise.all([
     loadOfferList(supabase),
     loadCustomers(supabase),
     loadLeads(supabase),
     loadWinScores(supabase),
+    loadJobRefs(supabase),
   ]);
 
   // Müşteri kısaltması ve rengi DEFTERDEN gelir: beklenen iş satırında ad
   // serbest metin olabilir ve defterde karşılığı yoksa `CustomerTag` rengi
   // metinden türetir — satır hiçbir zaman kimliksiz kalmaz.
   const defter = new Map(customers.map((c) => [c.id, c]));
+  const isDefteri = new Map(jobs.map((j) => [j.id, j]));
 
   // BÜTÇESEL teklifler gerçek bir satın alma fırsatı değildir. Tutarı ve puanı
   // bulunsa bile sunucuda elenir; istemciye/grafiklere hiç taşınmaz.
@@ -143,18 +162,40 @@ export default async function OfferAnalysisPage() {
     };
   });
 
+  const kazanilanlar: KazanilanIsSatiri[] = offers
+    .filter((o) => offerStatusOf(o.status) === "won")
+    .map((o) => {
+      const isEmri = o.jobId ? isDefteri.get(o.jobId) : undefined;
+      return {
+        id: o.id,
+        offerNo: o.offer_no,
+        customerName: o.customer_name,
+        customerShort: o.customerShort,
+        customerHue: o.customerHue,
+        subject: o.subject,
+        issuedOn: o.issuedOn,
+        wonOn: o.wonOn,
+        amount: o.latestTotal,
+        currency: o.currency,
+        jobId: o.jobId,
+        jobNo: isEmri?.job_no ?? null,
+        jobTitle: isEmri?.title ?? null,
+      };
+    });
+
   return (
     <div className="grid gap-4">
       <PageHeader
         kicker="TEKLİF"
-        title="Analiz"
-        hint="Açık tekliflerin ve beklenen işlerin kazanma puanına göre ileri projeksiyonu."
+        title="Satış Analizi"
+        hint="İleri satış projeksiyonu ile kazanılan işlerin gerçekleşmesini aynı yerde izleyin."
       />
 
       {/* BUGÜN SUNUCUDA ÇÖZÜLÜR: bütün dönem hesabı bu tek tarihe dayanır ve
           istemcide `new Date()` çağırmak hidrasyon uyuşmazlığı açardı. */}
       <AnalizView
         satirlar={[...teklifSatirlari, ...beklenenSatirlar]}
+        kazanilanlar={kazanilanlar}
         customers={customers}
         bugun={new Date().toISOString().slice(0, 10)}
       />

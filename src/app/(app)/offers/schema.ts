@@ -61,6 +61,17 @@ export const offerDetailsSchema = z.object({
   customerId: z.uuid("Müşteri seçilmeli"),
   status: z.enum(OFFER_STATUSES),
   currency: z.enum(CURRENCIES),
+  /**
+   * Yalnız kazanılmış teklifte anlamlıdır. Opsiyonel oluşu, teklif detayındaki
+   * hızlı durum seçicisinin mevcut tarihi bilmeden diğer künye alanlarını
+   * gönderebilmesini sağlar; ana düzenleme penceresi alanı açıkça yollar.
+   */
+  wonOn: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Kazanılma tarihi geçersiz")
+    .nullable()
+    .optional(),
 });
 
 export type OfferDetailsInput = z.infer<typeof offerDetailsSchema>;

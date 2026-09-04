@@ -1884,3 +1884,42 @@ TypeScript sözdizimiyle okur ve her özellik adının aktarımda kabul edildiğ
 aktarımda bayat anahtar kalmadığını sınar (değişmez 8): tipe giren bir alan
 aktarıma girmezse test düşer. Dosya boyutu (900 KB) ve düğüm sayısı (250 000)
 sınırlarına pay ölçülür (`countJsonNodes`).
+
+## TEKLIF-80 — Satış Analizi iki yüzdür: PROJEKSİYON ve KAZANILAN İŞLER.
+
+Kullanıcı kararı (04.09.2026): Analiz yalnız açık tekliflerin gelecekteki
+olasılığını değil, gerçekten kazanılan işleri de grafik ve çizelgeyle gösterir.
+İki soru aynı sayfada ama ayrı çalışma yüzlerindedir:
+
+- **Satış Projeksiyonu** açık teklif + beklenen işi, beklenen karar tarihi ve
+  kazanma puanıyla ileriye taşır (TEKLIF-10 değişmez).
+- **Kazanılan İşler** yalnız `status = 'won'` teklifleri, gerçekleşme tarihi ve
+  kabul edilen güncel teklif tutarıyla geriye bakarak gösterir. Aylık kazanım,
+  müşteri dağılımı, en büyük işler, karar süresi ve iş emri bağı aynı satır
+  kümesinden çıkar.
+
+**KAZANILMA TARİHİ `updated_at` DEĞİLDİR.** `offers.won_on`, teklifin
+`Kazanıldı` durumuna geçtiği günün ayrı olgusudur. Konu/müşteri künyesi daha
+sonra düzeltilince `updated_at` değişir; onu grafik ekseni yapmak geçmiş aylık
+satışı bugüne taşırdı. Durum ilk kez `won`a geçerken gün bugünle dolar; ana
+düzenleme penceresinde kullanıcı gerçek günü seçebilir. Durumdan çıkınca alan
+boşalır. Zaten kazanılmış ama tarihi bilinmeyen eski teklif, sıradan bir künye
+düzenlemesiyle bugüne taşınmaz.
+
+**GEÇMİŞ TARİH TAHMİN EDİLMEZ.** Göç yalnız `audit_log` içindeki açık
+`offer.status` / `offer.update → won` olayından günü tamamlar. Böyle bir iz
+yoksa `won_on = null` kalır; teklif “Tümü” çizelgesinde görünür, tarihli dönem
+ve aylık grafiğe girmez ve eksik tarih sayacında açıkça belirtilir. Teklifin
+açılış, gönderim ya da son güncelleme tarihini kazanılma günü saymak değişmez
+md. 4'ü ihlal ederdi.
+
+**PARA BİRİMLERİ KARIŞMAZ.** Toplam, ortalama ve grafik yalnız Avro satırlarını
+toplar. USD/TRY kazanımları kendi tutarıyla çizelgede kalır ve ayrıca sayılır;
+kur kaydı olmadan Avro'ya çevirmek uydurma bir ciro üretirdi. Karar süresi
+`issued_on → won_on` takvim günüdür; iki günden biri yoksa ya da sıra tersse
+boş gösterilir.
+
+Görsel ölçüt `/dev/offer-analysis-preview`dir. İki yüz de 320/375 px'te sayfayı
+yatay kaydırmaz; kazanılan işler çizelgesi telefonda aynı işaretlerin okunabilir
+kart listesine dönüşür. Grafikler doğası gereği kendi görünür yatay kaydırma
+alanını korur (MOBIL-15/19 istisnası).
