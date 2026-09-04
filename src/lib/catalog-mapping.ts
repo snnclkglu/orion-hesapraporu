@@ -1357,6 +1357,37 @@ const MAP_BY_MODULE: Record<string, Record<string, SectionCatalogMapping>> = {
 };
 
 /**
+ * Bölümün katalog eşlemelerinin YAZDIĞI seçim alanları — AI aktarım dosyası
+ * (`offer-report-transfer.ts`, TEKLIF-79) bu alanları "katalog satırından
+ * gelir" diye tanır ve içe aktarımda kabul eder. Etiket, alanın katalogdaki
+ * kaynağından türetilir (marka / model / nitelik adı); ikinci bir elle
+ * yazılmış liste tutulmaz.
+ */
+export function catalogSelectionFields(
+  moduleKey: string
+): readonly { sel: string; label: string }[] {
+  const sections = MAP_BY_MODULE[moduleKey];
+  if (!sections) return [];
+  const out = new Map<string, string>();
+  for (const mapping of Object.values(sections)) {
+    const kind = catalogKindLabel(mapping.kind);
+    for (const field of mapping.fields) {
+      if (out.has(field.sel)) continue;
+      const label =
+        field.from === "brand"
+          ? `${kind} Markası`
+          : field.from === "model"
+            ? `${kind} Modeli`
+            : field.from === "brand_model"
+              ? `${kind} Marka / Model`
+              : `${kind} · ${attrLabel(field.from.attr)}`;
+      out.set(field.sel, label);
+    }
+  }
+  return [...out].map(([sel, label]) => ({ sel, label }));
+}
+
+/**
  * Bölümün seçim alanları içinde ürünün KİMLİĞİNİ taşıyanlar.
  *
  * Katalog sayfası (`lib/catalog-sheets.ts`) marka + model ile bulunur; hangi

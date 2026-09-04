@@ -37,6 +37,7 @@ import type { GirderInputs, GirderSelections } from "@/lib/calc/modules/mainGird
 import type { BucklingInputs } from "@/lib/calc/modules/buckling";
 import type { EndCarriageInputs, EndCarriageSelections } from "@/lib/calc/modules/endCarriage";
 import type { CabinInputs, CabinSelections } from "@/lib/calc/modules/cabin";
+import type { WheelLoadInputs, WheelLoadSelections } from "@/lib/calc/modules/wheelLoads";
 import type { TechnicalSpecs } from "@/lib/calc/types";
 import {
   AGIRLIK_SERBEST_ON_EKI,
@@ -59,6 +60,7 @@ export interface RevisionInputsJson {
   mono1Trolley?: TravelInputs | null;
   mono2Trolley?: TravelInputs | null;
   bridge?: TravelInputs | null;
+  wheelLoads?: WheelLoadInputs | null;
   girder?: GirderInputs | null;
   girder2?: GirderInputs | null;
   buckling?: BucklingInputs | null;
@@ -144,6 +146,7 @@ export interface RevisionSelectionsJson {
   mono1Trolley?: TravelSelections | null;
   mono2Trolley?: TravelSelections | null;
   bridge?: TravelSelections | null;
+  wheelLoads?: WheelLoadSelections | null;
   girder?: GirderSelections | null;
   girder2?: GirderSelections | null;
   endCarriage?: EndCarriageSelections | null;

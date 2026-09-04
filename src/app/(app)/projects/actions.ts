@@ -23,6 +23,7 @@ import {
   OFFER_REPORT_TRANSFER_VERSION,
   OfferReportTransferError,
   parseOfferReportTransferText,
+  type OfferReportTransferCompany,
 } from "@/lib/offer-report-transfer";
 import {
   EQUIPMENT_ATTACHMENT_BUCKET,
@@ -240,7 +241,36 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
 // ------------------------------------------ AI dosyasından teklif hesap raporu
 
 /**
+ * Firma künyesini RPC'nin okuduğu JSON'a çevirir. Unvan ve kısa ad firma
+ * kuralıyla BÜYÜK HARFtir (`adBuyuk`); eşleşme zaten büyük/küçük harf
+ * duyarsızdır, dönüşüm yalnız YENİ açılan kaydın yazımını deftere uydurur.
+ * `id` yalnız geçerli bir UUID ise taşınır (parse aşaması bunu zaten süzer).
+ */
+function companyPayload(
+  company: OfferReportTransferCompany | null
+): Record<string, string> | null {
+  if (!company) return null;
+  return {
+    ...(company.id ? { id: company.id } : {}),
+    name: adBuyuk(company.name),
+    shortName: adBuyuk(company.shortName),
+    address: company.address,
+    taxOffice: company.taxOffice,
+    taxNo: company.taxNo,
+    phone: company.phone,
+    fax: company.fax,
+    email: company.email,
+    web: company.web,
+  };
+}
+
+/**
  * AI aktarım dosyası proje künyesiyle birlikte V0 girdilerini de taşır.
+ * Künye: son kullanıcı ve rapor firması defterle eşleştirilir (önce kimlik,
+ * sonra unvan), eşleşmeyen son kullanıcı yeni müşteri olarak açılır, rapor
+ * firması yalnız mevcut kayıtla bağlanır; kontrol eden metin olarak yazılır
+ * (TEKLIF-79). Eşleştirme DB fonksiyonunun içindedir ki proje, müşteri ve
+ * revizyon tek işlemde doğsun.
  * Sonuç snapshot'ı DOSYADAN ALINMAZ: `parseOfferReportTransferText` güncel
  * motoru koşturur. Proje + revizyon + audit kaydı DB fonksiyonunda tek
  * işlemdir; revizyon INSERT'i düşerse listede yetim proje kalmaz.
@@ -316,6 +346,9 @@ export async function createOfferProjectFromFile(
     p_engine_version: imported.results.engineVersion,
     p_source: source,
     p_review_notes: imported.reviewNotes,
+    p_end_customer: companyPayload(imported.project.endCustomer),
+    p_report_brand: companyPayload(imported.project.reportBrand),
+    p_checked_by_name: imported.project.signatories.checkedBy,
   });
   if (error) {
     return {

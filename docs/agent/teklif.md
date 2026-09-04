@@ -1648,12 +1648,16 @@ girdileri JSON olarak indirilir; yerel AI agent bu örneği ve yeni teknik
 Raporları > Yeni Hesap Raporu penceresinin en altındaki **Dosya ile Oluştur**
 alanı bu dosyadan proje künyesiyle birlikte V0 taslağını açar.
 
-Biçimin kararlı kimliği `orion-offer-calculation-report`, sürümü `1`dir
-(`lib/offer-report-transfer.ts`). Dosya üç katman taşır:
+Biçimin kararlı kimliği `orion-offer-calculation-report`, sürümü `2`dir
+(`lib/offer-report-transfer.ts`; sürüm `1` dosyaları okunmaya devam eder,
+bkz. TEKLIF-79). Dosya üç katman taşır:
 
-- `project`: doküman no, rapor/vinç adı, müşteri, vinç tipi ve yeri;
+- `project`: doküman no, rapor/vinç adı, müşteri, vinç tipi ve yeri; son
+  kullanıcı ve rapor firması künyesi, bizim kaydımız (bilgi) ve imza
+  sorumluları (TEKLIF-79);
 - `revision.inputs` + `revision.selections`: güncel editörün eksiksiz
-  snapshot'ı; kapalı/gizli bölüm kararları da korunur;
+  snapshot'ı; kapalı/gizli bölüm kararları ve ağırlık dökümündeki insan
+  kararları (`weightBreakdown`) da korunur;
 - `fieldGuide`: her kullanıcı alanının Türkçe etiketi, tipi, birimi ve
   varsa izin verilen makine değerleri. Bu rehber AI içindir; içe aktarım
   ona güvenmez, güncel kodun alan tiplerini kullanır.
@@ -1676,9 +1680,10 @@ Proje + V0 revizyonu iki ayrı ağ işlemi değildir.
 `create_offer_report_from_file` ikisini ve `project.createFromFile` audit
 kaydını tek Postgres işleminde oluşturur; revizyon düşerse yetim proje
 kalmaz. Fonksiyon teklif yazma yetkisini kendi içinde de sorar ve bağlamı
-daima `offer`, iş bağını daima `null` yazar. Müşteri/logo UUID'leri taşınmaz:
-dosya kurumlar arasında taşınabilir kalır, rapor markası ve logo yeni
-projede bilinçli olarak seçilir.
+daima `offer`, iş bağını daima `null` yazar. İlk sürümde müşteri/logo
+UUID'leri taşınmıyordu; 04.09.2026'dan beri son kullanıcı ve rapor firması
+künyesi dosyadadır ve defterle EŞLEŞTİRİLİR — kural ve gerekçe TEKLIF-79'da.
+Logo baytları yine taşınmaz; eşleşen defter kaydı kendi logosunu getirir.
 
 ## TEKLIF-73 — Yer Vinci teklif hesap raporu yürütmesiz ve köprüsüzdür.
 
@@ -1811,3 +1816,71 @@ iskonto + maliyet + tutar + işlemleri taşır. Kırılım pencereye değil
 açılması aynı pencerede kullanılabilir genişliği değiştirir. Kap
 `overflow-x: hidden` taşır ve bütün bilgi aynı satır işaretlemesinde kaldığı
 için mobil/masaüstü kaydetme yolları ayrışmaz.
+
+## TEKLIF-79 — AI girdi dosyası proje künyesini ve editörün bildiği HER alanı taşır.
+
+Kullanıcı kararı (04.09.2026): *"Sadece hesap bilgileri değil, müşteri
+bilgileri, rapor firması vb. proje bilgilerinin de olmasını istiyorum."*
+Aynı turda dosyanın güncelliği ölçüldü: aktarım 28.08.2026'dan beri
+değişmemişti ve sonradan eklenen alanların çoğunu taşımıyordu. Dosya sürümü
+`2`ye çıktı; sürüm `1` dosyaları okunmaya devam eder.
+
+**Künye.** `project` artık `endCustomer` (son kullanıcı — kapak logosu ve
+künyenin kaynağı), `reportBrand` (raporu kendi adıyla sunan firma), `issuer`
+(bizim kaydımız, `customers.is_self`; yalnız bilgi) ve `signatories`
+(hazırlayan — bilgi, kontrol eden — metin) taşır. Firma künyesi defterin
+`CustomerCompany` alanlarıdır (unvan, kısa ad, adres, vergi dairesi/no,
+telefon, faks, e-posta, web); `id` yalnız eşleşme ipucudur. TEKLIF-72'deki
+"müşteri UUID'leri taşınmaz" kararı bu maddeyle değişti; taşınabilirlik
+eşleşme kuralıyla korunur (`create_offer_report_from_file`, 14 parametre,
+eski 11 parametreli imza kaldırıldı — iki aşırı yükleme PostgREST'te
+"best candidate" belirsizliği üretirdi):
+
+- Son kullanıcı: önce `id`, sonra unvan (`lower(btrim(name))` — defterin
+  ünik indeksiyle aynı ifade). Eşleşen kayıt BAĞLANIR ve dosyadaki bilgiyle
+  GÜNCELLENMEZ; eşleşme yoksa unvan ve künyeyle YENİ müşteri açılır (unvan ve
+  kısa ad `adBuyuk` ile BÜYÜK HARF).
+- Rapor firması: yalnız MEVCUT kayıtla eşleşir (`id`, unvan ya da kısa ad);
+  bulunamazsa boş kalır — proje sayfasından seçilir.
+- Kontrol eden `checked_by_name`e yazılır; hazırlayan dosyadan alınmaz, kapak
+  oluşturan kullanıcıya düşer. `project.customer` boşsa son kullanıcının unvanı
+  kullanılır.
+- Eşleşme sonucu audit ayrıntısına (`identity`) yazılır; RPC bağlanan/açılan
+  kimlikleri de döndürür. Müşteri, proje ve V0 tek işlemde doğar.
+
+**Kapsam.** Eski aktarım yalnız yeni iş ŞABLONUNA bakıyordu; şablonda
+bulunmayan her alan içe aktarımda SESSİZCE düşüyordu — monoray/yardımcı araba
+teknik özellikleri (`mono1CapacityT`, `auxTrolleyPowerSupply` …), feston,
+motor ve redüktör katalog seçenekleri (`motorEfficiencyClass`,
+`gearboxMountingPosition` …), kiriş katsayı ezmeleri (`psiHAOverride` …),
+rulman markaları, kanca mili ölçüleri ve ağırlık dökümü kararları. Kabul
+edilen anahtar kümesi artık kodun kendi kayıtlarından toplanır: şablon + alan
+tanımları (`SPEC_FIELDS`, `*_INPUT_FIELDS`, `*_SELECTION_FIELDS`) + otomatik
+anahtar defterleri (`*_AUTO_FIELDS`, rulman markası bağı) + katalog eşlemeleri
+(`catalogSelectionFields`) + küçük, gerekçeli bir ek liste (`EXTRA_*_KEYS`).
+İsteğe bağlı bir anahtar yalnız dosyada VARSA tipiyle alınır; yokken şablondan
+`0`/`""` gibi uydurma bir değer yazılmaz (değişmez 4). Yanlış tip yine yoluyla
+birlikte açık hatadır. `revision.inputs.weightBreakdown` insan kararlarını
+(ezme, not, serbest satır, portal ayak yüksekliği) `weightBreakdownFromRevision`
+okuyucusuyla taşır; `applied` izi ne dışa aktarılır ne içe alınır — yeni
+raporun kendi yazma olayı olmadan "dökümden yazıldı" rozeti yalan olurdu.
+Eski teknik özellik anahtarları (`LEGACY_SPEC_KEYS`: feston nesneleri,
+kabin/elektrik odası ölçüleri) dosyaya yazılmaz — göçleri `revision-load`
+yapar. `RevisionInputsJson`/`RevisionSelectionsJson` tipine eksik olan
+`wheelLoads` alanı da eklendi.
+
+**Rehber.** `fieldGuide` her hesap bölümü için BÜTÜN alan tanımlarını yazar
+(snapshot'ta değer olmasa da — feston serisi gibi), otomatik anahtarları
+hedef alanın etiketiyle (`source: "otomatik"`), katalogdan gelen alanları
+(`source: "katalog"`), yalnız bilgi olan alanları (`source: "bilgi"`)
+işaretler; kontrol listeleri (`disabledModules`, `hiddenSections`,
+`hiddenDiagrams`, `alts`, `sectionNotes`), `travelArrangement` ve ağırlık
+dökümü alanları da anlatılır. Snapshot'ta durup anlatılmamış anahtar kalmaz
+(`describeLeftover`). Talimatlar `…Auto` anahtarlarının, katalog alanlarının
+ve künye eşleşmesinin kuralını da söyler.
+
+**Kilit.** `offer-report-transfer.coverage.test.ts` modül arayüzlerini
+TypeScript sözdizimiyle okur ve her özellik adının aktarımda kabul edildiğini,
+aktarımda bayat anahtar kalmadığını sınar (değişmez 8): tipe giren bir alan
+aktarıma girmezse test düşer. Dosya boyutu (900 KB) ve düğüm sayısı (250 000)
+sınırlarına pay ölçülür (`countJsonNodes`).

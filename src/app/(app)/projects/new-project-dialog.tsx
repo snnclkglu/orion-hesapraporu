@@ -379,8 +379,10 @@ export function NewProjectDialog({
               </h3>
               <p className="text-xs leading-relaxed text-muted-foreground">
                 Bir teklif hesap raporundan indirilen ve yeni şartnameye göre AI
-                agent tarafından doldurulan JSON dosyasını yükleyin. Proje ve V0
-                taslağı birlikte oluşturulur; hesap sonuçları yeniden hesaplanır.
+                agent tarafından doldurulan JSON dosyasını yükleyin. Proje künyesi
+                (son kullanıcı, rapor firması, kontrol eden) ve V0 taslağı birlikte
+                oluşturulur; hesap sonuçları yeniden hesaplanır. Defterde
+                bulunmayan son kullanıcı yeni müşteri olarak açılır.
               </p>
             </div>
             <form onSubmit={handleFileSubmit} className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
