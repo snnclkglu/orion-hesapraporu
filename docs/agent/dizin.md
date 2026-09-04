@@ -170,13 +170,14 @@
   kısaltması/rengi, satış kapsamı); renk TANIMI `globals.css` `.oc-tag`
 - `src/lib/use-stored-flag.ts` — tarayıcıda kalıcı aç/kapa tercihi
   (`useSyncExternalStore`; ilk boyamada doğru genişlik, hidrasyon uyumlu)
-- `src/app/(app)/projects/projects-table.tsx` — Mühendislik listesi: hızlı
-  süzgeçler (yıl · müşteri · durum) + proje adı araması. **Arşivli proje AYRI
-  BİR EKRANDA DEĞİLDİR**: aynı listede kalır, "Arşiv" rozetiyle görünür ve
-  Durum süzgeciyle ayrılır — arşivlemek bir silme değil bir işarettir. Yıl
-  varsayılanı "Tümü"dür (İşler'in aksine, orada bu yıl): iki yıl önceki bir
-  vincin raporuna revizyon açmak sıradan bir iştir ve süzgeç onu gizlerse
-  kullanıcı raporu silinmiş sanır
+- `src/lib/project-list.ts` + `src/app/(app)/projects/projects-table.tsx` +
+  `projects/jobs/[jobId]/` — Mühendislik defteri: aynı işe ait iki veya daha
+  fazla raporu ana listede TEK iş satırına katlar; tek raporlu iş ve bağımsız
+  rapor doğrudan kalır, işin iç sayfası dokümanları ayrı ayrı gösterir. Hızlı
+  süzgeçler yıl · müşteri · durum + iş/proje/doküman aramasıdır; grup içindeki
+  herhangi bir doküman eşleşebilir. **Arşivli proje AYRI BİR ARŞİV EKRANINA
+  GİTMEZ**: aynı doküman listesinde kalır ve Durum süzgeciyle ayrılır. Yıl
+  varsayılanı "Tümü"dür; eski bir raporu sessizce gizlemez
 - `src/components/editable-combobox.tsx` — hem yazılan hem seçilen alan
   (serbest metin + öneri listesi); `combobox.tsx` ile KARIŞTIRILMAZ, orada
   değer yalnız listeden seçilir
@@ -259,7 +260,9 @@
   development; production'da 404): **açılış panosu** (`/dev/panel-preview` —
   yönetici ve teknik ressam rollerini ÜST ÜSTE basar; rol bazlı bir ekranı tek
   rolle sınamak, kesilen tarafı hiç görmemektir), kabuk, editör, işler, satış, ekipman listesi,
-  **mühendislik listesi** (`/dev/projects-preview` — kabuğu ÇİZMEZ ama kenar
+  **mühendislik listesi** (`/dev/projects-preview` +
+  `/dev/projects-job-preview/[jobId]` — ana iş satırı ve iç doküman listesini
+  birlikte sınar; kabuğu ÇİZMEZ ama kenar
   çubuğunun YERİNİ birebir taklit eder: kırılım sınıfları pencereye bakar, sütuna
   kalan yer ise kaba ve ikisi 1024px'te ayrışır — kabuğu gerçekten çizseydi
   `isWide` yolu tutmaz ve sayfa `max-w-6xl`e düşerdi, MOBIL-16),

@@ -10,7 +10,7 @@ import {
   type CustomerOption,
   type JobItemOption,
 } from "./new-project-dialog";
-import { ProjectsTable, type ProjectRow } from "./projects-table";
+import { ProjectsTable } from "./projects-table";
 import { getReportSettings } from "@/lib/settings";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
@@ -19,6 +19,10 @@ import {
   reportBasePath,
   type ReportContext,
 } from "@/lib/report-context";
+import {
+  projectRowsFromRecords,
+  type ProjectListRecord,
+} from "@/lib/project-list";
 
 /**
  * Mühendislik ve Teklif Hesap Raporları listelerinin ortak sunucu görünümü.
@@ -36,7 +40,7 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
 
   const projectQuery = supabase
     .from("projects")
-    .select("id, doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, status, created_at, job_id, jobs:job_id(job_no), revisions(rev_no, status)")
+    .select("id, doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, status, created_at, job_id, jobs:job_id(job_no, title, customer), revisions(rev_no, status)")
     .eq("report_context", context)
     .order("created_at", { ascending: false });
 
@@ -75,39 +79,17 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
     has_logo: Boolean(entry.logo_path),
   }));
 
-  const list = projects ?? [];
-  const allRevs = list.flatMap((project) => project.revisions ?? []);
-  const draftCount = allRevs.filter((revision) => revision.status === "draft").length;
-  const issuedCount = allRevs.filter((revision) => revision.status === "issued").length;
-  const archivedCount = list.filter((project) => project.status === "archived").length;
-
-  const rows: ProjectRow[] = list.map((project) => {
-    const lastRev = [...(project.revisions ?? [])].sort((a, b) => b.rev_no - a.rev_no)[0];
-    return {
-      id: project.id,
-      doc_no: project.doc_no,
-      name: project.name,
-      customer: project.customer,
-      crane_type: project.crane_type,
-      crane_location: project.crane_location,
-      report_brand_customer_id: project.report_brand_customer_id,
-      end_customer_id: project.end_customer_id,
-      status: project.status,
-      created_at: project.created_at,
-      job_id: (project.job_id as string | null) ?? null,
-      job_no: (project.jobs as unknown as { job_no: string } | null)?.job_no ?? null,
-      lastRevNo: lastRev?.rev_no ?? null,
-      lastRevStatus: lastRev?.status ?? null,
-      hasIssuedRevision: (project.revisions ?? []).some(
-        (revision) => revision.status === "issued"
-      ),
-    };
-  });
+  const rows = projectRowsFromRecords(
+    (projects ?? []) as unknown as ProjectListRecord[]
+  );
+  const draftCount = rows.reduce((sum, row) => sum + (row.draftRevisionCount ?? 0), 0);
+  const issuedCount = rows.reduce((sum, row) => sum + (row.issuedRevisionCount ?? 0), 0);
+  const archivedCount = rows.filter((project) => project.status === "archived").length;
 
   const title = offerContext ? "Teklif Hesap Raporları" : "Mühendislik";
   const hint = offerContext
     ? "Teklif aşamasındaki hızlı mühendislik hesapları; Mühendislik arşivinden ayrı, aynı hesap motoruyla."
-    : "Hesap raporu projeleri ve revizyon arşivi";
+    : "İş bazında düzenlenen hesap raporu projeleri ve revizyon arşivi";
 
   return (
     <div className="grid min-w-0 max-w-full gap-4 overflow-x-clip">
@@ -122,9 +104,9 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
 
       <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
         <StatCard
-          label={offerContext ? "Toplam Teklif Raporu" : "Toplam Proje"}
-          value={String(list.length)}
-          hint={`${list.length - archivedCount} Aktif`}
+          label={offerContext ? "Toplam Teklif Raporu" : "Toplam Doküman"}
+          value={String(rows.length)}
+          hint={`${rows.length - archivedCount} Aktif`}
           icon={FolderKanban}
           responsiveCompact
         />
@@ -155,7 +137,7 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
         />
       </div>
 
-      {list.length === 0 ? (
+      {rows.length === 0 ? (
         <div
           className="flex flex-col items-center justify-center gap-4 border bg-card px-6 py-16 text-center"
           style={{

@@ -387,3 +387,35 @@ değiştirir ve ağırlık toplamını 100'e zorlar. Bütünlük adres, vergi da
 vergi no, firma telefonu, logo, etkin kişi ve etkin kişi e-postasını sayar.
 Puan finansal risk, ödeme davranışı veya müşteri memnuniyeti hükmü değildir;
 ekran formülü ve eksik alanları açıkça söyler.
+
+## IS-30 — Mühendislik ana defteri İŞ BAZINDA katlanır; doküman kalemde kalır.
+
+Kullanıcı kararı (04.09.2026): *"Bir işte 10 tane kalem varsa mühendislik
+sayfası giriş tablosu şişecek … kullanıcı ilk tablodan işe girsin sonra iç
+sayfada dokümanlar listelensin."* Ana `/projects` defteri bu yüzden aynı
+`projects.job_id` değerini taşıyan **iki veya daha fazla** hesap raporunu tek iş
+satırına katlar. İşe bağlı yalnız bir doküman varsa satırın doküman no, proje,
+revizyon, durum ve işlem davranışı ESKİSİYLE AYNIDIR. Bağımsız raporlar da
+doğrudan satır olarak kalır. Teklif Hesap Raporları işe bağlanmadığından bu
+katlamayı kullanmaz.
+
+İş satırı `/projects/jobs/[jobId]` adresine açılır; içeride o işin bütün hesap
+raporları ayrı satırlardır ve doküman numarasına göre sıralanır. Grup satırında
+tek bir yapay V numarası veya durum UYDURULMAZ: son revizyonlar yayın/taslak
+sayısı olarak, proje durumları aktif/arşiv sayısı olarak özetlenir. Arama iş no
+ve başlığının yanında içerideki HER doküman no/ad/vinç tipini tarar. Yıl,
+müşteri ve durum süzgeçlerinde grubun herhangi bir dokümanı eşleşiyorsa iş
+satırı görünür; iç sayfa açıldığında yalnız eşleşen değil bütün dokümanlar
+listelenir.
+
+İç sayfadaki **Yeni Hesap Raporu** penceresi o işe sabittir; kullanıcı raporu
+yanlışlıkla bağımsız ya da başka işe açamaz, yalnız iş kalemini seçer. Seçilen
+kalemin `job_items.project_id` alanı proje oluşturulurken yazılır ve kalemin
+gerçekten aynı işe ait olduğu INSERT'ten önce doğrulanır. Yalnız
+`projects.job_id` yazmak yeterli değildir: iş gruplaması çalışsa bile İşler
+detayındaki kalem → rapor bağı boş kalırdı.
+
+Katlama `lib/project-list.ts` saf çekirdeğindedir ve testlidir. Veri şeması
+değişmez: rapor hâlâ iş kaleminin belgesidir (IS-14); yeni katman yalnız ana
+defterin yoğunluğunu azaltır. Ana ve iç tablo telefonda tek kolon karta,
+tablette iki kolon karta katlanır ve yatay sayfa taşması üretmez.

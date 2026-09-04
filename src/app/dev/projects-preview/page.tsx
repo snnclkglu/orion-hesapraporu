@@ -47,6 +47,27 @@ const ROWS: ProjectRow[] = [
     name: "1 t x 19,00 m Kapasiteli Tek Kirişli Köprülü Tavan Vinci",
     customer: "ASTOR A.Ş.",
     crane_type: "Tek Kirişli Gezer Köprülü Vinç",
+    job_title: "MUHTELİF VİNÇLER",
+    job_customer: "ASTOR A.Ş.",
+  }),
+  row({
+    doc_no: "0057-02",
+    name: "2 t x 12,00 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci",
+    customer: "ASTOR A.Ş.",
+    crane_type: "Çift Kirişli Gezer Köprülü Vinç",
+    job_title: "MUHTELİF VİNÇLER",
+    job_customer: "ASTOR A.Ş.",
+    lastRevNo: 1,
+    lastRevStatus: "issued",
+    hasIssuedRevision: true,
+  }),
+  row({
+    doc_no: "0057-03",
+    name: "3,2 t Kapasiteli Monoray Servis Vinci",
+    customer: "ASTOR A.Ş.",
+    crane_type: "Monoray Vinç",
+    job_title: "MUHTELİF VİNÇLER",
+    job_customer: "ASTOR A.Ş.",
   }),
   row({
     doc_no: "0055",
@@ -104,7 +125,12 @@ export default function ProjectsPreviewPage() {
         {/* `/projects` GENİŞ sayfadır (`app-shell` isWide): `max-w-none`. */}
         <div className="mx-auto grid w-full max-w-none gap-4">
           <PageHeader title="Mühendislik" hint="Hesap raporu projeleri ve revizyon arşivi" />
-          <ProjectsTable projects={ROWS} jobs={[]} canDelete />
+          <ProjectsTable
+            projects={ROWS}
+            jobs={[]}
+            canDelete
+            jobGroupBasePath="/dev/projects-job-preview"
+          />
         </div>
       </main>
     </div>

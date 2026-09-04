@@ -81,6 +81,7 @@ export function NewProjectDialog({
   jobs,
   customers = [],
   reportContext = ENGINEERING_REPORT_CONTEXT,
+  fixedJobId,
 }: {
   defaultCraneType?: string;
   /** Opsiyonel iş seçimi için aktif iş listesi (kalemleriyle birlikte). */
@@ -88,6 +89,8 @@ export function NewProjectDialog({
   /** Yönetim > Müşteriler kayıtları; kapak logoları bu listeden seçilir. */
   customers?: CustomerOption[];
   reportContext?: ReportContext;
+  /** İşin doküman sayfasında rapor başka bir işe/bağımsıza açılamaz. */
+  fixedJobId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -99,8 +102,11 @@ export function NewProjectDialog({
     : craneTypeOptions(defaultCraneType);
   const [craneType, setCraneType] = useState(defaultCraneType);
 
-  const showJobSelect = !offerContext && (jobs?.length ?? 0) > 0;
-  const [selectedJobId, setSelectedJobId] = useState<string>(NO_JOB);
+  const fixedJob = !offerContext
+    ? jobs?.find((job) => job.id === fixedJobId)
+    : undefined;
+  const showJobSelect = !offerContext && !fixedJob && (jobs?.length ?? 0) > 0;
+  const [selectedJobId, setSelectedJobId] = useState<string>(fixedJob?.id ?? NO_JOB);
   const selectedJob = useMemo(
     () => jobs?.find((j) => j.id === selectedJobId),
     [jobs, selectedJobId]
@@ -111,11 +117,17 @@ export function NewProjectDialog({
   const selectedItem = items.find((i) => i.id === selectedItemId);
 
   // Doküman no / rapor adı / müşteri: iş ve kalem seçilince ön-doldurulur
-  const [docNo, setDocNo] = useState("");
+  const [docNo, setDocNo] = useState(() => {
+    if (!fixedJob || (fixedJob.items?.length ?? 0) > 0) return "";
+    const base = fixedJob.job_no.split("-")[0];
+    return base ? `${base}-01` : "";
+  });
   const [name, setName] = useState("");
-  const [customer, setCustomer] = useState("");
+  const [customer, setCustomer] = useState(() => adBuyuk(fixedJob?.customer ?? ""));
   const [craneLocation, setCraneLocation] = useState("");
-  const [endCustomerId, setEndCustomerId] = useState(NO_CUSTOMER);
+  const [endCustomerId, setEndCustomerId] = useState(
+    fixedJob?.customer_id || NO_CUSTOMER
+  );
   const [reportBrandCustomerId, setReportBrandCustomerId] = useState(NO_CUSTOMER);
 
   function onPickJob(id: string) {
@@ -183,6 +195,8 @@ export function NewProjectDialog({
           <DialogDescription>
             {offerContext
               ? "Teklif aşamasındaki hesabı hemen açın. Aynı mühendislik motoru kullanılır; kayıt Mühendislik arşivine karışmaz."
+              : fixedJob
+                ? `${fixedJob.job_no} numaralı işin kalemlerinden biri için yeni bir hesap raporu oluşturun.`
               : "Raporu bir iş emri kalemine bağlayın ya da bağımsız bırakın; bağımsız raporlar sonradan “İşe Bağla” ile bir işe bağlanabilir."}
           </DialogDescription>
         </DialogHeader>
@@ -190,6 +204,11 @@ export function NewProjectDialog({
           {/* İş bağlantısı */}
           <input type="hidden" name="report_context" value={reportContext} />
           <input type="hidden" name="job_id" value={effectiveJobId} />
+          <input
+            type="hidden"
+            name="job_item_id"
+            value={selectedItemId === NO_ITEM ? "" : selectedItemId}
+          />
           <input
             type="hidden"
             name="end_customer_id"
@@ -200,6 +219,18 @@ export function NewProjectDialog({
             name="report_brand_customer_id"
             value={reportBrandCustomerId === NO_CUSTOMER ? "" : reportBrandCustomerId}
           />
+          {fixedJob && (
+            <div className="grid min-w-0 gap-2">
+              <Label>İş Emri</Label>
+              <div className="min-w-0 rounded-md border bg-muted/35 px-3 py-2">
+                <span className="block truncate text-sm font-medium" title={`${fixedJob.job_no} · ${fixedJob.title}`}>
+                  <span className="font-mono text-primary">{fixedJob.job_no}</span>
+                  {" · "}
+                  {fixedJob.title}
+                </span>
+              </div>
+            </div>
+          )}
           {showJobSelect && (
             <div className="grid min-w-0 gap-2">
               <Label>İş Emri</Label>

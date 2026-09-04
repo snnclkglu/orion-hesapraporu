@@ -412,12 +412,15 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
   // termin tablosu ve olay akışı yan yana genişlikten kazanır. FORMLAR DAR
   // KALIR — `/jobs/new` ve `/jobs/[id]/edit` okuma değil yazma ekranıdır ve
   // uzun bir formun satır genişliği okunabilirlik sınırını aşmamalıdır.
+  // Mühendislikte bir işin iç doküman defteri de ana `/projects` tablosuyla
+  // aynı genişliktedir; on kalemli işi dar okuma sütununa sıkıştırmaz.
   const jobsHub =
     /^\/jobs\/[^/]+/.test(pathname ?? "") &&
     !/^\/jobs\/new(\/|$)/.test(pathname ?? "") &&
     !/\/edit(\/|$)/.test(pathname ?? "");
   const isWide =
     /^\/(jobs|projects|sales)\/?$/.test(pathname ?? "") ||
+    /^\/projects\/jobs\/[^/]+\/?$/.test(pathname ?? "") ||
     /^\/offers\/hesap-raporlari\/?$/.test(pathname ?? "") ||
     jobsHub ||
     /^\/worklog(\/|$)/.test(pathname ?? "") ||

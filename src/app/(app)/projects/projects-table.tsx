@@ -18,7 +18,14 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, ChevronsUpDown, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  ChevronsUpDown,
+  Files,
+  X,
+} from "lucide-react";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,35 +44,30 @@ import {
   OFFER_REPORT_CONTEXT,
   type ReportContext,
 } from "@/lib/report-context";
+import {
+  buildProjectListEntries,
+  projectEntryCraneLabel,
+  projectEntryCraneTypes,
+  projectEntryCustomer,
+  projectEntryDocLabel,
+  projectEntryIsArchived,
+  projectEntryJobNo,
+  projectEntryMatches,
+  projectEntryName,
+  projectEntryRevisionLabel,
+  projectEntrySortValue,
+  projectEntryStatusLabel,
+  projectYear,
+  type ProjectListSortKey,
+  type ProjectRow,
+} from "@/lib/project-list";
 
-export interface ProjectRow {
-  id: string;
-  doc_no: string;
-  name: string;
-  customer: string;
-  crane_type: string;
-  crane_location?: string | null;
-  report_brand_customer_id?: string | null;
-  end_customer_id?: string | null;
-  /** projects.status — "active" | "archived" */
-  status: string;
-  created_at: string;
-  job_id: string | null;
-  job_no: string | null;
-  lastRevNo: number | null;
-  lastRevStatus: string | null;
-  hasIssuedRevision: boolean;
-}
+export type { ProjectRow } from "@/lib/project-list";
 
 /** "Tümü" seçeneği — Select bileşeni boş string değere izin vermez. */
 const ALL = "__all__";
 const ACTIVE = "active";
 const ARCHIVED = "archived";
-
-/** Projenin yılı — kayıt tarihinden. */
-export function projectYear(p: Pick<ProjectRow, "created_at">): string {
-  return /^(\d{4})/.exec(p.created_at ?? "")?.[1] ?? "";
-}
 
 /*
  * SÜTUN GENİŞLİKLERİ — kullanıcı bildirimi (20.08.2026): *"listede isimlerin
@@ -107,26 +109,14 @@ const VINC_KELEPCE = "max-w-[6rem]";
 /** İçeriği sabit boydaki sütun: en dar hâline çivilenir, artan yeri almaz. */
 const CIVI = "w-px";
 
-type SortKey = "job_no" | "doc_no" | "name" | "customer" | "crane_type" | "rev" | "status";
-
-const SORT_VALUE: Record<SortKey, (p: ProjectRow) => string | number> = {
-  job_no: (p) => p.job_no ?? "",
-  doc_no: (p) => p.doc_no,
-  name: (p) => p.name,
-  customer: (p) => p.customer,
-  crane_type: (p) => p.crane_type,
-  rev: (p) => p.lastRevNo ?? -1,
-  status: (p) => (p.status === ARCHIVED ? "Arşiv" : "Aktif"),
-};
-
 function SortHead({
   label, sortKey, active, dir, onSort, className,
 }: {
   label: string;
-  sortKey: SortKey;
+  sortKey: ProjectListSortKey;
   active: boolean;
   dir: "asc" | "desc";
-  onSort: (key: SortKey) => void;
+  onSort: (key: ProjectListSortKey) => void;
   className?: string;
 }) {
   const Icon = !active ? ChevronsUpDown : dir === "asc" ? ChevronUp : ChevronDown;
@@ -159,6 +149,10 @@ export function ProjectsTable({
   canDelete,
   basePath = "/projects",
   reportContext = ENGINEERING_REPORT_CONTEXT,
+  groupByJob = reportContext === ENGINEERING_REPORT_CONTEXT,
+  showJobColumn = reportContext !== OFFER_REPORT_CONTEXT,
+  jobGroupBasePath = "/projects/jobs",
+  defaultSort = { key: "doc_no", dir: "desc" },
 }: {
   projects: ProjectRow[];
   jobs: JobOption[];
@@ -166,16 +160,24 @@ export function ProjectsTable({
   canDelete: boolean;
   basePath?: string;
   reportContext?: ReportContext;
+  /** Ana Mühendislik defterinde aynı işin birden çok dokümanını tek satıra katlar. */
+  groupByJob?: boolean;
+  /** İşin iç sayfasında iş numarası tekrarını gizlemek için. */
+  showJobColumn?: boolean;
+  /** Geliştirme önizlemesi gerçek iç sayfaya gitmeden aynı gezinmeyi sınayabilir. */
+  jobGroupBasePath?: string;
+  defaultSort?: { key: ProjectListSortKey; dir: "asc" | "desc" };
 }) {
-  const showJob = reportContext !== OFFER_REPORT_CONTEXT;
   const [year, setYear] = useState(ALL);
   const [customer, setCustomer] = useState(ALL);
   const [status, setStatus] = useState(ALL);
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
-    key: "doc_no",
-    dir: "desc",
-  });
+  const [sort, setSort] = useState(defaultSort);
+
+  const entries = useMemo(
+    () => buildProjectListEntries(projects, groupByJob),
+    [projects, groupByJob]
+  );
 
   const years = useMemo(() => {
     const set = new Set(projects.map(projectYear).filter(Boolean));
@@ -187,7 +189,7 @@ export function ProjectsTable({
     return [...set].sort((a, b) => a.localeCompare(b, "tr"));
   }, [projects]);
 
-  function toggleSort(key: SortKey) {
+  function toggleSort(key: ProjectListSortKey) {
     setSort((s) =>
       s.key === key
         ? { key, dir: s.dir === "asc" ? "desc" : "asc" }
@@ -202,29 +204,31 @@ export function ProjectsTable({
   }
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase("tr");
-    const rows = projects.filter((p) => {
-      if (year !== ALL && projectYear(p) !== year) return false;
-      if (customer !== ALL && p.customer.trim() !== customer) return false;
-      if (status === ACTIVE && p.status === ARCHIVED) return false;
-      if (status === ARCHIVED && p.status !== ARCHIVED) return false;
-      // Arama PROJE ADINI, doküman noyu, müşteriyi, iş noyu ve vinç tipini
-      // birlikte tarar: kullanıcı ekranda hangisini görüyorsa onu yazar.
-      const hay = [p.name, p.doc_no, p.customer, p.job_no ?? "", p.crane_type].join(" ");
-      if (q && !hay.toLocaleLowerCase("tr").includes(q)) return false;
-      return true;
-    });
+    const rows = entries.filter((entry) =>
+      projectEntryMatches(entry, {
+        year: year === ALL ? undefined : year,
+        customer: customer === ALL ? undefined : customer,
+        status:
+          status === ACTIVE ? ACTIVE : status === ARCHIVED ? ARCHIVED : undefined,
+        query,
+      })
+    );
     const sign = sort.dir === "asc" ? 1 : -1;
     return rows.sort((a, b) => {
-      const va = SORT_VALUE[sort.key](a);
-      const vb = SORT_VALUE[sort.key](b);
+      const va = projectEntrySortValue(a, sort.key);
+      const vb = projectEntrySortValue(b, sort.key);
       const c =
         typeof va === "number" && typeof vb === "number"
           ? va - vb
           : String(va).localeCompare(String(vb), "tr", { numeric: true });
       return sign * c;
     });
-  }, [projects, year, customer, status, query, sort]);
+  }, [entries, year, customer, status, query, sort]);
+
+  const filteredDocumentCount = filtered.reduce(
+    (sum, entry) => sum + entry.projects.length,
+    0
+  );
 
   const activeFilters =
     (year !== ALL ? 1 : 0) + (customer !== ALL ? 1 : 0) + (status !== ALL ? 1 : 0) +
@@ -286,7 +290,10 @@ export function ProjectsTable({
           <Select
             value={`${sort.key}:${sort.dir}`}
             onValueChange={(value) => {
-              const [key, dir] = value.split(":") as [SortKey, "asc" | "desc"];
+              const [key, dir] = value.split(":") as [
+                ProjectListSortKey,
+                "asc" | "desc",
+              ];
               setSort({ key, dir });
             }}
           >
@@ -307,13 +314,14 @@ export function ProjectsTable({
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Proje Adı, Doküman No veya Müşteri Ara…"
+          placeholder="İş No, Proje Adı, Doküman No veya Müşteri Ara…"
           className="h-10 w-full flex-1 sm:h-8 sm:w-auto sm:min-w-[220px] sm:pointer-coarse:h-10"
         />
 
         <div className="flex w-full items-center justify-between gap-2 sm:w-auto">
           <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-            {filtered.length} / {projects.length}
+            {filtered.length} / {entries.length} kayıt
+            {groupByJob ? ` · ${filteredDocumentCount} / ${projects.length} doküman` : ""}
           </span>
           {activeFilters > 0 && (
             <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={clearFilters}>
@@ -341,7 +349,7 @@ export function ProjectsTable({
                 Henüz açılmamış olanların kritikleri proje adının ALTINDA
                 durur (aşağıdaki ikinci satır); kart markup'ı çoğaltılmaz. */}
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortHead label="İş No" sortKey="job_no" className={cn(CIVI, "hidden", showJob && "md:table-cell")}
+              <SortHead label="İş No" sortKey="job_no" className={cn(CIVI, "hidden", showJobColumn && "md:table-cell")}
                 active={sort.key === "job_no"} dir={sort.dir} onSort={toggleSort} />
               {/* Telefonda İKİ SATIRA SARAR: "Doküman No" tek satırdayken
                   sütunun tabanını 115px'e çekiyordu ve o 21px doğrudan proje
@@ -373,27 +381,60 @@ export function ProjectsTable({
                   data-mobile-hide-label
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
-                  Süzgeçlere uyan proje yok — bir filtreyi temizleyip tekrar deneyin.
+                  Süzgeçlere uyan kayıt yok — bir filtreyi temizleyip tekrar deneyin.
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((p) => (
-                <TableRow key={p.id} className="relative cursor-pointer">
+              filtered.map((entry) => {
+                const p = entry.projects[0];
+                if (!p) return null;
+                const grouped = entry.kind === "job";
+                const name = projectEntryName(entry);
+                const customerName = projectEntryCustomer(entry);
+                const jobNo = projectEntryJobNo(entry);
+                const docLabel = projectEntryDocLabel(entry);
+                const revisionLabel = projectEntryRevisionLabel(entry);
+                const fullStatusLabel = projectEntryStatusLabel(entry);
+                const archived = projectEntryIsArchived(entry);
+                const craneTypes = projectEntryCraneTypes(entry);
+                const craneLabel = projectEntryCraneLabel(entry);
+                const targetHref = grouped
+                  ? `${jobGroupBasePath}/${entry.jobId}`
+                  : `${basePath}/${p.id}`;
+                const jobHref = grouped
+                  ? targetHref
+                  : p.job_id
+                    ? `/jobs/${p.job_id}`
+                    : null;
+
+                return (
+                <TableRow
+                  key={entry.key}
+                  data-project-group={grouped || undefined}
+                  className={cn(
+                    "relative cursor-pointer",
+                    grouped && "bg-muted/20 hover:bg-muted/45"
+                  )}
+                >
                   <TableCell
                     data-label="İş No"
-                    className={cn(CIVI, "hidden font-mono text-sm text-muted-foreground", showJob && "md:table-cell")}
+                    className={cn(
+                      CIVI,
+                      "hidden font-mono text-sm text-muted-foreground",
+                      showJobColumn && "md:table-cell"
+                    )}
                   >
-                    {p.job_no && p.job_id ? (
+                    {jobNo && jobHref ? (
                       // Dokunma hedefi `.oc-tap` ile 44px'e tamamlanır, KUTU
                       // büyümez (kabuk kuralı 1). Eskiden `min-h-9` idi ve o
                       // 36px'i her satıra taşıyıp satır boyunu tek başına
                       // 53px'te tutuyordu — kullanıcının "satır yüksekliği bu
                       // kadar büyümesin" dediği yerin bir parçası.
                       <Link
-                        href={`/jobs/${p.job_id}`}
+                        href={jobHref}
                         className="oc-tap relative z-10 text-primary hover:underline"
                       >
-                        {p.job_no}
+                        {jobNo}
                       </Link>
                     ) : (
                       <span className="text-muted-foreground/60">bağımsız</span>
@@ -403,10 +444,21 @@ export function ProjectsTable({
                     data-label="Doküman No"
                     data-mobile-doc
                     data-mobile-hide-label
-                    className={cn(CIVI, "font-mono text-sm font-medium text-primary")}
+                    className={cn(
+                      CIVI,
+                      "text-sm font-medium text-primary",
+                      !grouped && "font-mono"
+                    )}
                   >
-                    <Link href={`${basePath}/${p.id}`} className="after:absolute after:inset-0">
-                      {p.doc_no}
+                    <Link href={targetHref} className="after:absolute after:inset-0">
+                      {grouped ? (
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap font-sans text-xs">
+                          <Files className="size-3.5" />
+                          {docLabel}
+                        </span>
+                      ) : (
+                        docLabel
+                      )}
                     </Link>
                   </TableCell>
                   {/* Kelepçe HÜCREDEDİR, kırpma İÇTEKİ BLOKTA: hücre yer varken
@@ -436,9 +488,9 @@ export function ProjectsTable({
                         ölçüldü) — kural bu yüzden AYNI öğede tekrarlanır. */}
                     <span
                       className="block break-words max-sm:[overflow-wrap:anywhere] md:truncate"
-                      title={p.name}
+                      title={name}
                     >
-                      {p.name}
+                      {name}
                     </span>
                     {/* Henüz açılmamış sütunların kritik olanları — kart
                         markup'ı çoğaltmadan, aynı hücrenin ikinci satırı.
@@ -446,51 +498,60 @@ export function ProjectsTable({
                         `md`ye kadar. */}
                     <div
                       className="mt-0.5 text-[11px] font-normal text-muted-foreground md:truncate xl:hidden"
-                      title={p.customer}
+                      title={
+                        grouped
+                          ? `${customerName} · ${entry.projects.length} doküman · ${revisionLabel} · ${fullStatusLabel}`
+                          : customerName
+                      }
                     >
                       {/* İş no BURADA DA BAĞLANTIDIR: sütunu gizlemek bilgiyi
                           korur ama iş emrine geçişi telefonda tümüyle
                           kaybettiriyordu. `relative z-10` satırın tamamını
                           kaplayan proje bağlantısının üstünde kalmasını
                           sağlar (aksi hâlde dokunuş projeye giderdi). */}
-                      {showJob && p.job_no && p.job_id ? (
-                        <span className="md:hidden">
+                      {showJobColumn && jobNo && jobHref ? (
+                        <span className="lg:hidden">
                           <Link
-                            href={`/jobs/${p.job_id}`}
+                            href={jobHref}
                             className="relative z-10 font-mono text-primary hover:underline"
                           >
-                            {p.job_no}
+                            {jobNo}
                           </Link>
                           {" · "}
                         </span>
                       ) : null}
-                      {p.customer}
-                      {p.lastRevNo !== null ? (
-                        <span className="md:hidden">
-                          {` · V${p.lastRevNo} ${revisionStatusLabel(p.lastRevStatus ?? "")}`}
-                        </span>
-                      ) : null}
-                      <span className="md:hidden">
-                        {` · ${p.status === ARCHIVED ? "Arşiv" : "Aktif"}`}
+                      {customerName}
+                      <span className="lg:hidden">
+                        {grouped
+                          ? ` · ${entry.projects.length} doküman · ${revisionLabel} · ${fullStatusLabel}`
+                          : `${
+                              p.lastRevNo !== null
+                                ? ` · V${p.lastRevNo} ${revisionStatusLabel(p.lastRevStatus ?? "")}`
+                                : ""
+                            } · ${archived ? "Arşiv" : "Aktif"}`}
                       </span>
                     </div>
                   </TableCell>
                   <TableCell
                     data-label="Müşteri"
                     className={cn(MUSTERI_KELEPCE, "hidden truncate text-muted-foreground xl:table-cell")}
-                    title={p.customer}
+                    title={customerName}
                   >
-                    {p.customer}
+                    {customerName}
                   </TableCell>
                   <TableCell
                     data-label="Vinç Tipi"
                     className={cn(VINC_KELEPCE, "hidden truncate text-sm text-muted-foreground xl:table-cell")}
-                    title={p.crane_type}
+                    title={craneTypes.join(" · ")}
                   >
-                    {p.crane_type}
+                    {craneLabel}
                   </TableCell>
                   <TableCell data-label="Son Revizyon" className={cn(CIVI, "hidden md:table-cell")}>
-                    {p.lastRevNo !== null ? (
+                    {grouped ? (
+                      <span className="whitespace-nowrap text-xs text-muted-foreground">
+                        {revisionLabel}
+                      </span>
+                    ) : p.lastRevNo !== null ? (
                       <span className="inline-flex items-center gap-1.5 text-sm">
                         <span className="font-mono">V{p.lastRevNo}</span>
                         <Badge variant={revisionStatusVariant(p.lastRevStatus ?? "")}>
@@ -506,35 +567,49 @@ export function ProjectsTable({
                       <span
                         className={cn(
                           "size-2 shrink-0",
-                          p.status === ARCHIVED ? "bg-muted-foreground/40" : "bg-success"
+                          archived ? "bg-muted-foreground/40" : "bg-success"
                         )}
                       />
-                      {p.status === ARCHIVED ? "Arşiv" : "Aktif"}
+                      <span title={grouped ? fullStatusLabel : undefined}>
+                        {archived ? "Arşiv" : "Aktif"}
+                      </span>
                     </span>
                   </TableCell>
                   <TableCell data-label="İşlem" data-mobile-actions data-mobile-hide-label className="text-right">
-                    <ProjectRowActions
-                      project={{
-                        id: p.id,
-                        doc_no: p.doc_no,
-                        name: p.name,
-                        customer: p.customer,
-                        crane_type: p.crane_type,
-                        crane_location: p.crane_location,
-                        report_brand_customer_id: p.report_brand_customer_id,
-                        end_customer_id: p.end_customer_id,
-                        job_id: p.job_id,
-                        job_no: p.job_no,
-                        hasIssuedRevision: p.hasIssuedRevision,
-                      }}
-                      jobs={jobs}
-                      customers={customerOptions}
-                      canDelete={canDelete}
-                      reportContext={reportContext}
-                    />
+                    {grouped ? (
+                      <Link
+                        href={targetHref}
+                        aria-label={`${jobNo || "İş"} dokümanlarını aç`}
+                        title="İşin dokümanlarını aç"
+                        className="oc-tap-square relative z-10 ml-auto grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <ChevronRight className="size-4" />
+                      </Link>
+                    ) : (
+                      <ProjectRowActions
+                        project={{
+                          id: p.id,
+                          doc_no: p.doc_no,
+                          name: p.name,
+                          customer: p.customer,
+                          crane_type: p.crane_type,
+                          crane_location: p.crane_location,
+                          report_brand_customer_id: p.report_brand_customer_id,
+                          end_customer_id: p.end_customer_id,
+                          job_id: p.job_id,
+                          job_no: p.job_no,
+                          hasIssuedRevision: p.hasIssuedRevision,
+                        }}
+                        jobs={jobs}
+                        customers={customerOptions}
+                        canDelete={canDelete}
+                        reportContext={reportContext}
+                      />
+                    )}
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
       </Table>

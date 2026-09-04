@@ -54,16 +54,18 @@ export async function issueRevision(
 
   // ---- PDF arşivi: reports/{projectId}/{doc_no}-V{rev_no}.pdf (upsert)
   let pdfArchived = false;
+  let projectJobId: string | null = null;
   try {
     const [{ data: project }, { data: profile }] = await Promise.all([
       supabase
         .from("projects")
-        .select("doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, prepared_by, checked_by, checked_by_name")
+        .select("doc_no, name, customer, crane_type, crane_location, report_brand_customer_id, end_customer_id, prepared_by, checked_by, checked_by_name, job_id")
         .eq("id", projectId)
         .single(),
       supabase.from("profiles").select("full_name").eq("id", user.id).single(),
     ]);
     if (project) {
+      projectJobId = project.job_id;
       const preparedById = project.prepared_by ?? user.id;
       const { data: signatoryProfiles } = await supabase
         .from("profiles")
@@ -132,6 +134,7 @@ export async function issueRevision(
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}`);
   revalidatePath(`/offers/hesap-raporlari/${projectId}`);
   revalidatePath(`/offers/hesap-raporlari/${projectId}/revisions/${revisionId}`);
+  if (projectJobId) revalidatePath(`/projects/jobs/${projectJobId}`);
   return pdfArchived
     ? { ok: true }
     : {
