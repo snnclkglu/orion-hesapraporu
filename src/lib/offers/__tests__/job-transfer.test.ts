@@ -4,6 +4,8 @@ import type { OfferItem, OfferPriceLine, OfferRow } from "../types";
 import {
   buildJobDraftFromOffer,
   engineeringSpecsPatch,
+  offerJobSchedule,
+  offerLeadTimeDays,
 } from "../job-transfer";
 
 function row(item: OfferItem, groupKey: string, rowKey: string): OfferRow {
@@ -157,6 +159,53 @@ describe("kazanılan teklif → iş emri teknik ayıklaması", () => {
     const draft = buildJobDraftFromOffer(payload);
     expect(draft.candidates).toHaveLength(1);
     expect(draft.candidates[0]).toMatchObject({ sourceId: "vinç-a", included: false });
+  });
+
+  it("kapsamın tamamını açık önerir", () => {
+    const draft = buildJobDraftFromOffer(emptyPayload());
+    expect(draft.scopeSuggestions).toEqual({
+      proje: true,
+      devreyeAlma: true,
+      malzeme: true,
+      nakliye: true,
+      imalat: true,
+      montaj: true,
+    });
+  });
+
+  it("genel ve kalem bazlı terminlerden en uzun süreyi alır", () => {
+    const payload = emptyPayload();
+    const delivery = payload.terms.rows.find((entry) => entry.key === "deliveryTime");
+    if (!delivery) throw new Error("Teslim süresi test satırı bulunamadı");
+    delivery.parts = { trigger: "Sipariş sonrası", from: "6", to: "8", unit: "Hafta" };
+    payload.pricing.leadTimeUnit = "ay";
+    payload.pricing.lines = [priceLine("uzun", null, 1, { leadTime: "3-4" })];
+
+    const draft = buildJobDraftFromOffer(payload);
+    expect(draft.deliveryHint).toBe("Sipariş sonrası 6-8 Hafta");
+    expect(draft.deliveryDays).toBe(120);
+  });
+});
+
+describe("teklif termini → iş emri tarihleri", () => {
+  it("6-8 haftada üst sınırı 56 gün alır ve %10'u altı güne yuvarlar", () => {
+    expect(offerLeadTimeDays("Siparişten sonra 6-8 hafta")).toBe(56);
+    expect(offerJobSchedule("2026-09-05T08:30:00.000Z", 56)).toEqual({
+      contractDate: "2026-09-05",
+      deliveryDate: "2026-10-31",
+      workshopExitDate: "2026-10-25",
+      deliveryDays: 56,
+      workshopBufferDays: 6,
+    });
+  });
+
+  it("kalem sütunundaki birim ipucunu okur, birimsiz metni tahmin etmez", () => {
+    expect(offerLeadTimeDays("12-14", "hafta")).toBe(98);
+    expect(offerLeadTimeDays("12-14")).toBeNull();
+  });
+
+  it("yayım damgasını İstanbul takvim gününe çevirir", () => {
+    expect(offerJobSchedule("2026-09-04T22:30:00.000Z", null).contractDate).toBe("2026-09-05");
   });
 });
 

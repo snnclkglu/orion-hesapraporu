@@ -65,7 +65,7 @@ import {
   type SaveRevisionInput,
 } from "./schema";
 
-export type OfferActionResult = { error?: string; ok?: boolean };
+export type OfferActionResult = { error?: string; warning?: string; ok?: boolean };
 
 async function audit(
   supabase: SupabaseClient,
@@ -412,15 +412,17 @@ export async function updateOfferDetails(
           ? ((onceki.won_on as string | null) ?? null)
           : bugun();
 
+  const becomingWon = parsed.data.status === "won" && onceki?.status !== "won";
   const { data: yazilan, error } = await supabase
     .from("offers")
     .update({
       subject: parsed.data.subject,
       customer_id: parsed.data.customerId,
       customer_name: customer.name,
-      status: parsed.data.status,
+      // Kazanılma geçişi son revizyonla birlikte SQL işlevinde tamamlanır.
+      status: becomingWon ? onceki?.status ?? "draft" : parsed.data.status,
       currency: parsed.data.currency,
-      won_on: kazanmaGunu,
+      won_on: becomingWon ? onceki?.won_on ?? null : kazanmaGunu,
       ...(ilkGonderim ? { issued_on: ilkGonderim } : {}),
     })
     .eq("id", id.data)
@@ -429,6 +431,11 @@ export async function updateOfferDetails(
   // Yetkisizlik SESSİZ BAŞARI olmasın: RLS satırı vermezse `update` hata
   // döndürmez, hiçbir satıra dokunmaz.
   if (!yazilan?.length) return { error: "Teklifi düzenleme yetkisi gerekir." };
+
+  const wonResult = becomingWon
+    ? await markOfferWon(supabase, id.data, kazanmaGunu)
+    : {};
+  if (wonResult.error) return { error: wonResult.error };
 
   await audit(supabase, user.id, "offer.update", {
     offer_id: id.data,
@@ -440,7 +447,7 @@ export async function updateOfferDetails(
     },
   });
   tazele(id.data);
-  return {};
+  return wonResult.warning ? { warning: wonResult.warning } : {};
 }
 
 /**
@@ -475,6 +482,7 @@ export async function updateOfferSubject(
     .select("subject")
     .eq("id", id.data)
     .maybeSingle();
+
   if (onceki?.subject === parsed.data.subject) return {};
 
   const { data: yazilan, error } = await supabase
@@ -532,6 +540,13 @@ export async function updateOfferStatus(
     .select("status, issued_on, issue_date, won_on")
     .eq("id", id.data)
     .maybeSingle();
+
+  if (durum.data === "won" && onceki?.status !== "won") {
+    const result = await markOfferWon(supabase, id.data, bugun());
+    if (result.error) return { error: result.error };
+    tazele(id.data);
+    return result.warning ? { warning: result.warning } : {};
+  }
 
   const ilkGonderim =
     durum.data === "sent" && !onceki?.issued_on
@@ -811,6 +826,93 @@ export async function removeOfferSignature(
   return { ok: true };
 }
 
+async function archiveOfferRevisionPdf(
+  supabase: SupabaseClient,
+  offerId: string,
+  revisionId: string
+): Promise<boolean> {
+  try {
+    const [{ data: revision }, { data: offer }] = await Promise.all([
+      supabase
+        .from("offer_revisions")
+        .select("rev_no, payload")
+        .eq("id", revisionId)
+        .eq("offer_id", offerId)
+        .maybeSingle(),
+      supabase
+        .from("offers")
+        .select("offer_no, issue_date, subject, customer_id, customer_name, currency")
+        .eq("id", offerId)
+        .maybeSingle(),
+    ]);
+    if (!offer || !revision) return false;
+
+    const normalizedPayload = withDefaults(revision.payload, offer.currency as string);
+    const customerId = await resolveCustomerIdForSnapshot(
+      supabase,
+      offer.customer_id as string | null,
+      offer.customer_name as string
+    );
+    const [settings, customerLogo, issuerLogo, signatureImages] = await Promise.all([
+      getReportSettings(supabase),
+      loadCustomerLogo(supabase, customerId),
+      loadCustomerLogo(supabase, normalizedPayload.issuer.customerId),
+      loadOfferSignatureImages(supabase, normalizedPayload),
+    ]);
+    const buffer = await renderOfferPdf({
+      offer: {
+        offerNo: offer.offer_no as string,
+        revNo: revision.rev_no as number,
+        issueDate: offer.issue_date as string,
+        subject: offer.subject as string,
+        customerName: offer.customer_name as string,
+        currency: offer.currency as string,
+      },
+      payload: normalizedPayload,
+      company: offerIssuerCompany(normalizedPayload, settings),
+      customerLogo,
+      issuerLogo: normalizedPayload.issuer.customerId ? issuerLogo : undefined,
+      meta: { generatedAt: new Date().toLocaleDateString("tr-TR") },
+      signatureImages,
+    });
+    const { error } = await supabase.storage
+      .from("offers")
+      .upload(
+        `${offerId}/${offerFileName(
+          offer.subject as string,
+          offer.offer_no as string,
+          revision.rev_no as number,
+          offerIssuerName(normalizedPayload, settings)
+        )}`,
+        buffer,
+        { contentType: "application/pdf", upsert: true }
+      );
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+async function markOfferWon(
+  supabase: SupabaseClient,
+  offerId: string,
+  wonOn: string | null
+): Promise<OfferActionResult> {
+  const { data, error } = await supabase.rpc("mark_offer_won", {
+    p_offer_id: offerId,
+    p_won_on: wonOn,
+  });
+  if (error) return { error: error.message };
+  const result = data as {
+    revision_id?: string;
+    newly_issued?: boolean;
+  } | null;
+  if (!result?.revision_id) return { error: "Son teklif revizyonu okunamadı" };
+  if (!result.newly_issued) return {};
+  const archived = await archiveOfferRevisionPdf(supabase, offerId, result.revision_id);
+  return archived ? {} : { warning: "Teklif kazanıldı ve son revizyon yayımlandı; PDF arşivlenemedi." };
+}
+
 /**
  * Revizyonu yayımlar: durum `issued` olur, tetikleyici damgalar ve kilitler.
  *
@@ -834,65 +936,13 @@ export async function issueOfferRevision(
     .eq("id", revisionId)
     .eq("offer_id", offerId)
     .eq("status", "draft")
-    .select("rev_no, payload, issued_at")
+    .select("rev_no, issued_at")
     .single();
   if (error || !revision) {
     return { error: error?.message ?? "Revizyon bulunamadı veya zaten yayımlanmış" };
   }
 
-  let arsivlendi = false;
-  try {
-    const { data: offer } = await supabase
-      .from("offers")
-      .select("offer_no, issue_date, subject, customer_id, customer_name, currency")
-      .eq("id", offerId)
-      .single();
-    if (offer) {
-      const normalizedPayload = withDefaults(revision.payload, offer.currency as string);
-      const customerId = await resolveCustomerIdForSnapshot(
-        supabase,
-        offer.customer_id as string | null,
-        offer.customer_name as string
-      );
-      const [settings, customerLogo, issuerLogo, signatureImages] = await Promise.all([
-        getReportSettings(supabase),
-        loadCustomerLogo(supabase, customerId),
-        loadCustomerLogo(supabase, normalizedPayload.issuer.customerId),
-        loadOfferSignatureImages(supabase, normalizedPayload),
-      ]);
-      const buffer = await renderOfferPdf({
-        offer: {
-          offerNo: offer.offer_no as string,
-          revNo: revision.rev_no as number,
-          issueDate: offer.issue_date as string,
-          subject: offer.subject as string,
-          customerName: offer.customer_name as string,
-          currency: offer.currency as string,
-        },
-        payload: normalizedPayload,
-        company: offerIssuerCompany(normalizedPayload, settings),
-        customerLogo,
-        issuerLogo: normalizedPayload.issuer.customerId ? issuerLogo : undefined,
-        meta: { generatedAt: new Date().toLocaleDateString("tr-TR") },
-        signatureImages,
-      });
-      const { error: uploadError } = await supabase.storage
-        .from("offers")
-        .upload(
-          `${offerId}/${offerFileName(
-            offer.subject as string,
-            offer.offer_no as string,
-            revision.rev_no as number,
-            offerIssuerName(normalizedPayload, settings)
-          )}`,
-          buffer,
-          { contentType: "application/pdf", upsert: true }
-        );
-      arsivlendi = !uploadError;
-    }
-  } catch {
-    arsivlendi = false;
-  }
+  const arsivlendi = await archiveOfferRevisionPdf(supabase, offerId, revisionId);
 
   await audit(supabase, user.id, "offer.revision_issue", {
     offer_id: offerId,

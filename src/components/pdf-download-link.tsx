@@ -16,7 +16,7 @@ export interface PdfDownloadLinkProps
   href: string;
   /** Başlıkta dosya adı gelmezse kullanılacak ad. */
   fallbackFileName?: string;
-  /** Telefonun paylaşım sayfasında görünen kısa başlık. */
+  /** Eski çağrılarla uyumluluk içindir; PDF-only paylaşım yüküne eklenmez. */
   shareTitle?: string;
   disabled?: boolean;
 }
@@ -218,7 +218,7 @@ export async function downloadPdfFromApp(
       action: canShare
         ? {
             label: "PDF Paylaş",
-            onClick: () => void shareFile(file, options.shareTitle),
+            onClick: () => void shareFile(file),
           }
         : undefined,
     });
@@ -244,9 +244,12 @@ function canShareFile(file: File): boolean {
   }
 }
 
-async function shareFile(file: File, title?: string): Promise<void> {
+async function shareFile(file: File): Promise<void> {
   try {
-    await navigator.share({ files: [file], title: title || file.name });
+    // Yalnız DOSYA gönderilir. `title`, `text` veya `url` eklemek bazı mobil
+    // paylaşım sayfalarında PDF'nin yanında açık sayfanın bağlantısını da
+    // üretir; kullanıcı müşteriye belge gönderirken o bağlantı gereksizdir.
+    await navigator.share({ files: [file] });
   } catch (error) {
     // Kullanıcının paylaşım sayfasını kapatması hata değildir.
     if (error instanceof DOMException && error.name === "AbortError") return;

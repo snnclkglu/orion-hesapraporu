@@ -19,7 +19,7 @@ describe("visiblePanelActions — rol → eylem kümesi", () => {
       "Günlük Giriş",
       "Maaş",
     ],
-    manager: ["Yeni İş", "Görev Panosu", "Günlük Giriş", "Maaş"],
+    manager: ["Yeni İş", "Görev Panosu", "Hesap Raporları", "Günlük Giriş", "Maaş"],
     engineer: ["Yeni İş", "Görev Panosu", "Hesap Raporları", "Resim Yükle"],
     draftsman: ["Yeni İş", "Görev Panosu", "Resim Yükle"],
     purchasing: ["Yeni İş", "Görev Panosu", "Talep Havuzu", "Sarf Girişi"],
@@ -37,11 +37,11 @@ describe("visiblePanelActions — rol → eylem kümesi", () => {
     }
   });
 
-  it("bilinmeyen rol MÜHENDİS varsayılır (roleOf kuralı)", () => {
-    // roles.ts yardımcıları bilinmeyen değeri `roleOf` ile mühendise indirger
-    // — profil satırı bozulsa bile kullanıcı varsayılan kapılarını korur.
+  it("bilinmeyen rol için Mühendislik kapısı güvenli biçimde kapalı kalır", () => {
+    // Eski yardımcıların bazıları bilinmeyen değeri `roleOf` ile mühendise
+    // indirger; Mühendislik okuması ise kasıtlı olarak tam rol eşleşmesi ister.
     expect(visiblePanelActions("bilinmeyen").map((a) => a.label)).toEqual(
-      beklenen.engineer
+      ["Yeni İş", "Görev Panosu", "Resim Yükle"]
     );
   });
 

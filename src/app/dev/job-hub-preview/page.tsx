@@ -90,7 +90,7 @@ export default function JobHubPreviewPage() {
       </header>
       <section className="grid gap-3">
         <h2 className="text-lg font-semibold tracking-tight">Bölüm rayı</h2>
-        <JobNav jobId="onizleme" />
+        <JobNav jobId="onizleme" hasOfferDocument />
       </section>
       <section className="grid gap-3">
         <h2 className="text-lg font-semibold tracking-tight">Akış</h2>

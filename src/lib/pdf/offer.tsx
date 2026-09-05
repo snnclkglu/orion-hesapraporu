@@ -111,6 +111,12 @@ export interface OfferDocumentProps {
   signatureImages?: Record<string, Buffer>;
   meta: { generatedAt: string };
   /**
+   * İşler/Mühendislik için üretilen sade kopya. Çağıran payload'dan fiyat ve
+   * ödeme planını çıkarmış olmalıdır; bu bayrak yalnız kalan ticari bölümün
+   * müşteri belgesindeki "Fiyatlar" adını taşımamasını sağlar.
+   */
+  jobCopy?: boolean;
+  /**
    * İKİ GEÇİŞİN İÇ ALANLARI — çağıran DOLDURMAZ (`renderOfferPdf` yönetir).
    *
    * Kapaktaki içindekiler bölümlerin GERÇEK sayfa numaralarını yazar; bir
@@ -2506,7 +2512,9 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
   const ticariSayfaVar =
     sartVeOdemeVar || testYukuTicaride || notVar || kapsamDisiVar || (fiyatVar && !fiyatAyriYaprakta);
   const ticariEtiketi = sartVeOdemeVar
-    ? OFFER_SECTIONS.ticari
+    ? props.jobCopy
+      ? "Teslim ve Diğer Şartlar"
+      : OFFER_SECTIONS.ticari
     : testYukuTicaride
       ? payload.testLoad.title
       : fiyatVar && !fiyatAyriYaprakta
@@ -2515,7 +2523,9 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
           ? "Teklif Notları"
           : "Kapsam Dışı İşler";
   const ticariKicker = sartVeOdemeVar
-    ? payload.terms.title
+    ? props.jobCopy
+      ? "İŞLER İÇİN TEKLİF KOPYASI"
+      : payload.terms.title
     : testYukuTicaride
       ? payload.testLoad.title
       : fiyatVar && !fiyatAyriYaprakta
@@ -2533,7 +2543,7 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
 
   return (
     <Document
-      title={`Teklif - ${offer.offerNo}`}
+      title={`${props.jobCopy ? "İşler İçin Teklif Dokümanı" : "Teklif"} - ${offer.offerNo}`}
       author={brandName}
       subject={offer.subject}
       keywords={meta.generatedAt}

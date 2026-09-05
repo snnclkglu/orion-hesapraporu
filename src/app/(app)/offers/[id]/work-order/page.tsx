@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canEditJobs } from "@/lib/roles";
 import { sonrakiIsNo } from "@/lib/jobs/is-emri";
 import { offerRevLabel } from "@/lib/offers/no";
-import { buildJobDraftFromOffer } from "@/lib/offers/job-transfer";
+import { buildJobDraftFromOffer, offerJobSchedule } from "@/lib/offers/job-transfer";
 import { loadJobFormData } from "@/app/(app)/jobs/form-data";
 import { JobForm } from "@/app/(app)/jobs/job-form";
 import { EMPTY_JOB, type JobInput } from "@/app/(app)/jobs/schema";
@@ -114,6 +114,7 @@ export default async function OfferWorkOrderPage({
     supabase.from("jobs").select("job_no"),
   ]);
   const draft = buildJobDraftFromOffer(full.revision.payload);
+  const schedule = offerJobSchedule(selected.issued_at, draft.deliveryDays);
   const customer = customers.find((entry) => entry.id === record.offer.customer_id);
   const nextJobNo = sonrakiIsNo(
     ((currentNos ?? []) as { job_no: string | null }[]).map((entry) => entry.job_no)
@@ -130,6 +131,10 @@ export default async function OfferWorkOrderPage({
     customer_tax_no: customer?.tax_no ?? "",
     customer_phone: customer?.phone ?? "",
     customer_fax: customer?.fax ?? "",
+    contract_exists: true,
+    contract_date: schedule.contractDate,
+    delivery_date: schedule.deliveryDate,
+    workshop_exit_date: schedule.workshopExitDate,
     scope: draft.scopeSuggestions,
     items: draft.candidates.map((candidate) => ({
       item_no: "",
@@ -199,6 +204,8 @@ export default async function OfferWorkOrderPage({
           offerNo: record.offer.offer_no,
           revisionLabel: offerRevLabel(selected.rev_no) ?? "İlk (R0)",
           deliveryHint: draft.deliveryHint,
+          deliveryDays: schedule.deliveryDays,
+          workshopBufferDays: schedule.workshopBufferDays,
           shippingHint: draft.shippingHint,
           warnings: draft.warnings,
         }}

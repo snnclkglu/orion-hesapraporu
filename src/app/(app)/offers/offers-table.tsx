@@ -17,12 +17,20 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { BellRing, FileText, Search, Send, Trophy, X } from "lucide-react";
+import { BellRing, Download, Eye, FileText, Pencil, Search, Send, Trophy, X } from "lucide-react";
 import { CokluSuzgec } from "@/app/(app)/purchasing/filters";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import { StatCard } from "@/components/stat-card";
 import { CustomerTag } from "@/components/tags";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/empty-state";
@@ -45,7 +53,7 @@ import {
 } from "@/lib/offers/filter";
 import { OFFER_STATUSES, offerStatusHue, offerStatusLabel } from "@/lib/offers/status";
 import { takipBaslangici, takipGorunur, takipYasi } from "@/lib/offers/takip";
-import { offerRevLabel } from "@/lib/offers/no";
+import { offerDocLine, offerRevLabel } from "@/lib/offers/no";
 import type { CustomerOption, OfferListEntry } from "./data";
 import { OfferRowActions } from "./offer-row-actions";
 
@@ -53,14 +61,15 @@ import { OfferRowActions } from "./offer-row-actions";
  * SÜTUN GENİŞLİKLERİ YÜZDEDİR ÇÜNKÜ TABLO `table-fixed` (MOBIL-16).
  *
  * Kullanıcı bildirimi (22.08.2026): *"teklifler sayfasında yatayda kaydırma
- * olmasın. geniş olduğunda Konu ve Kapsam yazılar uzunsa belli bir uzunluktan
+ * olmasın. geniş olduğunda Konu ve Kapsam yazıları uzunsa belli bir uzunluktan
  * sonra ... üç nokta olarak görünsün."*
  *
  * Tablo `auto` düzendeyken uzun bir KONU metni bütün çizelgeyi ekranın dışına
  * itiyordu: `max-w-[22rem]` yalnız o hücreye TAVAN koyuyor, geri kalan yedi
  * sütunun `whitespace-nowrap`ı ise taban genişliği yukarı çekiyordu. Sabit
- * ızgara tabanı bütünüyle kaldırır — esnek iki sütun (Konu, Kapsam) artan
- * yeri paylaşır ve sığmayan metin ÜÇ NOKTAYLA kesilir.
+ * ızgara tabanı bütünüyle kaldırır. Konu artan yeri kullanıp sığmayan metni
+ * ÜÇ NOKTAYLA keser; eski Kapsam alanının yerinde sabit genişlikli son revizyon
+ * eylemleri bulunur.
  *
  * Yüzdeler toplamı 100'dür; değiştiren kişi toplamı da korumalıdır.
  */
@@ -89,6 +98,11 @@ export function OffersTable({
   const varsayilanFiltre = useMemo(() => defaultOfferFilter(bugun), [bugun]);
   const [filtre, setFiltre] = useState<OfferFilterInput>(varsayilanFiltre);
   const [sira, setSira] = useState<OfferSort>(DEFAULT_OFFER_SORT);
+  const [onizleme, setOnizleme] = useState<{
+    offerId: string;
+    revisionId: string;
+    title: string;
+  } | null>(null);
 
   const secenekler = useMemo(() => offerFacets(rows), [rows]);
 
@@ -233,7 +247,7 @@ export function OffersTable({
                     </TableHead>
                   ))}
                   <TableHead className="w-[27%]">Konu</TableHead>
-                  <TableHead className="w-[13.9%]">Kapsam</TableHead>
+                  <TableHead className="w-[13.9%] text-center">Son Revizyon</TableHead>
                   <TableHead className="w-[4%]" />
                 </TableRow>
               </TableHeader>
@@ -283,8 +297,8 @@ export function OffersTable({
                           {row.subject || "—"}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        <Kapsam row={row} />
+                      <TableCell className="px-1">
+                        <LatestRevisionActions row={row} onPreview={setOnizleme} />
                       </TableCell>
                       <TableCell className="px-1">
                         <OfferRowActions offer={row} customers={customers} />
@@ -328,8 +342,8 @@ export function OffersTable({
                       {row.latestTotal === null ? "—" : fmtMoney(row.latestTotal, row.currency)}
                     </span>
                   </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    <Kapsam row={row} />
+                  <div className="mt-2 border-t pt-2">
+                    <LatestRevisionActions row={row} onPreview={setOnizleme} showLabels />
                   </div>
                 </li>
               );
@@ -337,6 +351,76 @@ export function OffersTable({
           </ul>
         </>
       )}
+
+      {onizleme ? (
+        <Dialog open onOpenChange={(open) => !open && setOnizleme(null)}>
+          <DialogContent className="max-w-[min(64rem,95vw)] sm:max-w-[min(64rem,95vw)]">
+            <DialogHeader>
+              <DialogTitle>Teklif Önizleme</DialogTitle>
+              <DialogDescription className="font-mono">{onizleme.title}</DialogDescription>
+            </DialogHeader>
+            <iframe
+              src={offerPdfUrl(onizleme.offerId, onizleme.revisionId, true)}
+              title="Teklif PDF önizleme"
+              className="h-[70dvh] w-full rounded-md border bg-muted"
+            />
+          </DialogContent>
+        </Dialog>
+      ) : null}
+    </div>
+  );
+}
+
+function offerPdfUrl(offerId: string, revisionId: string, inline = false): string {
+  return `/offers/${offerId}/revisions/${revisionId}/pdf${inline ? "?inline=1" : ""}`;
+}
+
+function LatestRevisionActions({
+  row,
+  onPreview,
+  showLabels = false,
+}: {
+  row: OfferListEntry;
+  onPreview: (value: { offerId: string; revisionId: string; title: string }) => void;
+  showLabels?: boolean;
+}) {
+  if (!row.latestRevisionId) {
+    return <span className="block text-center text-xs text-muted-foreground">—</span>;
+  }
+  const revisionId = row.latestRevisionId;
+  const buttonSize = showLabels ? "sm" : "icon-sm";
+  const labelClass = showLabels ? undefined : "sr-only";
+  const revisionTitle = offerDocLine(row.offer_no, row.latestRevNo ?? 0);
+
+  return (
+    <div className={cn("flex items-center gap-1", showLabels ? "justify-start" : "justify-center")}>
+      <Button asChild size={buttonSize} variant="outline" title="Son revizyonu düzenle">
+        <Link
+          href={`/offers/${row.id}/revisions/${revisionId}`}
+          aria-label={`${row.offer_no} son revizyonunu düzenle`}
+        >
+          <Pencil className="size-3.5" /> <span className={labelClass}>Düzenle</span>
+        </Link>
+      </Button>
+      <Button
+        type="button"
+        size={buttonSize}
+        variant="outline"
+        title="Son revizyonu önizle"
+        aria-label={`${row.offer_no} son revizyonunu önizle`}
+        onClick={() => onPreview({ offerId: row.id, revisionId, title: revisionTitle })}
+      >
+        <Eye className="size-3.5" /> <span className={labelClass}>Önizle</span>
+      </Button>
+      <Button asChild size={buttonSize} variant="outline" title="Son revizyonu PDF olarak indir">
+        <PdfDownloadLink
+          href={offerPdfUrl(row.id, revisionId)}
+          shareTitle="Teklif"
+          aria-label={`${row.offer_no} son revizyonunu indir`}
+        >
+          <Download className="size-3.5" /> <span className={labelClass}>İndir</span>
+        </PdfDownloadLink>
+      </Button>
     </div>
   );
 }
@@ -377,31 +461,6 @@ function TakipCipi({ row, bugun }: { row: OfferListEntry; bugun: string }) {
       className="oc-tag px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap"
     >
       {yas.etiket}
-    </span>
-  );
-}
-
-/**
- * Teklifin KAPSAMI: kaç kalem, hangi vinç tipleri, hangi tonajlar.
- *
- * Belgeyi açmadan "bu teklif neydi" sorusunu cevaplayan tek satır. Değerler
- * güncel revizyondan türetilir; ayrı bir alanda saklanmadıkları için belgeden
- * ayrışamazlar.
- */
-function Kapsam({ row }: { row: OfferListEntry }) {
-  const tipler = [...new Set(row.craneTypes)];
-  const tonaj = [...new Set(row.capacities)].sort((a, b) => b - a);
-  if (tipler.length === 0 && tonaj.length === 0) {
-    return <span>{row.itemCount > 0 ? `${row.itemCount} kalem` : "—"}</span>;
-  }
-  // METİN BİR KEZ KURULUR: hem basılan hem `title`a giren aynı dizedir —
-  // ikisini ayrı kurmak, birinin kısaltılıp ötekinin unutulması demekti.
-  const metin = `${tonaj.length ? `${tonaj.map((t) => `${fmtNum(t)} t`).join(" · ")} — ` : ""}${tipler.join(" · ")}${
-    row.itemCount > 1 ? ` (${row.itemCount} kalem)` : ""
-  }`;
-  return (
-    <span className="block truncate" title={metin}>
-      {metin}
     </span>
   );
 }

@@ -33,7 +33,7 @@ export default async function JobHubLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const [{ data: job }, { data: fav }, { data: profil }] = await Promise.all([
+  const [{ data: job }, { data: fav }, { data: profil }, { data: hasOfferDocument }] = await Promise.all([
     supabase
       .from("jobs")
       .select("id, job_no, title, customer, status, work_order_date, revision")
@@ -51,6 +51,7 @@ export default async function JobHubLayout({
     user
       ? supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
       : Promise.resolve({ data: null }),
+    supabase.rpc("has_job_offer_document", { p_job_id: id }),
   ]);
   if (!job) notFound();
   // İş emrini HERKES görür, DÜZENLEMEYİ Yönetici ve Müdür yapar (canEditJobs).
@@ -109,7 +110,7 @@ export default async function JobHubLayout({
         </div>
       </div>
 
-      <JobNav jobId={job.id} />
+      <JobNav jobId={job.id} hasOfferDocument={hasOfferDocument === true} />
 
       {children}
     </div>

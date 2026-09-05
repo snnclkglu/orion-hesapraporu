@@ -18,12 +18,12 @@
 // alt satıra iner; kalan üç sütun (birincil + durum + işlem) 375px'e sığar.
 // Kart markup'ı ÇOĞALTILMAZ — aynı hücre, kırılıma göre satır kazanır.
 
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { PdfDownloadLink } from "@/components/pdf-download-link";
-import { Copy, FileDown, MoreHorizontal, Pencil, Star, Trash2 } from "lucide-react";
+import { Copy, FileDown, FileText, MoreHorizontal, Pencil, Star, Trash2 } from "lucide-react";
 import { bulkSetJobStatus, deleteJob } from "./actions";
 import { bulkSetFavorite, toggleJobFavorite } from "./favorite-actions";
 import {
@@ -94,6 +94,8 @@ export interface JobRow extends JobListRow {
   /** Takvim ve zaman çizelgesi için iş-tarihleri. */
   workshopExitDate?: string | null;
   deliveryDate?: string | null;
+  /** Kazanılmış teklif dönüşümünden sade teklif PDF'i üretilebiliyor mu? */
+  hasOfferDocument?: boolean;
 }
 
 /**
@@ -117,8 +119,8 @@ const SUTUNLAR: readonly {
   { key: "status", label: "Durum", className: "md:w-[10rem]" },
 ];
 
-// +2: soldaki seçim kutusu ve sağdaki "İşlem" sütunu dizide değildir.
-const TOPLAM_SUTUN = SUTUNLAR.length + 2;
+// +3: seçim, müşteri sonrasındaki PDF düğmeleri ve "İşlem" dizide değildir.
+const TOPLAM_SUTUN = SUTUNLAR.length + 3;
 
 function DeleteJobDialog({
   job,
@@ -261,6 +263,34 @@ function JobRowActions({
   );
 }
 
+/** Satır bağlantısının üstünde kalan iki küçük belge indirme eylemi. */
+function JobDocumentButtons({ job }: { job: JobRow }) {
+  return (
+    <div className="relative z-10 flex items-center gap-1">
+      <Button asChild variant="outline" size="icon-sm" title="İş Emri PDF indir">
+        <PdfDownloadLink
+          href={`/jobs/${job.id}/work-order`}
+          fallbackFileName={`${job.job_no}-is-emri.pdf`}
+          aria-label={`${job.job_no} İş Emri PDF indir`}
+        >
+          <FileDown className="size-3.5" />
+        </PdfDownloadLink>
+      </Button>
+      {job.hasOfferDocument ? (
+        <Button asChild variant="outline" size="icon-sm" title="Fiyat ve ödeme içermeyen teklif PDF'ini indir">
+          <PdfDownloadLink
+            href={`/jobs/${job.id}/offer-document`}
+            fallbackFileName={`${job.job_no}-teklif-dokumani.pdf`}
+            aria-label={`${job.job_no} sade teklif PDF indir`}
+          >
+            <FileText className="size-3.5" />
+          </PdfDownloadLink>
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 export function JobsTable({
   rows,
   canDelete,
@@ -356,16 +386,20 @@ export function JobsTable({
                 />
               </TableHead>
               {SUTUNLAR.map((c) => (
-                <SortableHead
-                  key={c.key}
-                  sortKey={c.key}
-                  current={state.sirala.key}
-                  desc={state.sirala.desc}
-                  onSort={toggleSort}
-                  className={c.className}
-                >
-                  {c.label}
-                </SortableHead>
+                <Fragment key={c.key}>
+                  <SortableHead
+                    sortKey={c.key}
+                    current={state.sirala.key}
+                    desc={state.sirala.desc}
+                    onSort={toggleSort}
+                    className={c.className}
+                  >
+                    {c.label}
+                  </SortableHead>
+                  {c.key === "customer" ? (
+                    <TableHead className="hidden w-[5rem] text-center lg:table-cell">PDF</TableHead>
+                  ) : null}
+                </Fragment>
               ))}
               <TableHead className="w-12 text-right">İşlem</TableHead>
             </TableRow>
@@ -428,6 +462,9 @@ export function JobsTable({
                         {j.itemCount} kalem · {j.craneCount} rapor
                       </span>
                     </div>
+                    <div className="mt-2 lg:hidden">
+                      <JobDocumentButtons job={j} />
+                    </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     {/* Satırın tamamı bir bağlantı; etiket onun ÜSTÜNDE kalmalı
@@ -439,6 +476,9 @@ export function JobsTable({
                         hue={j.customerHue}
                       />
                     </span>
+                  </TableCell>
+                  <TableCell className="hidden px-1 lg:table-cell">
+                    <JobDocumentButtons job={j} />
                   </TableCell>
                   <TableCell className="hidden font-mono tabular-nums lg:table-cell">
                     {j.itemCount}

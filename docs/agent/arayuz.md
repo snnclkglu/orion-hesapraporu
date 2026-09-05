@@ -374,11 +374,14 @@ ileri metni saklanır ama erişilebilir adları korunur; çubuk yatay kaymaz.
 
 ## MOBIL-25 — PDF PAYLAŞIMININ VARSAYILANI GERÇEK DOSYADIR.
 
-Mobil PDF bağlantısı belgeyi önce `application/pdf` türünde gerçek bir `File`
+Mobil PDF bağlantısı belgeyi önce PDF MIME türünde gerçek bir `File`
 olarak indirir. Paylaş eylemi yalnız tarayıcı `navigator.canShare({ files })`
 ile bu dosyayı açıkça kabul ediyorsa gösterilir ve “PDF Paylaş” diye adlandırılır.
 Yalnız `navigator.share` bulunması dosya desteği sayılmaz; aksi hâlde bazı
 WebView'lar `files` alanını atıp açık sayfanın bağlantısını gönderebilir.
+Paylaşım verisi **yalnız `{ files: [file] }`** taşır; `title`, `text` ve `url`
+eklenmez. Bazı mobil paylaşım sayfaları başlık verildiğinde PDF'nin yanına açık
+sayfanın bağlantısını da ekliyordu; müşteriye giden şey yalnız PDF olmalıdır.
 
 ## MOBIL-26 — ÇOK PANELLİ EDİTÖRDE SABİT SÜTUN TOPLAMI `lg` KABINA SIĞMALIDIR.
 

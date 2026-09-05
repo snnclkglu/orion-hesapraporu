@@ -16,11 +16,20 @@ import { usePathname } from "next/navigation";
 import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
 
-export function JobNav({ jobId }: { jobId: string }) {
+export function JobNav({
+  jobId,
+  hasOfferDocument = false,
+}: {
+  jobId: string;
+  hasOfferDocument?: boolean;
+}) {
   const pathname = usePathname() ?? "";
   const kok = `/jobs/${jobId}`;
   const sekmeler = [
     { href: kok, label: "Genel Bakış", exact: true },
+    ...(hasOfferDocument
+      ? [{ href: `${kok}/teklif`, label: "Teklif Dokümanı", exact: false }]
+      : []),
     { href: `${kok}/gorevler`, label: "Görevler", exact: false },
     { href: `${kok}/akis`, label: "Akış", exact: false },
     { href: `${kok}/baglantilar`, label: "Bağlantılar", exact: false },

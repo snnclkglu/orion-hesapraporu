@@ -167,6 +167,7 @@ export default function ProjectPreviewPage() {
           // aynı dokunma payında durup durmadığıdır (MOBIL-1).
           spec={null}
           canEditSpec
+          offerDocumentHref="/jobs/j1/offer-document"
         />
 
         <ProjectSignatoryCard

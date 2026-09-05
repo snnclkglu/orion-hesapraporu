@@ -22,6 +22,7 @@ import {
   canEditPurchasing,
   canEditReports,
   canSeeConsumableExpenses,
+  canSeeEngineering,
   canSeeOffers,
   canSeePersonnel,
   canSeePurchasing,
@@ -89,6 +90,10 @@ describe("yetki soruları", () => {
     expect(evetDiyenler(canEditOffers)).toEqual(evetDiyenler(canSeeOffers));
   });
 
+  it("Mühendisliği Yönetici, Müdür ve Mühendis görür", () => {
+    expect(evetDiyenler(canSeeEngineering)).toEqual(["admin", "manager", "engineer"]);
+  });
+
   it("hesap raporu yazma (taslak revizyon silme) Yönetici ve Mühendiste", () => {
     // Mühendis kendi açtığı taslağı temizleyebilmeli; müdür ve teknik ressam
     // hesap raporu yazmaz.
@@ -117,8 +122,9 @@ describe("yetki soruları", () => {
     expect(canSeeSales("engineer")).toBe(false);
     expect(isAdminRole("manager")).toBe(false);
     // Teknik ressam da hiyerarşinin altı değil: kendi işinde tam yetkili,
-    // başkasının işinde hiç yetkisiz.
+    // Mühendislik bölümünde yetkisiz.
     expect(canEditDrawings("draftsman")).toBe(true);
+    expect(canSeeEngineering("draftsman")).toBe(false);
     expect(canEditReports("draftsman")).toBe(false);
     expect(canSeeWorkLog("draftsman")).toBe(false);
   });
@@ -137,6 +143,8 @@ describe("roleOf", () => {
     expect(isAdminRole("bilinmeyen")).toBe(false);
     expect(canSeeSales(null)).toBe(false);
     expect(canSeePurchasing("bilinmeyen")).toBe(false);
+    expect(canSeeEngineering("bilinmeyen")).toBe(false);
+    expect(canEditReports(null)).toBe(false);
   });
 
   it("etiketler Türkçedir", () => {
@@ -199,6 +207,7 @@ describe("satın alma rolleri", () => {
       expect(canSeeSales(rol), rol).toBe(false);
       expect(canSeeWorkLog(rol), rol).toBe(false);
       expect(canSeePersonnel(rol), rol).toBe(false);
+      expect(canSeeEngineering(rol), rol).toBe(false);
       expect(canEditReports(rol), rol).toBe(false);
       expect(isAdminRole(rol), rol).toBe(false);
     }
@@ -267,9 +276,9 @@ describe("sectionAccess — ızgaranın hücresi", () => {
     expect(sectionAccess(bolum("/drawings"), "engineer")).toBe("yazar");
     expect(sectionAccess(bolum("/projects"), "manager")).toBe("gorur");
     expect(sectionAccess(bolum("/projects"), "engineer")).toBe("yazar");
-    // Teknik ressam resmi yazar ama raporu yazmaz.
+    // Teknik ressam resmi yazar ama Mühendislik bölümüne girmez.
     expect(sectionAccess(bolum("/drawings"), "draftsman")).toBe("yazar");
-    expect(sectionAccess(bolum("/projects"), "draftsman")).toBe("gorur");
+    expect(sectionAccess(bolum("/projects"), "draftsman")).toBe("kapali");
   });
 
   it("yazma sorusu OLMAYAN bölümde gören YAZAR", () => {
@@ -347,6 +356,7 @@ describe("WORKSPACE_SECTIONS — menü ile yetki matrisi TEK KAYNAK", () => {
     const gorunen = visibleSections("draftsman").map((s) => s.href);
     expect(gorunen).toContain("/drawings");
     expect(gorunen).toContain("/jobs");
+    expect(gorunen).not.toContain("/projects");
     expect(gorunen).not.toContain("/sales");
     expect(gorunen).not.toContain("/worklog");
     expect(gorunen).not.toContain("/purchasing");

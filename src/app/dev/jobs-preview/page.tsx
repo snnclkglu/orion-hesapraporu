@@ -10,6 +10,7 @@ import { JobForm, type PersonOption } from "@/app/(app)/jobs/job-form";
 import type { JobRow } from "@/app/(app)/jobs/jobs-table";
 import { JobsViews } from "@/app/(app)/jobs/jobs-views";
 import { JobsSummary } from "@/app/(app)/jobs/jobs-summary";
+import { WonOfferPicker } from "@/app/(app)/jobs/won-offer-picker";
 // EMPTY_JOB şemadan gelir: sunucu bileşeni bir istemci modülünün dışa
 // aktarımını yayamaz (bkz. jobs/schema.ts'teki not).
 import { EMPTY_JOB, type CustomerOption } from "@/app/(app)/jobs/schema";
@@ -28,6 +29,7 @@ const BASE_JOBS: JobRow[] = [
     work_order_date: `${YEAR}-05-11`, created_at: `${YEAR}-05-11T09:00:00Z`,
     itemCount: 1, craneCount: 1, favori: true, jobLeader: "SİNAN ÇOLAKOĞLU",
     workshopExitDate: `${YEAR}-08-20`, deliveryDate: `${YEAR}-09-15`,
+    hasOfferDocument: true,
   },
   {
     id: "j2", job_no: "0057", title: "Astor 1T ve 5T Vinçler",
@@ -66,6 +68,7 @@ const JOBS: JobRow[] = [
     created_at: `${YEAR}-01-10T09:00:00Z`,
     itemCount: 1,
     craneCount: 0,
+    hasOfferDocument: index % 5 === 0,
   })),
 ];
 
@@ -133,6 +136,16 @@ export default function JobsPreviewPage() {
         </section>
         <section className="grid gap-3">
           <h2 className="text-lg font-semibold tracking-tight">Yeni İş Emri formu</h2>
+          <WonOfferPicker
+            offers={[
+              {
+                id: "offer-preview",
+                offerNo: "TETR-20260905-1",
+                customerName: "ASTOR ENERJİ A.Ş.",
+                subject: "10 T VE 3 T KÖPRÜLÜ VİNÇLER",
+              },
+            ]}
+          />
           {/* İş no önerisi SUNUCUDA hesaplanır (`sonrakiIsNo`, jobs/new/page.tsx);
               önizlemede defter yok, bu yüzden kutu boş açılır. */}
           <JobForm mode="create" initial={EMPTY_JOB} customers={CUSTOMERS} people={PEOPLE} />

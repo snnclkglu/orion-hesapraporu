@@ -57,6 +57,8 @@ export interface OfferJobSourceContext {
   offerNo: string;
   revisionLabel: string;
   deliveryHint: string;
+  deliveryDays?: number | null;
+  workshopBufferDays?: number | null;
   shippingHint: string;
   warnings: string[];
 }
@@ -510,7 +512,10 @@ export function JobForm({
           {offerSource.deliveryHint ? (
             <p className="text-xs text-muted-foreground">
               <span className="font-medium text-foreground">Termin önerisi:</span>{" "}
-              {offerSource.deliveryHint}. Kesin tarih otomatik yazılmadı.
+              {offerSource.deliveryHint}.
+              {offerSource.deliveryDays !== null && offerSource.deliveryDays !== undefined
+                ? ` Azami ${offerSource.deliveryDays} gün esas alınarak teslim tarihi; %10'luk ${offerSource.workshopBufferDays ?? 0} gün öncesi de atölye çıkışı olarak dolduruldu.`
+                : " Süre tarihe çevrilemedi; teslim tarihini kullanıcı belirlemeli."}
             </p>
           ) : null}
           {offerSource.shippingHint ? (

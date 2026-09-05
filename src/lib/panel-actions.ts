@@ -8,7 +8,7 @@
 import {
   canEditConsumableExpenses,
   canEditDrawings,
-  canEditReports,
+  canSeeEngineering,
   canSeePersonnel,
   canSeePurchasing,
   canSeeWorkLog,
@@ -26,7 +26,7 @@ export interface PanelAction {
 export const PANEL_ACTIONS: readonly PanelAction[] = [
   { href: "/jobs/new", label: "Yeni İş", icon: "bolt" },
   { href: "/jobs?view=pano", label: "Görev Panosu", icon: "bolt" },
-  { href: "/projects", label: "Hesap Raporları", icon: "panel", visible: canEditReports },
+  { href: "/projects", label: "Hesap Raporları", icon: "panel", visible: canSeeEngineering },
   { href: "/drawings/new", label: "Resim Yükle", icon: "blueprint", visible: canEditDrawings },
   { href: "/purchasing", label: "Talep Havuzu", icon: "cart", visible: canSeePurchasing },
   { href: "/purchasing/sarf", label: "Sarf Girişi", icon: "cart", visible: canEditConsumableExpenses },

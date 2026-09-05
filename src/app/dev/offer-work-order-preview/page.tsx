@@ -35,12 +35,11 @@ const INITIAL: JobInput = {
   customer_tax_office: CUSTOMERS[0].tax_office,
   customer_tax_no: CUSTOMERS[0].tax_no,
   customer_phone: CUSTOMERS[0].phone,
-  scope: {
-    ...EMPTY_JOB.scope,
-    proje: true,
-    malzeme: true,
-    imalat: true,
-  },
+  contract_exists: true,
+  contract_date: "2026-08-17",
+  delivery_date: "2026-12-21",
+  workshop_exit_date: "2026-12-08",
+  scope: { ...EMPTY_JOB.scope },
   items: [
     {
       item_no: "0064-01",
@@ -93,6 +92,8 @@ export default function OfferWorkOrderPreviewPage() {
           offerNo: "TKL-2026-0042",
           revisionLabel: "R2",
           deliveryHint: "Siparişten sonra 16-18 hafta",
+          deliveryDays: 126,
+          workshopBufferDays: 13,
           shippingHint: "Ankara OSB fabrika sahası",
           warnings: [
             "Değişken teklif yapısı nedeniyle üç aday kalem bulundu; seçili kalemleri kontrol edin.",

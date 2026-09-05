@@ -148,11 +148,14 @@ export async function ProjectPageView({
   // KİMLİĞİNİ kurar (revizyonlar, iş emri, imzacılar) ve alttaki sorgular
   // ondan bağımsızdır; tek bir devasa demet, hangi sorgunun hangi sekmeyi
   // beslediğini okunmaz yapardı.
-  const [elektrikBelgeler, elektrikGuncel, sartname, elKitabi] = await Promise.all([
+  const [elektrikBelgeler, elektrikGuncel, sartname, elKitabi, { data: hasOfferDocument }] = await Promise.all([
     loadElectricalDocs(supabase, id),
     loadCurrentElectricalDoc(supabase, id),
     loadCurrentSpec(supabase, id),
     loadManual(supabase, id),
+    job
+      ? supabase.rpc("has_job_offer_document", { p_job_id: job.id })
+      : Promise.resolve({ data: false }),
   ]);
   // Malzeme satırları YALNIZ güncel sürüm için çekilir: arşiv sürümlerin
   // satırları ekranda hiç görünmüyor ve 726 satırlık bir listeyi boşuna
@@ -289,6 +292,11 @@ export async function ProjectPageView({
         isFirstRevision={isFirstRevision}
         spec={sartname}
         canEditSpec={canWriteReports}
+        offerDocumentHref={
+          !offerContext && job && hasOfferDocument === true
+            ? `/jobs/${job.id}/offer-document`
+            : null
+        }
         basePath={basePath}
         reportContext={reportContext}
       />

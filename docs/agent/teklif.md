@@ -161,16 +161,15 @@ referansı, hitap) BOŞALIR. Bu, fark edilmesi en zor hatadır çünkü belge ge
 kalan her yerinde doğru görünür. Kimlikler yenilenir ama fiyat–kalem BAĞI
 haritayla taşınır.
 
-## TEKLIF-9 — "PDF İndir" ile "PDF İndir ve Yayımla" AYRI düğmelerdir.
+## TEKLIF-9 — "İndir" ile "Yayımla" AYRI düğmelerdir.
 
-Kullanıcı kararı (17.08.2026). Ayrım gerçek bir işe karşılık gelir: birincisi
-belgeyi ÜRETİR ve hiçbir şeyi değiştirmez (taslak kontrolü, iç görüş, müşteriye
-ön bilgi); ikincisi revizyonu KİLİTLER, arşive yazar ve gönderim tarihini bugüne
-çeker. Tek düğmede birleştirmek her önizleme denemesini bir yayıma çevirirdi.
-
-Sıra ÖNEMLİDİR: önce yayım, sonra indirme. Tersi olsaydı yayım hatasında
-kullanıcının elinde yayımlanmamış bir belgenin PDF'i kalır ve o belge
-"gönderildi" sanılırdı.
+Kullanıcı kararı (17.08.2026, ad ve davranış düzeltmesi 05.09.2026). Ayrım
+gerçek bir işe karşılık gelir: birincisi belgeyi ÜRETİR ve hiçbir şeyi
+değiştirmez (taslak kontrolü, iç görüş, müşteriye ön bilgi); ikincisi revizyonu
+KİLİTLER, arşive yazar ve gönderim tarihini bugüne çeker. **Yayımla indirme
+başlatmaz**; İndir zaten ayrı düğmedir. Tek düğmede birleştirmek her önizleme
+denemesini bir yayıma çevirirdi, yayımdan sonra otomatik indirmek ise özellikle
+telefonda aynı belgeyi gereksiz yere ikinci kez üretirdi.
 
 **ÖNİZLEME BİR PENCEREDİR**, indirme değil: aynı uç `?inline=1` ile çağrılır ve
 belge çerçeve içinde açılır — dosya indirilenler klasörünü kirletmez.
@@ -1967,7 +1966,7 @@ okur; tarayıcının gönderdiği teknik JSON'a güvenmez. Devir yalnız beyaz l
 teknik olguları ve fiyatsız kaynak fotoğrafını taşır. Birim fiyat, maliyet,
 iskonto, toplam, ödeme ve hukuk metinleri mühendislik devrine girmez.
 
-## TEKLIF-83 — Teklif satırı NÖTRDÜR; müşteri alanı geniş, kapsam alanı dardır.
+## TEKLIF-83 — Teklif satırı NÖTRDÜR; müşteri alanı geniş, son revizyon işlemleri satırdadır.
 
 Kullanıcı kararı (05.09.2026): teklif çizelgesinde bütün satır artık müşteri
 tonuyla boyanmaz. Müşteri rengi yalnız müşteri çipinde kalır; durum ve takip
@@ -1975,6 +1974,43 @@ uyarılarının renkleri satır zemininde birbirine karışmaz. Mobil kart zemin
 aynı nedenle nötr `card` rengidir.
 
 Masaüstü yüzde ızgarasında Müşteri sütunu `%7`den `%9,1`e çıkarılmıştır
-(yaklaşık `%30` artış); Kapsam `%13,9`a daralır, Konu `%27`yi alır. Bütün
-sütunların toplamı yine `%100`dür ve kap `overflow-x-hidden` taşır: uzun konu
-ve kapsam metni `title`da korunup hücrede üç noktayla kesilir.
+(yaklaşık `%30` artış). Eski Kapsam sütununun `%13,9`luk yeri son revizyonun
+**Düzenle · Önizle · İndir** eylemlerine ayrılır; üçü küçük ikon düğmesidir ve
+erişilebilir adı açıktır. Telefonda aynı üç eylem yazılı düğmeye dönüşür. Konu
+`%27`yi alır. Bütün sütunların toplamı yine `%100`dür ve kap
+`overflow-x-hidden` taşır; uzun konu hücrede üç noktayla kesilir.
+
+## TEKLIF-84 — Kazanıldı son revizyonu yayımlar; termin iş emri tarihine dönüşür.
+
+Kullanıcı bir teklifi ilk kez **Kazanıldı** yaptığında en yüksek numaralı
+revizyon aynı SQL işlemi içinde `issued` olur. Böylece kullanıcı ayrıca
+Yayımla'ya basmak zorunda kalmaz ve tekliften iş emri akışı "yayımlanmış
+revizyon gerekli" engeline düşmez. Revizyon zaten yayımlıysa yeniden
+damgalanmaz. PDF arşivi SQL dışındadır; arşivleme başarısız olsa da kazanılma
+ve kilit kararı geri alınmaz, kullanıcı uyarılır.
+
+İş emri taslağında sözleşme tarihi seçilen revizyonun İstanbul takvimindeki
+yayım günüdür. Genel teslim şartı ile görünür, zorunlu fiyat satırlarının
+kalem bazlı terminleri birlikte okunur; aralıkta EN YÜKSEK değer ve kalemler
+arasında EN UZUN süre alınır. Teslim tarihi bu süre kadar ileri, atölye çıkışı
+ise toplam sürenin en yakın güne yuvarlanmış `%10`u kadar teslimden geridir
+(`6–8 hafta` → `56 gün` → `6 gün önce`). Metin birimsiz veya okunamıyorsa tarih
+uydurulmaz. İş emri kapsamının altı maddesi de açık gelir; kullanıcı istemediği
+maddeyi kapatır.
+
+## TEKLIF-85 — İşler için teklif kopyası fiyat ve ödeme bilgisini taşımaz.
+
+Teklif bir iş emrine bağlandığında İşler ve Mühendislik ekranlarının kullandığı
+doküman, tam teklif PDF'i değildir. Son yayımlanmış kaynak revizyonun müşteri,
+vinç, teknik kalem, teslim ve ticari olmayan diğer şartları korunur; fiyatlama
+bölümü, birim fiyatlar, iskonto/toplam/KDV ve ödeme satırları kaldırılır. Kapak
+imza görselinin depolama yolu ve profil kimliği de genel kullanıcıya açılmaz.
+Serbest Notlar'a yazılmış bedel/para birimi satırları ile Genel Şartlar'ın
+Fiyat ve Ödeme maddesi de aynı sınırda elenir; teknik notlar korunur.
+
+Ayıklama yalnız React görünürlüğüne güvenmez: `job_offer_document_payload`
+veritabanında güvenli JSON üretir, PDF rotası aynı yükü `jobOfferDocumentPayload`
+ile ikinci kez süzer. İşler'deki bağlantılar yalnız bu rotaya gider ve hiçbir
+yerde `/offers/[id]` adresini açmaz. Doküman kalıcı bir ikinci teklif kaydı
+değildir; bağ ve yayımlanmış revizyon değişmezlerinden tekrar üretilebilen,
+denetlenebilir bir iş kopyasıdır.

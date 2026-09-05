@@ -5,7 +5,7 @@
 // güven verirdi (önizleme sayfasının kendi notu).
 
 import Link from "next/link";
-import { GitCompare, ScrollText } from "lucide-react";
+import { FileText, GitCompare, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NewRevisionButton } from "./new-revision-button";
 import { ArchiveButton } from "./archive-button";
@@ -43,6 +43,7 @@ export function ProjectDetailHeader({
   itemNo,
   spec,
   canEditSpec,
+  offerDocumentHref,
   basePath = "/projects",
   reportContext = ENGINEERING_REPORT_CONTEXT,
 }: {
@@ -70,6 +71,8 @@ export function ProjectDetailHeader({
   /** Projenin GÜNCEL şartnamesi; yüklenmemişse null. */
   spec: ProjectSpec | null;
   canEditSpec: boolean;
+  /** Bağlı iş kazanılmış tekliften doğduysa fiyat/ödeme ayıklanmış belge. */
+  offerDocumentHref?: string | null;
   basePath?: string;
   reportContext?: ReportContext;
 }) {
@@ -181,6 +184,17 @@ export function ProjectDetailHeader({
         {!offerContext && (
           <SpecButton projectId={project.id} spec={spec} canEdit={canEditSpec} />
         )}
+        {!offerContext && offerDocumentHref ? (
+          <Link
+            href={`${offerDocumentHref}?inline=1`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="oc-tap inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
+            title="İşe bağlanan fiyat ve ödeme içermeyen teklif dokümanını aç"
+          >
+            <FileText className="size-3.5 text-muted-foreground" /> Teklif
+          </Link>
+        ) : null}
         <ArchiveButton projectId={project.id} archived={project.archived} />
         <ProjectDetailActions
           project={summary}

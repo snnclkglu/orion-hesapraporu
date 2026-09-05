@@ -67,7 +67,7 @@ export default async function JobsPage({
     }
   }
 
-  const [{ data: jobs }, { data: profile }, { data: myTaskRows }] = await Promise.all([
+  const [{ data: jobs }, { data: profile }, { data: myTaskRows }, { data: offerDocumentRows }] = await Promise.all([
     supabase
       .from("jobs")
       // Kısaltma ve renk DEFTERDEN gelir, iş emrinin metin alanından değil:
@@ -101,6 +101,9 @@ export default async function JobsPage({
           .order("due_date", { ascending: true, nullsFirst: false })
           .limit(6)
       : Promise.resolve({ data: null }),
+    // Tam teklif verisi DEĞİL, yalnız sade dokümanı bulunan iş kimlikleri.
+    // İşler herkese açık olduğundan bu bayrak güvenli security-definer RPC'den gelir.
+    supabase.rpc("list_job_offer_document_jobs"),
   ]);
 
   // Favorilerim: yıldız göstergesi (tablo) + şeritteki Favoriler bölümü.
@@ -113,6 +116,9 @@ export default async function JobsPage({
     : { data: null };
   const favSet = new Set(
     ((favRows ?? []) as { job_id: string }[]).map((r) => r.job_id)
+  );
+  const offerDocumentSet = new Set(
+    ((offerDocumentRows ?? []) as { job_id: string }[]).map((row) => row.job_id)
   );
 
   const list: JobRow[] = (jobs ?? []).map((j) => {
@@ -138,6 +144,7 @@ export default async function JobsPage({
         (j as { workshop_exit_date?: string | null }).workshop_exit_date ?? null,
       deliveryDate:
         (j as { delivery_date?: string | null }).delivery_date ?? null,
+      hasOfferDocument: offerDocumentSet.has(j.id),
     };
   });
 

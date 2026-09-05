@@ -452,9 +452,12 @@ oluşturmak tek Postgres işlemidir. Devir kalem kimliği olarak değişebilen
 için `job_id + item_no` kullanır. İş kalemi numarası bu nedenle teklif dönüşüm
 anında boş ve iş içinde yinelenen olamaz.
 
-Tekliften alınan teslim/sevk bilgileri yalnız form ipucudur. Açık ve tek anlamlı
-değilse iş tarihine çevrilmez. Nakliye/montaj kapsamı da ancak ilgili ticari
-satır açıkça “dahil/Orion kapsamı” diyorsa önerilir; kullanıcı son sözü söyler.
+Tekliften alınan sevk yeri yalnız form ipucudur; açık ve tek anlamlı değilse
+adres uydurulmaz. Teslim süresi ise genel şart ile zorunlu kalem sürelerinin en
+uzunundan hesaplanır: aralığın üst ucu esas alınır, sözleşme tarihi yayımlanmış
+revizyonun günü, atölye çıkışı teslimden toplam sürenin yuvarlanmış `%10`u
+kadar öncedir. Birim okunamıyorsa tarih boş kalır. Kapsamın altı maddesi de
+açık gelir; kullanıcı gereksiz olanları kapatır (TEKLIF-84).
 
 ## IS-33 — İşler tablosu içten kaymaz; sayfa başına 100 iş gösterir.
 
@@ -468,3 +471,20 @@ sonucu da bütünde oluşur; yalnız çizilecek DOM satırları en son 100'lük 
 ayrılır. Arama bu yüzden bütün sayfaları kapsar. Süzgeç değişince tablo yeniden
 ilk sayfadan başlar; toplu “tümünü seç” açık sayfadaki en çok 100 işi seçer,
 öteki sayfalardaki önceki seçimleri sessizce kaybetmez.
+
+## IS-34 — Kazanılan teklif iş emrinden de seçilir; İşler yalnız ticari bilgisi ayıklanmış kopyayı görür.
+
+Yeni İş Emri sayfası yalnız manuel başlangıç sunmaz. Henüz bir işe bağlanmamış,
+kazanılmış ve yayımlanmış revizyonu bulunan teklifler ayrı bir seçicide görünür;
+seçim mevcut teklif → iş emri taslağına gider ve IS-32/TEKLIF-82'deki tek
+işlemli dönüşümü kullanır. Böylece formdan başlayan akış ile teklif detayından
+başlayan akış aynı eşleme, tarih ve kapsam kurallarından sapmaz.
+
+Bağlanan teklifin İşler'e açık kopyası kaynak revizyondan istek anında üretilir.
+Fiyat satırları, iskonto, toplam, KDV, ödeme planı/ödeme şartları, serbest
+notlardaki bedel/para birimi satırları ve Genel Şartlar'ın Fiyat ve Ödeme
+maddesi hem veritabanı RPC'sinde hem PDF sunucusunda yeniden ayıklanır. İşler
+tarafında asıl teklif detayına bağlantı verilmez. İş detayında Genel Bakış'ın
+yanında koşullu **Teklif Dokümanı** sekmesi; ana tabloda Müşteri ile Kalem
+arasında **İş Emri PDF** ve varsa **Teklif** indirme düğmeleri bulunur. Kaynak
+doküman yoksa sekme ve Teklif düğmesi hiç çizilmez.

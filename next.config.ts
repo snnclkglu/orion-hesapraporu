@@ -197,6 +197,19 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // İş detayındaki "Teklif Dokümanı" sekmesi de aynı kökenli PDF'i
+      // iframe içinde gösterir. İstisna yalnız fiyat/ödeme ayıklanmış bu tek
+      // belge ucuna verilir; iş sayfalarının kendisi gömülemez kalır.
+      {
+        source: "/jobs/:id/offer-document",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          {
+            key: "Content-Security-Policy",
+            value: ["default-src 'self'", "frame-ancestors 'self'", "base-uri 'self'"].join("; "),
+          },
+        ],
+      },
     ];
   },
 };

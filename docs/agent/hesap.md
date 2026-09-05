@@ -1664,3 +1664,18 @@ optimum seçim fazının bilinçli sınırıdır: teknik veri aktarımı otomati
 gibi sunulamaz ve kullanıcıya “ekipman seçimleri otomatik değiştirilmedi”
 denir. Çift hız/aralık gibi tek sayıya indirgenemeyen teklif değeri uydurulmaz,
 uyarı olarak bırakılır.
+
+## HESAP-40 — Mühendislik okuma yetkisi üç rolle sınırlıdır; bağlı iş teklifi koşulludur.
+
+Mühendislik ağacına (`/projects`) yalnız `admin`, `manager` ve `engineer`
+rolleri girebilir. Uygulama yerleşimindeki görünürlük ve `/projects` sunucu
+yerleşimindeki yönlendirme aynı kurala dayanır; `projects`, `revisions`, teklif
+devirleri ve kaynak kayıtlarının SELECT politikaları da bunu veritabanında
+uygular. Yazma yetkisi daha dardır ve `admin + engineer` olarak kalır.
+İş Genel Bakış'ta bağlı rapor hücresi de yetkisiz rol için bağlantı üretmez;
+yalnız erişimin Yönetici, Müdür veya Mühendis gerektirdiğini söyler.
+
+Hesap raporu bir iş emrine ve o iş de kazanılmış bir teklife bağlıysa proje
+başlığında **Şartnameyi Yükle** eyleminin yanında **Teklif** görünür. Bağ yoksa
+buton çizilmez. Bağlantı İşler için üretilen TEKLIF-85 kopyasına gider; fiyat ve
+ödeme şartlarını açmaz ve kullanıcıyı teklif detayına taşımaz.

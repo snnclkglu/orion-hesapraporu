@@ -8,7 +8,7 @@
 //
 //   · **Teklifi İndir** — belgeyi ÜRETİR, hiçbir şeyi değiştirmez. Taslağı
 //     kontrol etmek, iç görüş almak, müşteriye "ön bilgi" göndermek için.
-//   · **Teklifi İndir ve Yayımla** — revizyonu KİLİTLER, arşive yazar ve
+//   · **Yayımla** — revizyonu KİLİTLER, arşive yazar ve
 //     teklifin GÖNDERİM TARİHİNİ bugüne çeker. Takip sayacı o andan işler.
 //
 // DÜĞME BELGENİN ADINI SÖYLER, BİÇİMİNİ DEĞİL (kullanıcı isteği, 22.08.2026):
@@ -58,7 +58,7 @@ import {
   updateOfferDetails,
 } from "../actions";
 import { CopyOfferButton } from "../copy-offer-dialog";
-import { PdfDownloadLink, downloadPdfFromApp } from "@/components/pdf-download-link";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 
 function pdfUrl(offerId: string, revisionId: string, inline = false): string {
   return `/offers/${offerId}/revisions/${revisionId}/pdf${inline ? "?inline=1" : ""}`;
@@ -101,6 +101,7 @@ export function OfferPanel({
         currency: offer.currency as "EUR" | "TRY" | "USD",
       });
       if (res.error) toast.error(res.error);
+      else if (res.warning) toast.warning(res.warning);
       else toast.success(`Durum "${offerStatusLabel(status)}" olarak güncellendi.`);
     });
   }
@@ -113,15 +114,8 @@ export function OfferPanel({
     });
   }
 
-  /**
-   * YAYIMLA VE İNDİR. Sıra ÖNEMLİDİR: önce yayım, sonra indirme.
-   *
-   * Tersi olsaydı yayım hatasında kullanıcının elinde yayımlanmamış bir
-   * belgenin PDF'i kalırdı ve o belge "gönderildi" sanılırdı. Arşivleme hatası
-   * yayımı geri almaz (uyarıyla söylenir) — yayım bir karardır, arşiv bir
-   * kolaylıktır.
-   */
-  function yayimlaVeIndir(revisionId: string) {
+  /** Revizyonu kilitler ve arşivler; indirme yanındaki ayrı eylemdir. */
+  function yayimla(revisionId: string) {
     startTransition(async () => {
       const res = await issueOfferRevision(offer.id, revisionId);
       if (res.error) {
@@ -130,9 +124,6 @@ export function OfferPanel({
       }
       if (res.warning) toast.warning(res.warning);
       else toast.success("Teklif yayımlandı ve arşivlendi.");
-      await downloadPdfFromApp(pdfUrl(offer.id, revisionId), {
-        shareTitle: "Teklif",
-      });
     });
   }
 
@@ -348,10 +339,10 @@ export function OfferPanel({
                           size="sm"
                           className="oc-tap"
                           disabled={pending}
-                          onClick={() => yayimlaVeIndir(rev.id)}
+                          onClick={() => yayimla(rev.id)}
                           title="Revizyonu kilitler, arşive yazar ve gönderim tarihini bugüne çeker"
                         >
-                          <Send className="size-3.5" /> İndir ve Yayımla
+                          <Send className="size-3.5" /> Yayımla
                         </Button>
                       ) : yonetici ? (
                         // YAYIMLANMIŞI GERİ ÇEKMEK YALNIZ YÖNETİCİDEDİR

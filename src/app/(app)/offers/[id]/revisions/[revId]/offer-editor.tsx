@@ -34,7 +34,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { EditableCombobox } from "@/components/editable-combobox";
-import { PdfDownloadLink, downloadPdfFromApp } from "@/components/pdf-download-link";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import { SayiKutusu } from "@/components/sayi-kutusu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -447,7 +447,7 @@ export function OfferEditor({
     return () => window.removeEventListener("beforeunload", uyar);
   }, [readOnly]);
 
-  function yayimlaVeIndir() {
+  function yayimla() {
     startTransition(async () => {
       // Yayım kaydın ÜSTÜNE biner: bekleyen değişiklik varsa önce o yazılır.
       const yazildi = await kaydet();
@@ -462,9 +462,6 @@ export function OfferEditor({
       }
       if (res.warning) toast.warning(res.warning);
       else toast.success("Teklif yayımlandı ve arşivlendi.");
-      await downloadPdfFromApp(`/offers/${offerId}/revisions/${revisionId}/pdf`, {
-        shareTitle: "Teklif",
-      });
     });
   }
 
@@ -576,10 +573,10 @@ export function OfferEditor({
                 size="sm"
                 className="oc-tap max-sm:px-2"
                 disabled={pending}
-                onClick={yayimlaVeIndir}
+                onClick={yayimla}
                 title="Kaydeder, revizyonu kilitler ve gönderim tarihini bugüne çeker"
               >
-                <Send className="size-4" /> İndir ve Yayımla
+                <Send className="size-4" /> Yayımla
               </Button>
             </>
           )}

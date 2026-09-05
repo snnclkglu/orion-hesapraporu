@@ -8,6 +8,7 @@ import { loadJobFormData } from "../form-data";
 // EMPTY_JOB `schema.ts`tendir, job-form'dan DEĞİL: bu bir sunucu bileşenidir ve
 // bir istemci modülünün dışa aktarımını YAYAMAZ (bkz. schema.ts'teki not).
 import { EMPTY_JOB, type JobInput } from "../schema";
+import { WonOfferPicker, type WonOfferOption } from "../won-offer-picker";
 
 // İŞ KOPYALAMA (kullanıcı onayı, 16.08.2026): `?kaynak=<id>` verilirse form o
 // işin kalemleri, kapsamı ve müşteri bilgileriyle DOLU açılır — tekrarlayan
@@ -68,11 +69,20 @@ export default async function NewJobPage({
   if (!canEditJobs((profil as { role?: string } | null)?.role)) {
     return <YetkiYok geriHref="/jobs" geriEtiket="İşler" />;
   }
-  const [{ customers, people }, { data: mevcutNolar }] = await Promise.all([
+  const [{ customers, people }, { data: mevcutNolar }, { data: wonOfferRows }] = await Promise.all([
     loadJobFormData(),
     // ÖNERİ SUNUCUDA HESAPLANIR: numara defterin TAMAMINDAN çıkar ve defteri
     // istemciye göndermenin anlamı yok. Sütun tek, satır 63 — sorgu ucuzdur.
     supabase.from("jobs").select("job_no"),
+    // Yalnız henüz işe bağlanmamış ve en az bir yayımlanmış revizyonu olan
+    // kazanılmış teklifler. Tam payload taşınmaz; seçim dönüşüm sayfasına gider.
+    supabase
+      .from("offers")
+      .select("id, offer_no, customer_name, subject, won_on, offer_revisions!inner(id, status)")
+      .eq("status", "won")
+      .is("job_id", null)
+      .eq("offer_revisions.status", "issued")
+      .order("won_on", { ascending: false, nullsFirst: false }),
   ]);
   const oneriIsNo = sonrakiIsNo(
     ((mevcutNolar ?? []) as { job_no: string | null }[]).map((r) => r.job_no)
@@ -80,6 +90,17 @@ export default async function NewJobPage({
 
   let initial: JobInput = { ...EMPTY_JOB, job_no: oneriIsNo };
   let kaynakNo: string | null = null;
+  const wonOffers: WonOfferOption[] = [...new Map(
+    (wonOfferRows ?? []).map((row) => [
+      String(row.id),
+      {
+        id: String(row.id),
+        offerNo: String(row.offer_no ?? ""),
+        customerName: String(row.customer_name ?? ""),
+        subject: String(row.subject ?? ""),
+      },
+    ])
+  ).values()];
 
   if (kaynak) {
     const [{ data: src }, { data: srcItems }] = await Promise.all([
@@ -154,6 +175,14 @@ export default async function NewJobPage({
           )}
         </p>
       </div>
+      {!kaynakNo ? <WonOfferPicker offers={wonOffers} /> : null}
+      {!kaynakNo ? (
+        <div className="flex items-center gap-3 py-1" aria-hidden>
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-xs font-medium tracking-wide text-muted-foreground">VEYA MANUEL</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+      ) : null}
       <JobForm mode="create" initial={initial} customers={customers} people={people} />
     </div>
   );

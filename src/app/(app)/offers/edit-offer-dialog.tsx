@@ -79,7 +79,8 @@ export function EditOfferDialog({
         toast.error(res.error);
         return;
       }
-      toast.success("Teklif bilgileri güncellendi.");
+      if (res.warning) toast.warning(res.warning);
+      else toast.success("Teklif bilgileri güncellendi.");
       onClose();
     });
   }

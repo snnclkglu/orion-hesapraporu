@@ -9,7 +9,7 @@ describe("ana defter tablolarının yerleşim ve sayfalama sözleşmesi", () => 
     const source = read("src/app/(app)/offers/offers-table.tsx");
     expect(source).not.toContain('className="oc-row-hue"');
     expect(source).toContain('label: "Müşteri", en: "w-[9.1%]"');
-    expect(source).toContain('<TableHead className="w-[13.9%]">Kapsam</TableHead>');
+    expect(source).toContain('<TableHead className="w-[13.9%] text-center">Son Revizyon</TableHead>');
     expect(source).toContain('containerClassName="!overflow-x-hidden"');
   });
 

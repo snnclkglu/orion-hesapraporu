@@ -14,6 +14,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { canSeeEngineering } from "@/lib/roles";
 import { DrawingQtyCard } from "../drawing-qty-card";
 
 const SCOPE_LABELS: [string, string][] = [
@@ -69,7 +70,22 @@ interface LinkedReport {
   revisions?: { rev_no: number; status: string }[] | null;
 }
 
-function ReportCell({ report }: { report: LinkedReport | null }) {
+function ReportCell({
+  report,
+  linked,
+  canViewEngineering,
+}: {
+  report: LinkedReport | null;
+  linked: boolean;
+  canViewEngineering: boolean;
+}) {
+  if (!canViewEngineering && linked) {
+    return (
+      <span className="text-xs text-muted-foreground/70">
+        Rapor erişimi yetki gerektiriyor
+      </span>
+    );
+  }
   if (!report) {
     return (
       <span className="text-xs text-muted-foreground/70">
@@ -103,9 +119,20 @@ export default async function JobPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const { data: job } = await supabase.from("jobs").select("*").eq("id", id).single();
+  const [{ data: job }, { data: profile }] = await Promise.all([
+    supabase.from("jobs").select("*").eq("id", id).single(),
+    user
+      ? supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
   if (!job) notFound();
+  const canViewEngineering = canSeeEngineering(
+    (profile as { role?: string } | null)?.role
+  );
 
   // RESİM ÇARPANI SÜTUNLARI İKİ DENEMEDE OKUNUR (`due_at` kalıbının aynısı):
   // `qty` ve `shares_drawings_with` 20260812 migration'ıyla geliyor. Onlar
@@ -220,6 +247,8 @@ export default async function JobPage({
                   <TableCell data-label="Hesap Raporu" data-mobile-span="full" data-mobile-report data-mobile-hide-label>
                     <ReportCell
                       report={(it.projects as unknown as LinkedReport | null) ?? null}
+                      linked={Boolean(it.project_id)}
+                      canViewEngineering={canViewEngineering}
                     />
                   </TableCell>
                 </TableRow>
@@ -228,8 +257,15 @@ export default async function JobPage({
           </Table>
         )}
         <p className="border-t px-4 py-2 text-xs text-muted-foreground">
-          Hesap raporu iş kalemine bağlanır. Bağlamak için Mühendislik bölümünde
-          raporun satır menüsünden &quot;İşe Bağla&quot; ile bu işi ve kalemi seçin.
+          {canViewEngineering ? (
+            <>
+              Hesap raporu iş kalemine bağlanır. Bağlamak için Mühendislik
+              bölümünde raporun satır menüsünden &quot;İşe Bağla&quot; ile bu işi ve
+              kalemi seçin.
+            </>
+          ) : (
+            "Bağlı hesap raporları yalnız Yönetici, Müdür ve Mühendis rollerine açıktır."
+          )}
         </p>
       </div>
 

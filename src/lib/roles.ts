@@ -19,7 +19,7 @@
 // olsun toplam 4 olsun."*
 //
 // KALİTE VE ÜRETİM BUGÜN EK BİR KAPI AÇMAZ. İkisi de herkese açık bölümleri
-// (İşler · Mühendislik · Teknik Resimler) görür ve başka hiçbir şeyi. Bu bir
+// (İşler · Teknik Resimler) görür ve başka hiçbir şeyi. Bu bir
 // eksiklik değil bir KURALDIR: bir rol açılırken ona ne verileceği ayrı bir
 // karardır ve sessizce genişletilmez — `uretim` etiketi de tam olarak bu
 // tanımla açılmıştı. Kalite'ye ileride kendi ekranı gerektiğinde soru
@@ -64,8 +64,8 @@ export const USER_ROLE_HINTS: Record<UserRole, string> = {
   draftsman: "Teknik resim paketlerini yükler ve içe aktarır; satış rakamlarını göremez.",
   purchasing: "Satın Alma bölümünü görür ve düzenler: teklif, sipariş, teslim, ödeme.",
   planning: "Satın Alma bölümünü görür ve düzenler; iş sırasını planlar.",
-  quality: "Kalite kontrol tarafındaki kişi; işler, mühendislik ve teknik resimleri görür.",
-  production: "Üretim tarafındaki kişi; işler, mühendislik ve teknik resimleri görür.",
+  quality: "Kalite kontrol tarafındaki kişi; işler ve teknik resimleri görür.",
+  production: "Üretim tarafındaki kişi; işler ve teknik resimleri görür.",
 };
 
 /**
@@ -152,19 +152,31 @@ export function canEditOffers(value: string | null | undefined): boolean {
 }
 
 /**
+ * MÜHENDİSLİK OKUMA yetkisi — hesap raporları ve revizyon arşivi.
+ *
+ * Kullanıcı kararı (05.09.2026): İşler herkese açık kalır ama oradaki rapor
+ * bağı Mühendislik bölümünü herkese açmaz. Yönetici, Müdür ve Mühendis okur;
+ * yalnız Yönetici ve Mühendis yazar (`canEditReports`). Menü, `/projects`
+ * sunucu yerleşimi ve `can_see_engineering()` RLS aynı kümeyi uygular.
+ */
+export function canSeeEngineering(value: string | null | undefined): boolean {
+  return value === "admin" || value === "manager" || value === "engineer";
+}
+
+/**
  * Hesap raporu yazan roller — TASLAK revizyon silme yetkisi buna bağlıdır.
  *
  * `isAdminRole` YETMEZ: revizyonu açan ve düzenleyen mühendistir, yanlış
- * açılmış bir taslağı temizlemek için yöneticiyi beklememelidir. Müdür ve
- * teknik ressam kapsam dışıdır; ikisi de hesap raporu yazmaz.
+ * açılmış bir taslağı temizlemek için yöneticiyi beklememelidir. Müdür yalnız
+ * OKUR; teknik ressam ve diğer roller bölüme hiç giremez. Müdür yazma
+ * kapsamı dışındadır; hesap raporu oluşturamaz ve değiştiremez.
  *
  * YAYINLANMIŞ revizyonun silinemezliği bu soruyla İLGİSİZDİR ve veritabanındaki
  * `guard_issued_revision` tetikleyicisindedir: bu soru KİMİN, tetikleyici NEYİN
  * silinebileceğini söyler. Veritabanı karşılığı `can_edit_reports()`.
  */
 export function canEditReports(value: string | null | undefined): boolean {
-  const r = roleOf(value);
-  return r === "admin" || r === "engineer";
+  return value === "admin" || value === "engineer";
 }
 
 /**
@@ -436,7 +448,8 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     label: "Mühendislik",
     icon: "panel",
     hint: "Hesap raporu projeleri ve revizyon arşivi",
-    kime: "Herkes",
+    visible: canSeeEngineering,
+    kime: "Yönetici · Müdür · Mühendis",
     yazabilir: canEditReports,
     yazma: "Yönetici · Mühendis",
   },

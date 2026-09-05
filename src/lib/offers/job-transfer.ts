@@ -113,6 +113,8 @@ export interface OfferJobDraft {
   mappingVersion: number;
   candidates: OfferJobCandidate[];
   deliveryHint: string;
+  /** Teklifin genel/kalem bazlı sürelerinden çıkarılan en uzun termin. */
+  deliveryDays: number | null;
   shippingHint: string;
   scopeSuggestions: {
     proje: boolean;
@@ -509,9 +511,101 @@ function visibleTerm(payload: OfferPayload, key: string): OfferRow | undefined {
   return payload.terms.rows.find((row) => row.key === key && !row.hidden);
 }
 
-function includedTerm(row: OfferRow | undefined): boolean {
-  const text = `${row?.value ?? ""} ${Object.values(row?.parts ?? {}).join(" ")}`;
-  return /dahil|orion kapsam/i.test(text) && !/hariç|müşteri kapsam/i.test(text);
+function durationUnit(text: string): "day" | "week" | "month" | null {
+  const normalized = text.toLocaleLowerCase("tr-TR");
+  if (/\b(gün|gun|day|days)\b/.test(normalized)) return "day";
+  if (/\b(hafta|week|weeks)\b/.test(normalized)) return "week";
+  if (/\b(ay|month|months)\b/.test(normalized)) return "month";
+  return null;
+}
+
+function unitDays(unit: "day" | "week" | "month"): number {
+  return unit === "day" ? 1 : unit === "week" ? 7 : 30;
+}
+
+/**
+ * Serbest teslim metnindeki bütün sayıları tarar ve aralığın EN UZUN ucunu
+ * gün olarak döndürür. Birim bilinmiyorsa sayı tek başına yorumlanmaz.
+ */
+export function offerLeadTimeDays(text: string, unitHint = ""): number | null {
+  const unit = durationUnit(unitHint) ?? durationUnit(text);
+  if (!unit) return null;
+  const numbers = (text.match(/\d+(?:[.,]\d+)?/g) ?? [])
+    .map((token) => Number(token.replace(",", ".")))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+  if (numbers.length === 0) return null;
+  return Math.round(Math.max(...numbers) * unitDays(unit));
+}
+
+function deliveryRowDays(row: OfferRow | undefined): number | null {
+  if (!row) return null;
+  const unit = row.parts?.unit ?? "";
+  const range = [row.parts?.from, row.parts?.to].filter(Boolean).join("-");
+  return offerLeadTimeDays(range || row.value, unit || row.value);
+}
+
+function deliveryHintOf(row: OfferRow | undefined): string {
+  if (!row) return "";
+  if (row.value.trim()) return row.value.trim();
+  const range = [row.parts?.from, row.parts?.to].filter(Boolean).join("-");
+  return [row.parts?.trigger, range, row.parts?.unit].filter(Boolean).join(" ").trim();
+}
+
+function dateInIstanbul(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Istanbul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((entry) => entry.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function addDays(value: string, days: number): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return "";
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + days));
+  return date.toISOString().slice(0, 10);
+}
+
+export interface OfferJobSchedule {
+  contractDate: string;
+  deliveryDate: string;
+  workshopExitDate: string;
+  deliveryDays: number | null;
+  workshopBufferDays: number | null;
+}
+
+/** Yayım günü + azami termin; atölye çıkışı toplam sürenin %10'u erkendir. */
+export function offerJobSchedule(
+  issuedAt: string | null | undefined,
+  deliveryDays: number | null
+): OfferJobSchedule {
+  const contractDate = issuedAt ? dateInIstanbul(issuedAt) : "";
+  if (!contractDate || deliveryDays === null || deliveryDays < 0) {
+    return {
+      contractDate,
+      deliveryDate: "",
+      workshopExitDate: "",
+      deliveryDays: null,
+      workshopBufferDays: null,
+    };
+  }
+  const normalizedDays = Math.round(deliveryDays);
+  const deliveryDate = addDays(contractDate, normalizedDays);
+  const workshopBufferDays = Math.max(1, Math.round(normalizedDays * 0.1));
+  return {
+    contractDate,
+    deliveryDate,
+    workshopExitDate: addDays(deliveryDate, -workshopBufferDays),
+    deliveryDays: normalizedDays,
+    workshopBufferDays,
+  };
 }
 
 /** Değişken teklif belgesini düzenlenebilir iş emri adaylarına ayırır. */
@@ -532,9 +626,16 @@ export function buildJobDraftFromOffer(payload: OfferPayload): OfferJobDraft {
 
   const delivery = visibleTerm(payload, "deliveryTime");
   const freight = visibleTerm(payload, "freight");
-  const erection = visibleTerm(payload, "erection");
   const deliveryPlace = visibleTerm(payload, "deliveryPlace");
-  const deliveryHint = delivery?.value.trim() ?? "";
+  const deliveryHint = deliveryHintOf(delivery);
+  const lineDeliveryDays = payload.pricing.lines
+    .filter((line) => !line.hidden && !line.optional && line.leadTime?.trim())
+    .map((line) => offerLeadTimeDays(line.leadTime ?? "", payload.pricing.leadTimeUnit ?? ""))
+    .filter((value): value is number => value !== null);
+  const deliveryCandidates = [deliveryRowDays(delivery), ...lineDeliveryDays].filter(
+    (value): value is number => value !== null
+  );
+  const deliveryDays = deliveryCandidates.length > 0 ? Math.max(...deliveryCandidates) : null;
   const shippingHint =
     freight?.parts?.place?.trim() || deliveryPlace?.value.trim() || "";
 
@@ -550,14 +651,15 @@ export function buildJobDraftFromOffer(payload: OfferPayload): OfferJobDraft {
     mappingVersion: OFFER_JOB_MAPPING_VERSION,
     candidates: [...technical, ...standalone],
     deliveryHint,
+    deliveryDays,
     shippingHint,
     scopeSuggestions: {
-      proje: false,
-      devreyeAlma: includedTerm(erection),
-      malzeme: false,
-      nakliye: includedTerm(freight),
-      imalat: false,
-      montaj: includedTerm(erection),
+      proje: true,
+      devreyeAlma: true,
+      malzeme: true,
+      nakliye: true,
+      imalat: true,
+      montaj: true,
     },
     warnings,
   };

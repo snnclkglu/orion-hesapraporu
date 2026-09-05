@@ -30,13 +30,23 @@ const uuidOrNull = z
   .refine((v) => v === null || z.uuid().safeParse(v).success, "Geçersiz kayıt");
 
 export const jobScopeSchema = z.object({
-  proje: z.boolean().default(false),
-  devreyeAlma: z.boolean().default(false),
-  malzeme: z.boolean().default(false),
-  nakliye: z.boolean().default(false),
-  imalat: z.boolean().default(false),
-  montaj: z.boolean().default(false),
+  proje: z.boolean().default(true),
+  devreyeAlma: z.boolean().default(true),
+  malzeme: z.boolean().default(true),
+  nakliye: z.boolean().default(true),
+  imalat: z.boolean().default(true),
+  montaj: z.boolean().default(true),
 });
+
+/** Yeni iş emrinde kapsamın tamamı açık gelir; kullanıcı gereksizleri kapatır. */
+export const DEFAULT_JOB_SCOPE = {
+  proje: true,
+  devreyeAlma: true,
+  malzeme: true,
+  nakliye: true,
+  imalat: true,
+  montaj: true,
+} as const;
 
 export const jobItemSchema = z.object({
   item_no: z.string().trim().max(40).default(""),
@@ -111,10 +121,7 @@ export const jobInputSchema = z.object({
   project_manager: z.string().trim().max(120).default(""),
   prepared_by_name: z.string().trim().max(120).default(""),
   prepared_by_title: z.string().trim().max(120).default(""),
-  scope: jobScopeSchema.default({
-    proje: false, devreyeAlma: false, malzeme: false,
-    nakliye: false, imalat: false, montaj: false,
-  }),
+  scope: jobScopeSchema.default(DEFAULT_JOB_SCOPE),
   notes: z.string().trim().max(4000).default(""),
   items: z.array(jobItemSchema).max(100).default([]),
 });
@@ -233,7 +240,7 @@ export const EMPTY_JOB: JobInput = {
   project_manager: "",
   prepared_by_name: "",
   prepared_by_title: "",
-  scope: { proje: false, devreyeAlma: false, malzeme: false, nakliye: false, imalat: false, montaj: false },
+  scope: { ...DEFAULT_JOB_SCOPE },
   notes: "",
   items: [],
 };
