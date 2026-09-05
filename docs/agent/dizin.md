@@ -177,7 +177,10 @@
   süzgeçler yıl · müşteri · durum + iş/proje/doküman aramasıdır; grup içindeki
   herhangi bir doküman eşleşebilir. **Arşivli proje AYRI BİR ARŞİV EKRANINA
   GİTMEZ**: aynı doküman listesinde kalır ve Durum süzgeciyle ayrılır. Yıl
-  varsayılanı "Tümü"dür; eski bir raporu sessizce gizlemez
+  varsayılanı "Tümü"dür; eski bir raporu sessizce gizlemez. İş ve kalem
+  seçicileri bağlantı verisini okur fakat `/projects` arayüzünden `/jobs`
+  ekranına kullanıcı geçişi verilmez; iş numarası yalnız Mühendisliğin kendi
+  doküman iç tablosuna açılabilir
 - `src/components/editable-combobox.tsx` — hem yazılan hem seçilen alan
   (serbest metin + öneri listesi); `combobox.tsx` ile KARIŞTIRILMAZ, orada
   değer yalnız listeden seçilir

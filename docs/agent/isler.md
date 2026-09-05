@@ -419,3 +419,22 @@ Katlama `lib/project-list.ts` saf çekirdeğindedir ve testlidir. Veri şeması
 değişmez: rapor hâlâ iş kaleminin belgesidir (IS-14); yeni katman yalnız ana
 defterin yoğunluğunu azaltır. Ana ve iç tablo telefonda tek kolon karta,
 tablette iki kolon karta katlanır ve yatay sayfa taşması üretmez.
+
+## IS-31 — Mühendislik İŞ VERİSİNİ SEÇER, İşler ekranına geçmez.
+
+Kullanıcı kararı (05.09.2026): *"Mühendislik bölümü kendine ait tabloları
+olsun … işleri seçip hesap raporu açıp bağlayabilsin ama işler sayfasına
+gidemesin."* Mühendislik iş emrini ve iş kalemini bir **bağlantı kaynağı**
+olarak okumaya devam eder: yeni rapor penceresinde aktif iş seçilir, kalem
+seçilir ve `projects.job_id` ile `job_items.project_id` birlikte yazılır;
+mevcut rapor da aynı seçiciden başka bir kaleme bağlanabilir. Bu veri bağı
+Mühendisliğin İşler arayüzüne geçiş vermesi anlamına gelmez.
+
+`/projects` ağacındaki kullanıcıya görünen hiçbir iş numarası, geri oku,
+kırıntı ya da eylem `/jobs` veya `/jobs/[id]` adresine bağlanmaz. Çok
+dokümanlı iş satırı ve proje künyesindeki iş numarası yalnız Mühendisliğin
+kendi `/projects/jobs/[jobId]` doküman defterine açılabilir; tek dokümanlı
+satır doğrudan hesap raporu projesine açılır. Proje detayının geri oku
+Mühendislik ana defterine döner. İş verisi güncellendiğinde hesap raporu
+eşleşmesinin taze kalması için `/jobs/[id]` önbelleğini yenilemek bir
+**sunucu veri işlemi**dir, kullanıcı gezinmesi değildir ve korunur.

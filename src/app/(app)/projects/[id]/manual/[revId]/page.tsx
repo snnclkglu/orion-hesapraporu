@@ -118,20 +118,19 @@ export default async function ManualEditorPage({
           basılınca aynı yol üst üste iki kez okunuyordu. `xl` altında geri
           oku ve bu satır birlikte bağlamı taşır. */}
       <div className="text-sm text-muted-foreground xl:hidden">
-        {job ? (
+        <Link href="/projects" className="hover:underline">
+          Mühendislik
+        </Link>
+        {job && (
           <>
-            <Link href="/jobs" className="hover:underline">
-              İşler
-            </Link>
             {" / "}
-            <Link href={`/jobs/${job.id}`} className="font-mono hover:underline">
+            <Link
+              href={`/projects/jobs/${job.id}`}
+              className="font-mono hover:underline"
+            >
               {job.job_no}
             </Link>
           </>
-        ) : (
-          <Link href="/projects" className="hover:underline">
-            Mühendislik
-          </Link>
         )}
         {" / "}
         <Link href={`/projects/${id}`} className="font-mono hover:underline">

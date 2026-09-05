@@ -144,8 +144,9 @@ export default function ProjectPreviewPage() {
       <div className="mx-auto grid w-full max-w-6xl flex-1 content-start gap-6 px-4 py-6 lg:px-8">
         <ProjectDetailHeader
           project={PROJECT}
-          // Kırıntı yolu "İşler / 0055 / 0055-00" okur: son durak İŞ KALEMİ
-          // numarasıdır, mühendisin yazdığı belge kodu değil.
+          // Kırıntı yolu "Mühendislik / 0055 / 0055-00" okur ve İşler
+          // detayına çıkmaz: son durak İŞ KALEMİ numarasıdır, mühendisin
+          // yazdığı belge kodu değil.
           itemNo="0055-00"
           job={{ id: "j1", job_no: "0055" }}
           summary={{

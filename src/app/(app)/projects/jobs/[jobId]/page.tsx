@@ -1,9 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ExternalLink } from "lucide-react";
 import { z } from "zod";
 import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { jobStatusLabel } from "@/lib/job-status";
 import {
@@ -122,12 +119,6 @@ export default async function JobProjectDocumentsPage({
             fixedJobId={job.id}
           />
         )}
-        <Button asChild variant="outline">
-          <Link href={`/jobs/${job.id}`}>
-            İş Kartını Aç
-            <ExternalLink className="size-3.5" />
-          </Link>
-        </Button>
       </PageHeader>
 
       <section className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border bg-card px-3 py-2 text-sm">

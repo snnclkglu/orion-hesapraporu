@@ -401,11 +401,11 @@ export function ProjectsTable({
                 const targetHref = grouped
                   ? `${jobGroupBasePath}/${entry.jobId}`
                   : `${basePath}/${p.id}`;
-                const jobHref = grouped
-                  ? targetHref
-                  : p.job_id
-                    ? `/jobs/${p.job_id}`
-                    : null;
+                // Mühendislik kendi defterinde kalır: çok dokümanlı iş satırı
+                // yalnız Mühendislikteki iç doküman tablosuna açılır. Tek
+                // dokümanlı satırın iş numarası İşler detayına geçiş vermez;
+                // satırın kendisi hesap raporu projesine açılmaya devam eder.
+                const jobHref = grouped ? targetHref : null;
 
                 return (
                 <TableRow
@@ -436,6 +436,8 @@ export function ProjectsTable({
                       >
                         {jobNo}
                       </Link>
+                    ) : jobNo ? (
+                      <span className="text-primary">{jobNo}</span>
                     ) : (
                       <span className="text-muted-foreground/60">bağımsız</span>
                     )}

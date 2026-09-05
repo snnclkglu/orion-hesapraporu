@@ -57,10 +57,10 @@ export function ProjectDetailHeader({
   /**
    * İŞ KALEMİ NUMARASI — kırıntı yolunun son durağı.
    *
-   * Eskiden burada `projects.doc_no` duruyordu ve yol "İşler / 0055 / 0055"
+   * Eskiden burada `projects.doc_no` duruyordu ve yol "Mühendislik / 0055 / 0055"
    * gibi kendini tekrar ediyordu: iş kökü ile belge kodu aynı görünüyor,
-   * raporun HANGİ KALEME ait olduğu okunmuyordu. Doğrusu "İşler / 0055 /
-   * 0055-00"dır. Alan `doc_no`dan DEĞİL `job_items.item_no`dan gelir
+   * raporun HANGİ KALEME ait olduğu okunmuyordu. Doğrusu "Mühendislik / 0055
+   * / 0055-00"dır. Alan `doc_no`dan DEĞİL `job_items.item_no`dan gelir
    * (`resolveProjectItemNo`): eski raporların `doc_no`su bilinçli olarak
    * kalemsiz bırakıldı — yayınlanmış PDF'lerin belge kodu değişmemeli
    * (AGENTS IS-14) — ama ekranda gezinme yolu sistemin kendi numarasını
@@ -89,18 +89,19 @@ export function ProjectDetailHeader({
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:gap-y-3">
         <div className="min-w-0 basis-full lg:flex-1 lg:basis-0">
           <div className="text-sm text-muted-foreground">
-            {job ? (
+            <Link href={basePath} className="hover:underline">
+              {reportContextLabel(reportContext)}
+            </Link>
+            {job && !offerContext && (
               <>
-                <Link href="/jobs" className="hover:underline">İşler</Link>
                 {" / "}
-                <Link href={`/jobs/${job.id}`} className="font-mono hover:underline">
+                <Link
+                  href={`${basePath}/jobs/${job.id}`}
+                  className="font-mono hover:underline"
+                >
                   {job.job_no}
                 </Link>
               </>
-            ) : (
-              <Link href={basePath} className="hover:underline">
-                {reportContextLabel(reportContext)}
-              </Link>
             )}
             {" / "}
             <span className="font-mono">{itemNo?.trim() || project.doc_no}</span>

@@ -264,8 +264,8 @@ export async function ProjectPageView({
           kırıntı yolunun yerini tutar — telefonda projeden çıkmanın tek yolu
           tarayıcı geri tuşuydu. */}
       <PageHeader
-        backHref={job ? `/jobs/${job.id}` : basePath}
-        backLabel={job?.job_no ?? contextLabel}
+        backHref={basePath}
+        backLabel={contextLabel}
         title={project.name}
         hint={`${project.customer} · ${project.crane_type}`}
       />
