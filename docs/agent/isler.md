@@ -438,3 +438,33 @@ satır doğrudan hesap raporu projesine açılır. Proje detayının geri oku
 Mühendislik ana defterine döner. İş verisi güncellendiğinde hesap raporu
 eşleşmesinin taze kalması için `/jobs/[id]` önbelleğini yenilemek bir
 **sunucu veri işlemi**dir, kullanıcı gezinmesi değildir ve korunur.
+
+## IS-32 — Tekliften iş emri TASLAKTIR; kaynak izi kalıcı ve fiyat dışıdır.
+
+Tekliften iş emri oluşturma doğrudan sessiz kayıt açmaz: kullanıcı önce iş no,
+başlık, müşteri fotoğrafı, kapsam ve iş kalemlerini normal İş Emri formunda
+görür ve düzeltebilir. Tekliften gelen adaylar kaynak etiketi ve eşleme
+uyarıları taşır; bu istemci yardımcı alanları `job_items` tablosuna yazılmaz.
+
+Onayda iş ve kalemleri yazmak, teklifi bağlamak ve mühendislik devrini
+oluşturmak tek Postgres işlemidir. Devir kalem kimliği olarak değişebilen
+`job_items.id`ye dayanmaz; İşler düzenlemesi kalemleri silip yeniden kurabildiği
+için `job_id + item_no` kullanır. İş kalemi numarası bu nedenle teklif dönüşüm
+anında boş ve iş içinde yinelenen olamaz.
+
+Tekliften alınan teslim/sevk bilgileri yalnız form ipucudur. Açık ve tek anlamlı
+değilse iş tarihine çevrilmez. Nakliye/montaj kapsamı da ancak ilgili ticari
+satır açıkça “dahil/Orion kapsamı” diyorsa önerilir; kullanıcı son sözü söyler.
+
+## IS-33 — İşler tablosu içten kaymaz; sayfa başına 100 iş gösterir.
+
+Kullanıcı kararı (05.09.2026): İşler'in tablo görünümündeki 70dvh kelepçesi ve
+iç dikey kaydırıcı kaldırılmıştır; belge gövdesi doğal olarak kayar. Tablo kabı
+yatay kaydırıcı da açmaz, mevcut kırılım öncelikleri uzun iş adını sararak
+sayfaya sığdırır.
+
+Yıl/müşteri/durum/arama süzgeçleri önce bütün iş defterine uygulanır, sıralama
+sonucu da bütünde oluşur; yalnız çizilecek DOM satırları en son 100'lük sayfaya
+ayrılır. Arama bu yüzden bütün sayfaları kapsar. Süzgeç değişince tablo yeniden
+ilk sayfadan başlar; toplu “tümünü seç” açık sayfadaki en çok 100 işi seçer,
+öteki sayfalardaki önceki seçimleri sessizce kaybetmez.

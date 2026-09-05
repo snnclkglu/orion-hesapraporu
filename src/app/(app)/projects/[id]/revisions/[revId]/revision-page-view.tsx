@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FileSpreadsheet } from "lucide-react";
+import { AlertTriangle, FileSpreadsheet, Files } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +64,44 @@ export async function RevisionPageView({
     ? await supabase.from("profiles").select("role").eq("id", user.id).single()
     : { data: null };
   const isAdmin = profile?.role === "admin";
+
+  // Teklif kaynaklı V0'da fiyat/sözleşme verisi değil, yalnız kontrollü teknik
+  // aktarım görünür. Bu kayıt editörün hesap snapshot'ından ayrı tutulur.
+  const { data: reportSourceData } =
+    reportContext === ENGINEERING_REPORT_CONTEXT
+      ? await supabase
+          .from("engineering_report_sources")
+          .select("mode, handoff_id, mapped_fields, review_warnings")
+          .eq("project_id", id)
+          .eq("revision_id", revId)
+          .maybeSingle()
+      : { data: null };
+  const reportSource = reportSourceData as
+    | {
+        mode: string;
+        handoff_id: string | null;
+        mapped_fields: unknown;
+        review_warnings: unknown;
+      }
+    | null;
+  const { data: handoffData } = reportSource?.handoff_id
+    ? await supabase
+        .from("offer_engineering_handoffs")
+        .select("source_offer_no, source_revision_no, eligibility")
+        .eq("id", reportSource.handoff_id)
+        .maybeSingle()
+    : { data: null };
+  const handoff = handoffData as
+    | { source_offer_no: string; source_revision_no: number; eligibility: string }
+    | null;
+  const mappedFieldCount = Array.isArray(reportSource?.mapped_fields)
+    ? reportSource.mapped_fields.length
+    : 0;
+  const sourceWarnings = Array.isArray(reportSource?.review_warnings)
+    ? reportSource.review_warnings.filter(
+        (entry): entry is string => typeof entry === "string"
+      )
+    : [];
 
   // Boş revizyon V5 şablonuyla başlar; kayıtlı revizyon kendi snapshot'ını yükler.
   const inputs = revision.inputs as RevisionInputsJson;
@@ -165,6 +203,30 @@ export async function RevisionPageView({
           )}
         </div>
       </PageHeader>
+
+      {reportSource?.mode === "from_offer" && handoff ? (
+        <section className="flex shrink-0 flex-col gap-1 rounded-md border border-primary/25 bg-primary/5 px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex min-w-0 items-center gap-2">
+            <Files className="size-4 shrink-0 text-primary" />
+            <span>
+              <strong>Tekliften oluşturuldu:</strong>{" "}
+              <span className="font-mono">
+                {handoff.source_offer_no} · R{handoff.source_revision_no}
+              </span>{" "}
+              · {mappedFieldCount} teknik alan V0’a aktarıldı. Ekipman seçimleri
+              otomatik değiştirilmedi.
+            </span>
+          </p>
+          {handoff.eligibility === "review" || sourceWarnings.length > 0 ? (
+            <p
+              className="flex shrink-0 items-center gap-1 text-amber-700 dark:text-amber-300"
+              title={sourceWarnings.join("\n")}
+            >
+              <AlertTriangle className="size-3.5" /> Mühendis kontrolü gerekli
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <RevisionEditor
         projectId={id}

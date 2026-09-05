@@ -20,7 +20,7 @@ import { EMPTY_JOB, type CustomerOption } from "@/app/(app)/jobs/schema";
 
 const YEAR = new Date().getFullYear();
 
-const JOBS: JobRow[] = [
+const BASE_JOBS: JobRow[] = [
   {
     id: "j1", job_no: "0055", title: "İsdemir Amonyum Sülfat Vinci",
     customer: "İSKENDERUN DEMİR VE ÇELİK A.Ş.", customerShort: "İSDEMİR", customerHue: 12,
@@ -50,6 +50,23 @@ const JOBS: JobRow[] = [
     work_order_date: `${YEAR - 1}-07-26`, created_at: `${YEAR - 1}-07-26T09:00:00Z`,
     itemCount: 2, craneCount: 2,
   },
+];
+
+const JOBS: JobRow[] = [
+  ...BASE_JOBS,
+  ...Array.from({ length: 101 }, (_, index): JobRow => ({
+    id: `page-${index + 1}`,
+    job_no: String(100 + index).padStart(4, "0"),
+    title: `${index + 1}. SAYFALAMA ÖNİZLEME İŞİ — UZUN AD SAYFAYI YATAY İTMEMELİ`,
+    customer: index % 2 === 0 ? "ASTOR ENERJİ A.Ş." : "LITEC MAKİNA SAN. VE TİC. A.Ş.",
+    customerShort: index % 2 === 0 ? "ASTOR" : "LITEC",
+    customerHue: index % 2 === 0 ? 148 : 255,
+    status: "active",
+    work_order_date: `${YEAR}-${String((index % 12) + 1).padStart(2, "0")}-10`,
+    created_at: `${YEAR}-01-10T09:00:00Z`,
+    itemCount: 1,
+    craneCount: 0,
+  })),
 ];
 
 const CUSTOMERS: CustomerOption[] = [
@@ -91,7 +108,7 @@ export default function JobsPreviewPage() {
           <h2 className="text-lg font-semibold tracking-tight">İşler — görünümler, filtreler ve satır eylemleri</h2>
           <JobsSummary
             total={JOBS.length}
-            active={1}
+            active={JOBS.filter((job) => job.status === "active").length}
             craneCount={5}
             customerCount={4}
             lastCreated="11.05.2026"

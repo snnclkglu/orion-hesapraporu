@@ -15,9 +15,13 @@
 // söylemiyordu. Kalem seçiliyken alan artık SALT-OKUNURDUR.
 
 import { useId, useMemo, useState, useTransition } from "react";
-import { FileJson2 } from "lucide-react";
+import { AlertTriangle, FileJson2, FilePenLine, Files } from "lucide-react";
 import { toast } from "sonner";
-import { createOfferProjectFromFile, createProject } from "./actions";
+import {
+  createEngineeringProjectV0,
+  createOfferProjectFromFile,
+  createProject,
+} from "./actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
@@ -27,6 +31,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // Saf yardımcı (dosya sistemi/PDF bağımlılığı yok) — kod önizlemesi ile basılan
 // belge AYNI fonksiyondan çıksın diye buradan okunur.
 import { docCode } from "@/lib/pdf/doc-naming";
@@ -44,6 +49,7 @@ import {
   OFFER_REPORT_CONTEXT,
   type ReportContext,
 } from "@/lib/report-context";
+import type { EngineeringHandoffOption } from "./handoff-options";
 
 export interface JobItemOption {
   /** job_items.id — kalem bağlantısı bu kimlikle güncellenir */
@@ -53,6 +59,8 @@ export interface JobItemOption {
   quantity: string | null;
   /** Kaleme bağlı hesap raporu zaten varsa (tekrar bağlanmasın diye uyarı) */
   project_id: string | null;
+  /** Tekliften açılmış işlerdeki fiyatsız teknik aktarım. */
+  handoff?: EngineeringHandoffOption | null;
 }
 
 export interface JobOption {
@@ -76,6 +84,26 @@ export const NO_JOB = "__none__";
 export const NO_ITEM = "__no_item__";
 export const NO_CUSTOMER = "__no_customer__";
 
+type EngineeringCreationMode = "manual" | "from_offer";
+
+const FACT_LABELS: Record<string, string> = {
+  mainCapacityT: "Ana kapasite",
+  auxCapacityT: "Yardımcı kapasite",
+  spanM: "Açıklık",
+  mainLiftHeightM: "Kaldırma yüksekliği",
+  mainLiftSpeedMpm: "Ana kaldırma hızı",
+  auxLiftSpeedMpm: "Yardımcı kaldırma hızı",
+  structureClass: "Yapı sınıfı",
+  bridgeSpeedMpm: "Köprü hızı",
+  trolleySpeedMpm: "Araba hızı",
+  ambientTempMinC: "En düşük sıcaklık",
+  ambientTempMaxC: "En yüksek sıcaklık",
+  installationEnvironment: "Çalışma ortamı",
+  supplyVoltage: "Besleme gerilimi",
+  controlVoltage: "Kumanda gerilimi",
+  runwayLengthM: "Yürüme yolu",
+};
+
 export function NewProjectDialog({
   defaultCraneType = DEFAULT_CRANE_TYPE,
   jobs,
@@ -97,6 +125,7 @@ export function NewProjectDialog({
   const [filePending, startFileTransition] = useTransition();
   const fileInputId = useId();
   const offerContext = reportContext === OFFER_REPORT_CONTEXT;
+  const [creationMode, setCreationMode] = useState<EngineeringCreationMode>("manual");
   const craneTypes = offerContext
     ? offerCraneTypeOptions(defaultCraneType)
     : craneTypeOptions(defaultCraneType);
@@ -105,16 +134,37 @@ export function NewProjectDialog({
   const fixedJob = !offerContext
     ? jobs?.find((job) => job.id === fixedJobId)
     : undefined;
-  const showJobSelect = !offerContext && !fixedJob && (jobs?.length ?? 0) > 0;
+  const availableJobs = useMemo(() => {
+    if (offerContext) return [];
+    const source = fixedJob ? [fixedJob] : jobs ?? [];
+    if (creationMode === "manual") {
+      return source.filter((job) => (job.items ?? []).some((item) => !item.project_id));
+    }
+    return source.filter((job) =>
+      (job.items ?? []).some(
+        (item) =>
+          !item.project_id &&
+          item.handoff &&
+          item.handoff.eligibility !== "not_applicable"
+      )
+    );
+  }, [creationMode, fixedJob, jobs, offerContext]);
+  const showJobSelect = !offerContext && !fixedJob;
   const [selectedJobId, setSelectedJobId] = useState<string>(fixedJob?.id ?? NO_JOB);
   const selectedJob = useMemo(
-    () => jobs?.find((j) => j.id === selectedJobId),
-    [jobs, selectedJobId]
+    () => availableJobs.find((j) => j.id === selectedJobId),
+    [availableJobs, selectedJobId]
   );
 
-  const items = selectedJob?.items ?? [];
+  const items = (selectedJob?.items ?? []).filter(
+    (item) =>
+      !item.project_id &&
+      (creationMode === "manual" ||
+        (item.handoff && item.handoff.eligibility !== "not_applicable"))
+  );
   const [selectedItemId, setSelectedItemId] = useState<string>(NO_ITEM);
   const selectedItem = items.find((i) => i.id === selectedItemId);
+  const selectedHandoff = selectedItem?.handoff ?? null;
 
   // Doküman no / rapor adı / müşteri: iş ve kalem seçilince ön-doldurulur
   const [docNo, setDocNo] = useState(() => {
@@ -133,7 +183,7 @@ export function NewProjectDialog({
   function onPickJob(id: string) {
     setSelectedJobId(id);
     setSelectedItemId(NO_ITEM);
-    const job = jobs?.find((j) => j.id === id);
+    const job = availableJobs.find((j) => j.id === id);
     if (job) {
       // Ön-doldurulan değer de kuraldan geçer: iş emri eski bir kayıtsa küçük
       // harfli gelebilir ve alan "otomatik doldu" diye kuralın dışında kalamaz.
@@ -153,7 +203,24 @@ export function NewProjectDialog({
     if (item) {
       if (item.item_no) setDocNo(item.item_no);
       if (item.product_name) setName(adBuyuk(item.product_name));
+      if (creationMode === "from_offer" && item.handoff?.craneType) {
+        setCraneType(item.handoff.craneType);
+      }
     }
+  }
+
+  function onCreationModeChange(value: string) {
+    const mode = value === "from_offer" ? "from_offer" : "manual";
+    setCreationMode(mode);
+    setSelectedItemId(NO_ITEM);
+    setDocNo("");
+    setName("");
+    if (!fixedJob) {
+      setSelectedJobId(NO_JOB);
+      setCustomer("");
+      setEndCustomerId(NO_CUSTOMER);
+    }
+    setCraneType(defaultCraneType);
   }
 
   const effectiveJobId = selectedJobId !== NO_JOB ? selectedJobId : "";
@@ -167,8 +234,22 @@ export function NewProjectDialog({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    if (!offerContext && selectedJobId === NO_JOB) {
+      toast.error("Önce bir iş emri seçin.");
+      return;
+    }
+    if (!offerContext && selectedItemId === NO_ITEM) {
+      toast.error("Hesap raporu için bir iş kalemi seçin.");
+      return;
+    }
+    if (!offerContext && creationMode === "from_offer" && !selectedHandoff) {
+      toast.error("Bu iş kaleminde teklif teknik aktarımı bulunmuyor.");
+      return;
+    }
     startTransition(async () => {
-      const result = await createProject(formData);
+      const result = offerContext
+        ? await createProject(formData)
+        : await createEngineeringProjectV0(formData);
       if (result?.error) toast.error(result.error);
       // Başarıda action redirect eder.
     });
@@ -197,13 +278,32 @@ export function NewProjectDialog({
               ? "Teklif aşamasındaki hesabı hemen açın. Aynı mühendislik motoru kullanılır; kayıt Mühendislik arşivine karışmaz."
               : fixedJob
                 ? `${fixedJob.job_no} numaralı işin kalemlerinden biri için yeni bir hesap raporu oluşturun.`
-              : "Raporu bir iş emri kalemine bağlayın ya da bağımsız bırakın; bağımsız raporlar sonradan “İşe Bağla” ile bir işe bağlanabilir."}
+              : "Oluşturma yöntemini seçin ve raporu aktif bir iş emri kalemine bağlayın."}
           </DialogDescription>
         </DialogHeader>
+        {!offerContext ? (
+          <Tabs value={creationMode} onValueChange={onCreationModeChange}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="manual">
+                <FilePenLine className="size-4" /> Manuel
+              </TabsTrigger>
+              <TabsTrigger value="from_offer">
+                <Files className="size-4" /> Tekliften
+              </TabsTrigger>
+            </TabsList>
+            <p className="text-xs text-muted-foreground">
+              {creationMode === "manual"
+                ? "İş emri kalemini seçin; V0 güncel mühendislik şablonuyla açılır."
+                : "Yalnız tekliften açılmış ve fiyatsız teknik aktarımı bulunan iş kalemleri gösterilir."}
+            </p>
+          </Tabs>
+        ) : null}
         <form onSubmit={handleSubmit} className="grid gap-4">
           {/* İş bağlantısı */}
           <input type="hidden" name="report_context" value={reportContext} />
           <input type="hidden" name="job_id" value={effectiveJobId} />
+          <input type="hidden" name="source_mode" value={creationMode} />
+          <input type="hidden" name="handoff_id" value={selectedHandoff?.id ?? ""} />
           <input
             type="hidden"
             name="job_item_id"
@@ -239,8 +339,8 @@ export function NewProjectDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_JOB}>Bağımsız (İşe Atanmamış)</SelectItem>
-                  {jobs!.map((j) => (
+                  <SelectItem value={NO_JOB}>İş Emri Seçin</SelectItem>
+                  {availableJobs.map((j) => (
                     <SelectItem key={j.id} value={j.id} className="max-w-[calc(100vw-3rem)]">
                       <span className="block truncate" title={`${j.job_no} · ${j.title}`}>
                         {j.job_no} · {j.title}
@@ -249,6 +349,13 @@ export function NewProjectDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {availableJobs.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {creationMode === "from_offer"
+                    ? "Teknik aktarımı bulunan, raporsuz aktif iş kalemi yok. Önce kazanılan tekliften iş emri oluşturun."
+                    : "Rapor bağlanabilecek aktif bir iş kalemi yok. Önce iş emri ve iş kalemi oluşturun."}
+                </p>
+              ) : null}
             </div>
           )}
 
@@ -261,7 +368,7 @@ export function NewProjectDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_ITEM}>Kalem Seçilmedi (Elle Gir)</SelectItem>
+                  <SelectItem value={NO_ITEM}>İş Kalemi Seçin</SelectItem>
                   {items.map((it) => (
                     <SelectItem key={it.id} value={it.id}>
                       {it.item_no ? `${it.item_no} · ` : ""}
@@ -280,6 +387,39 @@ export function NewProjectDialog({
               )}
             </div>
           )}
+
+          {!offerContext && creationMode === "from_offer" && selectedHandoff ? (
+            <section className="grid gap-2 rounded-md border border-primary/25 bg-primary/5 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold">Teknik Aktarım Özeti</p>
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {selectedHandoff.sourceOfferNo} · R{selectedHandoff.sourceRevisionNo}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(selectedHandoff.technicalFacts).map(([key, value]) => (
+                  <span key={key} className="rounded-full border bg-background px-2 py-1 text-[11px]">
+                    {FACT_LABELS[key] ?? key}: {String(value)}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Bu bilgiler V0 teknik özelliklerine yazılır. Halat, motor,
+                redüktör, teker ve kiriş seçimleri otomatik değiştirilmez.
+              </p>
+              {selectedHandoff.eligibility === "review" ? (
+                <p className="flex gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" /> Bu kalemin
+                  rapora uygunluğu ve aktarılan değerleri mühendis kontrol etmelidir.
+                </p>
+              ) : null}
+              {selectedHandoff.warnings.map((warning) => (
+                <p key={warning} className="flex gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" /> {warning}
+                </p>
+              ))}
+            </section>
+          ) : null}
 
           <div className="grid gap-2">
             <Label htmlFor="doc_no">Doküman No</Label>
@@ -397,7 +537,11 @@ export function NewProjectDialog({
           </div>
           <DialogFooter>
             <Button type="submit" disabled={pending || filePending}>
-              {pending ? "Oluşturuluyor..." : "Oluştur"}
+              {pending
+                ? "Oluşturuluyor..."
+                : offerContext
+                  ? "Oluştur"
+                  : "Oluştur ve V0'ı Aç"}
             </Button>
           </DialogFooter>
         </form>

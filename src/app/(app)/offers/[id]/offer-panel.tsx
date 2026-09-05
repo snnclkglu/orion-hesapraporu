@@ -27,7 +27,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Download, Eye, FilePlus2, Lock, LockOpen, Pencil, Send, Trash2 } from "lucide-react";
+import { BriefcaseBusiness, Download, Eye, FilePlus2, Lock, LockOpen, Pencil, Send, Trash2 } from "lucide-react";
 import { CustomerTag } from "@/components/tags";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -70,6 +70,7 @@ export function OfferPanel({
   customers,
   bugun,
   yonetici,
+  isEmriYazabilir,
 }: {
   offer: OfferRecord;
   revisions: readonly OfferRevisionRecord[];
@@ -77,12 +78,15 @@ export function OfferPanel({
   bugun: string;
   /** Yayımlanmış revizyonu geri çekme yetkisi — YALNIZ Yönetici. */
   yonetici: boolean;
+  /** İş emri açma kapısı — Yönetici + Müdür. */
+  isEmriYazabilir: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [onizleme, setOnizleme] = useState<{ revisionId: string; baslik: string } | null>(null);
 
   const defterKaydi = customers.find((c) => c.id === offer.customer_id);
   const guncel = revisions[0];
+  const yayinliRevizyonVar = revisions.some((revision) => revision.status === "issued");
   const takipTarihi = takipBaslangici(offer.status, offer.issued_on, offer.issue_date);
   const yas = takipGorunur(offer.status, takipTarihi)
     ? takipYasi(takipTarihi!, bugun)
@@ -228,6 +232,30 @@ export function OfferPanel({
 
       {/* ————————————————————————————————————————————— eylemler */}
       <div className="flex flex-wrap items-center gap-2">
+        {offer.job_id ? (
+          <Button asChild type="button" className="oc-tap">
+            <Link href={`/jobs/${offer.job_id}`}>
+              <BriefcaseBusiness className="size-4" /> İş Emrini Aç
+            </Link>
+          </Button>
+        ) : offer.status === "won" && isEmriYazabilir ? (
+          yayinliRevizyonVar ? (
+            <Button asChild type="button" className="oc-tap">
+              <Link href={`/offers/${offer.id}/work-order`}>
+                <BriefcaseBusiness className="size-4" /> İş Emri Oluştur
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              className="oc-tap"
+              disabled
+              title="Önce kabul edilen teklif revizyonunu yayımlayın"
+            >
+              <BriefcaseBusiness className="size-4" /> İş Emri Oluştur
+            </Button>
+          )
+        ) : null}
         <Button type="button" onClick={yeniRevizyon} disabled={pending} className="oc-tap">
           <FilePlus2 className="size-4" /> Yeni Revizyon
         </Button>

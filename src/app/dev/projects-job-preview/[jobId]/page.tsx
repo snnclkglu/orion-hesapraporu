@@ -12,6 +12,29 @@ const JOB: JobOption = {
     { id: "item-1", item_no: "0057-01", product_name: "1 T TEK KİRİŞLİ VİNÇ", quantity: "1", project_id: "0057-01" },
     { id: "item-2", item_no: "0057-02", product_name: "2 T ÇİFT KİRİŞLİ VİNÇ", quantity: "1", project_id: "0057-02" },
     { id: "item-3", item_no: "0057-03", product_name: "3,2 T MONORAY VİNÇ", quantity: "1", project_id: "0057-03" },
+    {
+      id: "item-4",
+      item_no: "0057-04",
+      product_name: "5 T ÇİFT KİRİŞLİ VİNÇ",
+      quantity: "1 Adet",
+      project_id: null,
+      handoff: {
+        id: "handoff-4",
+        sourceOfferNo: "TETR-20260822-1",
+        sourceRevisionNo: 2,
+        eligibility: "review",
+        craneType: "Çift Kirişli Gezer Köprülü Vinç",
+        technicalFacts: {
+          mainCapacityT: 5,
+          spanM: 18.5,
+          mainLiftHeightM: 9,
+          mainLiftSpeedMpm: 5,
+          structureClass: "A5",
+        },
+        mappedFields: ["item.capacityT", "item.spanM"],
+        warnings: ["Teklifte yardımcı kaldırma hızı çift değerli; mühendis kontrolü gerekli."],
+      },
+    },
   ],
 };
 

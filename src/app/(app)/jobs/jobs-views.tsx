@@ -291,7 +291,12 @@ export function JobsViews({
       ) : view === "zaman" ? (
         <TimelineView rows={filtered} />
       ) : (
-        <JobsTable rows={filtered} canDelete={canDelete} canEdit={canEdit} />
+        <JobsTable
+          key={`${resolvedYil}|${state.musteri.join(",")}|${state.durum.join(",")}|${q}`}
+          rows={filtered}
+          canDelete={canDelete}
+          canEdit={canEdit}
+        />
       )}
     </div>
   );

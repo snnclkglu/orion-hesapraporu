@@ -33,6 +33,7 @@ import { CustomerTag, ScopeTag } from "@/components/tags";
 import { StatCard } from "@/components/stat-card";
 import { customerTag, scopeLabel } from "@/lib/tags";
 import { cn } from "@/lib/utils";
+import { ListPagination } from "@/components/list-pagination";
 
 const ALL = "__all__";
 /** Fiyat durumu süzgeci — "hangi kalemin fiyatı girilmedi" en sık sorulan soru. */
@@ -69,8 +70,18 @@ const AT_LG = "hidden lg:table-cell";
  * Tek bir sabit değer ya geniş ekranda yeri boşa harcar ya dar ekranda hâlâ
  * taşırdı. Tam ad `title` ile durur (kullanıcının istediği davranış).
  */
-const URUN_GENISLIK =
-  "md:max-w-[16rem] md:truncate lg:max-w-[20rem] xl:max-w-[26rem] 2xl:max-w-[34rem]";
+const URUN_GENISLIK = "min-w-0 md:truncate";
+const PAGE_SIZE = 100;
+const WHOLE_NUMBER_FORMATTER = new Intl.NumberFormat("tr-TR", {
+  maximumFractionDigits: 0,
+});
+
+/** Tutar sütunları kuruş göstermez; yuvarlama yalnız sunumdur, veri değişmez. */
+function fmtWhole(value: number | null): string {
+  return value === null
+    ? "—"
+    : WHOLE_NUMBER_FORMATTER.format(value);
+}
 
 function fmtDate(iso?: string | null): string {
   if (!iso) return "—";
@@ -142,6 +153,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
     dir: "desc",
   });
   const [editing, setEditing] = useState<SaleRow | null>(null);
+  const [page, setPage] = useState(1);
 
   const years = useMemo(() => {
     const set = new Set(rows.map(saleYear).filter(Boolean));
@@ -172,6 +184,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
   }, [rows]);
 
   function toggleSort(key: SortKey) {
+    setPage(1);
     setSort((s) =>
       s.key === key
         ? { key, dir: s.dir === "asc" ? "desc" : "asc" }
@@ -207,6 +220,12 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
       return sign * c;
     });
   }, [rows, year, customer, scope, currency, priceState, query, sort]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const visibleRows = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   // Özetler süzgeçten GEÇEN satırlardan çıkar: "2025 · ASTOR" seçildiğinde
   // kartlar o kesitin cirosunu gösterir.
@@ -249,6 +268,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
     setCurrency(ALL);
     setPriceState(ALL);
     setQuery("");
+    setPage(1);
   }
 
   return (
@@ -287,7 +307,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
       <div className="grid grid-cols-3 items-center gap-2 rounded-lg border bg-card px-2 py-2 sm:flex sm:flex-wrap sm:px-3">
         <span className="oc-kicker col-span-3 text-muted-foreground sm:mr-1">Filtre</span>
 
-        <Select value={year} onValueChange={setYear}>
+        <Select value={year} onValueChange={(value) => { setYear(value); setPage(1); }}>
           <SelectTrigger size="sm" className="w-full sm:w-[120px]">
             <SelectValue placeholder="Yıl" />
           </SelectTrigger>
@@ -299,7 +319,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           </SelectContent>
         </Select>
 
-        <Select value={customer} onValueChange={setCustomer}>
+        <Select value={customer} onValueChange={(value) => { setCustomer(value); setPage(1); }}>
           <SelectTrigger size="sm" className="w-full sm:w-[190px]">
             <SelectValue placeholder="Müşteri" />
           </SelectTrigger>
@@ -313,7 +333,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           </SelectContent>
         </Select>
 
-        <Select value={scope} onValueChange={setScope}>
+        <Select value={scope} onValueChange={(value) => { setScope(value); setPage(1); }}>
           <SelectTrigger size="sm" className="w-full sm:w-[200px]">
             <SelectValue placeholder="Kapsam" />
           </SelectTrigger>
@@ -327,7 +347,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           </SelectContent>
         </Select>
 
-        <Select value={currency} onValueChange={setCurrency}>
+        <Select value={currency} onValueChange={(value) => { setCurrency(value); setPage(1); }}>
           <SelectTrigger size="sm" className="w-full sm:w-[150px]">
             <SelectValue placeholder="Para Birimi" />
           </SelectTrigger>
@@ -339,7 +359,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           </SelectContent>
         </Select>
 
-        <Select value={priceState} onValueChange={setPriceState}>
+        <Select value={priceState} onValueChange={(value) => { setPriceState(value); setPage(1); }}>
           <SelectTrigger size="sm" className="w-full sm:w-[160px]">
             <SelectValue placeholder="Fiyat" />
           </SelectTrigger>
@@ -352,7 +372,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
 
         <Input
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => { setQuery(e.target.value); setPage(1); }}
           placeholder="Kalem No, Ürün, Müşteri veya Kapsam Ara…"
           className="col-span-3 h-8 w-full flex-1 pointer-coarse:h-10 sm:col-span-1 sm:w-auto sm:min-w-[200px]"
         />
@@ -375,38 +395,37 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
         → Ayrıntı için satıra dokunun.
       </p>
 
-      {/* `overflow-hidden` yerine `oc-table-clamp`: uzun defter `md` üstünde
-          70dvh'ye kelepçelenir ve başlık yapışır — overflow-hidden kalsaydı
-          kelepçenin dikey kaydırmasını da kırpardı. */}
+      {/* 100 satırlık sayfa doğal belge akışındadır: iç dikey/yatay kaydırıcı
+          yoktur. Masaüstünde yüzdelik sabit ızgara bütün sütunları kaba sığdırır. */}
       <Table
-        className="oc-mobile-table oc-tablet-table oc-compact-mobile-table oc-sales-table"
-        containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
+        className="table-fixed oc-mobile-table oc-tablet-table oc-compact-mobile-table oc-sales-table lg:[&_td]:px-1.5 lg:[&_th]:px-1.5"
+        containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap !overflow-x-hidden rounded-lg border bg-card"
       >
-          <TableHeader className="oc-sticky-head">
+          <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortHead label="Kalem No" sortKey="itemNo" className="w-[6rem] md:w-[7rem]"
+              <SortHead label="Kalem No" sortKey="itemNo" className="w-[9%]"
                 active={sort.key === "itemNo"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Ürün" sortKey="productName"
+              <SortHead label="Ürün" sortKey="productName" className="w-[19%]"
                 active={sort.key === "productName"} dir={sort.dir} onSort={toggleSort} />
               {/* SÖZLEŞME sütunu sıralanabilir DEĞİLDİR: bir tarih ya da tutar
                   değil, bir belgeye açılan kapıdır. Başlık kısaltılır (ikon
                   genişliğinde bir sütun), tam adı `title`da durur. */}
-              <TableHead className="w-[3rem]" title="Sözleşme PDF'i">
+              <TableHead className="w-[5%]" title="Sözleşme PDF'i">
                 Söz.
               </TableHead>
-              <SortHead label="Müşteri" sortKey="customer" className={cn("w-[10rem]", AT_MD)}
+              <SortHead label="Müşteri" sortKey="customer" className={cn("w-[11%]", AT_MD)}
                 active={sort.key === "customer"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Kapsam" sortKey="scope" className={cn("w-[9rem]", AT_LG)}
+              <SortHead label="Kapsam" sortKey="scope" className={cn("w-[10%]", AT_LG)}
                 active={sort.key === "scope"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Termin" sortKey="dueDate" className={cn("w-[6.5rem]", AT_MD)}
+              <SortHead label="Termin" sortKey="dueDate" className={cn("w-[8%]", AT_MD)}
                 active={sort.key === "dueDate"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Sevk" sortKey="shipmentDate" className={cn("w-[6.5rem]", AT_LG)}
+              <SortHead label="Sevk" sortKey="shipmentDate" className={cn("w-[8%]", AT_LG)}
                 active={sort.key === "shipmentDate"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Ağırlık" sortKey="totalWeightKg" className={cn("w-[7rem]", AT_LG)} align="right"
+              <SortHead label="Ağırlık" sortKey="totalWeightKg" className={cn("w-[9%]", AT_LG)} align="right"
                 active={sort.key === "totalWeightKg"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Tutar" sortKey="totalPrice" className="w-[7.5rem] md:w-[9rem]" align="right"
+              <SortHead label="Tutar" sortKey="totalPrice" className="w-[10.5%]" align="right"
                 active={sort.key === "totalPrice"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Avro Karşılığı" sortKey="eurAmount" className={cn("w-[9.5rem]", AT_SM)} align="right"
+              <SortHead label="Avro Karşılığı" sortKey="eurAmount" className={cn("w-[10.5%]", AT_SM)} align="right"
                 active={sort.key === "eurAmount"} dir={sort.dir} onSort={toggleSort} />
             </TableRow>
           </TableHeader>
@@ -418,7 +437,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((r) => (
+              visibleRows.map((r) => (
                 <TableRow
                   key={r.itemId}
                   className="cursor-pointer"
@@ -443,7 +462,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                       {r.eurAmount !== null && (
                         <span className="lg:hidden">
                           {" · "}
-                          <span className="font-mono tabular-nums">{fmtNum(r.eurAmount)} €</span>
+                          <span className="font-mono tabular-nums">{fmtWhole(r.eurAmount)} €</span>
                         </span>
                       )}
                     </span>
@@ -508,7 +527,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                       <span className="text-muted-foreground/60">Fiyat Yok</span>
                     ) : (
                       <>
-                        {fmtNum(r.totalPrice)}{" "}
+                        {fmtWhole(r.totalPrice)}{" "}
                         <span className="text-muted-foreground">
                           {CURRENCY_SYMBOLS[r.sale.currency]}
                         </span>
@@ -526,7 +545,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                         <span className="text-destructive">Kur Yok</span>
                       )
                     ) : (
-                      `${fmtNum(r.eurAmount)} €`
+                      `${fmtWhole(r.eurAmount)} €`
                     )}
                   </TableCell>
                 </TableRow>
@@ -534,6 +553,13 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
             )}
           </TableBody>
       </Table>
+
+      <ListPagination
+        page={currentPage}
+        pageSize={PAGE_SIZE}
+        total={filtered.length}
+        onPageChange={setPage}
+      />
 
       {/* MÜŞTERİ BAZINDA CİRO AYRI SAYFAYA TAŞINDI (kullanıcı kararı,
           14.08.2026): /sales/ciro. Bu sayfa yalnız kalem listesidir. */}

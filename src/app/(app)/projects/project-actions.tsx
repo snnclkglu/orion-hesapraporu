@@ -161,6 +161,14 @@ export function DuplicateProjectDialog({
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (allowJobAssignment && jobId === NO_JOB) {
+      toast.error("Önce hedef iş emrini seçin.");
+      return;
+    }
+    if (allowJobAssignment && itemId === NO_ITEM) {
+      toast.error("Hesap raporu kopyası için boş bir iş kalemi seçin.");
+      return;
+    }
     const input: DuplicateProjectInput = {
       doc_no: docNo,
       name,
@@ -182,8 +190,8 @@ export function DuplicateProjectDialog({
           <DialogTitle>Hesap Raporunu Kopyala</DialogTitle>
           <DialogDescription>
             <span className="font-mono">{project.doc_no}</span> raporunun son
-            revizyonu yeni raporda V0 taslağı olarak açılır. İsterseniz kopyayı
-            doğrudan başka bir işe atayın.
+            revizyonu yeni raporda V0 taslağı olarak açılır.
+            {allowJobAssignment ? " Kopya için aktif bir iş emri ve boş iş kalemi seçin." : ""}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
@@ -195,7 +203,7 @@ export function DuplicateProjectDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_JOB}>Bağımsız (İşe Atanmamış)</SelectItem>
+                  <SelectItem value={NO_JOB}>İş Emri Seçin</SelectItem>
                   {jobOptions.map((j) => (
                     <SelectItem key={j.id} value={j.id}>
                       {j.job_no} · {j.title}
@@ -214,8 +222,8 @@ export function DuplicateProjectDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_ITEM}>Kalem Seçilmedi (Elle Gir)</SelectItem>
-                  {items.map((it) => (
+                  <SelectItem value={NO_ITEM}>Boş İş Kalemi Seçin</SelectItem>
+                  {items.filter((it) => !it.project_id).map((it) => (
                     <SelectItem key={it.id} value={it.id}>
                       {it.item_no ? `${it.item_no} · ` : ""}
                       {it.product_name}

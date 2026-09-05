@@ -12,6 +12,12 @@ import { canEditJobs } from "@/lib/roles";
 import { JOB_STATUSES, JOB_STATUS_LABELS, type JobStatus } from "@/lib/job-status";
 import { autoShortName, nextDistinctHue } from "@/lib/tags";
 import { notifyTargets } from "@/lib/jobs/notify";
+import {
+  buildJobDraftFromOffer,
+  OFFER_JOB_MAPPING_VERSION,
+} from "@/lib/offers/job-transfer";
+import { withDefaults } from "@/lib/offers/payload";
+import type { OfferPayload } from "@/lib/offers/types";
 import { isOlayiYaz } from "./events";
 import { bildirimYaz } from "./notify-write";
 import {
@@ -65,8 +71,13 @@ function jobRowFrom(input: JobInput) {
 /** Boş (tamamen doldurulmamış) iş kalemlerini ele, sort ata */
 function cleanItems(items: JobItemInput[]) {
   return items
-    .filter((it) => it.product_name.trim() || it.item_no.trim())
-    .map((it, i) => ({ ...it, sort: i }));
+    .filter((it) => it.included !== false && (it.product_name.trim() || it.item_no.trim()))
+    .map((it, i) => ({
+      item_no: it.item_no,
+      product_name: it.product_name,
+      quantity: it.quantity,
+      sort: i,
+    }));
 }
 
 export async function createJob(input: JobInput): Promise<ActionResult> {
@@ -364,6 +375,117 @@ export async function bulkSetJobStatus(
 /** İşin kalıcı silinmesini Yönetici onay kuyruğuna yollar. */
 export async function deleteJob(jobId: string): Promise<ActionResult> {
   return requestPermanentDeletion({ entityType: "job", targetId: jobId });
+}
+
+/**
+ * Yayımlanmış ve kazanılmış teklif revizyonundan iş emri açar.
+ *
+ * İstemci yalnız kullanıcının son kararını (ürün adı/adet/dahil) taşır.
+ * Teknik snapshot ve eşleştirme verisi istemciden alınmaz: revizyon DB'den
+ * yeniden okunup saf ayıklayıcı tekrar çalıştırılır. Böylece değiştirilmiş bir
+ * tarayıcı isteği fiyatı mühendislik handoff'una sokamaz.
+ */
+export async function createJobFromOffer(
+  offerId: string,
+  revisionId: string,
+  input: JobInput
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const izin = await yazmaIzni(supabase);
+  if (izin.error || !izin.user) return { error: izin.error };
+
+  const parsed = jobInputSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const accepted = parsed.data.items.filter(
+    (item) => item.included !== false && (item.product_name.trim() || item.item_no.trim())
+  );
+  if (accepted.length === 0) return { error: "En az bir iş kalemi seçilmeli" };
+
+  const [{ data: offer }, { data: revision }] = await Promise.all([
+    supabase
+      .from("offers")
+      .select("id, offer_no, status, currency, job_id")
+      .eq("id", offerId)
+      .maybeSingle(),
+    supabase
+      .from("offer_revisions")
+      .select("id, offer_id, rev_no, status, payload")
+      .eq("id", revisionId)
+      .eq("offer_id", offerId)
+      .maybeSingle(),
+  ]);
+  if (!offer) return { error: "Teklif bulunamadı" };
+  if (offer.status !== "won") return { error: "İş emri yalnız kazanılan tekliften oluşturulabilir" };
+  if (offer.job_id) return { error: "Bu teklif için iş emri zaten oluşturulmuş" };
+  if (!revision || revision.status !== "issued") {
+    return { error: "İş emri için yayımlanmış teklif revizyonu seçilmeli" };
+  }
+
+  const payload = withDefaults(revision.payload, offer.currency as string);
+  const draft = buildJobDraftFromOffer(payload as OfferPayload);
+  const candidateByRef = new Map(draft.candidates.map((candidate) => [candidate.sourceRef, candidate]));
+  const rpcItems: Record<string, unknown>[] = [];
+  const sourceWarnings: string[] = [...draft.warnings];
+
+  for (const item of accepted) {
+    const candidate = item.source_ref ? candidateByRef.get(item.source_ref) : undefined;
+    if (item.source_ref && !candidate) {
+      return { error: "Teklif kaynağı değişmiş veya artık bulunamıyor; taslağı yeniden açın" };
+    }
+    rpcItems.push({
+      item_no: item.item_no,
+      product_name: item.product_name,
+      quantity: item.quantity,
+      ...(candidate
+        ? {
+            source_type: candidate.sourceType,
+            source_id: candidate.sourceId,
+            eligibility: candidate.eligibility,
+            crane_type: candidate.craneType,
+            technical_facts: candidate.technicalFacts,
+            technical_snapshot: candidate.technicalSnapshot,
+            mapped_fields: candidate.mappedFields,
+            unmapped_fields: candidate.unmapped,
+            warnings: candidate.warnings,
+          }
+        : {}),
+    });
+    if (candidate) sourceWarnings.push(...candidate.warnings);
+  }
+
+  const { items: _items, ...job } = parsed.data;
+  void _items;
+  const { data, error } = await supabase.rpc("create_job_from_offer", {
+    p_offer_id: offerId,
+    p_offer_revision_id: revisionId,
+    p_job: job,
+    p_items: rpcItems,
+    p_mapping_version: OFFER_JOB_MAPPING_VERSION,
+    p_warnings: [...new Set(sourceWarnings)],
+  });
+  if (error) {
+    return {
+      error:
+        error.code === "23505"
+          ? "Bu iş no zaten kayıtlı veya teklif daha önce iş emrine dönüştürülmüş"
+          : error.message,
+    };
+  }
+  const created = (data as { job_id?: string }[] | null)?.[0];
+  if (!created?.job_id) return { error: "İş emri oluşturuldu ancak kimliği okunamadı" };
+
+  await isOlayiYaz(supabase, {
+    jobId: created.job_id,
+    jobNo: parsed.data.job_no,
+    event: "olusturuldu",
+    detail: { title: parsed.data.title, kalem: rpcItems.length, offer_id: offerId },
+    actor: izin.user.id,
+  });
+
+  revalidatePath("/jobs");
+  revalidatePath("/offers");
+  revalidatePath(`/offers/${offerId}`);
+  redirect(`/jobs/${created.job_id}`);
 }
 
 // ------------------------------------------------------------------ müşteri

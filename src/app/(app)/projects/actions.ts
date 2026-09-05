@@ -16,7 +16,8 @@ import {
   type RevisionInputsJson,
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
-import { canEditOffers } from "@/lib/roles";
+import { canEditOffers, canEditReports } from "@/lib/roles";
+import { engineeringSpecsPatch } from "@/lib/offers/job-transfer";
 import {
   OFFER_REPORT_TRANSFER_FORMAT,
   OFFER_REPORT_TRANSFER_MAX_BYTES,
@@ -214,6 +215,15 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
     return { error: parsed.error.issues[0].message };
   }
 
+  // Yeni MÜHENDİSLİK raporu artık iş emri kalemi + V0 ile atomik doğar.
+  // Bu eski action teklif hesap raporunun bağımsız proje kabuğu için kalır.
+  if (parsed.data.report_context === ENGINEERING_REPORT_CONTEXT) {
+    return {
+      error:
+        "Yeni mühendislik raporu için iş emri ve iş kalemi seçilmeli; Manuel/Tekliften akışını kullanın.",
+    };
+  }
+
   if (parsed.data.job_id && parsed.data.job_item_id) {
     const { data: item } = await supabase
       .from("job_items")
@@ -271,6 +281,175 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
     revalidatePath(`/projects/jobs/${parsed.data.job_id}`);
   }
   redirect(`${reportBasePath(parsed.data.report_context)}/${project.id}`);
+}
+
+// ---------------------------------- iş emri kaleminden atomik mühendislik V0
+
+const engineeringCreateSchema = z.object({
+  name: adAlani("Proje adı gerekli"),
+  customer: adAlani("Müşteri gerekli"),
+  crane_type: z.string().trim().min(1, "Vinç tipi gerekli"),
+  crane_location: z.string().trim().max(240),
+  report_brand_customer_id: z.uuid("Geçersiz rapor firması").nullable(),
+  end_customer_id: z.uuid("Geçersiz son kullanıcı").nullable(),
+  job_id: z.uuid("İş emri seçilmeli"),
+  job_item_id: z.uuid("İş kalemi seçilmeli"),
+  source_mode: z.enum(["manual", "from_offer"]),
+  handoff_id: z.uuid("Geçersiz teklif teknik aktarımı").nullable(),
+});
+
+/**
+ * Proje + iş kalemi bağı + V0 revizyonunu tek Postgres işlemiyle oluşturur.
+ * Tekliften kipinde yalnız handoff'un beyaz listedeki teknik olguları şablon
+ * girdilerine yazılır; selections (halat/motor/redüktör vb.) değiştirilmez.
+ */
+export async function createEngineeringProjectV0(
+  formData: FormData
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!canEditReports((profile as { role?: string } | null)?.role)) {
+    return { error: "Hesap raporu oluşturma yetkiniz yok" };
+  }
+
+  const sourceMode = formData.get("source_mode") || "manual";
+  const parsed = engineeringCreateSchema.safeParse({
+    name: formData.get("name"),
+    customer: formData.get("customer"),
+    crane_type: formData.get("crane_type") || DEFAULT_CRANE_TYPE,
+    crane_location: formData.get("crane_location") || "",
+    report_brand_customer_id: formData.get("report_brand_customer_id") || null,
+    end_customer_id: formData.get("end_customer_id") || null,
+    job_id: formData.get("job_id"),
+    job_item_id: formData.get("job_item_id"),
+    source_mode: sourceMode,
+    handoff_id:
+      sourceMode === "from_offer" ? formData.get("handoff_id") || null : null,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (parsed.data.source_mode === "from_offer" && !parsed.data.handoff_id) {
+    return { error: "Tekliften oluşturmak için teknik aktarımı olan bir iş kalemi seçin" };
+  }
+
+  const [{ data: item }, { data: job }, { data: template }] = await Promise.all([
+    supabase
+      .from("job_items")
+      .select("id, item_no, product_name, project_id")
+      .eq("id", parsed.data.job_item_id)
+      .eq("job_id", parsed.data.job_id)
+      .maybeSingle(),
+    supabase
+      .from("jobs")
+      .select("id, status")
+      .eq("id", parsed.data.job_id)
+      .maybeSingle(),
+    supabase
+      .from("revisions")
+      .select("inputs, selections")
+      .eq("is_template", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (!job || job.status !== "active") {
+    return { error: "Yeni hesap raporu yalnız aktif iş emrinde oluşturulabilir" };
+  }
+  if (!item) return { error: "Seçilen iş kalemi bu işe ait değil veya artık bulunamıyor" };
+  if (!item.item_no?.trim()) return { error: "İş kalemi numarası boş; önce iş emrini düzeltin" };
+  if (item.project_id) {
+    return { error: "Bu iş kaleminin hesap raporu zaten var; yeni proje yerine revizyon açın" };
+  }
+
+  type EngineeringHandoffRow = {
+    id: string;
+    technical_facts: unknown;
+    eligibility: string;
+  };
+  let handoff: EngineeringHandoffRow | null = null;
+  if (parsed.data.source_mode === "from_offer") {
+    const { data } = await supabase
+      .from("offer_engineering_handoffs")
+      .select("id, technical_facts, eligibility")
+      .eq("id", parsed.data.handoff_id!)
+      .eq("job_id", parsed.data.job_id)
+      .eq("job_item_no", item.item_no)
+      .maybeSingle();
+    handoff = data as EngineeringHandoffRow | null;
+    if (!handoff) return { error: "Teklif teknik aktarımı bu iş kalemine ait değil" };
+    if (handoff.eligibility === "not_applicable") {
+      return { error: "Bu teklif kalemi mühendislik hesap raporuna uygun değil" };
+    }
+  }
+
+  const inheritedInputs = (template?.inputs ?? {}) as Record<string, unknown>;
+  const inheritedSpecs =
+    inheritedInputs.specs &&
+    typeof inheritedInputs.specs === "object" &&
+    !Array.isArray(inheritedInputs.specs)
+      ? (inheritedInputs.specs as Record<string, unknown>)
+      : {};
+  const factPatch = engineeringSpecsPatch(handoff?.technical_facts);
+  const revisionInputs = applyCraneTypeRevisionPreset(0, parsed.data.crane_type, {
+    ...inheritedInputs,
+    specs: { ...inheritedSpecs, ...factPatch },
+  }) as RevisionInputsJson;
+  const revisionSelections = (template?.selections ?? {}) as RevisionSelectionsJson;
+
+  let revisionResults: unknown;
+  try {
+    revisionResults = JSON.parse(
+      JSON.stringify(runCalc(calcInputFromRevision(revisionInputs, revisionSelections)))
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Bilinmeyen hesap hatası";
+    return { error: `V0 başlangıç hesabı oluşturulamadı: ${message}` };
+  }
+
+  const { data, error } = await supabase.rpc("create_engineering_report_v0", {
+    p_job_id: parsed.data.job_id,
+    p_job_item_no: item.item_no,
+    p_source_mode: parsed.data.source_mode,
+    p_handoff_id: parsed.data.handoff_id,
+    p_project: {
+      name: parsed.data.name,
+      customer: parsed.data.customer,
+      crane_type: parsed.data.crane_type,
+      crane_location: parsed.data.crane_location,
+      report_brand_customer_id: parsed.data.report_brand_customer_id,
+      end_customer_id: parsed.data.end_customer_id,
+    },
+    p_revision: {
+      inputs: revisionInputs,
+      selections: revisionSelections,
+      results: revisionResults,
+      engine_version: ENGINE_VERSION,
+    },
+  });
+  if (error) {
+    return {
+      error:
+        error.code === "23505"
+          ? "Bu iş kalemi için doküman no zaten kullanılıyor"
+          : error.message,
+    };
+  }
+  const created = (data as { project_id?: string; revision_id?: string }[] | null)?.[0];
+  if (!created?.project_id || !created.revision_id) {
+    return { error: "Hesap raporu oluşturuldu ancak kimliği okunamadı" };
+  }
+
+  revalidatePath("/projects");
+  revalidatePath(`/jobs/${parsed.data.job_id}`);
+  revalidatePath(`/projects/jobs/${parsed.data.job_id}`);
+  redirect(`/projects/${created.project_id}/revisions/${created.revision_id}`);
 }
 
 // ------------------------------------------ AI dosyasından teklif hesap raporu
@@ -582,7 +761,7 @@ const duplicateSchema = z.object({
   doc_no: z.string().trim().min(1, "Doküman no gerekli"),
   name: adAlani("Rapor adı gerekli"),
   customer: adAlani("Müşteri gerekli"),
-  /** Hedef iş emri; boş bırakılırsa kopya bağımsız kalır. */
+  /** Mühendislik kopyasında zorunlu hedef iş emri. */
   job_id: z.uuid("Geçersiz iş seçimi").nullable(),
   /** Hedef işin kalemi; seçilirse kalem yeni rapora yönlendirilir. */
   job_item_id: z.uuid("Geçersiz iş kalemi seçimi").nullable(),
@@ -618,6 +797,26 @@ export async function duplicateProject(
   const sourceContext = reportContextOf(source.report_context);
   const targetJobId = sourceContext === OFFER_REPORT_CONTEXT ? null : parsed.data.job_id;
   const targetJobItemId = sourceContext === OFFER_REPORT_CONTEXT ? null : parsed.data.job_item_id;
+
+  if (sourceContext === ENGINEERING_REPORT_CONTEXT) {
+    if (!targetJobId || !targetJobItemId) {
+      return { error: "Mühendislik hesap raporu kopyası için iş emri ve boş bir iş kalemi seçilmeli" };
+    }
+    const { data: targetItem } = await supabase
+      .from("job_items")
+      .select("id, project_id, jobs!inner(status)")
+      .eq("id", targetJobItemId)
+      .eq("job_id", targetJobId)
+      .maybeSingle();
+    if (!targetItem) return { error: "Seçilen iş kalemi bu iş emrine ait değil" };
+    const targetJobStatus = (targetItem.jobs as unknown as { status?: string } | null)?.status;
+    if (targetJobStatus !== "active") {
+      return { error: "Yeni hesap raporu yalnız aktif iş emrinde oluşturulabilir" };
+    }
+    if (targetItem.project_id) {
+      return { error: "Bu iş kaleminin hesap raporu zaten var; başka bir kalem seçin" };
+    }
+  }
 
   const { data: copy, error } = await supabase
     .from("projects")
@@ -676,7 +875,7 @@ export async function duplicateProject(
     await copyEquipmentAttachments(supabase, last.id, revision.id, user.id);
   }
 
-  // Seçilen iş kalemi bu yeni rapora bağlanır (kalem başka rapora bağlıysa devralınır)
+  // Seçilen boş iş kalemi bu yeni rapora bağlanır.
   if (targetJobId && targetJobItemId) {
     await supabase
       .from("job_items")

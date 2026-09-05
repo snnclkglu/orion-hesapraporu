@@ -7,7 +7,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionProfile } from "@/lib/profile";
-import { isAdminRole } from "@/lib/roles";
+import { canEditJobs, isAdminRole } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { loadCustomers, loadOffer } from "../data";
 import { loadOfferCosts } from "../cost-data";
@@ -46,6 +46,7 @@ export default async function OfferDetailPage({
         customers={customers}
         bugun={new Date().toISOString().slice(0, 10)}
         yonetici={isAdminRole(profile?.role)}
+        isEmriYazabilir={canEditJobs(profile?.role)}
       />
       {/* MALİYET AYRI BİR ZİNCİRDİR ve panelde AYRI bir tablo olarak durur.
           Teklif revizyonlarının tablosuna sütun eklenmedi: iki zincirin

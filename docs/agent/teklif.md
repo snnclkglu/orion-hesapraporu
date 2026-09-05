@@ -1947,3 +1947,34 @@ yılını seçer; “Temizle” de güncel yıla döner. Projeksiyon ve Kazanıl
 “Geçen Yıl” önceki takvim yılının 1 Ocak–31 Aralık aralığıdır. Kazanılan
 İşler'deki “Bu Yıl” da bugün eylül olsa bile 1 Ocak–31 Aralık arasındaki on iki
 ayı üretir; gelecekteki boş aylar grafikte sıfır kolon olarak kalır.
+
+## TEKLIF-82 — Kazanılan teklif yayınlı revizyondan TEK İŞLEMDE iş emrine dönüşür.
+
+Kazanılmış (`won`) teklifin detayında, İşler yazma yetkisi olan kullanıcıya
+**İş Emri Oluştur** eylemi görünür. Kaynak revizyon mutlaka yayınlıdır; taslak
+revizyon müşteriyle mutabık kalınmış teknik kaynak sayılmaz. Teklif daha önce
+bir işe bağlandıysa ikinci iş açılamaz ve eylem bağlı işi açar.
+
+Teklif yapısı sabit varsayılmaz. Görünür teknik kalemler varsayılan iş kalemi
+adayıdır; teknik kaleme bağlanmamış ana fiyat satırları ayrı ve seçilmemiş aday
+olarak gösterilir. Gizli kalemler taşınmaz, opsiyonel satırlar kendiliğinden
+seçilmez, çelişen/boş adet için sayı uydurulmaz. Kullanıcı taslakta kalemleri
+açıp kapatabilir, adını/adedi düzeltebilir ve yeni kalem ekleyebilir.
+
+İş, kalemler, `offers.job_id`, dönüşüm kaydı ve teknik devir kayıtları
+`create_job_from_offer` içinde atomik oluşur. Sunucu teklif snapshot'ını yeniden
+okur; tarayıcının gönderdiği teknik JSON'a güvenmez. Devir yalnız beyaz listedeki
+teknik olguları ve fiyatsız kaynak fotoğrafını taşır. Birim fiyat, maliyet,
+iskonto, toplam, ödeme ve hukuk metinleri mühendislik devrine girmez.
+
+## TEKLIF-83 — Teklif satırı NÖTRDÜR; müşteri alanı geniş, kapsam alanı dardır.
+
+Kullanıcı kararı (05.09.2026): teklif çizelgesinde bütün satır artık müşteri
+tonuyla boyanmaz. Müşteri rengi yalnız müşteri çipinde kalır; durum ve takip
+uyarılarının renkleri satır zemininde birbirine karışmaz. Mobil kart zemini de
+aynı nedenle nötr `card` rengidir.
+
+Masaüstü yüzde ızgarasında Müşteri sütunu `%7`den `%9,1`e çıkarılmıştır
+(yaklaşık `%30` artış); Kapsam `%13,9`a daralır, Konu `%27`yi alır. Bütün
+sütunların toplamı yine `%100`dür ve kap `overflow-x-hidden` taşır: uzun konu
+ve kapsam metni `title`da korunup hücrede üç noktayla kesilir.

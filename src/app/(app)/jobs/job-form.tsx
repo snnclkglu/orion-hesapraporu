@@ -16,8 +16,8 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarPlus, Minus, Plus, Save, Trash2 } from "lucide-react";
-import { createJob, updateJob } from "./actions";
+import { AlertTriangle, CalendarPlus, Minus, Plus, Save, Trash2 } from "lucide-react";
+import { createJob, createJobFromOffer, updateJob } from "./actions";
 import {
   CustomerPicker, NO_CUSTOMER, fieldsFromCustomer,
 } from "./customer-picker";
@@ -49,6 +49,16 @@ export interface PersonOption {
   id: string;
   full_name: string;
   title: string;
+}
+
+export interface OfferJobSourceContext {
+  offerId: string;
+  revisionId: string;
+  offerNo: string;
+  revisionLabel: string;
+  deliveryHint: string;
+  shippingHint: string;
+  warnings: string[];
 }
 
 const SCOPE_LABELS: { key: keyof JobInput["scope"]; label: string }[] = [
@@ -309,12 +319,15 @@ export function JobForm({
   jobId,
   customers,
   people,
+  offerSource,
 }: {
   mode: "create" | "edit";
   initial: JobInput;
   jobId?: string;
   customers: CustomerOption[];
   people: PersonOption[];
+  /** Kazanılan teklif taslağı; varsa kayıt atomik teklif dönüşüm action'ına gider. */
+  offerSource?: OfferJobSourceContext;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<JobInput>(() =>
@@ -329,12 +342,18 @@ export function JobForm({
   // diye örtüşmüyorsa kapalı başlar.
   const [autoNos, setAutoNos] = useState(() => {
     if (mode === "create") return true;
-    const want = autoItemNos(initial.job_no, initial.items.length);
-    return initial.items.every((it, i) => it.item_no === want[i]);
+    const included = initial.items.filter((it) => it.included !== false);
+    const want = autoItemNos(initial.job_no, included.length);
+    let position = 0;
+    return initial.items.every((it) =>
+      it.included === false ? it.item_no === "" : it.item_no === want[position++]
+    );
   });
   const [autoQty, setAutoQty] = useState(() => {
     if (mode === "create") return true;
-    return initial.quantity_text === autoQuantityText(initial.items);
+    return initial.quantity_text === autoQuantityText(
+      initial.items.filter((item) => item.included !== false)
+    );
   });
   const [autoTitle, setAutoTitle] = useState(mode === "create");
   // MONTAJ ADRESİ SEVKİN AYNISIDIR — kullanıcı kararı, 18.08.2026: *"Sevk ve
@@ -377,7 +396,18 @@ export function JobForm({
     setForm((f) => ({ ...f, items: f.items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)) }));
   }
   function addItem() {
-    setForm((f) => ({ ...f, items: [...f.items, { item_no: "", product_name: "", quantity: "1" }] }));
+    setForm((f) => ({
+      ...f,
+      items: [
+        ...f.items,
+        {
+          item_no: "",
+          product_name: "",
+          quantity: offerSource ? "" : "1",
+          included: true,
+        },
+      ],
+    }));
   }
   function removeItem(i: number) {
     setForm((f) => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
@@ -386,10 +416,16 @@ export function JobForm({
   // --- otomatik türetmeler -------------------------------------------------
   // Kalem numaraları iş nodan ve kalem SAYISINDAN çıkar: ikinci kalem eklendiği
   // anda ilk kalemin numarası da -00'dan -01'e kayar (firma kuralı).
-  const derivedNos = useMemo(
-    () => autoItemNos(form.job_no, form.items.length),
-    [form.job_no, form.items.length]
-  );
+  const derivedNos = useMemo(() => {
+    const numbered = autoItemNos(
+      form.job_no,
+      form.items.filter((item) => item.included !== false).length
+    );
+    let position = 0;
+    return form.items.map((item) =>
+      item.included === false ? "" : numbered[position++] ?? ""
+    );
+  }, [form.job_no, form.items]);
 
   // Türetilen değerleri GİRDİYE yazar: motor, PDF ve liste aynı sayıyı görür.
   // Efekt yalnız gerçekten farklıysa yazar, aksi hâlde döngüye girerdi.
@@ -399,7 +435,14 @@ export function JobForm({
     setForm((f) => {
       let next = f;
       if (autoNos) {
-        const want = autoItemNos(f.job_no, f.items.length);
+        const numbered = autoItemNos(
+          f.job_no,
+          f.items.filter((item) => item.included !== false).length
+        );
+        let position = 0;
+        const want = f.items.map((item) =>
+          item.included === false ? "" : numbered[position++] ?? ""
+        );
         if (f.items.some((it, i) => it.item_no !== want[i])) {
           next = { ...next, items: next.items.map((it, i) => ({ ...it, item_no: want[i] })) };
         }
@@ -411,7 +454,7 @@ export function JobForm({
         }
       }
       if (autoQty) {
-        const want = autoQuantityText(next.items);
+        const want = autoQuantityText(next.items.filter((item) => item.included !== false));
         if (next.quantity_text !== want) next = { ...next, quantity_text: want };
       }
       if (autoMontaj && next.assembly_address !== next.shipping_address) {
@@ -440,7 +483,9 @@ export function JobForm({
     startTransition(async () => {
       const result = mode === "edit" && jobId
         ? await updateJob(jobId, form)
-        : await createJob(form);
+        : offerSource
+          ? await createJobFromOffer(offerSource.offerId, offerSource.revisionId, form)
+          : await createJob(form);
       // Başarıda action redirect eder; yalnız hata dönerse buraya düşer.
       syncing.current = false;
       if (result?.error) toast.error(result.error);
@@ -449,6 +494,38 @@ export function JobForm({
 
   return (
     <form onSubmit={submit} className="grid gap-4">
+      {offerSource ? (
+        <section className="grid gap-2 rounded-lg border border-primary/25 bg-primary/5 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold">Tekliften Hazırlanan İş Emri</p>
+              <p className="font-mono text-xs text-muted-foreground">
+                {offerSource.offerNo} · {offerSource.revisionLabel}
+              </p>
+            </div>
+            <span className="rounded-full border bg-background px-2 py-1 text-[11px] font-medium">
+              Kaynak sabitlenir
+            </span>
+          </div>
+          {offerSource.deliveryHint ? (
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Termin önerisi:</span>{" "}
+              {offerSource.deliveryHint}. Kesin tarih otomatik yazılmadı.
+            </p>
+          ) : null}
+          {offerSource.shippingHint ? (
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Teslim/sevk yeri önerisi:</span>{" "}
+              {offerSource.shippingHint}. Tam adres olarak otomatik yazılmadı.
+            </p>
+          ) : null}
+          {offerSource.warnings.map((warning) => (
+            <p key={warning} className="flex gap-2 text-xs text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" /> {warning}
+            </p>
+          ))}
+        </section>
+      ) : null}
       {/* Başlık */}
       <Section
         title="İş Emri Başlığı"
@@ -554,9 +631,30 @@ export function JobForm({
             </div>
             {form.items.map((it, i) => (
               <div
-                key={i}
+                key={it.source_ref ?? i}
                 className="grid grid-cols-1 gap-2 border bg-muted/20 p-2 sm:grid-cols-[120px_1fr_116px_auto] sm:items-center sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0"
               >
+                {offerSource ? (
+                  <div className="grid gap-1 rounded-md border bg-background/80 px-2 py-2 sm:col-span-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-x-2">
+                    <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 text-sm font-medium pointer-coarse:min-h-10">
+                      <input
+                        type="checkbox"
+                        checked={it.included !== false}
+                        onChange={(event) => setItem(i, { included: event.target.checked })}
+                        className="size-4 accent-primary"
+                      />
+                      İş emrine dahil et
+                    </label>
+                    <div className="min-w-0 text-xs text-muted-foreground sm:pt-2">
+                      {it.source_label ? <p className="truncate">{it.source_label}</p> : null}
+                      {it.source_warnings?.map((warning) => (
+                        <p key={warning} className="mt-0.5 flex gap-1.5 text-amber-700 dark:text-amber-300">
+                          <AlertTriangle className="mt-0.5 size-3 shrink-0" /> {warning}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 <ItemField label="İş Kalemi No">
                   <Input
                     // `text-xs` dokunmatikte 12px yapıyordu ve iOS alana
@@ -854,7 +952,13 @@ export function JobForm({
           kalıyordu. Mobilde şerit alta yapışır, `sm`den itibaren eski akış.
           Negatif kenar boşluğu kabuğun `px-3` iç boşluğunu kenara taşır. */}
       <div className="sticky bottom-0 z-20 -mx-3 flex items-center gap-2 border-t bg-background px-3 py-3 sm:static sm:mx-0 sm:border-0 sm:p-0">
-        <Button type="submit" disabled={pending}>
+        <Button
+          type="submit"
+          disabled={
+            pending ||
+            (Boolean(offerSource) && form.items.every((item) => item.included === false))
+          }
+        >
           <Save className="size-4" /> {pending ? "Kaydediliyor…" : mode === "edit" ? "Kaydet" : "İş Emrini Oluştur"}
         </Button>
         <Button type="button" variant="ghost" onClick={() => router.back()}>

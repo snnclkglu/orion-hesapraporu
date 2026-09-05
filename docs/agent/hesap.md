@@ -1642,3 +1642,25 @@ tek (gerekirse kasıtlı iki) SABİT satır olarak basılır.
 
 **ŞEMANIN ÖNİZLEMESİ VAR:** `/dev/climate-room-preview` — dört varyant (1, 3 ve
 6 panolu oda ile kabin), auth'suz.
+
+## HESAP-39 — Yeni mühendislik raporu İŞ KALEMİNDEN doğar; başlangıç MANUEL veya TEKLİFTENDİR.
+
+Yeni mühendislik hesap raporu bağımsız açılamaz. Aktif bir iş emri ve henüz
+raporu olmayan benzersiz bir iş kalemi zorunludur; proje, V0 revizyonu,
+`job_items.project_id` bağı ve kaynak kaydı `create_engineering_report_v0`
+içinde atomik oluşur. Eski bağımsız raporlar okunabilir kalır fakat yeni rapor
+ve mühendislik kopyası için bağımsız seçenek sunulmaz.
+
+**Manuel** başlangıç güncel mühendislik şablonunu açar. **Tekliften** başlangıç
+yalnız kazanılmış teklif dönüşümünden fiyatsız teknik devri olan kalemleri
+gösterir; kullanıcı teklif/revizyon kaynağını, eşlenen alanları ve uyarıları
+oluşturmadan önce görür. V0 açıldığında kaynak şeridi kaç teknik alanın
+aktarıldığını ve mühendis kontrolü gerekip gerekmediğini gösterir.
+
+Tekliften kip yalnız `TechnicalSpecs` içindeki dar beyaz listeyi şablon
+girdilerinin üzerine yazar. Halat, motor, redüktör, teker, kiriş ve katalog
+seçimleri değiştirilmez; seçimler güncel şablondan gelir. Bu, ilerideki
+optimum seçim fazının bilinçli sınırıdır: teknik veri aktarımı otomatik seçim
+gibi sunulamaz ve kullanıcıya “ekipman seçimleri otomatik değiştirilmedi”
+denir. Çift hız/aralık gibi tek sayıya indirgenemeyen teklif değeri uydurulmaz,
+uyarı olarak bırakılır.

@@ -79,6 +79,9 @@ import {
 import { CustomerTag } from "@/components/tags";
 import { customerTag } from "@/lib/tags";
 import { cn } from "@/lib/utils";
+import { ListPagination } from "@/components/list-pagination";
+
+const PAGE_SIZE = 100;
 
 export interface JobRow extends JobListRow {
   id: string;
@@ -272,13 +275,20 @@ export function JobsTable({
   const params = useSearchParams();
   const state = useMemo(() => readJobsViewState(params), [params]);
   const router = useRouter();
+  const [page, setPage] = useState(1);
 
   const sorted = useMemo(() => sortJobs(rows, state.sirala), [rows, state.sirala]);
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const visibleRows = sorted.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   // ÇOKLU SEÇİM (kullanıcı onayı, 16.08.2026): kutular `sm` üstünde görünür —
   // telefonda birincil sütun daralamaz (MOBIL-15) ve toplu işlem masaüstü/tablet
-  // işidir. Seçim SÜZGEÇTEN BAĞIMSIZ yaşar ama "tümünü seç" yalnız GÖRÜNEN
-  // satırları alır; süzgeç değişince görünmeyen seçimler bar sayacında kalır.
+  // işidir. Seçim SAYFADAN BAĞIMSIZ yaşar ama "tümünü seç" yalnız açık
+  // sayfadaki satırları alır; başka sayfadaki seçimler bar sayacında kalır.
   const [secili, setSecili] = useState<ReadonlySet<string>>(new Set());
   const [topluDurum, setTopluDurum] = useState<JobStatus>("active");
   const [topluPending, startTopluTransition] = useTransition();
@@ -291,9 +301,16 @@ export function JobsTable({
       return y;
     });
   }
-  const tumSecili = sorted.length > 0 && sorted.every((j) => secili.has(j.id));
+  const tumSecili = visibleRows.length > 0 && visibleRows.every((j) => secili.has(j.id));
   function tumunuDegistir() {
-    setSecili(tumSecili ? new Set() : new Set(sorted.map((j) => j.id)));
+    setSecili((selected) => {
+      const next = new Set(selected);
+      for (const job of visibleRows) {
+        if (tumSecili) next.delete(job.id);
+        else next.add(job.id);
+      }
+      return next;
+    });
   }
 
   function topluCalistir(
@@ -317,17 +334,17 @@ export function JobsTable({
    * başlar. Varsayılana dönen sıralama adresten SİLİNİR (temiz adres kuralı).
    */
   function toggleSort(key: JobSortKey) {
+    setPage(1);
     const desc = state.sirala.key === key ? !state.sirala.desc : naturalDesc(key);
     adreseYaz({ sirala: serializeJobSort({ key, desc }) });
   }
 
   return (
     <>
-      {/* BÜYÜYEN DEFTER TABLOSU: kap `oc-table-clamp` ile 70dvh'ye kelepçelenir
-          ve başlık satırı yapışır (`oc-sticky-head`, yalnız `md` üstü). */}
-      <div className="oc-table-clamp rounded-lg border bg-card">
-        <Table>
-          <TableHeader className="oc-sticky-head">
+      {/* İç dikey kaydırma yoktur; yüz satır sayfa akışında görünür. */}
+      <div className="rounded-lg border bg-card">
+        <Table containerClassName="!overflow-x-hidden">
+          <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="hidden w-8 sm:table-cell">
                 <input
@@ -364,7 +381,7 @@ export function JobsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              sorted.map((j) => (
+              visibleRows.map((j) => (
                 <TableRow key={j.id} className="relative cursor-pointer">
                   <TableCell className="hidden sm:table-cell">
                     {/* Satır bağlantı katmanının ÜSTÜNDE kalmalı (z-10). */}
@@ -449,6 +466,13 @@ export function JobsTable({
           </TableBody>
         </Table>
       </div>
+
+      <ListPagination
+        page={currentPage}
+        pageSize={PAGE_SIZE}
+        total={sorted.length}
+        onPageChange={setPage}
+      />
 
       {/* TOPLU İŞLEM BARI — seçim varken listenin dibinde yapışır
           (demand-table kalıbı). `env(safe-area-inset-bottom)`: iOS ana ekran

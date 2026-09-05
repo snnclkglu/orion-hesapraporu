@@ -17,6 +17,10 @@ import {
   type JobOption,
 } from "../../new-project-dialog";
 import { ProjectsTable } from "../../projects-table";
+import {
+  indexEngineeringHandoffs,
+  type EngineeringHandoffRecord,
+} from "../../handoff-options";
 
 export default async function JobProjectDocumentsPage({
   params,
@@ -36,6 +40,7 @@ export default async function JobProjectDocumentsPage({
     { data: projects },
     { data: activeJobsData },
     { data: customersData },
+    { data: handoffData },
     settings,
   ] = await Promise.all([
     supabase
@@ -58,6 +63,10 @@ export default async function JobProjectDocumentsPage({
       .from("customers")
       .select("id, name, short_name, logo_path")
       .order("name", { ascending: true }),
+    supabase
+      .from("offer_engineering_handoffs")
+      .select("id, job_id, job_item_no, source_offer_no, source_revision_no, eligibility, crane_type, technical_facts, mapped_fields, warnings")
+      .order("created_at", { ascending: false }),
     getReportSettings(supabase),
   ]);
   if (!job) notFound();
@@ -76,13 +85,21 @@ export default async function JobProjectDocumentsPage({
     job_customer: job.customer,
   }));
 
+  const handoffs = indexEngineeringHandoffs(
+    (handoffData ?? []) as EngineeringHandoffRecord[]
+  );
+  const withHandoff = (jobId: string, items: unknown): JobItemOption[] =>
+    ((items ?? []) as JobItemOption[]).map((item) => ({
+      ...item,
+      handoff: handoffs.get(`${jobId}:${item.item_no}`) ?? null,
+    }));
   const activeJobs: JobOption[] = (activeJobsData ?? []).map((entry) => ({
     id: entry.id,
     job_no: entry.job_no,
     title: entry.title,
     customer: entry.customer,
     customer_id: entry.customer_id,
-    items: (entry.job_items ?? []) as unknown as JobItemOption[],
+    items: withHandoff(entry.id, entry.job_items),
   }));
   const currentJob: JobOption = {
     id: job.id,
@@ -90,7 +107,7 @@ export default async function JobProjectDocumentsPage({
     title: job.title,
     customer: job.customer,
     customer_id: job.customer_id,
-    items: (job.job_items ?? []) as unknown as JobItemOption[],
+    items: withHandoff(job.id, job.job_items),
   };
   const customerOptions: CustomerOption[] = (customersData ?? []).map((entry) => ({
     id: entry.id,

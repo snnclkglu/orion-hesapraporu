@@ -65,7 +65,7 @@ function row(
   };
 }
 
-const ROWS: SaleRow[] = [
+const BASE_ROWS: SaleRow[] = [
   row("0002-00", "CÜRUF POTA TUMBA TESİSİ 100/50 TON KÖPRÜLÜ VİNÇ",
     "KARÇEL KARDEMİR ÇELİK YAPI İMALAT SAN.VE TİC.LTD.ŞTİ.", "2024-03-11", {
       scope: "Hazır Ekipmanlar ve Elektrik Hariç", due_date: "2025-02-04",
@@ -98,6 +98,27 @@ const ROWS: SaleRow[] = [
       scope: "Komple İmalat", quantity: 1, unit: "Adet", unit_price: 42000,
       currency: "TRY", fx_rate: null,
     }),
+];
+
+// Sayfalama görünür olsun: arama bütün 105 kayıtta, DOM ise 100'lük sayfada.
+const ROWS: SaleRow[] = [
+  ...BASE_ROWS,
+  ...Array.from({ length: 100 }, (_, index) =>
+    row(
+      `${String(70 + index).padStart(4, "0")}-00`,
+      `${index + 1}. ÖNİZLEME VİNCİ — UZUN ÜRÜN ADI SÜTUNU GENİŞLETMEMELİ`,
+      index % 2 === 0 ? "ASTOR A.Ş." : "LITEC MAKİNA SAN. VE TİC. A.Ş.",
+      `2026-${String((index % 12) + 1).padStart(2, "0")}-15`,
+      {
+        scope: "Komple İmalat",
+        quantity: 1,
+        unit: "Adet",
+        unit_price: 12_345.67 + index,
+        currency: "EUR",
+        fx_rate: 1,
+      }
+    )
+  ),
 ];
 
 export default function SalesPreviewPage() {

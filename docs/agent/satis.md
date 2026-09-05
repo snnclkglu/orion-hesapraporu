@@ -125,3 +125,20 @@ Satış Takibi · Müşteri Bazında Ciro · Satış Faturaları rayı telefonda
 bölüm seçicisidir. Satış, ciro ve fatura çizelgeleri mobil kartlara katlanır;
 kalem/müşteri kimliği, tutar ve satır işlemleri aynı kartta kalır. Düzenleme
 pencereleri ve satır tıklama davranışı değişmemiştir; yatay kaydırma yoktur.
+
+## SATIS-17 — Satış defteri sayfaya sığar ve 100 satırlık sayfalara ayrılır.
+
+Kullanıcı kararı (05.09.2026): Satış Takibi çizelgesi masaüstünde de iç yatay
+ve dikey kaydırıcı açmaz. `table-fixed` yüzde ızgarası bütün sütunları `%100`
+içinde tutar; daralma öncelikle Ürün sütunundan alınır ve tam ürün adı
+`title`da korunur. Tablet/telefon kart görünümü değişmez.
+
+Tutar ve Avro Karşılığı sütunlarında kuruş gösterilmez; `maximumFractionDigits:
+0` yalnız sunum yuvarlamasıdır, veritabanındaki ve toplam hesabındaki ondalık
+değer değişmez. Daralan para sütunları sağa hizalı ve sekmeli rakamlı kalır.
+
+Filtreleme, arama ve sıralama bütün istemci veri kümesinde çalışır; sonuç en son
+100 satırlık sayfalara dilimlenir. Bu yüzden ikinci/üçüncü sayfadaki kayıt
+aramada bulunabilir ve özet kartlar yalnız açık sayfadan değil bütün süzülmüş
+sonuçtan hesaplanır. Sayfa numaraları ve önceki/sonraki eylemleri tablonun
+altındadır; 100 veya daha az sonuçta gereksiz sayfalama çizilmez.

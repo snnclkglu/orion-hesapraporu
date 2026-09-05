@@ -42,6 +42,21 @@ export const jobItemSchema = z.object({
   item_no: z.string().trim().max(40).default(""),
   product_name: upperText(300),
   quantity: z.string().trim().max(40).default(""),
+  /**
+   * Tekliften iş emri taslağında aday satırın kullanıcı tarafından kabulü.
+   * DB sütunu değildir; kayıt yolu yalnız `included !== false` satırları yazar.
+   */
+  included: z.boolean().optional(),
+  /**
+   * `technicalItem:<id>` / `standalonePriceLine:<id>` biçimindeki kaynak izi.
+   * İstemciden gelen teknik snapshot'a güvenilmez; sunucu bu izi kullanarak
+   * yayımlanmış teklif revizyonunu yeniden ayıklar.
+   */
+  source_ref: z.string().trim().max(200).optional(),
+  /** Yalnız teklif taslağı arayüzünde gösterilen fiyatsız kaynak etiketi. */
+  source_label: z.string().trim().max(300).optional(),
+  /** Yalnız teklif taslağı arayüzünde gösterilen kontrol notları. */
+  source_warnings: z.array(z.string().trim().max(500)).max(30).optional(),
 });
 
 export const jobInputSchema = z.object({

@@ -12,10 +12,8 @@
 // listeleri aynı fonksiyonlardan geçer. İki süzgeç yazılsaydı başlıktaki sayı
 // ile listedeki satırlar sessizce ayrışırdı.
 //
-// SATIR RENGİ MÜŞTERİNİNDİR (*"farklı müşteri teklifleri satırda farklı renk
-// görünsün"*). Ton defterdeki `color_hue`dur; defterde karşılığı olmayan ad
-// metinden türetilir, yani satır hiçbir zaman renksiz kalmaz. Renk TEK TAŞIYICI
-// DEĞİLDİR: aynı bilgi müşteri çipinde yazıyla da durur.
+// Müşteri rengi yalnız müşteri çipindedir. Satır zemini nötrdür; yoğun renkli
+// satırlar teklif durumu ve takip uyarılarının görsel önceliğini eziyordu.
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -68,7 +66,7 @@ import { OfferRowActions } from "./offer-row-actions";
  */
 const SIRA_BASLIKLARI: { key: OfferSortKey; label: string; sag?: boolean; en: string }[] = [
   { key: "no", label: "Teklif No", en: "w-[15%]" },
-  { key: "musteri", label: "Müşteri", en: "w-[7%]" },
+  { key: "musteri", label: "Müşteri", en: "w-[9.1%]" },
   { key: "tarih", label: "Tarih", en: "w-[12%]" },
   { key: "durum", label: "Durum", en: "w-[10%]" },
   { key: "tutar", label: "Tutar", sag: true, en: "w-[9%]" },
@@ -234,20 +232,15 @@ export function OffersTable({
                       </button>
                     </TableHead>
                   ))}
-                  <TableHead className="w-[23%]">Konu</TableHead>
-                  <TableHead className="w-[20%]">Kapsam</TableHead>
+                  <TableHead className="w-[27%]">Konu</TableHead>
+                  <TableHead className="w-[13.9%]">Kapsam</TableHead>
                   <TableHead className="w-[4%]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {suzulmus.map((row) => {
-                  const tag = customerTag({
-                    name: row.customer_name,
-                    shortName: row.customerShort,
-                    hue: row.customerHue,
-                  });
                   return (
-                    <TableRow key={row.id} className="oc-row-hue" style={tagStyle(tag.hue)}>
+                    <TableRow key={row.id}>
                       <TableCell className="font-mono text-xs whitespace-nowrap">
                         <Link href={`/offers/${row.id}`} className="hover:underline">
                           {row.offer_no}
@@ -306,13 +299,8 @@ export function OffersTable({
           {/* Telefon: tablo LİSTEYE katlanır (MOBIL kuralı). */}
           <ul className="grid gap-2 md:hidden">
             {suzulmus.map((row) => {
-              const tag = customerTag({
-                name: row.customer_name,
-                shortName: row.customerShort,
-                hue: row.customerHue,
-              });
               return (
-                <li key={row.id} className="oc-row-hue rounded-md border p-3" style={tagStyle(tag.hue)}>
+                <li key={row.id} className="rounded-md border bg-card p-3">
                   <div className="flex items-start justify-between gap-2">
                     <Link href={`/offers/${row.id}`} className="grid gap-1">
                       <span className="font-mono text-xs">

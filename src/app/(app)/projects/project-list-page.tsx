@@ -23,6 +23,10 @@ import {
   projectRowsFromRecords,
   type ProjectListRecord,
 } from "@/lib/project-list";
+import {
+  indexEngineeringHandoffs,
+  type EngineeringHandoffRecord,
+} from "./handoff-options";
 
 /**
  * Mühendislik ve Teklif Hesap Raporları listelerinin ortak sunucu görünümü.
@@ -44,7 +48,13 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
     .eq("report_context", context)
     .order("created_at", { ascending: false });
 
-  const [{ data: projects }, { data: jobsData }, { data: customersData }, settings] = await Promise.all([
+  const [
+    { data: projects },
+    { data: jobsData },
+    { data: customersData },
+    { data: handoffData },
+    settings,
+  ] = await Promise.all([
     projectQuery,
     supabase
       .from("jobs")
@@ -55,6 +65,12 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
       .from("customers")
       .select("id, name, short_name, logo_path")
       .order("name", { ascending: true }),
+    offerContext
+      ? Promise.resolve({ data: [] as EngineeringHandoffRecord[] })
+      : supabase
+          .from("offer_engineering_handoffs")
+          .select("id, job_id, job_item_no, source_offer_no, source_revision_no, eligibility, crane_type, technical_facts, mapped_fields, warnings")
+          .order("created_at", { ascending: false }),
     getReportSettings(supabase),
   ]);
 
@@ -64,13 +80,19 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
   const isAdmin = profile?.role === "admin";
   // Teklif raporu kazanılmış bir işe bağlanmaz. Sorgunun sonucu yalnız ortak
   // TS tipini korumak için alınır; teklif bağlamında seçenek listesine girmez.
+  const handoffs = indexEngineeringHandoffs(
+    (handoffData ?? []) as EngineeringHandoffRecord[]
+  );
   const jobs = (offerContext ? [] : jobsData ?? []).map((job) => ({
     id: job.id,
     job_no: job.job_no,
     title: job.title,
     customer: job.customer,
     customer_id: job.customer_id,
-    items: (job.job_items ?? []) as unknown as JobItemOption[],
+    items: ((job.job_items ?? []) as unknown as JobItemOption[]).map((item) => ({
+      ...item,
+      handoff: handoffs.get(`${job.id}:${item.item_no}`) ?? null,
+    })),
   }));
   const customerOptions: CustomerOption[] = (customersData ?? []).map((entry) => ({
     id: entry.id,
