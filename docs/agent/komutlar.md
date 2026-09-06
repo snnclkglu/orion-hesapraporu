@@ -89,6 +89,11 @@
   DETERMİNİZM sınaması (aynı girdi iki kez → aynı plan). `--svg` ile şemalar
   dosyaya yazılır; indirilen SVG'nin kendi başına açıldığı böyle görülür.
   Yerleştirme kuralına (PANO-4…PANO-10) dokunmadan önce koştur
+- `npx tsx scripts/probe-device-dimensions.ts <pdf> <tip-no|--olcu|--sayfa:N>`
+  — üretici katalogunun METİN KATMANINDA ölçü var mı, GÖSTER. Tip numarasına,
+  ölçü sözcüklerine (`--olcu`) ya da tek bir sayfaya (`--sayfa:164`) göre
+  döker. Ölçü defterine (PANO-12) hiçbir şey YAZMAZ — sayfada geçmek sahiplik
+  değildir (PANO-17), eşlemeyi insan yapar
 - `npx tsx scripts/test-electrical-catalog-appendix.ts [dokuman-no] [cikti.pdf]
   [sayfa-siniri]` — güncel elektrik projesindeki doğrulanmış teknik belgeleri
   EK-F dizini ve iç bağlantılarıyla PDF'e dök. Varsayılan sınır 2'dir; detaylı

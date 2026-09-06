@@ -389,3 +389,29 @@ yönlendirir (`diagramForSection`). Pano şeması bir hesap bölümü değildir 
 `pdf/nesting-plan.tsx` onu `select.ts`e uğramadan içe aktarır. Oraya kaydetmek
 şemayı sihirbazın ve el kitabı şema seçicisinin listesine sokardı; orada bir
 pano yerleşiminin işi yoktur.
+
+## PANO-17 — Ölçü katalogdan OTOMATİK ÇEKİLMEZ; sayfada geçmek sahiplik değildir.
+
+Ölçü defterini (PANO-12) 274 üretici PDF'inden toplu ayıklamak istendi ve
+ölçüldü: **tip numarasının bir sayfada geçmesi, o sayfadaki ölçülerin ona ait
+olduğu anlamına GELMEZ.**
+
+Somut örnek (06.09.2026): `6SL3120-1TE23-0AC0` (SINAMICS S120 Motor Module)
+`SIEMENS - SINAMICS S120 Booksize ve SIMOTICS Katalog D 21.4` belgesinin 164.
+sayfasında geçiyor ve o sayfada eksiksiz bir `Dimensions · Width/Height/Depth`
+tablosu var. Ama tablo **motor reaktörünündür**; sürücü orada yalnız "şu Motor
+Module için uygundur" satırında adı geçen bir referanstır. Yakınlığa bakan bir
+ayıklayıcı 178 × 153 × 88 mm'yi sürücüye yazardı ve o pano sahada 300 mm
+eksik çıkardı.
+
+Aynı belgede ölçüler bir de GÖVDE SINIFINA göre veriliyor (50 · 100 · 150 mm
+booksize genişlikleri, s. 173/263/316) — sipariş numarasına göre değil. Yani
+eşleme "sipariş no → ölçü" değil, "sipariş no → gövde sınıfı → ölçü"dür ve o
+ara adım belgeden okunmadan kurulamaz.
+
+Sonuç: ayıklama marka marka ve tablo tablo yapılır (`scripts/catalog-extract/`
+deseni), sonucu insan doğrular ve deftere `source = 'elle'` ya da doğrulanmış
+`'katalog'` olarak girer. `scripts/probe-device-dimensions.ts` bu işin
+gözüdür: belgeyi taramaz, GÖSTERİR — tip numarasına, ölçü sözcüklerine ya da
+sayfa numarasına göre metin katmanını döker. Otomatik yazma YOKTUR
+(değişmez md. 4).
