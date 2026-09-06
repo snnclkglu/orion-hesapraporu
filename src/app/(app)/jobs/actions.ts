@@ -6,12 +6,17 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { canEditJobs } from "@/lib/roles";
 import { JOB_STATUSES, JOB_STATUS_LABELS, type JobStatus } from "@/lib/job-status";
 import { autoShortName, nextDistinctHue } from "@/lib/tags";
 import { notifyTargets } from "@/lib/jobs/notify";
+import {
+  defaultDrawingQty,
+  drawingQtyAfterJobEdit,
+} from "@/lib/jobs/drawing-qty";
 import {
   buildJobDraftFromOffer,
   OFFER_JOB_MAPPING_VERSION,
@@ -102,7 +107,15 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
   if (items.length > 0) {
     const { error: itemsError } = await supabase
       .from("job_items")
-      .insert(items.map((it) => ({ ...it, job_id: job.id })));
+      .insert(
+        items.map((it) => ({
+          ...it,
+          job_id: job.id,
+          qty: defaultDrawingQty(it.quantity),
+          // NULL bu sütunun kanonik "Kendi resimleri" değeridir.
+          shares_drawings_with: null,
+        }))
+      );
     if (itemsError) return { error: itemsError.message };
   }
 
@@ -166,7 +179,7 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
   // açılır, sonra bağlar kurulur.
   const zenginOkuma = await supabase
     .from("job_items")
-    .select("item_no, project_id, qty, shares_drawings_with, id")
+    .select("item_no, project_id, quantity, qty, shares_drawings_with, id")
     .eq("job_id", jobId);
   const carpanSutunlariVar = !zenginOkuma.error;
   const existing = carpanSutunlariVar
@@ -174,7 +187,10 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
     : (await supabase.from("job_items").select("item_no, project_id, id").eq("job_id", jobId)).data;
 
   const linkByNo = new Map<string, string>();
-  const qtyByNo = new Map<string, number>();
+  const qtyByNo = new Map<
+    string,
+    { qty: number | null; quantityText: string }
+  >();
   /** eski kimlik → kalem no; eşleştirmeyi numaraya çevirmek için. */
   const noById = new Map<string, string>();
   const shareByNo = new Map<string, string>();
@@ -182,7 +198,12 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
     const no = String(r.item_no ?? "");
     if (r.project_id && no) linkByNo.set(no, r.project_id as string);
     if (r.id && no) noById.set(String(r.id), no);
-    if (r.qty != null && no) qtyByNo.set(no, Number(r.qty));
+    if (no) {
+      qtyByNo.set(no, {
+        qty: r.qty == null ? null : Number(r.qty),
+        quantityText: String(r.quantity ?? ""),
+      });
+    }
   }
   for (const r of (existing ?? []) as Record<string, unknown>[]) {
     const no = String(r.item_no ?? "");
@@ -199,7 +220,17 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
         ...it,
         job_id: jobId,
         project_id: linkByNo.get(it.item_no) ?? null,
-        ...(carpanSutunlariVar ? { qty: qtyByNo.get(it.item_no) ?? null } : {}),
+        ...(carpanSutunlariVar
+          ? {
+              qty: qtyByNo.has(it.item_no)
+                ? drawingQtyAfterJobEdit({
+                    previousQty: qtyByNo.get(it.item_no)!.qty,
+                    previousQuantityText: qtyByNo.get(it.item_no)!.quantityText,
+                    nextQuantityText: it.quantity,
+                  })
+                : defaultDrawingQty(it.quantity),
+            }
+          : {}),
       }))
     );
     if (itemsError) return { error: itemsError.message };
@@ -486,6 +517,46 @@ export async function createJobFromOffer(
   revalidatePath("/offers");
   revalidatePath(`/offers/${offerId}`);
   redirect(`/jobs/${created.job_id}`);
+}
+
+/**
+ * Kazanılmış eski bir teklifi MEVCUT iş emrine yalnız belge kaynağı olarak
+ * bağlar. İş emrinin müşteri, tarih, kapsam ve kalemleri bu eylemde taşınmaz;
+ * atomik RPC bu değişmezliği veritabanında da korur.
+ */
+export async function linkOfferToExistingJob(
+  jobId: string,
+  offerId: string
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const izin = await yazmaIzni(supabase);
+  if (izin.error || !izin.user) return { error: izin.error };
+
+  const ids = z.object({ jobId: z.uuid(), offerId: z.uuid() }).safeParse({
+    jobId,
+    offerId,
+  });
+  if (!ids.success) return { error: "Geçersiz iş emri veya teklif seçimi" };
+
+  const { error } = await supabase.rpc("link_offer_to_existing_job", {
+    p_job_id: ids.data.jobId,
+    p_offer_id: ids.data.offerId,
+  });
+  if (error) {
+    return {
+      error:
+        error.code === "23505"
+          ? "Bu teklif veya iş emri daha önce başka bir bağlantıda kullanılmış"
+          : error.message,
+    };
+  }
+
+  revalidatePath("/jobs");
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}/edit`);
+  revalidatePath("/offers");
+  revalidatePath("/projects");
+  return {};
 }
 
 // ------------------------------------------------------------------ müşteri

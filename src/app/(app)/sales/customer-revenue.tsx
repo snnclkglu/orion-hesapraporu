@@ -12,7 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { CustomerTag } from "@/components/tags";
-import { fmtNum } from "@/lib/currency";
+import { fmtTutar } from "@/lib/currency";
 import { saleYear, type SaleRow } from "./schema";
 import { cn } from "@/lib/utils";
 
@@ -69,7 +69,7 @@ export function CustomerRevenue({ rows }: { rows: SaleRow[] }) {
           </SelectContent>
         </Select>
         <span className="ml-auto font-mono text-sm font-semibold tabular-nums">
-          {fmtNum(eur)} € · {byCustomer.length} müşteri · {kalem} kalem
+          {fmtTutar(eur)} € · {byCustomer.length} müşteri · {kalem} kalem
         </span>
       </div>
 
@@ -108,7 +108,7 @@ export function CustomerRevenue({ rows }: { rows: SaleRow[] }) {
                           sayısı `sm`de sütuna döner, pay yüzdesi ancak `md`de
                           (Pay sütunu orada görünür) — arada kaybolmasın. */}
                       <span className="mt-0.5 block font-mono text-[11px] tabular-nums text-muted-foreground md:hidden">
-                        <span className="sm:hidden">{v.count} kalem · </span>%{fmtNum(share * 100)}
+                        <span className="sm:hidden">{v.count} kalem · </span>%{fmtTutar(share * 100)}
                       </span>
                     </TableCell>
                     <TableCell
@@ -118,7 +118,7 @@ export function CustomerRevenue({ rows }: { rows: SaleRow[] }) {
                       {v.count}
                     </TableCell>
                     <TableCell data-label="Ciro (Avro)" className="text-right align-top font-mono text-sm tabular-nums sm:align-middle">
-                      {fmtNum(v.eur)} €
+                      {fmtTutar(v.eur)} €
                     </TableCell>
                     <TableCell data-label="Pay" className={AT_MD}>
                       <div className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export function CustomerRevenue({ rows }: { rows: SaleRow[] }) {
                           />
                         </div>
                         <span className="w-11 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
-                          %{fmtNum(share * 100)}
+                          %{fmtTutar(share * 100)}
                         </span>
                       </div>
                     </TableCell>

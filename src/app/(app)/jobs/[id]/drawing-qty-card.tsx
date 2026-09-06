@@ -14,9 +14,8 @@
 // ═══════════════════════════════════════════ NEDEN İŞ EMRİ FORMUNDA DEĞİL
 //
 // İş emri formundaki "Adet" alanı SERBEST METİNdir ve öyle kalmalıdır: müşteriye
-// giden belge "1 Takım" ya da "Muhtelif" yazar ve bu bir sayıya indirgenemez.
-// Buradaki adet BAŞKA BİR ŞEYdir — imalat ve satın alma çarpanı. İkisini aynı
-// alana sıkıştırmak, ya belgeyi ya çarpanı bozardı.
+// giden belge "1 Takım" ya da "Muhtelif" yazar. Sayısal çarpan yeni kalemde bu
+// metnin tek anlamlı hâlinden OTOMATİK kaydolur; özel durumda burada değiştirilir.
 //
 // Kart iki alanı YAN YANA koyar çünkü ikisi de tek bir soruya hizmet eder:
 // "bu resimden kaç takım üretilecek?"
@@ -50,7 +49,7 @@ export interface KalemSatiri {
   productName: string;
   /** İş emrindeki serbest metin ("1 Takım", "Muhtelif") — SALT OKUNUR. */
   quantityText: string;
-  /** Sayısal adet; `null` = bilinmiyor. */
+  /** Sayısal adet; eski/veri göçü bekleyen kayıtta `null` olabilir. */
   qty: number | null;
   sharesWith: string | null;
 }
@@ -75,15 +74,16 @@ export function DrawingQtyCard({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-4 py-2">
         <span className="text-sm font-semibold">Resim Çarpanı</span>
         <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {kalemler.filter((k) => k.qty != null).length}/{kalemler.length} adet girilmiş
+          İş emri adedinden otomatik
         </span>
       </div>
 
       <p className="border-b px-4 py-2 text-xs text-muted-foreground">
-        Teknik ressam <strong>bir adede göre</strong> çizer. Buradaki adet, teknik resim ve
-        satın alma listelerindeki miktarları çarpar. İki kalem aynı resimleri kullanıyorsa
-        (ör. yalnız montaj konumu farklıysa) birini diğerine bağlayın — resim tek, adet
-        <strong> ikisinin toplamı</strong> olur.
+        Adet iş emrindeki kalem miktarından, resim kaynağı ise <strong>Kendi resimleri</strong>
+        olarak otomatik kaydolur. Özel durumda bu alanları değiştirin. İki kalem aynı
+        resimleri kullanıyorsa birini diğerine bağlayın — resim tek, adet
+        <strong> ikisinin toplamı</strong> olur. Sayıya çevrilemeyen serbest adetler güvenli
+        başlangıç olarak 1 kaydolur.
       </p>
 
       {!hazir && (
@@ -210,7 +210,7 @@ function Satir({
   ) : hedefSecilebilir && hedefler.length > 0 && hazir ? (
     <Select value={KENDI} onValueChange={paylas}>
       <SelectTrigger size="sm" className="w-full text-base pointer-fine:text-xs">
-        <SelectValue />
+        <SelectValue>Kendi resimleri</SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={KENDI}>Kendi resimleri</SelectItem>

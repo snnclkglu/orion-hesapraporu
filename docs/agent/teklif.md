@@ -2014,3 +2014,11 @@ ile ikinci kez süzer. İşler'deki bağlantılar yalnız bu rotaya gider ve hi�
 yerde `/offers/[id]` adresini açmaz. Doküman kalıcı bir ikinci teklif kaydı
 değildir; bağ ve yayımlanmış revizyon değişmezlerinden tekrar üretilebilen,
 denetlenebilir bir iş kopyasıdır.
+
+## TEKLIF-86 — Eski kazanılmış teklif mevcut işe belge kaynağı olabilir.
+
+İş emri Düzenle sayfası, başka işe bağlı olmayan veya geçmiş göçte zaten o işe
+atanmış kazanılmış teklifleri seçtirir. Son yayımlanmış revizyon kaynak olarak
+`offer_job_conversions` satırına sabitlenir; bundan sonra İşler ve Mühendislik
+TEKLIF-85'teki sade dokümanı görür. Bu yol teklif teknik verisinden yeni iş
+kalemi üretmez ve mevcut iş emri alanlarını değiştirmez (IS-35).

@@ -488,3 +488,38 @@ tarafında asıl teklif detayına bağlantı verilmez. İş detayında Genel Bak
 yanında koşullu **Teklif Dokümanı** sekmesi; ana tabloda Müşteri ile Kalem
 arasında **İş Emri PDF** ve varsa **Teklif** indirme düğmeleri bulunur. Kaynak
 doküman yoksa sekme ve Teklif düğmesi hiç çizilmez.
+
+## IS-35 — Mevcut işe teklif bağlamak iş emrini değiştirmez.
+
+Eski bir iş emri, **Düzenle** sayfasındaki Teklif Dokümanı kartından eski bir
+kazanılmış teklife bağlanabilir. Adaylar yayımlanmış revizyonu olan, başka bir
+işe bağlı olmayan teklifler ile geçmiş veri göçünde zaten bu işe atanmış fakat
+dönüşüm izi bulunmayan tekliftir. Kaynak, bağlama anındaki son yayımlanmış
+revizyonda sabitlenir.
+
+Bu işlem yeni iş emri dönüşümü değildir: `jobs`, `job_items`, tarihler, müşteri,
+kapsam, adet ve teknik devir satırları yazılmaz. Yalnız `offers.job_id` ile
+`offer_job_conversions` belge kaynağı kurulur ve IS-34'teki fiyat/ödeme dışı
+Teklif Dokümanı görünür olur. Aynı iş veya teklif ikinci bir bağda kullanılamaz;
+işlem denetim kaydında `job_fields_changed=false` izi bırakır.
+
+## IS-36 — İşler'in kalem tablosu hesap raporu takibi yapmaz.
+
+Genel Bakış'taki İş Kalemleri tablosu yalnız sıra, iş kalemi no, ürün ve iş
+emri adedini gösterir. Hesap Raporu sütunu, bağlama açıklaması ve kaleme
+bağlanmamış raporlar listesi kaldırılmıştır; bunların tamamı Mühendislik
+bölümünün kendi defterinde izlenir. Veri ilişkisi silinmez, yalnız yanlış
+bölümdeki ikinci sunum kaldırılır.
+
+## IS-37 — Resim çarpanı iş emri adedinden otomatik başlar.
+
+Yeni `job_items` satırında sayısal `qty`, iş emrindeki serbest `quantity`
+metninden otomatik kaydolur; resim kaynağı `shares_drawings_with=null`, yani
+**Kendi resimleri**dir. Yalnız `3`, `3 Adet`, `3 Takım` gibi tek anlamlı
+ifadeler sayıya çevrilir. `10+10`, `90x2 180 m`, `Muhtelif` gibi özel veya
+ölçü içeren ifadelerden ilk sayı alınmaz; düzenlenebilir güvenli başlangıç 1'dir.
+
+İş emri düzenlenirken önceki çarpan eski otomatik değere eşitse yeni iş emri
+adedini izler. Kullanıcı Resim Çarpanı kartında farklı bir özel değer verdiyse
+bu değer korunur. Eski NULL satırlar migration sırasında aynı kuralla
+doldurulur; kullanıcı özel durumları karttan değiştirmeye devam eder.

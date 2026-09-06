@@ -10,6 +10,9 @@ const migration = read(
 const fixMigration = read(
   "supabase/migrations/20260905000002_offer_win_and_engineering_v0_fix.sql"
 );
+const existingLinkMigration = read(
+  "supabase/migrations/20260906000001_existing_offer_link_and_drawing_qty_defaults.sql"
+);
 
 describe("teklif → iş emri → mühendislik veri sözleşmesi", () => {
   it("kazanılmış/yayınlı teklifi tek işlemde işe bağlar", () => {
@@ -82,6 +85,30 @@ describe("teklif → iş emri → mühendislik veri sözleşmesi", () => {
     expect(picker).toContain("/work-order`");
   });
 
+  it("eski işi kazanılmış eski teklife yalnız doküman kaynağı olarak bağlar", () => {
+    const editPage = read("src/app/(app)/jobs/[id]/edit/page.tsx");
+    const linker = read(
+      "src/app/(app)/jobs/[id]/edit/existing-offer-linker.tsx"
+    );
+    const fn = existingLinkMigration.slice(
+      existingLinkMigration.indexOf(
+        "create or replace function public.link_offer_to_existing_job"
+      ),
+      existingLinkMigration.indexOf(
+        "revoke all on function public.link_offer_to_existing_job"
+      )
+    );
+    expect(editPage).toContain("<ExistingOfferLinker");
+    expect(editPage).toContain("job_id.is.null,job_id.eq.${id}");
+    expect(linker).toContain("aşağıdaki iş emri bilgileri ve iş kalemleri değişmez");
+    expect(fn).toContain("v_offer.status::text <> 'won'");
+    expect(fn).toContain("order by r.rev_no desc");
+    expect(fn).toContain("insert into public.offer_job_conversions");
+    expect(fn).toContain("update public.offers");
+    expect(fn).not.toMatch(/\n\s*update public\.jobs\b/i);
+    expect(fn).not.toMatch(/\n\s*update public\.job_items\b/i);
+  });
+
   it("İşler'e açılan teklif RPC'si ticari alanları DB içinde ayıklar", () => {
     expect(fixMigration).toContain("create or replace function public.job_offer_document_payload");
     expect(fixMigration).toContain("'pricing', '{}'::jsonb");
@@ -109,15 +136,43 @@ describe("teklif → iş emri → mühendislik veri sözleşmesi", () => {
   it("Mühendislik okumasını yalnız Yönetici, Müdür ve Mühendise açar", () => {
     const roles = read("src/lib/roles.ts");
     const layout = read("src/app/(app)/projects/layout.tsx");
-    const jobDetail = read("src/app/(app)/jobs/[id]/(hub)/page.tsx");
     expect(roles).toContain("export function canSeeEngineering");
     expect(roles).toContain("visible: canSeeEngineering");
     expect(layout).toContain("if (!profile || !canSeeEngineering(profile.role)) redirect");
-    expect(jobDetail).toContain("canViewEngineering={canViewEngineering}");
-    expect(jobDetail).toContain("Rapor erişimi yetki gerektiriyor");
     expect(fixMigration).toContain("create or replace function public.can_see_engineering");
     expect(fixMigration).toContain("p.role::text in ('admin', 'manager', 'engineer')");
     expect(fixMigration).toContain('create policy "projects_select"');
+  });
+
+  it("İş Kalemleri tablosu mühendislik raporu sütunu veya yönlendirme notu taşımaz", () => {
+    const jobDetail = read("src/app/(app)/jobs/[id]/(hub)/page.tsx");
+    expect(jobDetail).not.toContain("Hesap Raporu</TableHead>");
+    expect(jobDetail).not.toContain("ReportCell");
+    expect(jobDetail).not.toContain("Hesap raporu iş kalemine bağlanır");
+    expect(jobDetail).not.toContain("Kaleme Bağlanmamış Hesap Raporları");
+  });
+
+  it("resim çarpanını yeni ve eski kalemlerde otomatik kaydeder", () => {
+    expect(existingLinkMigration).toContain(
+      "create or replace function public.job_item_default_drawing_qty"
+    );
+    expect(existingLinkMigration).toContain(
+      "before insert on public.job_items"
+    );
+    expect(existingLinkMigration).toContain(
+      "set qty = public.job_item_default_drawing_qty(quantity)"
+    );
+    expect(existingLinkMigration).toContain(
+      "alter column shares_drawings_with set default null"
+    );
+  });
+
+  it("müşteri bazında ciro ve payı ondalıksız biçimler", () => {
+    const revenue = read("src/app/(app)/sales/customer-revenue.tsx");
+    expect(revenue).toContain('import { fmtTutar } from "@/lib/currency"');
+    expect(revenue).not.toContain("fmtNum(");
+    expect(revenue).toContain("%{fmtTutar(share * 100)}");
+    expect(revenue).toContain("{fmtTutar(v.eur)} €");
   });
 
   it("arayüz bağımsız mühendislik raporu önermiyor ve iki başlangıç modu sunuyor", () => {

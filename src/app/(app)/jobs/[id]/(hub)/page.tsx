@@ -1,20 +1,17 @@
 // GENEL BAKIŞ — iş hub'ının ilk sekmesi.
 //
 // Kimlik, durum ve eylemler `(hub)/layout.tsx`tedir; bu sayfa işin GÖVDESİNİ
-// basar: kalemler + resim çarpanı + müşteri/iş bilgileri + notlar + kaleme
-// bağlanmamış raporlar. Hesap raporu İŞE değil İŞ KALEMİNE bağlanır (IS-14).
+// basar: kalemler + resim çarpanı + müşteri/iş bilgileri + notlar. Hesap
+// raporlarının takibi Mühendislik bölümünde kalır.
 
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { fmtJobDate } from "@/lib/jobs/filter";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { canSeeEngineering } from "@/lib/roles";
 import { DrawingQtyCard } from "../drawing-qty-card";
 
 const SCOPE_LABELS: [string, string][] = [
@@ -55,61 +52,8 @@ interface ItemRow {
   item_no: string;
   product_name: string;
   quantity: string;
-  project_id: string | null;
-  projects: LinkedReport | LinkedReport[] | null;
   qty?: number | null;
   shares_drawings_with?: string | null;
-}
-
-/** Kaleme bağlı hesap raporunun özeti (son revizyon rozetiyle) */
-interface LinkedReport {
-  id: string;
-  doc_no: string;
-  name: string;
-  status: string;
-  revisions?: { rev_no: number; status: string }[] | null;
-}
-
-function ReportCell({
-  report,
-  linked,
-  canViewEngineering,
-}: {
-  report: LinkedReport | null;
-  linked: boolean;
-  canViewEngineering: boolean;
-}) {
-  if (!canViewEngineering && linked) {
-    return (
-      <span className="text-xs text-muted-foreground/70">
-        Rapor erişimi yetki gerektiriyor
-      </span>
-    );
-  }
-  if (!report) {
-    return (
-      <span className="text-xs text-muted-foreground/70">
-        Rapor bağlı değil
-      </span>
-    );
-  }
-  const lastRev = [...(report.revisions ?? [])].sort((a, b) => b.rev_no - a.rev_no)[0];
-  return (
-    <span className="inline-flex flex-wrap items-center gap-1.5">
-      <Link
-        href={`/projects/${report.id}`}
-        className="font-mono text-sm font-medium text-primary hover:underline"
-      >
-        {report.doc_no}
-      </Link>
-      {lastRev && (
-        // 10px içerik metni için fazla küçük — 11px taban.
-        <Badge variant={revisionStatusVariant(lastRev.status)} className="text-[11px]">
-          V{lastRev.rev_no} · {revisionStatusLabel(lastRev.status)}
-        </Badge>
-      )}
-    </span>
-  );
 }
 
 export default async function JobPage({
@@ -119,28 +63,14 @@ export default async function JobPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const [{ data: job }, { data: profile }] = await Promise.all([
-    supabase.from("jobs").select("*").eq("id", id).single(),
-    user
-      ? supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+  const { data: job } = await supabase.from("jobs").select("*").eq("id", id).single();
   if (!job) notFound();
-  const canViewEngineering = canSeeEngineering(
-    (profile as { role?: string } | null)?.role
-  );
 
   // RESİM ÇARPANI SÜTUNLARI İKİ DENEMEDE OKUNUR (`due_at` kalıbının aynısı):
   // `qty` ve `shares_drawings_with` 20260812 migration'ıyla geliyor. Onlar
   // olmadan sorgunun tamamı düşerdi ve iş detayı hiç açılmazdı — bir sütunun
   // eksikliği yüzünden sayfayı kaybetmek, eksikliğin kendisinden pahalıdır.
-  const ITEM_FIELDS =
-    "id, item_no, product_name, quantity, project_id, " +
-    "projects:project_id(id, doc_no, name, status, revisions(rev_no, status))";
+  const ITEM_FIELDS = "id, item_no, product_name, quantity";
   const carpanSorgusu = supabase
     .from("job_items")
     .select(`${ITEM_FIELDS}, qty, shares_drawings_with`)
@@ -151,22 +81,15 @@ export default async function JobPage({
   // supabase-js onları birleştiremez; sonuç elle daraltılır. Kaçış kapısı
   // DEĞİL, iki şeklin ortak paydası: `ItemRow` alanların hepsini isteğe bağlı
   // tutar ve okuma yerleri zaten `?? ""` ile korunuyor.
-  const [{ data: rawItems }, { data: cranes }] = await Promise.all([
-    carpanSorgusu.then(async (r) =>
-      r.error
-        ? await supabase
-            .from("job_items")
-            .select(ITEM_FIELDS)
-            .eq("job_id", id)
-            .order("sort", { ascending: true })
-        : r
-    ),
-    supabase
-      .from("projects")
-      .select("id, doc_no, name, crane_type, status, created_at, revisions(rev_no, status)")
-      .eq("job_id", id)
-      .order("doc_no", { ascending: true }),
-  ]);
+  const { data: rawItems } = await carpanSorgusu.then(async (r) =>
+    r.error
+      ? await supabase
+          .from("job_items")
+          .select(ITEM_FIELDS)
+          .eq("job_id", id)
+          .order("sort", { ascending: true })
+      : r
+  );
 
   const itemList = (rawItems ?? []) as unknown as ItemRow[];
   const carpanHazir = itemList.length === 0 || "qty" in itemList[0];
@@ -178,22 +101,17 @@ export default async function JobPage({
     qty: it.qty == null ? null : Number(it.qty),
     sharesWith: it.shares_drawings_with ?? null,
   }));
-  const linkedProjectIds = new Set(
-    itemList.map((it) => it.project_id).filter((v): v is string => Boolean(v))
-  );
-  // Kaleme bağlanmamış raporlar (eski kayıtlar ya da doğrudan işe bağlananlar)
-  const unlinked = (cranes ?? []).filter((p) => !linkedProjectIds.has(p.id));
   const scope = (job.scope ?? {}) as Record<string, boolean>;
   const activeScopes = SCOPE_LABELS.filter(([k]) => scope[k]).map(([, l]) => l);
 
   return (
     <div className="grid gap-6">
-      {/* İş kalemleri — her kalem kendi hesap raporunu taşır */}
+      {/* İş kalemleri — mühendislik raporu ilişkileri kendi bölümünde izlenir. */}
       <div className="overflow-hidden rounded-lg border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-4 py-2">
           <span className="text-sm font-semibold">İş Kalemleri</span>
           <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-            {itemList.length} kalem · {linkedProjectIds.size} rapor bağlı
+            {itemList.length} kalem
           </span>
         </div>
         {itemList.length === 0 ? (
@@ -212,9 +130,9 @@ export default async function JobPage({
             </p>
           </div>
         ) : (
-          /* SÜTUN ÖNCELİKLENDİRME — beş sütun telefonda tabloyu taşırıyordu.
+          /* SÜTUN ÖNCELİKLENDİRME — dört sütun telefonda tabloyu taşırıyordu.
              Sıra numarası ve adet gizlenir (adet "Ürün Adı"nın altına iner);
-             mobilde İş Kalemi No · Ürün Adı · Hesap Raporu kalır.
+             mobilde İş Kalemi No · Ürün Adı kalır.
              Yüzde genişlikler `table-layout: auto` altında nowrap içerik
              karşısında etkisizdi; mutlak değere çevrildi. */
           <Table className="oc-mobile-table oc-compact-mobile-table oc-job-items-table" containerClassName="oc-mobile-table-wrap">
@@ -224,7 +142,6 @@ export default async function JobPage({
                 <TableHead className="w-[8.5rem]">İş Kalemi No</TableHead>
                 <TableHead>Ürün Adı</TableHead>
                 <TableHead className="hidden w-[5rem] md:table-cell">Adet</TableHead>
-                <TableHead className="sm:w-[16rem]">Hesap Raporu</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -244,29 +161,11 @@ export default async function JobPage({
                     </div>
                   </TableCell>
                   <TableCell data-label="Adet" className="hidden font-mono tabular-nums md:table-cell">{it.quantity || "—"}</TableCell>
-                  <TableCell data-label="Hesap Raporu" data-mobile-span="full" data-mobile-report data-mobile-hide-label>
-                    <ReportCell
-                      report={(it.projects as unknown as LinkedReport | null) ?? null}
-                      linked={Boolean(it.project_id)}
-                      canViewEngineering={canViewEngineering}
-                    />
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         )}
-        <p className="border-t px-4 py-2 text-xs text-muted-foreground">
-          {canViewEngineering ? (
-            <>
-              Hesap raporu iş kalemine bağlanır. Bağlamak için Mühendislik
-              bölümünde raporun satır menüsünden &quot;İşe Bağla&quot; ile bu işi ve
-              kalemi seçin.
-            </>
-          ) : (
-            "Bağlı hesap raporları yalnız Yönetici, Müdür ve Mühendis rollerine açıktır."
-          )}
-        </p>
       </div>
 
       {/* Resim çarpanı — teknik resim ve satın alma adetlerinin kaynağı.
@@ -325,77 +224,6 @@ export default async function JobPage({
         </div>
       )}
 
-      {/* Kaleme bağlanmamış raporlar — eski kayıtlarda ya da kalem açılmadan
-          bağlanan raporlarda görünür; kaleme taşınması için hatırlatıcıdır. */}
-      {unlinked.length > 0 && (
-        <div>
-          <h2 className="mb-1 text-lg font-semibold tracking-tight">
-            Kaleme Bağlanmamış Hesap Raporları
-          </h2>
-          <p className="mb-3 text-sm text-muted-foreground">
-            Bu raporlar işe bağlı ama bir iş kalemine atanmamış. Mühendislik
-            bölümündeki &quot;İşe Bağla&quot; ile kalem seçerek eşleştirin.
-          </p>
-          {/* SÜTUN ÖNCELİKLENDİRME — vinç tipi ve son revizyon telefonda
-              gizlenir, ikisi de "Vinç" hücresinin altına ikinci satır olarak
-              iner; mobilde Doküman No · Vinç · Durum kalır. */}
-          <div className="overflow-hidden rounded-lg border bg-card">
-            <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead>Doküman No</TableHead>
-                  <TableHead>Vinç</TableHead>
-                  <TableHead className="hidden md:table-cell">Vinç Tipi</TableHead>
-                  <TableHead className="hidden md:table-cell">Son Revizyon</TableHead>
-                  <TableHead>Durum</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {unlinked.map((p) => {
-                  const lastRev = [...(p.revisions ?? [])].sort((a, b) => b.rev_no - a.rev_no)[0];
-                  return (
-                    <TableRow key={p.id} className="relative cursor-pointer">
-                      <TableCell data-label="Doküman No" className="font-mono text-sm font-medium text-primary">
-                        <Link href={`/projects/${p.id}`} className="after:absolute after:inset-0">
-                          {p.doc_no}
-                        </Link>
-                      </TableCell>
-                      <TableCell data-label="Vinç" data-mobile-span="full" className="font-medium break-words whitespace-normal">
-                        {p.name}
-                        <div className="mt-0.5 text-[11px] font-normal text-muted-foreground md:hidden">
-                          {p.crane_type}
-                          {lastRev ? ` · V${lastRev.rev_no} ${revisionStatusLabel(lastRev.status)}` : ""}
-                        </div>
-                      </TableCell>
-                      <TableCell data-label="Vinç Tipi" className="hidden text-sm text-muted-foreground md:table-cell">{p.crane_type}</TableCell>
-                      <TableCell data-label="Son Revizyon" className="hidden md:table-cell">
-                        {lastRev ? (
-                          <span className="inline-flex items-center gap-1.5 text-sm">
-                            <span className="font-mono">V{lastRev.rev_no}</span>
-                            <Badge variant={revisionStatusVariant(lastRev.status)}>
-                              {revisionStatusLabel(lastRev.status)}
-                            </Badge>
-                          </span>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell data-label="Durum">
-                        {/* Marka kuralı: köşe yuvarlaklığı sıfır — aynı işlevi
-                            gören durum noktaları uygulamanın her yerinde kare. */}
-                        <span className="inline-flex items-center gap-1.5 text-sm">
-                          <span className={cn("size-2 shrink-0", p.status === "active" ? "bg-success" : "bg-muted-foreground/40")} />
-                          {p.status === "active" ? "Aktif" : "Arşiv"}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

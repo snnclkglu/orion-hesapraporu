@@ -142,3 +142,10 @@ Filtreleme, arama ve sıralama bütün istemci veri kümesinde çalışır; sonu
 aramada bulunabilir ve özet kartlar yalnız açık sayfadan değil bütün süzülmüş
 sonuçtan hesaplanır. Sayfa numaraları ve önceki/sonraki eylemleri tablonun
 altındadır; 100 veya daha az sonuçta gereksiz sayfalama çizilmez.
+
+## SATIS-18 — Müşteri cirosu ve pay yüzdesi ondalıksız gösterilir.
+
+Müşteri Bazında Ciro ekranında üst toplam, müşteri ciro satırı ve pay yüzdesi
+en yakın tam sayıya yuvarlanarak, Türkçe binlik ayıracıyla gösterilir. Bu yalnız
+sunum kuralıdır; müşteri sıralaması, pay çubuğu ve toplam hesabı ham Avro
+değerini kullanmaya devam eder.

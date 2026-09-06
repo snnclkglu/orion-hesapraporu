@@ -6,6 +6,11 @@ import { canEditJobs } from "@/lib/roles";
 import { JobForm } from "../../job-form";
 import { loadJobFormData } from "../../form-data";
 import type { JobInput } from "../../schema";
+import {
+  ExistingOfferLinker,
+  type ExistingOfferOption,
+  type LinkedOfferSummary,
+} from "./existing-offer-linker";
 
 
 /**
@@ -57,14 +62,71 @@ export default async function EditJobPage({
   const { data: job } = await supabase.from("jobs").select("*").eq("id", id).single();
   if (!job) notFound();
 
-  const [{ data: items }, formData] = await Promise.all([
+  const [{ data: items }, formData, { data: linkedRow }, { data: offerRows }] = await Promise.all([
     supabase
       .from("job_items")
       .select("item_no, product_name, quantity")
       .eq("job_id", id)
       .order("sort", { ascending: true }),
     loadJobFormData(),
+    // Dönüşüm satırı varsa sade doküman zaten bağlıdır. Tam teklif payload'ı
+    // bu sayfaya taşınmaz; yalnız kullanıcıya gösterilecek kimlik okunur.
+    supabase
+      .from("offer_job_conversions")
+      .select(
+        "offer_id, offer_revision_id, offers:offer_id(offer_no, customer_name, subject), offer_revisions:offer_revision_id(rev_no)"
+      )
+      .eq("job_id", id)
+      .maybeSingle(),
+    // Eski veri göçünde `offers.job_id` zaten bu işe bağlı olabilir ama yeni
+    // dönüşüm satırı yoktur. Bu nedenle hem BOŞ hem de BU İŞE bağlı teklifler
+    // adaydır; başka işe bağlı bir teklif listede gösterilmez.
+    supabase
+      .from("offers")
+      .select(
+        "id, offer_no, customer_name, subject, job_id, issue_date, offer_revisions!inner(id, rev_no, status)"
+      )
+      .eq("status", "won")
+      .or(`job_id.is.null,job_id.eq.${id}`)
+      .eq("offer_revisions.status", "issued")
+      .order("issue_date", { ascending: false }),
   ]);
+
+  const one = <T,>(value: unknown): T | null =>
+    Array.isArray(value) ? ((value[0] as T | undefined) ?? null) : ((value as T) ?? null);
+  const linkedOffer = one<{
+    offer_no?: string;
+    customer_name?: string;
+    subject?: string;
+  }>((linkedRow as Record<string, unknown> | null)?.offers);
+  const linkedRevision = one<{ rev_no?: number }>(
+    (linkedRow as Record<string, unknown> | null)?.offer_revisions
+  );
+  const linked: LinkedOfferSummary | null = linkedOffer
+    ? {
+        offerNo: String(linkedOffer.offer_no ?? ""),
+        customerName: String(linkedOffer.customer_name ?? ""),
+        subject: String(linkedOffer.subject ?? ""),
+        revisionNo: Number(linkedRevision?.rev_no ?? 0),
+      }
+    : null;
+
+  const options: ExistingOfferOption[] = linked
+    ? []
+    : (offerRows ?? []).map((row) => {
+        const revisions = (row.offer_revisions ?? []) as {
+          rev_no: number;
+          status: string;
+        }[];
+        const latest = [...revisions].sort((a, b) => b.rev_no - a.rev_no)[0];
+        return {
+          id: String(row.id),
+          offerNo: String(row.offer_no ?? ""),
+          customerName: String(row.customer_name ?? ""),
+          subject: String(row.subject ?? ""),
+          revisionNo: Number(latest?.rev_no ?? 0),
+        };
+      });
 
   const scope = (job.scope ?? {}) as Partial<JobInput["scope"]>;
   const initial: JobInput = {
@@ -114,6 +176,7 @@ export default async function EditJobPage({
         </Link>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">İş Emrini Düzenle</h1>
       </div>
+      <ExistingOfferLinker jobId={id} linked={linked} options={options} />
       <JobForm
         mode="edit"
         jobId={id}

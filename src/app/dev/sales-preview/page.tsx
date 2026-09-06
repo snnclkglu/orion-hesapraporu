@@ -8,6 +8,7 @@
 
 import { notFound } from "next/navigation";
 import { SalesTable } from "@/app/(app)/sales/sales-table";
+import { CustomerRevenue } from "@/app/(app)/sales/customer-revenue";
 import { JobListButton } from "@/app/(app)/sales/job-list-button";
 import { PageHeader } from "@/components/page-header";
 import { EMPTY_SALE, type SaleRow } from "@/app/(app)/sales/schema";
@@ -122,7 +123,7 @@ const ROWS: SaleRow[] = [
 ];
 
 export default function SalesPreviewPage() {
-  if (process.env.NODE_ENV !== "development") notFound();
+  if (process.env.NODE_ENV === "production") notFound();
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 flex h-12 items-center border-b bg-background/90 px-4">
@@ -138,6 +139,11 @@ export default function SalesPreviewPage() {
           <JobListButton years={["2026", "2025", "2024"]} />
         </PageHeader>
         <SalesTable rows={ROWS} />
+        <PageHeader
+          title="Müşteri Bazında Ciro"
+          hint="Ciro ve pay yüzdeleri ondalıksız gösterilir"
+        />
+        <CustomerRevenue rows={ROWS} />
       </div>
     </div>
   );
