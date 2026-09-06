@@ -100,7 +100,7 @@ Bunlar alan dosyası okunmadan da geçerlidir. Gerekçeleri atıf verilen dosyad
 6. **Renk HEX değil AÇIdır** (OKLCH ton). Doygunluk/parlaklık `globals.css`te ve tema
    başına verilir; grafikte, çipte, satır zemininde elle hex yazılmaz (`IS-14`).
 7. **Çekirdekler SAFTIR.** `lib/calc`, `lib/purchasing`, `lib/personnel`, `lib/drawings`,
-   `lib/panel`, `lib/weights` DB/HTTP/React içe aktarmaz.
+   `lib/panel`, `lib/weights`, `lib/switchboard` DB/HTTP/React içe aktarmaz.
 8. **Bir kural iki yerde yaşıyorsa** (TS + SQL) ayrışmayı bir test KAYNAK DOSYAYI
    okuyarak engeller (`terms.test.ts` deseni).
 9. **Migration'ı ajan uygular.** Yeni migration eklerken `ls supabase/migrations` ile
@@ -127,6 +127,7 @@ işaretçiler aynı yönlendirmeyi otomatik yapar; harita onların yedeğidir.
 | Teknik Resimler | `docs/agent/resimler.md` | Paket yükleme ve tanıma, hoşgörü ilkeleri, defter/ilerleme, Teknik Resim Takibi planı |
 | İşler ve iş kalemleri | `docs/agent/isler.md` | İş emri → kalem → rapor bağı, doküman no, BÜYÜK HARF kuralı, müşteri defteri, İşler hub'ı |
 | Elektrik Projesi | `docs/agent/elektrik.md` | EPLAN PDF'inin arşivi ve okunması: malzeme listesi, sayfa dizini, künye, panel dökümü |
+| Pano Yerleşimi | `docs/agent/panoyerlesimi.md` | Elektrik projesinden pano boyutlandırma: gövde ızgarası, ray paketleme, bölge sırası, ölçü defteri, şema ve indirme |
 | İşletme ve Bakım El Kitabı | `docs/agent/elkitabi.md` | Bölüm ağacı, standart metin, gizleme, otomatik tablolar, ekler ve iki çıktı |
 | Teklif | `docs/agent/teklif.md` | Teklif numarası, revizyon snapshot'ı, gizleme, defter (offer_options), takip sayacı, analiz |
 | Maliyet Çalışması | `docs/agent/maliyet.md` | Ayrı revizyon zinciri, ağırlık/boyutlandırma modeli, dört ana başlık, oran tabanı, iç belge |

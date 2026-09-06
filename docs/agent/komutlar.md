@@ -82,6 +82,13 @@
   dökümü. Fikstür repoda DEĞİLDİR (12 MB'lık müşteri belgesi); yol argümandan
   gelir. Sütun kümeleme kuralına dokunmadan önce koştur — birim testleri küçük
   fikstürlerle koşar, bu betik 157 sayfada ne bulunduğunu GÖSTERİR
+- `npx tsx scripts/test-switchboard-layout.ts <pdf> [--svg <dizin>]` — PANO
+  YERLEŞTİRİCİSİNİ gerçek bir elektrik projesinde koştur: pano başına
+  en/boy/derinlik, ray ve cihaz sayısı, doluluk, uyarılar, yerleşmeyen aygıt
+  kuyrukları, ölçüsü doğrulanmamış aygıt sayacı, DENETİM sonucu ve
+  DETERMİNİZM sınaması (aynı girdi iki kez → aynı plan). `--svg` ile şemalar
+  dosyaya yazılır; indirilen SVG'nin kendi başına açıldığı böyle görülür.
+  Yerleştirme kuralına (PANO-4…PANO-10) dokunmadan önce koştur
 - `npx tsx scripts/test-electrical-catalog-appendix.ts [dokuman-no] [cikti.pdf]
   [sayfa-siniri]` — güncel elektrik projesindeki doğrulanmış teknik belgeleri
   EK-F dizini ve iç bağlantılarıyla PDF'e dök. Varsayılan sınır 2'dir; detaylı

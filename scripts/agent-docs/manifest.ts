@@ -339,6 +339,25 @@ export const ALANLAR: Alan[] = [
     al: ["Elektrik Projesi"],
   },
   {
+    dosya: "panoyerlesimi",
+    onek: "PANO",
+    baslik: "Pano Yerleşimi",
+    ozet:
+      "Elektrik projesinden pano boyutlandırma: gövde ızgarası, ray paketleme, bölge sırası, ölçü defteri, şema ve indirme",
+    yollar: [
+      "src/lib/switchboard/**",
+      "src/lib/switchboard-data.ts",
+      "src/lib/diagrams/panoLayout.ts",
+      "src/lib/diagrams/svg.ts",
+      "src/lib/pdf/pano-layout.tsx",
+      "src/app/(app)/projects/[id]/pano/**",
+      "scripts/test-switchboard-layout.ts",
+    ],
+    // Bu alanın maddeleri AGENTS.md'den TAŞINMADI; dosya elle yazıldı.
+    // Kayıt yalnız harita ve kural işaretçisi tutarlılığı içindir.
+    al: [],
+  },
+  {
     dosya: "elkitabi",
     onek: "KITAP",
     baslik: "İşletme ve Bakım El Kitabı",

@@ -99,7 +99,10 @@ function safe(part: string): string {
  */
 export function downloadFileName(
   parts: readonly (string | null | undefined)[],
-  ext: "pdf" | "xlsx" | "json" = "pdf"
+  // `svg` pano yerleşim şeması içindir: imalatçıya giden vektör dosyası da
+  // aynı adlandırmayı taşır, yoksa indirilenler klasöründe hangi işin şeması
+  // olduğu okunamazdı.
+  ext: "pdf" | "xlsx" | "json" | "svg" = "pdf"
 ): string {
   const name = parts
     .map((p) => safe((p ?? "").toString()))

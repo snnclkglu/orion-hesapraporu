@@ -37,6 +37,19 @@ const THEME_PAINT: Readonly<Record<string, string>> = {
   "#1F8A5B": "var(--oc-diagram-green)",
   "#5B8C7B": "var(--oc-diagram-green-muted)",
   "#E7F3EC": "var(--oc-diagram-green-soft)",
+
+  // PANO YERLEŞİM PALETİ (`lib/diagrams/panoLayout.ts`). Kaydedilmemiş bir hex
+  // burada SESSİZCE ham geçer (`THEME_PAINT[...] ?? paint`) ve koyu temada
+  // açık pastel olarak kalır; `panoLayout.palette.test.ts` bunu sabitler.
+  "#D7E4F2": "var(--oc-diagram-kat-giris)",
+  "#F3DCDA": "var(--oc-diagram-kat-surucu)",
+  "#F6E3CE": "var(--oc-diagram-kat-anahtarlama)",
+  "#F4EDC9": "var(--oc-diagram-kat-kumanda)",
+  "#E4DCEF": "var(--oc-diagram-kat-otomasyon)",
+  "#D9EDDD": "var(--oc-diagram-kat-besleme)",
+  "#D3E9E6": "var(--oc-diagram-kat-klemens)",
+  "#E8E1D8": "var(--oc-diagram-kat-iklim)",
+  "#E4E1DF": "var(--oc-diagram-kat-diger)",
 };
 
 export function diagramWebPaint(

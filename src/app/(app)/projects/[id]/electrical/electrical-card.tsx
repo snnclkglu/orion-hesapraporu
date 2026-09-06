@@ -25,6 +25,7 @@ import {
   Trash2,
   TriangleAlert,
   Upload,
+  LayoutGrid,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -304,6 +305,17 @@ export function ElectricalCard({
             {current && (
               <Button size="sm" variant="outline" disabled={bekle} onClick={() => ac(current)}>
                 <FileText className="size-3.5" /> Projeyi Aç
+              </Button>
+            )}
+            {/* PANO YERLEŞİMİ AYRI BİR SAYFADIR (`/projects/[id]/pano`).
+                Bu kartın içine sığmazdı: üç şema, pano listesi, cihaz listesi
+                ve dört kuyruk var; üstelik ekran kendi ölçü seçicilerini
+                ADRESTE taşır ve bu sekmenin süzgeciyle çakışırdı. */}
+            {current && current.parsedAt && parts.length > 0 && (
+              <Button size="sm" variant="outline" asChild>
+                <a href={`/projects/${projectId}/pano`}>
+                  <LayoutGrid className="size-3.5" /> Pano Yerleşimi
+                </a>
               </Button>
             )}
             {canEdit && current && (

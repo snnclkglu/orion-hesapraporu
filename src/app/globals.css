@@ -948,6 +948,22 @@
     --oc-diagram-green: #1f8a5b;
     --oc-diagram-green-muted: #5b8c7b;
     --oc-diagram-green-soft: #e7f3ec;
+
+    /*
+     * PANO YERLEŞİM PALETİ — dokuz işlev grubu (`lib/switchboard/mount.ts`).
+     * Açık temada değer baskı hex'inin AYNISIDIR: ekranda görünen ile kâğıda
+     * basılan aynı renk olmalıdır. Ton (hue) açısı sabittir; açıklık ve
+     * doygunluk tema başına verilir (değişmez md. 6).
+     */
+    --oc-diagram-kat-giris: #d7e4f2;
+    --oc-diagram-kat-surucu: #f3dcda;
+    --oc-diagram-kat-anahtarlama: #f6e3ce;
+    --oc-diagram-kat-kumanda: #f4edc9;
+    --oc-diagram-kat-otomasyon: #e4dcef;
+    --oc-diagram-kat-besleme: #d9eddd;
+    --oc-diagram-kat-klemens: #d3e9e6;
+    --oc-diagram-kat-iklim: #e8e1d8;
+    --oc-diagram-kat-diger: #e4e1df;
   }
 
   .dark .oc-diagram-theme {
@@ -967,6 +983,21 @@
     --oc-diagram-green: var(--success);
     --oc-diagram-green-muted: color-mix(in oklab, var(--success) 70%, var(--foreground));
     --oc-diagram-green-soft: color-mix(in oklab, var(--success) 16%, var(--card));
+
+    /*
+     * Koyu temada aynı TON, koyu zemine oturtulmuş açıklıkta. Ayrım için
+     * gereken şey tonun kendisidir; açık pastelleri olduğu gibi bırakmak
+     * kartın üstünde göz alırdı.
+     */
+    --oc-diagram-kat-giris: color-mix(in oklab, #d7e4f2 24%, var(--card));
+    --oc-diagram-kat-surucu: color-mix(in oklab, #f3dcda 24%, var(--card));
+    --oc-diagram-kat-anahtarlama: color-mix(in oklab, #f6e3ce 24%, var(--card));
+    --oc-diagram-kat-kumanda: color-mix(in oklab, #f4edc9 24%, var(--card));
+    --oc-diagram-kat-otomasyon: color-mix(in oklab, #e4dcef 24%, var(--card));
+    --oc-diagram-kat-besleme: color-mix(in oklab, #d9eddd 24%, var(--card));
+    --oc-diagram-kat-klemens: color-mix(in oklab, #d3e9e6 24%, var(--card));
+    --oc-diagram-kat-iklim: color-mix(in oklab, #e8e1d8 22%, var(--card));
+    --oc-diagram-kat-diger: color-mix(in oklab, #e4e1df 20%, var(--card));
   }
 
   /*
