@@ -141,7 +141,46 @@ export function mountRuleFor(item: MountSource): MountRule {
     return { mountType: "plaka", zone: "guc", colorGroup: "besleme" };
   }
 
+  // ÖLÇÜM AİLESİ İKİYE AYRILIR ve bu ölçülmüş bir hatadır (06.09.2026):
+  // "Ölçüm ve Enstrümantasyon" hem PANO GÖSTERGESİNİ (96 × 96 kesitli
+  // ampermetre, tarayıcı alarm cihazı) hem SAHA ELEMANINI (PT100 probu, yük
+  // hücresi, basınç vericisi) taşıyor. İkisi de pano göstergesi sayılınca
+  // 0019 + 0026'da 52 PT100 probu + 20 rezistans termometresi + 5 yük hücresi
+  // panoya girip 7,4 METRE ray yiyordu — hiçbiri panoda değil, motorun ve
+  // redüktörün üstünde.
+  if (temel.colorGroup === "kumanda" && item.category === "Ölçüm ve Enstrümantasyon") {
+    if (sahaElemaniMi(metin)) {
+      return { mountType: "saha", zone: null, colorGroup: "diger" };
+    }
+  }
+
   return temel;
+}
+
+/**
+ * Ölçüm ailesindeki SAHA elemanı mı (panoya girmez)?
+ *
+ * İşaretler süreç bağlantısı ve prob gövdesidir: `NPT`/`BSP` bir boru
+ * dişidir ve pano kapağında işi yoktur; `PROB`, `LOAD CELL`, `TERMOMETRE`
+ * doğrudan ölçülen yerin üstündedir.
+ */
+function sahaElemaniMi(metin: string): boolean {
+  return [
+    "PROB",
+    "PT100",
+    "PT 100",
+    "THERMOCOUPLE",
+    "TERMOKUPL",
+    "RESISTANCE THERMOMETER",
+    "REZISTANS TERMOMETRE",
+    "LOAD CELL",
+    "YUK HUCRESI",
+    "TRANSMITTER",
+    "TRANSDUCER",
+    "NPT",
+    "SICAKLIK SENSOR",
+    "TEMPERATURE SENSOR",
+  ].some((isaret) => metin.includes(isaret));
 }
 
 /** Trafo · reaktör · filtre: raya değil plakaya. */

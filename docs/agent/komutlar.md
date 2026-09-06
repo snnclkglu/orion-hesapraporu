@@ -89,6 +89,11 @@
   DETERMİNİZM sınaması (aynı girdi iki kez → aynı plan). `--svg` ile şemalar
   dosyaya yazılır; indirilen SVG'nin kendi başına açıldığı böyle görülür.
   Yerleştirme kuralına (PANO-4…PANO-10) dokunmadan önce koştur
+- `npx tsx scripts/switchboard-dimension-gap.ts <pdf|json> [--marka X]` —
+  ÖLÇÜ DEFTERİ BOŞLUK RAPORU: hangi ürünün ölçüsü ne kadar ray uzunluğunu
+  belirliyor. Üç kova (ölçüldü · tahmin · eksik), etkiye göre ilk 20, ölçüsü
+  hiç olmayanların tam listesi ve marka dökümü. Defteri doldurma SIRASINI bu
+  verir (PANO-18). JSON girdisi `electrical_parts` satırlarının dökümüdür
 - `npx tsx scripts/probe-device-dimensions.ts <pdf> <tip-no|--olcu|--sayfa:N>`
   — üretici katalogunun METİN KATMANINDA ölçü var mı, GÖSTER. Tip numarasına,
   ölçü sözcüklerine (`--olcu`) ya da tek bir sayfaya (`--sayfa:164`) göre

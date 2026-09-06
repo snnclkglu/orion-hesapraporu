@@ -133,6 +133,14 @@ büyük kısmı klemenstir. Bir klemensi 17,5 mm modül saymak LVD10'u üç kat
 büyütürdü. Bilinen ölçüler: UT 2,5 → 5,2 · 4 → 6,2 · 6 → 8,2 · 10 → 10,2 ·
 16 → 12,2 mm.
 
+**SERİ ADI KATEGORİDEN ÖNCE GELİR.** Ölçüldü: `PT 4-HESILED 24 (5X20)` bir
+SİGORTALI KLEMENSTİR; taksonomi onu doğru biçimde "Sigortalar ve Sigorta
+Yuvaları"na koyar ama fiziği klemenstir, modüler şalter değil. Kategoriye bakan
+ilk sürüm onda kutup sayısı arıyor, bulamıyor ve 155 adet ürünü "ölçüsüz"
+bırakıyordu. Seri adı (PT/UT/UK/ST) + kesit AÇIK BİR İŞARETTİR ve o ailede adım
+kesite göre sabittir. `RBO` (cıvata bağlantılı) BİLEREK DIŞARIDADIR — adımı bu
+tabloya uymaz, tahmin edilmez, deftere girer.
+
 **ŞERİT AİLESİNDE ADET ENDİR.** `=185T+LVD10-X1` adet 200 ile TEK satırdır ama
 panoda 200 klemens yer kaplar (1040 mm) ve hiçbir raya sığmaz — şerit alt raya
 DEVAM EDER, gerçek panoda da ettiği gibi. Öteki ailelerde adet yedek/aksesuar
@@ -160,6 +168,15 @@ DIN rayındadır ama aynı ailedeki kontrol trafosu onlarca kilo gelir ve doğru
 plakaya vidalanır; ikisini aynı raya koymak rayı koparır. (2) Kapak kolu ile
 kumanda edilen yük ayırıcı (`SIRCO`, `rotary handle`) giriş bandının EN
 BAŞINDA durur.
+
+**ÖLÇÜM AİLESİ İKİYE AYRILIR** ve bu ölçülmüş bir hatadır (06.09.2026):
+"Ölçüm ve Enstrümantasyon" hem PANO GÖSTERGESİNİ (96 × 96 kesitli ampermetre,
+tarayıcı alarm cihazı) hem SAHA ELEMANINI (PT100 probu, yük hücresi, basınç
+vericisi) taşır. İkisi de pano göstergesi sayılınca 0019 + 0026'da 52 PT100
+probu, 20 rezistans termometresi ve 5 yük hücresi panoya girip **7,4 METRE
+hayalet ray** yiyordu — hiçbiri panoda değil, motorun ve redüktörün üstünde.
+Ayrım süreç bağlantısından ve prob gövdesinden okunur: `NPT`/`BSP` bir boru
+dişidir ve pano kapağında işi yoktur.
 
 Kullanıcının değiştirdiği montaj tipi ÜRÜNE yazılır (defter), aygıta değil:
 aynı ürün bir sonraki projede de doğru yere gider.
@@ -288,6 +305,14 @@ tahmini onayladığında deftere `elle` olarak girer — bu ayrı bir iddiadır.
 (`ELEKTRIK-12` ile aynı normalleştirici; ikincisini yazmak aynı fiziksel ürünü
 iki kayda bölerdi). Bir kez girilen ölçü bütün projelerde geçerlidir.
 
+**TEDARİKÇİSİ BOŞ SATIR DEFTERİ IŞKALAMAZ.** Ölçüldü (0019 + 0026): `PT 2,5`
+klemensi malzeme listesinde İKİ kere geçiyor — 708 adedi "Phoenix Contact"
+tedarikçisiyle, 262 adedi TEDARİKÇİSİ BOŞ. Anahtar üretici + tip numarasından
+kurulduğu için ikisi ayrı kayıt olur ve deftere bir kez girilen ölçü parçaların
+dörtte birini ıskalardı. Yedek arama tip numarasıyla yapılır ama YALNIZ TEK
+EŞLEŞMEDE: aynı tip numarasını iki farklı üretici taşıyorsa hangisi olduğu
+bilinmiyordur ve tahmin edilmez (değişmez md. 4).
+
 Sipariş verilebilirlik ölçüsü TEK SAYIDIR: ölçüsü doğrulanmamış aygıt sayısı
 sıfır olmalıdır. Ekran bu sayacı sürekli gösterir ve sıfır değilse kırmızıdır.
 
@@ -415,3 +440,43 @@ deseni), sonucu insan doğrular ve deftere `source = 'elle'` ya da doğrulanmı�
 gözüdür: belgeyi taramaz, GÖSTERİR — tip numarasına, ölçü sözcüklerine ya da
 sayfa numarasına göre metin katmanını döker. Otomatik yazma YOKTUR
 (değişmez md. 4).
+
+## PANO-18 — Defter ETKİ SIRASIYLA doldurulur; ekran o sırayı verir.
+
+Defteri doldurmak 122 ürünlük bir iştir ve ürünler eşit değildir: 970 adet
+geçen bir klemensin 1 mm'lik hatası panoyu bir metre büyütür, tek adet geçen
+bir sinyal lambasının 10 mm'si hiçbir şeyi değiştirmez. Sıra bu yüzden
+alfabetik değil **ETKİYE** göredir — o ürünün belirlediği toplam ray uzunluğu
+(birim eni × adet).
+
+**Ölçü Defteri kendi ekranıdır** (`/projects/[id]/pano/defter`, kullanıcı
+isteği 06.09.2026) ve Elektrik Projesi sekmesinde "Pano Yerleşimi"nin yanındaki
+düğmeden açılır. Ayrı olmasının sebebi: "şu ürünün ölçüsü girilmiş mi?" sorusu
+bir pano şeması açmayı gerektirmemeli.
+
+Ekran İKİ KAYNAĞIN BİRLEŞİMİDİR: defterdeki kayıtlar ve bu projede geçen
+ürünler. Defter projeden bağımsızdır ama onu DOLDURAN kişi bir projenin
+içindedir ve sorusu "bu işte hangi ürün eksik?"tir. Defterde olup projede
+geçmeyen ürün de listelenir — mühendis başka bir işte girdiği ölçüyü buradan
+denetler.
+
+Süzgeç ve arama `lib/switchboard/book.ts` içindeki SAF fonksiyondan geçer;
+ekranda ikinci bir kopyası yoktur (ELEKTRIK-11 ile aynı ilke). Arama
+`trKatla`dan geçer — `İ`/`ı` tuzağı yüzünden ham `toUpperCase` bir markayı
+aramada kaybettirirdi.
+
+`scripts/switchboard-dimension-gap.ts` aynı sırayı komut satırında verir ve
+marka dökümüyle birlikte basar: ayıklama turu marka marka yürür (PANO-17).
+
+## PANO-19 — Kaçak KONTROL KARAKTERİ regex'i sessizce öldürür.
+
+Ölçüldü (06.09.2026): `footprint.ts`teki klemens serisi regex'i hiç
+eşleşmiyordu ve sebebi görünmezdi — kaynakta sözcük sınırı (`\b`) yerine
+**gerçek bir BACKSPACE karakteri (0x08)** duruyordu. Dosyayı üreten betiğin
+kaçış dizisi çözülmüş; düzenleyicide ve `sed` çıktısında doğru görünüyor,
+`cat -A` ise `^H` gösteriyordu. Regex bir backspace arıyor, bulamıyor ve
+155 adetlik ürün ailesi sessizce “ölçüsüz” kalıyordu.
+
+Kaynak dosyaya kabuk ya da betik yoluyla regex yazıldıysa
+`grep -n … | cat -A` ile denetlenir. Aynı tuzak besleme (0x0C), düşey sekme
+(0x0B) ve zil (0x07) kaçışlarında da vardır; bu doküman da bir kez ona düştü.

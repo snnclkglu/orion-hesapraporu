@@ -8,6 +8,8 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { DiagramSvg } from "@/components/diagrams/diagram-svg";
 import { PanoView } from "@/app/(app)/projects/[id]/pano/pano-view";
+import { DefterView } from "@/app/(app)/projects/[id]/pano/defter/defter-view";
+import { buildBook } from "@/lib/switchboard/book";
 import {
   panoDizilimDiagram,
   panoIcYerlesimDiagram,
@@ -160,6 +162,21 @@ export default async function PanoPreviewPage() {
   return (
     <main className="grid gap-8 p-6">
       <h1 className="text-lg font-semibold">Pano Yerleşimi Önizleme (dev)</h1>
+
+      {/* ÖLÇÜ DEFTERİ — arama ve süzgeçleriyle. */}
+      <section className="grid gap-2">
+        <h2 className="oc-kicker text-foreground/80">Ölçü Defteri (DefterView)</h2>
+        <div className="rounded-lg border">
+          <DefterView
+            projectId="00000000-0000-0000-0000-000000000000"
+            docNo="0019-00"
+            projectName="185/40T ŞARJ VİNCİ (fikstür)"
+            canEdit
+            rows={buildBook({ parts: KARMASIK, models: [] })}
+            bookSize={0}
+          />
+        </div>
+      </section>
 
       {/* EKRANIN KENDİSİ — auth'suz. Değişmez md. 11 ekranı burada görmeyi
           ister; gerçek sayfa oturum arkasındadır ve ajan oraya giremez.

@@ -143,7 +143,30 @@ function enZayifKaynak(kaynaklar: DimSource[]): DimSource {
 export function estimateFootprint(item: FootprintSource): Footprint {
   const metin = trKatla(`${item.designation} | ${item.typeNo} | ${item.partNo}`);
 
-  // ── Klemens: kesit okunabiliyorsa ────────────────────────────────────────
+  // ── Klemens serisi: SERİ ADI kategoriden önce gelir ─────────────────────
+  //
+  // Ölçüldü (06.09.2026): `PT 4-HESILED 24 (5X20)` bir SİGORTALI KLEMENSTİR ve
+  // taksonomi onu doğru biçimde "Sigortalar ve Sigorta Yuvaları"na koyar — ama
+  // fiziği klemenstir, modüler şalter değil. Kategoriye bakan ilk sürüm onu
+  // kutup sayısı arıyor, bulamıyor ve 155 adet ürünü "ölçüsüz" bırakıyordu.
+  //
+  // Seri adı (PT/UT/UK/ST) + kesit AÇIK BİR İŞARETTİR: Phoenix bu ailede adımı
+  // kesite göre sabit tutar. `RBO` (cıvata bağlantılı) BİLEREK DIŞARIDA —
+  // adımı bu tabloya uymaz ve tahmin edilmez, deftere girer (PANO-5).
+  const kesitSerisi = /\b(?:UT|UK|ST|PT|UTTB|UKK)\s*-?\s*\d/.test(metin);
+  if (
+    kesitSerisi &&
+    (item.category === "Fiş, Priz, Klemens ve Bağlantı" ||
+      item.category === "Sigortalar ve Sigorta Yuvaları")
+  ) {
+    const kesit = kesitOku(metin);
+    if (kesit !== null) {
+      const satir = KLEMENS_GENISLIGI_MM.find((k) => k.kesit >= kesit);
+      if (satir) return tahminKutu(satir.enMm, KLEMENS_YUKSEKLIK_MM, KLEMENS_DERINLIK_MM);
+    }
+  }
+
+  // ── Klemens ailesi ama seri adı yoksa: kesitten dene ─────────────────────
   if (item.category === "Fiş, Priz, Klemens ve Bağlantı") {
     const kesit = kesitOku(metin);
     if (kesit === null) return BOS;

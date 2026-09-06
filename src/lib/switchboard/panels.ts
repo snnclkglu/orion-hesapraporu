@@ -112,6 +112,30 @@ export interface BuildResult {
 export function buildDeviceBoxes(input: BuildInput): BuildResult {
   const { parts, models, placementOverrides, panelOverrides, settings } = input;
 
+  // TEDARİKÇİSİ BOŞ SATIR DEFTERİ IŞKALAMAMALI.
+  //
+  // Ölçüldü (0019 + 0026): `PT 2,5` klemensi malzeme listesinde İKİ kere
+  // geçiyor — 708 adedi "Phoenix Contact" tedarikçisiyle, 262 adedi
+  // TEDARİKÇİSİ BOŞ. `electricalCatalogLookupKey` ikisine ayrı anahtar üretir
+  // (`PHOENIXCONTACT|PT25` ve `|PT25`), yani deftere bir kez girilen ölçü
+  // parçaların dörtte birini ıskalardı.
+  //
+  // Yedek arama YALNIZ TEK EŞLEŞMEDE çalışır: aynı tip numarasını iki farklı
+  // üretici taşıyorsa hangisi olduğu bilinmiyordur ve tahmin edilmez
+  // (değişmez md. 4).
+  const tipIndeksi = new Map<string, DeviceModel | null>();
+  for (const model of models.values()) {
+    const tip = model.lookupKey.split("|")[1] ?? "";
+    if (!tip) continue;
+    tipIndeksi.set(tip, tipIndeksi.has(tip) ? null : model);
+  }
+  const modelBul = (lookupKey: string): DeviceModel | null => {
+    const tam = models.get(lookupKey);
+    if (tam) return tam;
+    const tip = lookupKey.split("|")[1] ?? "";
+    return tip ? (tipIndeksi.get(tip) ?? null) : null;
+  };
+
   const kutular = new Map<string, DeviceBox>();
   const untagged: ElectricalPart[] = [];
 
@@ -136,7 +160,7 @@ export function buildDeviceBoxes(input: BuildInput): BuildResult {
       typeNo: part.typeNo,
     });
     const kimlik = materialCatalogIdentity(part);
-    const model = models.get(kimlik.lookupKey) ?? null;
+    const model = modelBul(kimlik.lookupKey);
     const override = placementOverrides.get(key) ?? null;
     const olcu = footprintFor(
       {

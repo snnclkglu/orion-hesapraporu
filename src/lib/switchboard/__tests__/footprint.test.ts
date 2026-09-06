@@ -74,6 +74,7 @@ describe("kesit okuma", () => {
     expect(kesitOku("UT 4")).toBe(4);
     expect(kesitOku("UK 10")).toBe(10);
   });
+
 });
 
 describe("tahmin", () => {
@@ -98,6 +99,32 @@ describe("tahmin", () => {
       partNo: "PXC.3044076",
     });
     expect(t.widthMm).toBe(5.2);
+  });
+
+  it("SİGORTALI KLEMENS klemens gibi ölçülür, modüler şalter gibi değil", () => {
+    // Ölçüldü: `PT 4-HESILED 24 (5X20)` taksonomide doğru biçimde
+    // "Sigortalar ve Sigorta Yuvaları"dır ama fiziği klemenstir; kutup arayan
+    // kural onu 155 adet birlikte "ölçüsüz" bırakıyordu.
+    const t = estimateFootprint({
+      category: "Sigortalar ve Sigorta Yuvaları",
+      designation: "Fuse terminal block PT 4-HESILED 24 (5X20)",
+      typeNo: "PT 4-HESILED 24 (5X20)",
+      supplier: "Phoenix Contact",
+      partNo: "PXC.3036019",
+    });
+    expect(t.widthMm).toBe(6.2);
+    expect(t.source).toBe("tahmin");
+  });
+
+  it("cıvata bağlantılı RBO tahmin EDİLMEZ — adımı tabloya uymaz", () => {
+    const t = estimateFootprint({
+      category: "Fiş, Priz, Klemens ve Bağlantı",
+      designation: "Feed-through terminal block RBO 16",
+      typeNo: "RBO 16",
+      supplier: "Phoenix Contact",
+      partNo: "",
+    });
+    expect(t.widthMm).toBeNull();
   });
 
   it("sürücünün ölçüsü ailesinden ÇIKARILMAZ", () => {

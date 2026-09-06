@@ -26,6 +26,7 @@ import {
   TriangleAlert,
   Upload,
   LayoutGrid,
+  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -315,6 +316,17 @@ export function ElectricalCard({
               <Button size="sm" variant="outline" asChild>
                 <a href={`/projects/${projectId}/pano`}>
                   <LayoutGrid className="size-3.5" /> Pano Yerleşimi
+                </a>
+              </Button>
+            )}
+            {/* ÖLÇÜ DEFTERİ AYRI BİR DÜĞMEDİR (kullanıcı isteği, 06.09.2026):
+                defter projeden BAĞIMSIZDIR ve mühendis onu yerleşimi açmadan
+                da denetlemek ister — "şu ürünün ölçüsü girilmiş mi?" sorusu
+                bir pano şeması açmayı gerektirmemeli. */}
+            {current && current.parsedAt && parts.length > 0 && (
+              <Button size="sm" variant="outline" asChild>
+                <a href={`/projects/${projectId}/pano/defter`}>
+                  <BookOpen className="size-3.5" /> Ölçü Defteri
                 </a>
               </Button>
             )}
