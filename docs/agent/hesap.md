@@ -1679,10 +1679,11 @@ yalnız erişimin Yönetici, Müdür veya Mühendis gerektirdiğini söyler.
 
 Kullanıcı kararı (06.09.2026). Teknik Özellikler > Elektrik grubundaki
 **Elektrik Hesap Raporu = Var/Yok** seçimi bağımsız `electrical` modülünü
-açar/kapatır. Alanı taşımayan eski revizyon `Yok` kabul edilir; yeni bölüm
-teslim edilmiş eski raporlara kendiliğinden eklenmez. Modül verisi tam
-snapshot'ta korunur ve tekrar açıldığında sürücü/kablo/feston seçimleri geri
-gelir.
+açar/kapatır. Alanı taşımayan fakat daha önce kaydedilmiş eski revizyonlarda
+(0026 gibi) yeni bölüm raporun sonunda **Var** kabul edilir; kullanıcı isterse
+Teknik Özellikler'den `Yok` yapar. Henüz kaydedilmemiş yeni revizyon kendi
+şablon varsayılanını korur. Modül verisi tam snapshot'ta saklanır ve tekrar
+açıldığında sürücü/kablo/feston seçimleri geri gelir.
 
 **YÜK LİSTESİ AYRICA GİRİLMEZ.** Hesaba gerçekten giren ana, yardımcı,
 monoray kaldırma ve yürütme modüllerinin seçilmiş `motorPowerKw × motorCount`

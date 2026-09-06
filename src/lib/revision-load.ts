@@ -539,6 +539,17 @@ function disabledSet(inputs: RevisionInputsJson | null): Set<ModuleKey> {
 }
 
 /**
+ * Snapshot gerçekten daha önce kaydedilmiş bir hesap raporu mu?
+ *
+ * Yeni revizyon yalnız `specs` veya vinç tipi tohumu taşıyabilir. En az bir
+ * modül alanı varsa kullanıcı daha önce bu raporu kaydetmiştir; sonradan
+ * eklenen elektrik hesabı bu mevcut raporların sonunda AÇIK gelmelidir.
+ */
+function hasStoredModuleSnapshot(stored: Record<string, unknown>): boolean {
+  return MODULE_ORDER.some((key) => CALC_FIELD[key] in stored);
+}
+
+/**
  * Bir bölümün "otomatik" anahtarları. Şablonda AÇIK gelirler; ancak kayıtlı bir
  * revizyonda bu anahtar hiç yoksa mühendis o değeri ELLE girmiş demektir ve
  * türetme onu ezmemelidir. Bu yüzden şablondan miras alınmaz, kapalıya çekilir.
@@ -1014,10 +1025,25 @@ function fullInput(
   inputs: RevisionInputsJson | null,
   selections: RevisionSelectionsJson | null
 ): CalcInput {
-  const out: CalcInput = {
-    specs: migrateWeights(withDefaults(inputs?.specs, NEW_WORK_TEMPLATE.specs), inputs),
-  };
   const storedInputs = (inputs ?? {}) as Record<string, unknown>;
+  const storedSpecs = inputs?.specs as unknown as Record<string, unknown> | undefined;
+  const specs = {
+    ...withDefaults(inputs?.specs, NEW_WORK_TEMPLATE.specs),
+  };
+
+  // Elektrik hesap raporu mevcut hesap raporlarının sonuna eklenir. Bu alanın
+  // eklenmesinden önce kaydedilmiş bir revizyonda açık başlar; kullanıcı daha
+  // sonra Teknik Özellikler'den "Yok" seçerse o açık karar aynen korunur.
+  if (
+    hasStoredModuleSnapshot(storedInputs) &&
+    (!storedSpecs || !("hasElectricalCalculation" in storedSpecs))
+  ) {
+    specs.hasElectricalCalculation = "yes";
+  }
+
+  const out: CalcInput = {
+    specs: migrateWeights(specs, inputs),
+  };
   const storedSelections = (selections ?? {}) as Record<string, unknown>;
   const template = NEW_WORK_TEMPLATE as unknown as Record<
     string,

@@ -24,16 +24,22 @@ describe("elektrik hesap raporu", () => {
     expect(moduleAllowedByConfig(specs, "electrical")).toBe(true);
     expect(activeModules(specs).has("electrical")).toBe(true);
 
-    // Bu teknik alan eklenmeden önce kaydedilmiş bir revizyon yeni bölümü
-    // kendiliğinden açmamalı; varsayılan "no" geriye dönük davranışı korur.
+    // Bu teknik alan eklenmeden önce KAYDEDİLMİŞ bir revizyon (0026 gibi)
+    // bölümü raporun sonunda açık görür. Kullanıcı bundan sonra "Yok" seçerse
+    // açık tercih snapshot'ta saklanır ve göç yeniden devreye girmez.
     const legacySpecs = structuredClone(NEW_WORK_SPECS);
     delete (legacySpecs as unknown as Record<string, unknown>).hasElectricalCalculation;
     const legacy = loadRevision({
       specs: legacySpecs,
       mainHoist: NEW_WORK_TEMPLATE.mainHoist?.inputs,
     }, null);
-    expect(legacy.full.specs.hasElectricalCalculation).toBe("no");
-    expect(legacy.input.electrical).toBeUndefined();
+    expect(legacy.full.specs.hasElectricalCalculation).toBe("yes");
+    expect(legacy.input.electrical).toBeDefined();
+
+    // Henüz kaydedilmemiş yeni revizyon varsayılan seçimini korur.
+    const unsaved = loadRevision({ specs: legacySpecs }, null);
+    expect(unsaved.full.specs.hasElectricalCalculation).toBe("no");
+    expect(unsaved.input.electrical).toBeUndefined();
   });
 
   it("0026'da kullanılan ATV930D90N4 seçimini katalog gücü ve akımıyla doğrular", () => {
