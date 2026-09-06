@@ -146,7 +146,12 @@ belirsizliği kapatır. Kod yorumlarındaki atıflar da bu biçimdedir.
 
 **Yeni kural buraya YAZILMAZ**, alan dosyasına yazılır. Bu dosya her oturumda
 ve her alt-ajanda bütünüyle yüklenir; büyümesi bütün ajanların bedelidir.
-Yeni bir alan açılırsa `scripts/agent-docs/manifest.ts`e eklenir ve
-`npx tsx scripts/agent-docs/split.ts --uygula` haritayı, alan dosyasını ve
-kural işaretçisini birlikte tazeler. Denetim: `npx tsx scripts/agent-docs/doctor.ts`.
+**`split.ts --uygula` ÇALIŞTIRILMAZ.** O betik alan dosyalarını BU DOSYAYI
+ayrıştırarak üretir; bölme bir kez yapıldı ve gövdeler buradan çıktı. Bugün
+çalıştırmak on sekiz alan dosyasını altı satırlık kütüğe indirir. (Alan
+dosyalarının 6. satırındaki "ondan üretilir" notu o günden kalmadır.) Yeni bir
+alan açılırsa `docs/agent/<alan>.md` ve `.claude/rules/<alan>.md` (`paths:`
+frontmatter'ı ZORUNLU) ELLE yazılır, haritaya satır elle eklenir,
+`manifest.ts`e kayıt tutarlılık için girilir. Denetim SALT OKUNURDUR:
+`npx tsx scripts/agent-docs/doctor.ts`.
 
