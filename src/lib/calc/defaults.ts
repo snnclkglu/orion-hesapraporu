@@ -40,6 +40,10 @@ import {
   V5_GIRDER_SELECTIONS,
 } from "./defaults/structural";
 import { V5_WHEELLOAD_INPUTS, V5_WHEELLOAD_SELECTIONS } from "./defaults/wheelLoads";
+import {
+  DEFAULT_ELECTRICAL_INPUTS,
+  DEFAULT_ELECTRICAL_SELECTIONS,
+} from "./modules/electrical";
 
 export const V5_SPECS: TechnicalSpecs = {
   mainCapacityT: 4,
@@ -77,6 +81,7 @@ export const V5_SPECS: TechnicalSpecs = {
   installationEnvironment: "indoor",
   supplyVoltage: "380 VAC, 3 Faz, 50 Hz",
   controlVoltage: "24 VDC",
+  hasElectricalCalculation: "no",
   spanM: 17.5,
   hasOperatorCabin: "no",
   operatorCabinHasAirConditioner: "no",
@@ -338,6 +343,7 @@ export const V5_TEMPLATE: CalcInput = {
   buckling: { inputs: V5_BUCKLING_INPUTS },
   endCarriage: { inputs: V5_ENDCARRIAGE_INPUTS, selections: V5_ENDCARRIAGE_SELECTIONS },
   cabin: { inputs: DEFAULT_CABIN_INPUTS, selections: DEFAULT_CABIN_SELECTIONS },
+  electrical: { inputs: DEFAULT_ELECTRICAL_INPUTS, selections: DEFAULT_ELECTRICAL_SELECTIONS },
 };
 
 // ------------------------------------------------------- Yeni iş şablonu
@@ -360,6 +366,7 @@ export const NEW_WORK_SPECS: TechnicalSpecs = {
   electricalAccommodationType: "none",
   electricalRoomHasAirConditioner: "no",
   electricalPanelHasAirConditioner: "no",
+  hasElectricalCalculation: "no",
 
   travelArrangement: "traveling",
   auxTrolleyMode: "shared",
@@ -774,4 +781,5 @@ export const NEW_WORK_TEMPLATE: CalcInput = {
   buckling: { inputs: V5_BUCKLING_INPUTS },
   endCarriage: { inputs: V5_ENDCARRIAGE_INPUTS, selections: V5_ENDCARRIAGE_SELECTIONS },
   cabin: { inputs: DEFAULT_CABIN_INPUTS, selections: DEFAULT_CABIN_SELECTIONS },
+  electrical: { inputs: DEFAULT_ELECTRICAL_INPUTS, selections: DEFAULT_ELECTRICAL_SELECTIONS },
 };

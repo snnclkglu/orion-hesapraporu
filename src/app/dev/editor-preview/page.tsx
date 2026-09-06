@@ -11,15 +11,15 @@ import { NEW_WORK_DISABLED_MODULES, NEW_WORK_TEMPLATE } from "@/lib/calc/default
 export default async function EditorPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ doubleDrum?: string; craneType?: string }>;
+  searchParams: Promise<{ doubleDrum?: string; craneType?: string; electrical?: string }>;
 }) {
   if (process.env.NODE_ENV !== "development") notFound();
   // `craneType` KÜNYE alanıdır ve hesap motoruna girmez (HESAP-8b); tek
   // okuyucusu ağırlık dökümüdür ve orada yalnız "bu vincin ayağı var mı"
   // sorusuna cevap verir. Önizlemede portal ayaklarını görebilmek için
   // ?craneType=Portal%20Vin%C3%A7 ile verilir.
-  const { doubleDrum, craneType } = await searchParams;
-  const initial = doubleDrum === "1"
+  const { doubleDrum, craneType, electrical } = await searchParams;
+  const mechanismInitial = doubleDrum === "1"
     ? {
         ...NEW_WORK_TEMPLATE,
         specs: {
@@ -30,6 +30,16 @@ export default async function EditorPreviewPage({
         },
       }
     : NEW_WORK_TEMPLATE;
+  // Elektrik modülünün bütün özel editörlerini tek URL ile görsel test et.
+  const initial = electrical === "1"
+    ? {
+        ...mechanismInitial,
+        specs: {
+          ...mechanismInitial.specs,
+          hasElectricalCalculation: "yes" as const,
+        },
+      }
+    : mechanismInitial;
   return (
     <div className="flex min-h-screen flex-col">
       {/* Uygulama kabuğundaki ince üst şeridin karşılığı (sticky hizalama için) */}

@@ -431,6 +431,10 @@ function defsForModule(key: ModuleKey): {
         inputs: transferDefs(CABIN_INPUT_FIELDS),
         selections: transferDefs(CABIN_SELECTION_FIELDS),
       };
+    case "electrical":
+      // Elektrik modülü devre bazlı iç içe nesneler taşır; tüm anahtarları
+      // şablonda zorunlu ve JSON olarak zaten bulunur. Serbest düz alan yoktur.
+      return { inputs: [], selections: [] };
   }
 }
 

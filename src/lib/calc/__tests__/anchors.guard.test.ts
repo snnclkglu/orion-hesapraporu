@@ -99,9 +99,15 @@ import type { AnyCheck } from "../types";
 //   kontrolü eklendi. Köprü yürütme freni önceki sayımda zaten vardı.
 // 316 = 313 + 3: elektrik odasında pano dizisi boy, yükseklik+baza ve
 //   derinlik sonrası geçiş alanı fiziksel oda ölçülerine karşı kontrol edilir.
-const EXPECTED_CHECK_COUNT = 316;
+// 359 = 316 + 43: elektrik hesap raporunda dokuz olası motor devresinin
+//   sürücü güç/akım ve kablo akım/gerilim düşümü kontrolleri (36), ana besleme
+//   (2) ve feston yerleşimi (5). Koşullu modül aşağıdaki fixture'da açılır.
+const EXPECTED_CHECK_COUNT = 359;
 
-const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
+const result: CalcResult = runCalc({
+  ...NEW_WORK_TEMPLATE,
+  specs: { ...NEW_WORK_TEMPLATE.specs, hasElectricalCalculation: "yes" },
+});
 
 /**
  * Emniyet freni KOŞULLU bir bölümdür (2.8): yalnız emniyet freni öngörülen

@@ -38,6 +38,10 @@ import type { BucklingInputs } from "@/lib/calc/modules/buckling";
 import type { EndCarriageInputs, EndCarriageSelections } from "@/lib/calc/modules/endCarriage";
 import type { CabinInputs, CabinSelections } from "@/lib/calc/modules/cabin";
 import type { WheelLoadInputs, WheelLoadSelections } from "@/lib/calc/modules/wheelLoads";
+import type {
+  ElectricalInputs,
+  ElectricalSelections,
+} from "@/lib/calc/modules/electrical";
 import type { TechnicalSpecs } from "@/lib/calc/types";
 import {
   AGIRLIK_SERBEST_ON_EKI,
@@ -66,6 +70,7 @@ export interface RevisionInputsJson {
   buckling?: BucklingInputs | null;
   endCarriage?: EndCarriageInputs | null;
   cabin?: CabinInputs | null;
+  electrical?: ElectricalInputs | null;
   /** Kullanıcının kapattığı hesap bölümleri (hesaba ve rapora girmez) */
   disabledModules?: string[] | null;
   /**
@@ -151,6 +156,7 @@ export interface RevisionSelectionsJson {
   girder2?: GirderSelections | null;
   endCarriage?: EndCarriageSelections | null;
   cabin?: CabinSelections | null;
+  electrical?: ElectricalSelections | null;
   alts?: RevisionAlts;
   /** Hesap alt bölümlerine bağlı mühendis notları. */
   sectionNotes?: RevisionSectionNotes;
@@ -470,6 +476,7 @@ export const CALC_FIELD: Record<ModuleKey, keyof CalcInput> = {
   buckling: "buckling",
   endCarriage: "endCarriage",
   cabin: "cabin",
+  electrical: "electrical",
 };
 
 export interface LoadedRevision {

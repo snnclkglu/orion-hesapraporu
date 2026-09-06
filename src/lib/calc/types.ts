@@ -249,6 +249,9 @@ export type BridgePowerSupply =
 /** Operatör kabini projeye dâhil mi? */
 export type OperatorCabinPresence = "yes" | "no";
 
+/** Ayrı elektrik hesap raporu bölümü projeye dâhil mi? */
+export type ElectricalCalculationPresence = "yes" | "no";
+
 /** Mahallin bulunduğu ortam — güneş yükünü belirler. */
 export type InstallationEnvironment = "indoor" | "outdoor";
 
@@ -411,6 +414,8 @@ export interface TechnicalSpecs {
   installationEnvironment?: InstallationEnvironment;
   supplyVoltage: string;        // besleme gerilimi
   controlVoltage: string;       // kumanda gerilimi
+  /** Sürücü, kablo ve feston yerleşimi hesabı raporda yer alsın mı? */
+  hasElectricalCalculation?: ElectricalCalculationPresence;
   spanM: number;                // açıklık [m]
 
   /** Vinç yürüme yolu uzunluğu [m] — köprü festoon hareket mesafesi. */

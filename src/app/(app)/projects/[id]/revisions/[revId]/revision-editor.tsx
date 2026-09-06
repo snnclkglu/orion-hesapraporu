@@ -80,6 +80,12 @@ import {
 import { WheelSpacingEditor } from "@/components/wheel-spacing-editor";
 import { SheaveOffsetsEditor } from "@/components/sheave-offsets-editor";
 import { RoomPanelWidthsEditor } from "@/components/room-panel-widths-editor";
+import { ElectricalModuleEditor } from "@/components/electrical-module-editor";
+import type {
+  ElectricalInputs,
+  ElectricalSelections,
+  ElectricalValues,
+} from "@/lib/calc/modules/electrical";
 import {
   ADAPTER_BY_KEY,
   MODULE_ADAPTERS,
@@ -2893,6 +2899,27 @@ export function RevisionEditor({
               travelDistanceM={travelFestoonDistanceM(specs, key)}
               trolleyCount={(inputs as TravelInputs).festoonTrolleyCount}
               loopHeightM={(inputs as TravelInputs).festoonLoopHeightM}
+            />
+          )}
+          {key === "electrical" && (
+            section.editor === "electricalDrives" ||
+            section.editor === "electricalCables" ||
+            section.editor === "electricalFestoon"
+          ) && (
+            <ElectricalModuleEditor
+              mode={
+                section.editor === "electricalDrives"
+                  ? "drives"
+                  : section.editor === "electricalCables"
+                    ? "cables"
+                    : "festoon"
+              }
+              inputs={inputs as ElectricalInputs}
+              selections={sel as ElectricalSelections}
+              values={moduleResult(key)?.values as ElectricalValues | undefined}
+              onInputsChange={(next) => setModuleInputs(key, next)}
+              onSelectionsChange={(next) => setModuleSelections(key, next)}
+              disabled={readOnly}
             />
           )}
           {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (

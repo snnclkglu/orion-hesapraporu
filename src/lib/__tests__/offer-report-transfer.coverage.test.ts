@@ -37,6 +37,7 @@ const MODULE_TYPES: Record<ModuleFamily, { file: string; inputs: string; selecti
   buckling: { file: "src/lib/calc/modules/buckling.ts", inputs: "BucklingInputs" },
   endCarriage: { file: "src/lib/calc/modules/endCarriage.ts", inputs: "EndCarriageInputs", selections: "EndCarriageSelections" },
   cabin: { file: "src/lib/calc/modules/cabin.ts", inputs: "CabinInputs", selections: "CabinSelections" },
+  electrical: { file: "src/lib/calc/modules/electrical.ts", inputs: "ElectricalInputs", selections: "ElectricalSelections" },
 };
 
 const missing = (typeKeys: string[], accepted: string[]) =>

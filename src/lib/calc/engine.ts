@@ -68,6 +68,14 @@ import {
   type CabinValues,
 } from "./modules/cabin";
 import {
+  computeElectrical,
+  type ElectricalCircuitKey,
+  type ElectricalDeps,
+  type ElectricalInputs,
+  type ElectricalSelections,
+  type ElectricalValues,
+} from "./modules/electrical";
+import {
   panelHeatBreakdown,
   type DriveHeatSource,
 } from "./drive-losses";
@@ -104,8 +112,10 @@ import {
  *        savrulma modeli.
  * 0.5.0: Tek kirişli köprü — ölü ve hareketli yüklerin tek ana kirişe
  *        aktarılması; çift/dört kirişli sonuçların geriye uyumlu korunması.
+ * 0.6.0: İsteğe bağlı elektrik hesap raporu — sürücü ve kablo ön seçimi,
+ *        ana besleme hesabı ve ağırlık merkezli feston yerleşimi.
  */
-export const ENGINE_VERSION = "0.5.0";
+export const ENGINE_VERSION = "0.6.0";
 
 export interface HoistModuleInput {
   inputs: HoistInputs;
@@ -148,6 +158,8 @@ export interface CalcInput {
   endCarriage?: { inputs: EndCarriageInputs; selections: EndCarriageSelections };
   // Kabin ve elektrik odası (klima katalog seçimi dâhil)
   cabin?: { inputs: CabinInputs; selections: CabinSelections };
+  // Elektrik hesap raporu — ekipman listesine satır üretmez.
+  electrical?: { inputs: ElectricalInputs; selections: ElectricalSelections };
 }
 
 export interface CalcResult {
@@ -171,6 +183,7 @@ export interface CalcResult {
   buckling?: ModuleResult<BucklingValues>;
   endCarriage?: ModuleResult<EndCarriageValues>;
   cabin?: ModuleResult<CabinValues>;
+  electrical?: ModuleResult<ElectricalValues>;
   /** Tüm modüllerin kontrolleri (pano/özet için düzleştirilmiş) */
   allChecks: AnyCheck[];
   allPass: boolean;
@@ -352,7 +365,8 @@ export function moduleAllowedByConfig(specs: TechnicalSpecs, key: ModuleKey): bo
     key !== "hookBlock" &&
     key !== "aux" &&
     key !== "auxHookBlock" &&
-    key !== "cabin"
+    key !== "cabin" &&
+    key !== "electrical"
   ) {
     return false;
   }
@@ -377,6 +391,8 @@ export function moduleAllowedByConfig(specs: TechnicalSpecs, key: ModuleKey): bo
     // bölüm olurdu.
     case "cabin":
       return cabinModuleApplies(specs);
+    case "electrical":
+      return specs.hasElectricalCalculation === "yes";
     default:
       return true;
   }
@@ -485,6 +501,49 @@ export function cabinDepsFrom(input: CalcInput): CabinDeps {
     mono2Trolley: input.mono2Trolley,
     bridge: input.bridge,
   });
+}
+
+const ELECTRICAL_MOTOR_LABELS: Record<ElectricalCircuitKey, string> = {
+  main: "Ana Kaldırma",
+  aux: "Yardımcı Kaldırma",
+  mono1: "Monoray 1 Kaldırma",
+  mono2: "Monoray 2 Kaldırma",
+  trolley: "Ana Araba Yürütme",
+  auxTrolley: "Yardımcı Araba Yürütme",
+  mono1Trolley: "Monoray 1 Araba Yürütme",
+  mono2Trolley: "Monoray 2 Araba Yürütme",
+  bridge: "Köprü Yürütme",
+};
+
+/** Hesaba gerçekten giren mekanizmaların seçilmiş motorlarından elektrik yük listesi. */
+export function electricalDepsFrom(input: CalcInput): ElectricalDeps {
+  const modules: Partial<Record<ElectricalCircuitKey, { selections: object }>> = {
+    main: input.mainHoist,
+    aux: input.auxHoist,
+    mono1: input.mono1Hoist,
+    mono2: input.mono2Hoist,
+    trolley: input.trolley,
+    auxTrolley: input.auxTrolley,
+    mono1Trolley: input.mono1Trolley,
+    mono2Trolley: input.mono2Trolley,
+    bridge: input.bridge,
+  };
+  const motors: ElectricalDeps["motors"] = [];
+  for (const key of Object.keys(ELECTRICAL_MOTOR_LABELS) as ElectricalCircuitKey[]) {
+    const state = modules[key];
+    if (!state) continue;
+    const selections = state.selections as Record<string, unknown>;
+    const motorPowerKw = Number(selections.motorPowerKw);
+    if (!Number.isFinite(motorPowerKw) || motorPowerKw <= 0) continue;
+    const count = Number(selections.motorCount);
+    motors.push({
+      key,
+      label: ELECTRICAL_MOTOR_LABELS[key],
+      motorPowerKw,
+      motorCount: Number.isFinite(count) && count > 0 ? Math.max(1, Math.round(count)) : 1,
+    });
+  }
+  return { motors };
 }
 
 export function runCalc(input: CalcInput): CalcResult {
@@ -620,6 +679,21 @@ export function runCalc(input: CalcInput): CalcResult {
   if (input.cabin) {
     out.cabin = push(
       computeCabin(specs, input.cabin.inputs, input.cabin.selections, cabinDepsFrom(input))
+    );
+  }
+
+  // --- Elektrik hesap raporu ----------------------------------------------
+  // Şablon kapalı modüllerin girdilerini yeniden açılmak üzere saklar. Teknik
+  // özellikte "Yok" iken bu saklı state doğrudan runCalc'e verilse bile
+  // elektrik kontrolleri hesaba/rapora sızmamalıdır.
+  if (input.electrical && moduleAllowedByConfig(specs, "electrical")) {
+    out.electrical = push(
+      computeElectrical(
+        specs,
+        input.electrical.inputs,
+        input.electrical.selections,
+        electricalDepsFrom(input)
+      )
     );
   }
 

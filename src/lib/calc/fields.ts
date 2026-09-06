@@ -1145,6 +1145,15 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   // --- Elektrik
   { key: "supplyVoltage", label: "Besleme Gerilimi", type: "select", options: SUPPLY_VOLTAGES, group: "electrical" },
   { key: "controlVoltage", label: "Kumanda Gerilimi", type: "select", options: CONTROL_VOLTAGES, group: "electrical" },
+  {
+    key: "hasElectricalCalculation",
+    label: "Elektrik Hesap Raporu",
+    type: "select",
+    options: ["no", "yes"],
+    optionLabels: { no: "Yok", yes: "Var" },
+    group: "electrical",
+    info: "Sürücü seçimi, motor/ana besleme kablosu ön boyutlandırması ve feston kablo yerleşimi bölümünü açar. Elektrik ekipman listesine satır eklemez.",
+  },
 
   // --- Ortam
   { key: "ambientTempMinC", label: "Ortam Sıcaklığı (Min)", unit: "°C", type: "select", options: AMBIENT_TEMP_MIN_C, numeric: true, group: "environment" },

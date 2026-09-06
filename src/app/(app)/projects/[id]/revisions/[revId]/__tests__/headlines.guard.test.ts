@@ -60,7 +60,13 @@ const BAND_DISI_SONEKLER = new Set([
  * bu, olmayan bir hesap hatasını varmış gibi gösterirdi. Bölümün kendi
  * kontrol satırları yerinde durmaya devam eder.
  */
-const SERITSIZ_BOLUMLER = new Set(["cabin:11.1", "cabin:11.2", "cabin:11.3"]);
+const SERITSIZ_BOLUMLER = new Set([
+  "cabin:11.1", "cabin:11.2", "cabin:11.3",
+  // Elektrik bölümleri devre adedi kadar dinamik yargı üretir. Hepsini tek
+  // şeride kopyalamak onlarca rozet oluşturup sürücü/kablo tablolarını tekrar
+  // eder; bölüm başlığındaki uygunluk sayacı ve satır kontrolleri karar yüzüdür.
+  "electrical:12.1", "electrical:12.2", "electrical:12.3",
+]);
 
 /** Raporun sonundaki KONTROL DİZİNİNİN adı — şerit başlığı bu olamaz. */
 const RAPOR_DIZIN_BASLIGI = "Kontrol Özeti";

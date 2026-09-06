@@ -2311,6 +2311,17 @@ const REPORT_SOURCES = [
   "ISO 9927-1:2013 — Cranes; Inspections; Part 1: General",
 ] as const;
 
+const ELECTRICAL_REPORT_SOURCES = [
+  "ORION 0026 tamamlanmış elektrik projesi — Schneider Electric Altivar Process ATV930 referans seçimleri",
+  "ORION 0019 tamamlanmış elektrik projesi — Siemens SINAMICS S120 referans seçimleri",
+  "Schneider Electric — Altivar Machine ATV320 / ATV340 ve Altivar Process ATV900 üretici katalogları",
+  "ABB — ACS880-01 Donanım Kılavuzu ve teknik verileri",
+  "Siemens — SINAMICS S120 Booksize Power Units, D 21.4 üretici kataloğu",
+  "HELUKABEL Türkiye ürün kataloğu — TOPFLEX 611-C-PUR, JZ-600, PVC Flat ve kumanda/sinyal kabloları",
+  "Vasel — I-Beam Cable Festoon Systems, VS2020A-4WF",
+  "Conductix-Wampfler — KAT0320-0003-EN, I-kiriş feston arabaları",
+] as const;
+
 /** Ticari unvan — hukukî metinde ticari ad değil TÜZEL KİŞİ adı geçer. */
 const LEGAL_ENTITY = "ORION VİNÇ MÜHENDİSLİK SAN. VE TİC. LTD. ŞTİ.";
 
@@ -2480,7 +2491,11 @@ function SourcesSection({
   revision,
   reportBrand,
   level,
-}: Pick<ReportProps, "project" | "revision" | "reportBrand"> & { level: ReportLevel }) {
+  input,
+}: Pick<ReportProps, "project" | "revision" | "reportBrand" | "input"> & { level: ReportLevel }) {
+  const sources = input.electrical
+    ? [...REPORT_SOURCES, ...ELECTRICAL_REPORT_SOURCES]
+    : REPORT_SOURCES;
   return (
     <BrandPage
       docLine={docLineFor(revision)}
@@ -2499,7 +2514,7 @@ function SourcesSection({
         Hesap raporunda başvurulan kaynak dokümanlar.
       </Text>
       <View style={{ borderTopWidth: 0.75, borderTopColor: BRAND.line300 }}>
-        {REPORT_SOURCES.map((source, index) => (
+        {sources.map((source, index) => (
           <View
             key={source}
             style={{ flexDirection: "row", gap: 8, borderBottomWidth: 0.5, borderBottomColor: BRAND.line300, paddingVertical: 5 }}
@@ -2575,7 +2590,9 @@ function ModulePage({
         <PageHeader
           kicker={`BÖLÜM ${no}`}
           title={rest.join(" · ")}
-          meta="FEM 1.001 · DIN 15018 · CMAA 70"
+          meta={adapter.key === "electrical"
+            ? "ÜRETİCİ KATALOGLARI · ORION ÖN BOYUTLANDIRMA"
+            : "FEM 1.001 · DIN 15018 · CMAA 70"}
           logo={brandLogoFromBuffer(props.reportBrand?.logo)}
           fixed
         />

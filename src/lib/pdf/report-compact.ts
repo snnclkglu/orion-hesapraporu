@@ -270,6 +270,27 @@ const CABIN_PLAN: FamilyPlan = {
   },
 };
 
+const ELECTRICAL_PLAN: FamilyPlan = {
+  "12.1": {
+    wide: true,
+    rows: ["system.installedPower", "system.mainCurrent"],
+    table: true,
+  },
+  "12.2": {
+    wide: true,
+    rows: ["mainCable.requiredSection", "mainCable.selected", "mainCable.voltageDrop"],
+    table: true,
+  },
+  "12.3": {
+    wide: true,
+    rows: [
+      "festoon.trolley", "festoon.packageWidth", "festoon.packageHeight",
+      "festoon.packageWeight", "festoon.centerOffset", "festoon.minimumDiameter",
+    ],
+    table: true,
+  },
+};
+
 /** Aile → ham bölüm id'si → plan. Ham id kullanılır (köprüde 6.x değil 5.x). */
 export const COMPACT_PLAN: Record<ModuleFamily, FamilyPlan> = {
   hoist: HOIST_PLAN,
@@ -280,6 +301,7 @@ export const COMPACT_PLAN: Record<ModuleFamily, FamilyPlan> = {
   buckling: BUCKLING_PLAN,
   endCarriage: ENDCARRIAGE_PLAN,
   cabin: CABIN_PLAN,
+  electrical: ELECTRICAL_PLAN,
 };
 
 const EMPTY_PLAN: CompactSectionPlan = {};

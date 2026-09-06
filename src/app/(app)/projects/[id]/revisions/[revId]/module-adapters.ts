@@ -86,7 +86,12 @@ import {
   GIRDER_INPUT_FIELDS,
   GIRDER_SELECTION_FIELDS,
 } from "@/lib/calc/presentation/structuralFields";
-import { bridgeMovingTrolleyWeightT, bridgeTrolleyWeightT, girderDepsFor } from "@/lib/calc/engine";
+import {
+  bridgeMovingTrolleyWeightT,
+  bridgeTrolleyWeightT,
+  electricalDepsFrom,
+  girderDepsFor,
+} from "@/lib/calc/engine";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import {
   computeHoistGroup,
@@ -119,6 +124,11 @@ import {
 import { computeBuckling } from "@/lib/calc/modules/buckling";
 import { computeEndCarriage, type EndCarriageDeps } from "@/lib/calc/modules/endCarriage";
 import { CABIN_SECTIONS, type CabinCtx } from "@/lib/calc/presentation/cabinSections";
+import {
+  ELECTRICAL_SECTIONS,
+  type ElectricalCtx,
+} from "@/lib/calc/presentation/electricalSections";
+import { computeElectrical, type ElectricalDeps } from "@/lib/calc/modules/electrical";
 import {
   CABIN_INPUT_FIELDS,
   CABIN_SELECTION_FIELDS,
@@ -324,7 +334,14 @@ export interface AdapterSection {
    * ızgarasıyla anlatılamayan geometriler için arayüz adanmış bir bileşen
    * çizer (teker düzeni ölçü zinciri). PDF tarafı bu alanı yok sayar.
    */
-  editor?: "wheelSpacing" | "festoon" | "sheaveOffsets" | "roomPanels";
+  editor?:
+    | "wheelSpacing"
+    | "festoon"
+    | "sheaveOffsets"
+    | "roomPanels"
+    | "electricalDrives"
+    | "electricalCables"
+    | "electricalFestoon";
   /**
    * «Girdiler / Tasarım Kabulleri» başlığının yanındaki bilgi notu — bölümün
    * HESABINI anlatır (alan başına notlardan farkı budur). PDF tarafı bu alanı
@@ -1293,6 +1310,42 @@ function cabinAdapter(): ModuleAdapter {
   };
 }
 
+// ---------------------------------------------------------------- Elektrik hesabı
+
+function electricalAdapter(): ModuleAdapter {
+  return {
+    key: "electrical",
+    title: "12 · Elektrik Hesap Raporu",
+    checkPrefix: "electrical.",
+    sections: ELECTRICAL_SECTIONS.map((s) => ({
+      id: s.id,
+      rawId: s.id,
+      title: s.title,
+      description: s.description,
+      inputDefs: [],
+      selectionDefs: [],
+      selectionKeys: [],
+      editor: s.editor,
+      checkSuffixes: s.checkSuffixes,
+      rows: s.rows.map((row) => ({
+        key: row.key,
+        anchorId: row.key,
+        label: row.label,
+        formula: row.formula,
+        unit: row.unit,
+        digits: row.digits,
+        read: (ctx: unknown) => (ctx as ElectricalCtx).c[row.key],
+      })),
+      table: {
+        title: s.table.title,
+        headers: s.table.headers,
+        note: s.table.note,
+        build: (ctx: unknown) => s.table.build(ctx as ElectricalCtx),
+      },
+    })),
+  };
+}
+
 // ---------------------------------------------------------------- Dışa aktarım
 
 const ADAPTER_FACTORY: Record<ModuleKey, () => ModuleAdapter> = {
@@ -1315,6 +1368,7 @@ const ADAPTER_FACTORY: Record<ModuleKey, () => ModuleAdapter> = {
   buckling: bucklingAdapter,
   endCarriage: endCarriageAdapter,
   cabin: cabinAdapter,
+  electrical: electricalAdapter,
 };
 
 /** Sihirbaz adım sırası — her kaldırma grubunu kendi kanca bloğu izler. */
@@ -1382,6 +1436,7 @@ export const CONFIG_DRIVEN_MODULE_KEYS: readonly ModuleKey[] = [
   "auxTrolley",
   "girder2",
   "cabin",
+  "electrical",
   "mono1",
   "mono1HookBlock",
   "mono1Trolley",
@@ -1438,6 +1493,11 @@ export const MODULE_TOGGLE_GROUPS: readonly ModuleToggleGroup[] = [
     title: "Mahaller",
     keys: ["cabin"],
   },
+  {
+    key: "electrical",
+    title: "Elektrik",
+    keys: ["electrical"],
+  },
 ];
 
 /**
@@ -1479,6 +1539,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   buckling: "Buruşma",
   endCarriage: "Başkiriş",
   cabin: "Kabin ve Elektrik Odası",
+  electrical: "Elektrik Hesap Raporu",
 };
 
 /**
@@ -1608,6 +1669,7 @@ export interface ModuleDepsBundle {
   /** İkinci ana kiriş takımı (dört kirişli köprü) */
   girder2: GirderDeps;
   endCarriage: EndCarriageDeps;
+  electrical: ElectricalDeps;
 }
 
 /** Bir yürütme grubu hangi kaldırma grubunun donanımını taşır. */
@@ -1737,6 +1799,7 @@ export function buildModuleDeps(input: CalcInput, result: CalcResult): ModuleDep
       trolleyWeightT: bridgeTrolleyT,
       bridgeWeightT: specs.bridgeWeightT,
     },
+    electrical: electricalDepsFrom(input),
   };
 }
 
@@ -2244,6 +2307,10 @@ export function computeModuleChecksWith(
     case "wheelLoads":
       return computeWheelLoads(
         specs, inputs as never, selections as never, deps.wheelLoads
+      ).checks;
+    case "electrical":
+      return computeElectrical(
+        specs, inputs as never, selections as never, deps.electrical
       ).checks;
   }
   return [];

@@ -1675,6 +1675,40 @@ uygular. Yazma yetkisi daha dardır ve `admin + engineer` olarak kalır.
 İş Genel Bakış'ta bağlı rapor hücresi de yetkisiz rol için bağlantı üretmez;
 yalnız erişimin Yönetici, Müdür veya Mühendis gerektirdiğini söyler.
 
+## HESAP-41 — Elektrik hesabı isteğe bağlıdır; mekanik motor seçimlerinden beslenir.
+
+Kullanıcı kararı (06.09.2026). Teknik Özellikler > Elektrik grubundaki
+**Elektrik Hesap Raporu = Var/Yok** seçimi bağımsız `electrical` modülünü
+açar/kapatır. Alanı taşımayan eski revizyon `Yok` kabul edilir; yeni bölüm
+teslim edilmiş eski raporlara kendiliğinden eklenmez. Modül verisi tam
+snapshot'ta korunur ve tekrar açıldığında sürücü/kablo/feston seçimleri geri
+gelir.
+
+**YÜK LİSTESİ AYRICA GİRİLMEZ.** Hesaba gerçekten giren ana, yardımcı,
+monoray kaldırma ve yürütme modüllerinin seçilmiş `motorPowerKw × motorCount`
+değerleri devre listesine dönüşür. Sürücü ön seçimi marka → seri → model
+zinciridir: Schneider ATV320/ATV340/ATV930, ABB ACS880-01 ve Siemens SINAMICS
+S120 Booksize. Otomatik seçim hem ağır hizmet/tip gücünü hem sürekli çıkış
+akımını sağlamayan gövdeyi atlar; motor etiket akımı biliniyorsa formülden
+hesaplanan akım elle ezilebilir.
+
+**KABLO ÖN BOYUTLANDIRMASI İKİ KAPIYI BİRLİKTE GEÇER:** düzeltilmiş akım taşıma
+kapasitesi ile üç faz gerilim düşümü. Tek ekranlı motor kablosu önce gelir;
+katalogdaki en büyük kesit yetmedikçe paralel koşu açılmaz. Bu bir nihai
+elektrik projesi değildir: döşeme biçimi, demetleme, harmonikler, kısa devre
+dayanımı, PE kesiti ve koruma koordinasyonu raporda açık kapsam dışı notudur.
+
+**FESTON YERLEŞİMİ FİZİKSELDİR.** HELUKABEL satırının dış çapı/eni/kalınlığı,
+kg/m değeri ve hareketli bükülme katsayısı kullanılır. Tek/çift sıra seçilir;
+yerleşim aynı sıradaki kabloları deterministik takaslarla enine ağırlık
+merkezini araba orta eksenine yaklaştıracak biçimde sıralar. b2, s, D, kablo
+yükü ve ağırlık merkezi ayrı kontrollerdir. Güç/kumanda/sinyal renkleri web ve
+PDF'teki aynı şemada sırasıyla kırmızı/mavi/yeşildir.
+
+Modül **ekipman satırı üretmez**. Elektrik malzeme listesi ELEKTRIK-16'daki
+gibi güncel EPLAN projesinden gelmeye devam eder; hesap kataloglarının işi
+yalnız ön seçim, doğrulama ve rapor izlenebilirliğidir.
+
 Hesap raporu bir iş emrine ve o iş de kazanılmış bir teklife bağlıysa proje
 başlığında **Şartnameyi Yükle** eyleminin yanında **Teklif** görünür. Bağ yoksa
 buton çizilmez. Bağlantı İşler için üretilen TEKLIF-85 kopyasına gider; fiyat ve

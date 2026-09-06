@@ -59,6 +59,7 @@ import { ROOM_DESIGN_RH_PCT, type ClimateLoadResult } from "@/lib/calc/climate-l
 import type { Diagram } from "./model";
 import { drumBrakeSpec } from "@/lib/calc/drum-brake";
 import { climateRoomDiagram } from "./climateRoom";
+import { electricalFestoonDiagram } from "./electricalFestoon";
 import { girderSectionDiagram } from "./girderSection";
 import { girderDynamicsDiagram } from "./girderDynamics";
 import {
@@ -140,6 +141,11 @@ export function diagramForSection(
   result: CalcResult
 ): Diagram | null {
   try {
+    if (moduleKey === "electrical" && rawSectionId === "12.3") {
+      const inp = input.electrical?.inputs;
+      const layout = result.electrical?.values.festoon;
+      return inp && layout ? electricalFestoonDiagram(inp, layout) : null;
+    }
     // --- Kabin ve elektrik odası (11.x): mahal ısı yükü şeması -------------
     if (moduleKey === "cabin") {
       const v = result.cabin?.values as CabinValues | undefined;

@@ -313,3 +313,25 @@ detaylı PDF'de doğrulanmış `technical` belge en çok 6 sayfalık EK-F olarak
 belgenin içine alınır ve ekipman adı doğrudan o ekin ilk sayfasına gider.
 Teknik eki olmayan satırın mevcut dış bağlantısı korunur; tam katalog uydurma
 bir teknik föye dönüştürülmez.
+
+## ELEKTRIK-17 — Hesap raporu katalogları EPLAN ekipman kaynağından ayrıdır.
+
+Elektrik hesap raporunun sürücü ve kablo listesi bir satınalma listesi
+değildir. `electrical-catalog.ts`, 0019/0026 tamamlanmış proje kaynakları ile
+üretici tablolarından doğrulanmış yalnızca hesapta gereken sayısal özellikleri
+tutar: sürücü ağır hizmet/tip gücü ve sürekli çıkış akımı; kablonun kesiti,
+dış ölçüsü, kg/m değeri ve hareketli bükülme katsayısı. Bu veriden
+`buildEquipmentGroups` satırı üretilmez.
+
+Yerel referansların izleri korunur: 0026'da kullanılan ATV930D15N4 ve
+ATV930D90N4, 0019'da kullanılan Siemens 6SL3120-1TE23-0AC0 ile
+6SL3120-1TE31-3AA3 sürücü satırında iş numarası taşır; ATV930 seçim listesi
+yalnız bu iki referansla sınırlı kalmaz, üreticinin 400/480 V ağır hizmet
+tablosundaki 0,37–250 kW gövdeleri kapsar. HELUKABEL ürünleri
+ELEKTRIK-15'teki aynı üretici makale numarasıyla kimliklenir. Vasel
+VS2020A-4WF ölçüleri (L=125, b1=106, b2=74, s=22, D=80 mm) ve yerel
+Conductix-Wampfler KAT0320-0003-EN araba ölçüleri feston yerleşimi için hazır
+seçenektir; b2/s/D kullanıcı tarafından değiştirildiğinde seçim açıkça
+“Özel · Elle girilen ölçüler” olur. Vasel'in eski Cat.4b/52 kataloğu 35 kg
+verirken güncel ürün sayfası 25 kg yayımlar; ön hesap ihtiyatlı olan 25 kg
+sınırını kullanır.

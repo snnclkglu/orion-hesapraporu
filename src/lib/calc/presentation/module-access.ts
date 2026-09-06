@@ -29,6 +29,7 @@ import type { GirderCtx } from "@/lib/calc/presentation/girderSections";
 import type { BucklingCtx } from "@/lib/calc/presentation/bucklingSections";
 import type { EndCarriageCtx } from "@/lib/calc/presentation/endCarriageSections";
 import type { CabinCtx } from "@/lib/calc/presentation/cabinSections";
+import type { ElectricalCtx } from "@/lib/calc/presentation/electricalSections";
 import type { WheelLoadCtx } from "@/lib/calc/presentation/wheelLoadSections";
 import type { ModuleDepsBundle } from "@/app/(app)/projects/[id]/revisions/[revId]/module-adapters";
 
@@ -69,6 +70,8 @@ export function moduleState(
       return input.endCarriage;
     case "cabin":
       return input.cabin;
+    case "electrical":
+      return input.electrical;
   }
 }
 
@@ -93,6 +96,8 @@ export function moduleResult(
       return result.endCarriage;
     case "cabin":
       return result.cabin;
+    case "electrical":
+      return result.electrical;
   }
 }
 
@@ -202,6 +207,18 @@ export function ctxFor(
       const ctx: CabinCtx = {
         c,
         v: (result.cabin?.values ?? {}) as never,
+        inp: st.inputs as never,
+        sel: st.selections as never,
+        specs,
+      };
+      return ctx;
+    }
+    case "electrical": {
+      const r = result.electrical;
+      if (!r) return undefined;
+      const ctx: ElectricalCtx = {
+        c,
+        v: r.values,
         inp: st.inputs as never,
         sel: st.selections as never,
         specs,
