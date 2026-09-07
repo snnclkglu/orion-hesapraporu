@@ -16,6 +16,7 @@ import { materialCatalogIdentity } from "@/lib/electrical/catalogs";
 import type { ElectricalPart } from "@/lib/electrical/types";
 import { footprintFor } from "./footprint";
 import { mountRuleFor } from "./mount";
+import { deviceModelLookup } from "./registry";
 import type { DeviceModel, DimSource, MountType, Zone } from "./types";
 
 /** Defterin bir satırı — ürün başına. */
@@ -59,7 +60,10 @@ export interface BuildBookInput {
  * satırı sayılmaz, yoksa kontaktörün yardımcı kontağı ürünü iki kez saydırırdı.
  */
 export function buildBook(input: BuildBookInput): BookRow[] {
-  const defter = new Map(input.models.map((m) => [m.lookupKey, m]));
+  // Defterde arama TEK TANIMDIR (`registry.ts`). Ekran, yerleşim motoruyla
+  // AYNI sonucu görmelidir: tedarikçisi boş bir satırın ölçüsü yerleşimde
+  // bulunup ekranda "tahmin" görünseydi kullanıcı ölçüyü boşuna yeniden girerdi.
+  const modelBul = deviceModelLookup(input.models);
   const satirlar = new Map<string, BookRow>();
   const gorulen = new Set<string>();
 
@@ -74,7 +78,7 @@ export function buildBook(input: BuildBookInput): BookRow[] {
     const category = electricalCategory(p);
     const kural = mountRuleFor({ category, designation: p.designation, typeNo: p.typeNo });
     const kimlik = materialCatalogIdentity(p);
-    const model = defter.get(kimlik.lookupKey) ?? null;
+    const model = modelBul(kimlik.lookupKey);
     const olcu = footprintFor(
       {
         category,
