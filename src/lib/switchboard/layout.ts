@@ -613,11 +613,30 @@ export function solveLineup(input: SolveAllInput): SolveAllResult {
     }
   }
 
-  const { h: secilenYukseklik, girdiler, cozumler } = secilen as {
+  const { h: secilenYukseklik, girdiler: tumGirdiler, cozumler: tumCozumler } = secilen as {
     h: number;
     girdiler: PanelInput[];
     cozumler: PanelSolve[];
   };
+
+  // BOŞ GÖZ SİPARİŞ EDİLMEZ.
+  //
+  // Ölçüldü (0019, 08.09.2026): bölme aygıt listesini ikiye ayırır ama bir
+  // yarının bütün aygıtları PANO DIŞI (saha) çıkabilir — motor, enkoder, limit
+  // şalteri. Geriye plakasında, kapağında ve gövdesinde hiçbir şey olmayan bir
+  // gövde kalıyordu; gerçek belgede DÖRT böyle göz vardı ve her biri
+  // 400 x 2000 x 600 mm'lik bir pano olarak imalatçıya gidiyordu.
+  //
+  // Aygıtları KAYBOLMAZ: saha aygıtları zaten `solvePanel` içinde kuyruğa
+  // düşüyor ve o kuyruk aşağıda bütün çözümlerden toplanıyor.
+  const doluMu = (c: PanelSolve): boolean =>
+    c.layout.placements.length > 0 ||
+    c.layout.doorPlacements.length > 0 ||
+    c.layout.bodyDevices.length > 0;
+
+  const tutulan = tumCozumler.map((c, i) => ({ c, g: tumGirdiler[i] })).filter((x) => doluMu(x.c));
+  const girdiler = tutulan.map((x) => x.g);
+  const cozumler = tutulan.map((x) => x.c);
 
   // BÖLÜNMÜŞ GÖZ SIRAYLA HARFLENİR. Özyineleme `LVD10-B-A-A` gibi adlar
   // üretiyordu; o ad kaç turda bölündüğünü anlatır ama panonun üstüne
@@ -694,7 +713,9 @@ export function solveLineup(input: SolveAllInput): SolveAllResult {
     } satisfies PanelLayout;
   });
 
-  const unplaced = cozumler.flatMap((c) => c.unplaced);
+  // KUYRUK BÜTÜN ÇÖZÜMLERDEN TOPLANIR, yalnız tutulanlardan değil: boş göz
+  // düşürülse de içindeki saha aygıtları kullanıcıya görünmeye devam eder.
+  const unplaced = tumCozumler.flatMap((c) => c.unplaced);
   return { layouts, unplaced, heightMm: secilenYukseklik, depthMm: ortakDerinlik };
 }
 

@@ -7,6 +7,7 @@
 //
 //   npx tsx scripts/test-switchboard-layout.ts "…/185-40T … rev3.pdf"
 //   npx tsx scripts/test-switchboard-layout.ts "…rev3.pdf" --svg output/pano
+//   npx tsx scripts/test-switchboard-layout.ts "…rev3.pdf" --defter .tmp/device-models.json
 //
 // `--svg` verilirse şemalar dosyaya yazılır; gözle bakmak için (değişmez md. 11
 // ekran tarafını `/dev/pano-preview` ile karşılar, bu ise indirilen dosyanın
@@ -16,6 +17,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readElectricalPdf } from "@/lib/electrical/read-pdf";
 import { computeSwitchboardLayout } from "@/lib/switchboard/compute";
+import type { DeviceModel } from "@/lib/switchboard/types";
 import { auditPanel } from "@/lib/switchboard/audit";
 import { diagramsToSvg } from "@/lib/diagrams/svg";
 import {
@@ -40,11 +42,47 @@ async function main() {
   console.log(`Kaynak: ${okuma.pageCount} sayfa · ${okuma.parts.length} aygıt satırı`);
 
   const t0 = Date.now();
-  const sonuc = computeSwitchboardLayout({ parts: okuma.parts });
+  // ÖLÇÜ DEFTERİ OKUNUR: defter olmadan bütün ölçüler tahmindir ve pano
+  // GERÇEĞİNDEN sığ çıkar (ölçüldü: ortak derinlik 150 → 600 mm).
+  const defterIdx = process.argv.indexOf("--defter");
+  const models: DeviceModel[] = [];
+  if (defterIdx > 0) {
+    const ham = JSON.parse(readFileSync(process.argv[defterIdx + 1], "utf8")) as Record<
+      string,
+      unknown
+    >[];
+    const sayi = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
+    for (const r of ham) {
+      models.push({
+        lookupKey: String(r.lookup_key),
+        supplier: String(r.supplier ?? ""),
+        typeNo: String(r.type_no ?? ""),
+        widthMm: sayi(r.width_mm),
+        heightMm: sayi(r.height_mm),
+        depthMm: sayi(r.depth_mm),
+        moduleUnits: sayi(r.module_units),
+        mountType: (r.mount_type ?? null) as DeviceModel["mountType"],
+        zone: (r.zone ?? null) as DeviceModel["zone"],
+        clearanceTopMm: sayi(r.clearance_top_mm),
+        clearanceBottomMm: sayi(r.clearance_bottom_mm),
+        heatW: sayi(r.heat_w),
+        source: (r.source === "elle" ? "elle" : "katalog") as DeviceModel["source"],
+        note: String(r.note ?? ""),
+      });
+    }
+    console.log(`Ölçü defteri: ${models.length} ürün okundu.`);
+  }
+
+  const sonuc = computeSwitchboardLayout({ parts: okuma.parts, models });
   const sure = Date.now() - t0;
 
+  // HER DİZİ KENDİ ÖLÇÜSÜNÜ BASAR (PANO-2).
+  const olcu = (ad: string, d: { heightMm: number | null; depthMm: number | null; panelCount: number }) =>
+    d.panelCount > 0 ? `${ad} ${d.heightMm}x${d.depthMm} mm (${d.panelCount} göz)` : "";
   console.log(
-    `Yerleştirme ${sure} ms · ortak yükseklik ${sonuc.settings.heightMm} · ortak derinlik ${sonuc.settings.depthMm} · parmak izi ${sonuc.fingerprint}`
+    `Yerleştirme ${sure} ms · ` +
+      [olcu("oda", sonuc.roomSize), olcu("saha", sonuc.fieldSize)].filter(Boolean).join(" · ") +
+      ` · parmak izi ${sonuc.fingerprint}`
   );
 
   for (const [baslik, dizi] of [
@@ -136,7 +174,7 @@ SVG yazıldı: ${dizin} (${1 + sonuc.room.length + sonuc.field.length} dosya)`);
   }
 
   // DETERMİNİZM: aynı girdi iki kez yerleştirilince aynı plan çıkmalı.
-  const ikinci = computeSwitchboardLayout({ parts: okuma.parts });
+  const ikinci = computeSwitchboardLayout({ parts: okuma.parts, models });
   const ayni = JSON.stringify(sonuc.room) === JSON.stringify(ikinci.room);
   console.log(`\nDeterminizm: ${ayni ? "aynı plan" : "PLAN DEĞİŞTİ — HATA"}`);
 }

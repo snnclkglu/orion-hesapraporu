@@ -898,3 +898,112 @@ describe("parmak izi girdinin TAMAMINI kapsar (PANO-14)", () => {
   });
 });
 
+describe("boş göz sipariş edilmez", () => {
+  // Ölçüldü (0019, 08.09.2026): bölme aygıt listesini ikiye ayırıyor ama bir
+  // yarının bütün aygıtları PANO DIŞI (motor, enkoder, limit şalteri)
+  // çıkabiliyordu. Geriye plakasında, kapağında ve gövdesinde hiçbir şey
+  // olmayan bir gövde kalıyordu; gerçek belgede DÖRT böyle göz vardı ve her
+  // biri 400 x 2000 x 600 mm'lik bir pano olarak imalatçıya gidiyordu.
+  // Düzeltmeden sonra 26 göz 22'ye, toplam en 13.400 mm'den 11.800 mm'ye indi.
+
+  function saha(konum: string, kod: string): ElectricalPart {
+    return parca({
+      location: konum,
+      device: kod,
+      deviceTag: `=T1+${konum}-${kod}`,
+      designation: "ASYNCHRONOUS MOTOR 15KW",
+      typeNo: "1LE1001",
+      supplier: "Siemens",
+      partNo: "SIE.1LE1001",
+    });
+  }
+
+  it("yalnız saha aygıtı taşıyan konum PANO AÇMAZ", () => {
+    const sonuc = computeSwitchboardLayout({
+      parts: [saha("P9", "M1"), saha("P9", "M2")],
+      models: [],
+      placementOverrides: [],
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    });
+    expect(sonuc.room).toHaveLength(0);
+    // AYGITLAR KAYBOLMAZ: ya kuyrukta ya "pano sayılmayan konum" listesinde
+    // görünürler. Hangi yoldan göründüğü bir uygulama ayrıntısıdır; görünmesi
+    // ise şarttır (PANO-10: sessizce düşmez).
+    const kuyrukta = sonuc.unplaced.filter((u) => u.device.panelCode === "P9").length;
+    const haricte = sonuc.excluded
+      .filter((e) => e.code === "P9")
+      .reduce((t, e) => t + e.devices, 0);
+    expect(kuyrukta + haricte).toBe(2);
+  });
+
+  it("KAPAK cihazı taşıyan pano boş SAYILMAZ", () => {
+    // Plakası boş ama kapağında buton olan bir pano gerçek bir panodur
+    // (0019'un CB1'i böyledir: sekiz kapak cihazı, sıfır plaka cihazı).
+    const buton = parca({
+      location: "CB1",
+      device: "S1",
+      deviceTag: "=T1+CB1-S1",
+      designation: "Harmony XB4 Metal - Red pushbutton",
+      typeNo: "XB4BA42",
+      supplier: "Schneider Electric",
+      partNo: "SE.XB4BA42",
+    });
+    const sonuc = computeSwitchboardLayout({
+      parts: [buton],
+      models: [],
+      placementOverrides: [],
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    });
+    expect(sonuc.room).toHaveLength(1);
+    expect(sonuc.room[0].placements).toHaveLength(0);
+    expect(sonuc.room[0].doorPlacements.length).toBeGreaterThan(0);
+  });
+
+  it("bölünen dizide boş göz KALMAZ", () => {
+    // Üç ağır plaka cihazı + saha aygıtları: bölme sırasında bir yarı yalnız
+    // saha aygıtı alabilir ve o göz düşmelidir.
+    const surucu = (kod: string) =>
+      parca({
+        location: "LVD9",
+        device: kod,
+        deviceTag: `=T1+LVD9-${kod}`,
+        designation: "SINAMICS S120 MOTOR MODULE",
+        typeNo: "6SL3320-1TE37-5AA3",
+        supplier: "Siemens",
+        partNo: "SIE.6SL3320",
+      });
+    const sonuc = computeSwitchboardLayout({
+      parts: [surucu("T1"), surucu("T2"), surucu("T3"), saha("LVD9", "M1"), saha("LVD9", "M2")],
+      models: [
+        {
+          lookupKey: "SIEMENS|6SL33201TE375AA3",
+          supplier: "Siemens",
+          typeNo: "6SL3320-1TE37-5AA3",
+          widthMm: 503,
+          heightMm: 1475,
+          depthMm: 547,
+          moduleUnits: null,
+          mountType: "plaka" as const,
+          zone: "guc" as const,
+          clearanceTopMm: null,
+          clearanceBottomMm: null,
+          heatW: null,
+          source: "katalog" as const,
+          note: "",
+        },
+      ],
+      placementOverrides: [],
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    });
+
+    for (const p of sonuc.room) {
+      const dolu =
+        p.placements.length > 0 || p.doorPlacements.length > 0 || p.bodyDevices.length > 0;
+      expect(dolu, `boş göz üretildi: ${p.code}`).toBe(true);
+    }
+  });
+});
+
