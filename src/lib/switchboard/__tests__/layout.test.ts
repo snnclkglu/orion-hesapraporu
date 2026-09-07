@@ -814,3 +814,87 @@ describe("denetçi GERÇEKTEN hata yakalıyor mu (PANO-11)", () => {
   });
 });
 
+describe("parmak izi girdinin TAMAMINI kapsar (PANO-14)", () => {
+  // Plan saklanmadığı için "neyi onayladım" sorusunun tek cevabı parmak izidir.
+  // Denetim (07.09.2026): izin YALNIZ malzeme satırı değişince değiştiği
+  // sınanıyordu; ayar, pano kararı ve aygıt düzeltmesi sınanmıyordu. Biri
+  // kapsam dışında kalsaydı, kullanıcı bir ölçüyü değiştirip onayı taze
+  // sanarak eski bir belgeye göre sipariş verirdi.
+
+  const temelGirdi = {
+    parts: salterler(4),
+    models: [],
+    placementOverrides: [],
+    panelOverrides: [],
+    settings: resolveSettings({}),
+  };
+  const temel = computeSwitchboardLayout(temelGirdi).fingerprint;
+
+  it("malzeme satırı değişince iz DEĞİŞİR", () => {
+    const f = computeSwitchboardLayout({ ...temelGirdi, parts: salterler(5) }).fingerprint;
+    expect(f).not.toBe(temel);
+  });
+
+  it("AYAR değişince iz DEĞİŞİR", () => {
+    const f = computeSwitchboardLayout({
+      ...temelGirdi,
+      settings: resolveSettings({ baseMm: 300 }),
+    }).fingerprint;
+    expect(f).not.toBe(temel);
+  });
+
+  it("PANO KARARI değişince iz DEĞİŞİR", () => {
+    const f = computeSwitchboardLayout({
+      ...temelGirdi,
+      panelOverrides: [
+        {
+          code: "P1",
+          name: "P1",
+          kind: null,
+          widthMm: 800,
+          heightMm: null,
+          depthMm: null,
+          baseMm: null,
+          doorConfig: null,
+          orderIndex: null,
+          widthLocked: true,
+          heightLocked: false,
+          depthLocked: false,
+          note: "",
+        },
+      ],
+    }).fingerprint;
+    expect(f).not.toBe(temel);
+  });
+
+  it("AYGIT DÜZELTMESİ değişince iz DEĞİŞİR", () => {
+    const f = computeSwitchboardLayout({
+      ...temelGirdi,
+      placementOverrides: [
+        {
+          deviceKey: "T1|P1|F1",
+          panelCode: null,
+          mountType: null,
+          zone: null,
+          railIndex: null,
+          orderInRail: null,
+          widthMm: 60,
+          heightMm: null,
+          depthMm: null,
+          pinned: false,
+          note: "",
+        },
+      ],
+    }).fingerprint;
+    expect(f).not.toBe(temel);
+  });
+
+  it("aynı girdi AYNI izi verir — sıra bağımsızdır", () => {
+    const ters = computeSwitchboardLayout({
+      ...temelGirdi,
+      parts: [...salterler(4)].reverse(),
+    }).fingerprint;
+    expect(ters).toBe(temel);
+  });
+});
+
