@@ -164,12 +164,26 @@ export function computeSwitchboardLayout(input: ComputeInput): ComputeResult {
     field: saha.layouts,
     excluded,
     unplaced,
-    settings: { ...settings, heightMm: oda.heightMm, depthMm: oda.depthMm },
+    // AYAR EZİLMEZ: kullanıcı ne istediyse o kalır (`null` = sistem karar
+    // versin). Çözülmüş ölçü her dizi için AYRI taşınır.
+    settings,
+    roomSize: {
+      heightMm: oda.layouts.length ? oda.heightMm : null,
+      depthMm: oda.layouts.length ? oda.depthMm : null,
+      panelCount: oda.layouts.length,
+    },
+    fieldSize: {
+      heightMm: saha.layouts.length ? saha.heightMm : null,
+      depthMm: saha.layouts.length ? saha.depthMm : null,
+      panelCount: saha.layouts.length,
+    },
     estimatedCount: tahminAnahtarlari.size,
     fingerprint,
+    // BEKLENEN AYGIT KÜMESİ GEÇİRİLİR: bir cihazın sessizce düşmesini
+    // yakalayan tek denetim budur (PANO-11) ve dizi düzeyinde sınanır.
     audits: [
-      ...auditLineup(oda.layouts, settings),
-      ...auditLineup(saha.layouts, settings),
+      ...auditLineup(oda.layouts, settings, odaGirdi.flatMap((g) => g.devices)),
+      ...auditLineup(saha.layouts, settings, sahaGirdi.flatMap((g) => g.devices)),
     ],
   };
 }

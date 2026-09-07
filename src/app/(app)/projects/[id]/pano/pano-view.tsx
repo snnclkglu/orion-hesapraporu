@@ -210,12 +210,14 @@ export function PanoView({
             <OlcuSecici
               etiket="Yükseklik"
               deger={sonuc.settings.heightMm}
+              cozulen={sonuc.roomSize.heightMm ?? sonuc.fieldSize.heightMm}
               secenekler={PANEL_HEIGHTS_MM}
               onChange={(v) => adresYaz("yukseklik", v)}
             />
             <OlcuSecici
               etiket="Derinlik"
               deger={sonuc.settings.depthMm}
+              cozulen={sonuc.roomSize.depthMm ?? sonuc.fieldSize.depthMm}
               secenekler={PANEL_DEPTHS_MM}
               onChange={(v) => adresYaz("derinlik", v)}
             />
@@ -506,10 +508,25 @@ export function PanoView({
             </tbody>
           </table>
         </div>
+        {/* HER DİZİ KENDİ ÖLÇÜSÜNÜ BASAR: saha panoları elektrik odasına
+            girmez ve ortak yükseklik/derinliği kendi içlerinde uzlaştırır
+            (PANO-2). Tek sayı basmak, yalnız saha panosu olan bir projede hiç
+            var olmayan bir odanın ölçüsünü gösteriyordu. */}
         <p className="border-t px-4 py-2 text-xs text-muted-foreground">
-          Ortak yükseklik {sayi(sonuc.settings.heightMm ?? 0)} mm · ortak derinlik{" "}
-          {sayi(sonuc.settings.depthMm ?? 0)} mm · baza {sayi(sonuc.settings.baseMm)} mm. Elle
-          seçilen bir ölçü KİLİTLENİR ve “Yeniden Yerleştir” onu ezmez.
+          {sonuc.roomSize.panelCount > 0 && (
+            <>
+              Oda dizisi: ortak yükseklik {sayi(sonuc.roomSize.heightMm ?? 0)} mm · ortak
+              derinlik {sayi(sonuc.roomSize.depthMm ?? 0)} mm.{" "}
+            </>
+          )}
+          {sonuc.fieldSize.panelCount > 0 && (
+            <>
+              Saha dizisi: ortak yükseklik {sayi(sonuc.fieldSize.heightMm ?? 0)} mm · ortak
+              derinlik {sayi(sonuc.fieldSize.depthMm ?? 0)} mm.{" "}
+            </>
+          )}
+          Baza {sayi(sonuc.settings.baseMm)} mm. Elle seçilen bir ölçü KİLİTLENİR ve
+          “Yeniden Yerleştir” onu ezmez.
         </p>
       </section>
 
@@ -562,29 +579,35 @@ export function PanoView({
       {/* ————————————————————————————————————— denetim */}
       <section className="rounded-lg border bg-card p-4">
         <h3 className="oc-kicker mb-2 text-foreground/80">Yerleşim denetimi</h3>
-        {hataliDenetim.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {sonuc.audits.length} pano denetlendi; hepsi geçti. Denetim yerleştiriciden
-            bağımsızdır ve yalnız çıkan koordinatlara bakar.
-          </p>
-        ) : (
-          <ul className="grid gap-2 text-sm">
-            {hataliDenetim.map((a) => (
-              <li key={a.code}>
-                <span className="font-mono font-semibold">{a.code}</span>
-                <ul className="ml-4 text-xs text-destructive">
-                  {a.result.checks
-                    .filter((c) => !c.ok)
-                    .map((c) => (
-                      <li key={c.key}>
-                        ✗ {c.label} — {c.detail}
-                      </li>
-                    ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* GEÇENLER DE LİSTELENİR (PANO-11). "Hepsi geçti" cümlesi neyin
+            denetlendiğini söylemez; bir belgede denetimin değeri hangi
+            soruların sorulduğunun görünmesindedir. */}
+        <p className="mb-3 text-xs text-muted-foreground">
+          {sonuc.audits.length} birim denetlendi ·{" "}
+          {hataliDenetim.length === 0 ? (
+            <span className="text-emerald-600 dark:text-emerald-400">hepsi geçti</span>
+          ) : (
+            <span className="text-destructive">{hataliDenetim.length} birimde hata var</span>
+          )}
+          . Denetim yerleştiriciden bağımsızdır ve yalnız çıkan koordinatlara bakar.
+        </p>
+        <ul className="grid gap-2 text-sm">
+          {sonuc.audits.map((a) => (
+            <li key={a.code}>
+              <span className="font-mono font-semibold">{a.code}</span>
+              <ul className="ml-4 text-xs">
+                {a.result.checks.map((c) => (
+                  <li
+                    key={c.key}
+                    className={c.ok ? "text-muted-foreground" : "text-destructive"}
+                  >
+                    {c.ok ? "✓" : "✗"} {c.label} — {c.detail}
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* ————————————————————————————————————— kuyruklar */}
@@ -694,12 +717,15 @@ function OlcuSecici({
   secenekler,
   onChange,
   zorunlu,
+  cozulen,
 }: {
   etiket: string;
   deger: number | null;
   secenekler: readonly number[];
   onChange: (v: string) => void;
   zorunlu?: boolean;
+  /** Kullanıcı seçmediyse aramanın bulduğu ölçü — yalnız gösterim. */
+  cozulen?: number | null;
 }) {
   return (
     <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -710,7 +736,10 @@ function OlcuSecici({
         className="oc-tap h-9 rounded-md border bg-background px-2 text-base pointer-fine:text-sm"
         aria-label={etiket}
       >
-        {!zorunlu && <option value="">Otomatik</option>}
+        {/* KARAR ≠ OLGU: kutu kullanıcının SEÇİMİNİ gösterir, sistemin
+            bulduğunu değil. İkisi ayrışmasın diye bulunan ölçü "Otomatik"in
+            yanında parantez içinde durur. */}
+        {!zorunlu && <option value="">{cozulen ? `Otomatik (${sayi(cozulen)} mm)` : "Otomatik"}</option>}
         {secenekler.map((v) => (
           <option key={v} value={v}>
             {sayi(v)} mm

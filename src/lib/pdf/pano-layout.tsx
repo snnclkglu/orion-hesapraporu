@@ -331,14 +331,33 @@ export function PanoLayoutDocument({ sonuc, meta, company }: PanoLayoutProps) {
             <Text style={S.kutuBaslik}>SAHA PANOSU</Text>
             <Text style={S.kutuDeger}>{say(sonuc.field.length)}</Text>
           </View>
-          <View style={S.kutu}>
-            <Text style={S.kutuBaslik}>ORTAK YÜKSEKLİK</Text>
-            <Text style={S.kutuDeger}>{say(sonuc.settings.heightMm)}</Text>
-          </View>
-          <View style={S.kutu}>
-            <Text style={S.kutuBaslik}>ORTAK DERİNLİK</Text>
-            <Text style={S.kutuDeger}>{say(sonuc.settings.depthMm)}</Text>
-          </View>
+          {/* HER DİZİ KENDİ ÖLÇÜSÜNÜ BASAR (PANO-2). Tek kutu iki diziye
+              birden hizmet edince, yalnız saha panosu olan bir işte bu kâğıt
+              hiç var olmayan bir odanın ölçüsünü imalatçıya gönderiyordu. */}
+          {sonuc.roomSize.panelCount > 0 && (
+            <>
+              <View style={S.kutu}>
+                <Text style={S.kutuBaslik}>ODA YÜKSEKLİK</Text>
+                <Text style={S.kutuDeger}>{say(sonuc.roomSize.heightMm)}</Text>
+              </View>
+              <View style={S.kutu}>
+                <Text style={S.kutuBaslik}>ODA DERİNLİK</Text>
+                <Text style={S.kutuDeger}>{say(sonuc.roomSize.depthMm)}</Text>
+              </View>
+            </>
+          )}
+          {sonuc.fieldSize.panelCount > 0 && (
+            <>
+              <View style={S.kutu}>
+                <Text style={S.kutuBaslik}>SAHA YÜKSEKLİK</Text>
+                <Text style={S.kutuDeger}>{say(sonuc.fieldSize.heightMm)}</Text>
+              </View>
+              <View style={S.kutu}>
+                <Text style={S.kutuBaslik}>SAHA DERİNLİK</Text>
+                <Text style={S.kutuDeger}>{say(sonuc.fieldSize.depthMm)}</Text>
+              </View>
+            </>
+          )}
           <View style={S.kutu}>
             <Text style={S.kutuBaslik}>BAZA</Text>
             <Text style={S.kutuDeger}>{say(sonuc.settings.baseMm)}</Text>
@@ -395,25 +414,26 @@ export function PanoLayoutDocument({ sonuc, meta, company }: PanoLayoutProps) {
         <Text style={S.bolumBaslik} break>
           YERLEŞİM DENETİMİ
         </Text>
-        {hataliDenetim.length === 0 ? (
-          <Text style={S.not}>
-            {say(sonuc.audits.length)} pano denetlendi; hepsi geçti. Denetim yerleştiriciden
-            bağımsızdır ve yalnız çıkan koordinatlara bakar.
-          </Text>
-        ) : (
-          hataliDenetim.map((a) => (
-            <View key={a.code}>
-              <Text style={[S.hucre, S.mono]}>{a.code}</Text>
-              {a.result.checks
-                .filter((c) => !c.ok)
-                .map((c) => (
-                  <Text key={c.key} style={S.uyari}>
-                    ✗ {c.label} — {c.detail}
-                  </Text>
-                ))}
-            </View>
-          ))
-        )}
+        {/* GEÇENLER DE BASILIR (PANO-11). "Hepsi geçti" cümlesi imalatçıya
+            neyin denetlendiğini söylemez; kâğıdın değeri hangi soruların
+            sorulduğunun görünmesindedir. */}
+        <Text style={S.not}>
+          {say(sonuc.audits.length)} birim denetlendi;{" "}
+          {hataliDenetim.length === 0
+            ? "hepsi geçti"
+            : `${say(hataliDenetim.length)} birimde hata var`}
+          . Denetim yerleştiriciden bağımsızdır ve yalnız çıkan koordinatlara bakar.
+        </Text>
+        {sonuc.audits.map((a) => (
+          <View key={a.code} wrap={false}>
+            <Text style={[S.hucre, S.mono]}>{a.code}</Text>
+            {a.result.checks.map((c) => (
+              <Text key={c.key} style={c.ok ? S.not : S.uyari}>
+                {c.ok ? "✓" : "✗"} {c.label} — {c.detail}
+              </Text>
+            ))}
+          </View>
+        ))}
 
         {sonuc.unplaced.length > 0 && (
           <>

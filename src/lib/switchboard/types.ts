@@ -277,6 +277,24 @@ export interface LayoutSettings {
 }
 
 /** Bütün işin çözülmüş hâli. */
+/**
+ * Bir DİZİNİN çözülmüş ortak ölçüsü.
+ *
+ * Bu, kullanıcının AYARI değil aramanın SONUCUdur ve iki dizi için AYRI
+ * çözülür: saha panoları elektrik odasına girmez, kendi yükseklik ve
+ * derinliklerini kendi içlerinde uzlaştırırlar (PANO-2).
+ *
+ * Dizi boşsa `null`. Ölçüldü (07.09.2026): tek bir sonuç alanı iki diziye
+ * birden hizmet edince, yalnız saha panosu olan bir projede ekran ve
+ * İMALATÇIYA GİDEN PDF boş oda dizisinin aramasından dönen 1400 mm'yi
+ * basıyordu — hiç var olmayan bir panonun ölçüsünü.
+ */
+export interface LineupSize {
+  heightMm: number | null;
+  depthMm: number | null;
+  panelCount: number;
+}
+
 export interface LayoutResult {
   /** Elektrik odası dizisi, soldan sağa. */
   room: PanelLayout[];
@@ -285,7 +303,17 @@ export interface LayoutResult {
   /** Pano sayılmayan konumlar. */
   excluded: { code: string; devices: number }[];
   unplaced: Unplaced[];
+  /**
+   * Kullanıcının İSTEĞİ — çözülmüş ölçü DEĞİL. `heightMm`/`depthMm` burada
+   * `null` ise "sistem karar versin" demektir; sonucu `roomSize`/`fieldSize`
+   * taşır. İkisini tek alanda toplamak, "ne istendi" ile "ne çıktı" sorularını
+   * birbirine karıştırırdı.
+   */
   settings: LayoutSettings;
+  /** Elektrik odası dizisinin çözülmüş ortak ölçüsü. */
+  roomSize: LineupSize;
+  /** Saha dizisinin çözülmüş ortak ölçüsü — ODANINKİNDEN FARKLI olabilir. */
+  fieldSize: LineupSize;
   /** Ölçüsü doğrulanmamış (tahmin) aygıt sayısı — sipariş kapısı (PANO-12). */
   estimatedCount: number;
   /** Girdinin kararlı parmak izi — onayın eskidiğini bu gösterir. */

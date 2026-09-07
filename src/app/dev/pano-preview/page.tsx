@@ -215,7 +215,7 @@ export default async function PanoPreviewPage() {
               <h2 className="oc-kicker text-foreground/80">{v.ad}</h2>
               <span className="text-xs text-muted-foreground">
                 {sonuc.room.length} oda · {sonuc.field.length} saha · ortak{" "}
-                {sonuc.settings.heightMm}×{sonuc.settings.depthMm} mm · tahmin{" "}
+                {sonuc.roomSize.heightMm ?? sonuc.fieldSize.heightMm}×{sonuc.roomSize.depthMm ?? sonuc.fieldSize.depthMm} mm · tahmin{" "}
                 {sonuc.estimatedCount} · yerleşmeyen {sonuc.unplaced.length}
               </span>
             </div>

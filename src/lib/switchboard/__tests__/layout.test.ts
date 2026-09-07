@@ -88,13 +88,13 @@ describe("yükseklik seçimi", () => {
     // Kullanıcı kararı (06.09.2026): on şalterlik bir iş 1800'lük gövde
     // istemez; 1400 rahatça yetiyorsa 1400 alınır.
     const sonuc = computeSwitchboardLayout({ parts: salterler(6) });
-    expect(sonuc.settings.heightMm).toBe(1400);
+    expect(sonuc.roomSize.heightMm).toBe(1400);
   });
 
   it("sıkışan iş küçük gövdeye TIKIŞTIRILMAZ", () => {
     // Doluluk payı korunmuyorsa bir üst boya çıkılır; öncelikli gövde 1800'dür.
     const sonuc = computeSwitchboardLayout({ parts: salterler(120) });
-    expect(sonuc.settings.heightMm).toBeGreaterThanOrEqual(1800);
+    expect(sonuc.roomSize.heightMm).toBeGreaterThanOrEqual(1800);
   });
 
   it("küçük gövde panoyu BÖLÜYORSA seçilmez", () => {
@@ -102,7 +102,7 @@ describe("yükseklik seçimi", () => {
     const sonuc = computeSwitchboardLayout({ parts: salterler(900) });
     const kaynaklar = new Set(sonuc.room.map((p) => p.splitOf ?? p.code));
     expect(kaynaklar.size).toBe(1);
-    expect(sonuc.settings.heightMm).toBeGreaterThanOrEqual(1800);
+    expect(sonuc.roomSize.heightMm).toBeGreaterThanOrEqual(1800);
   });
 
   it("kullanıcının verdiği yükseklik EŞİK ARANMADAN uygulanır", () => {
@@ -110,7 +110,7 @@ describe("yükseklik seçimi", () => {
       parts: salterler(6),
       settings: { heightMm: 2000 },
     });
-    expect(sonuc.settings.heightMm).toBe(2000);
+    expect(sonuc.roomSize.heightMm).toBe(2000);
   });
 });
 
@@ -292,3 +292,140 @@ describe("boş konum pano açmaz", () => {
     expect(sonuc.excluded.map((e) => e.code)).toContain("LVD05");
   });
 });
+
+describe("iki dizi ayrı çözülür (PANO-2)", () => {
+  // Ölçüldü (07.09.2026): sonuç nesnesi ÇÖZÜLMÜŞ yüksekliği tek alanda
+  // taşıyordu ve o alana hep ODA dizisinin sonucu yazılıyordu. Yalnız saha
+  // panosu olan bir projede ekran ve İMALATÇIYA GİDEN PDF, boş oda dizisinin
+  // aramasından dönen 1400 mm'yi basıyordu — hiç var olmayan bir panonun
+  // ölçüsünü. Sipariş tablosu doğruydu, özet kutusu yanlıştı: belge kendi
+  // içinde çelişiyordu.
+
+  it("yalnız saha panosu varsa ODA ölçÜSÜ null'dur", () => {
+    const sonuc = computeSwitchboardLayout({
+      parts: salterler(6, "TB1"),
+      models: [],
+      placementOverrides: [],
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    });
+
+    expect(sonuc.room).toHaveLength(0);
+    expect(sonuc.field.length).toBeGreaterThan(0);
+
+    // Boş diziye ölçü ATFEDİLMEZ.
+    expect(sonuc.roomSize.panelCount).toBe(0);
+    expect(sonuc.roomSize.heightMm).toBeNull();
+    expect(sonuc.roomSize.depthMm).toBeNull();
+
+    // Saha dizisi KENDİ ölçüsünü taşır ve panolarla tutarlıdır.
+    expect(sonuc.fieldSize.panelCount).toBe(sonuc.field.length);
+    expect(sonuc.fieldSize.heightMm).toBe(sonuc.field[0].heightMm);
+    expect(sonuc.fieldSize.depthMm).toBe(sonuc.field[0].depthMm);
+  });
+
+  it("ortak derinlik dizinin MAKSİMUMUDUR ve her panoya işlenir", () => {
+    // Bir panoya derin bir cihaz, ötekine sığ bir cihaz; ikisi de aynı
+    // derinlikte gövde ister (PANO-2).
+    const surucu = parca({
+      location: "P1",
+      device: "T1",
+      deviceTag: "=T1+P1-T1",
+      designation: "SINAMICS S120 MOTOR MODULE",
+      typeNo: "6SL3120-1TE23-0AC0",
+      supplier: "Siemens",
+      partNo: "SIE.6SL3120",
+    });
+    const sonuc = computeSwitchboardLayout({
+      parts: [...salterler(3, "P2"), surucu],
+      models: [
+        {
+            lookupKey: "SIEMENS|6SL31201TE230AC0",
+            supplier: "Siemens",
+            typeNo: "6SL3120-1TE23-0AC0",
+            widthMm: 50,
+            heightMm: 380,
+            depthMm: 270,
+            moduleUnits: null,
+            mountType: "plaka" as const,
+            zone: "guc" as const,
+            clearanceTopMm: null,
+            clearanceBottomMm: null,
+            heatW: null,
+            source: "katalog" as const,
+            note: "",
+        },
+      ],
+      placementOverrides: [],
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    });
+
+    expect(sonuc.room.length).toBe(2);
+    const derinlikler = new Set(sonuc.room.map((p) => p.depthMm));
+    expect(derinlikler.size).toBe(1);
+    // 270 mm cihaz + 40 mm arka pay = 310 → ızgarada 400.
+    expect(sonuc.roomSize.depthMm).toBe(400);
+    expect([...derinlikler][0]).toBe(400);
+  });
+
+  it("iki dizi FARKLI yükseklik/derinlik çözebilir", () => {
+    // Oda dizisinde derin bir sürücü, saha dizisinde yalnız birkaç şalter.
+    const surucu = parca({
+      location: "LVD1",
+      device: "T1",
+      deviceTag: "=T1+LVD1-T1",
+      designation: "SINAMICS S120 MOTOR MODULE",
+      typeNo: "6SL3120-1TE23-0AC0",
+      supplier: "Siemens",
+      partNo: "SIE.6SL3120",
+    });
+    const sonuc = computeSwitchboardLayout({
+      parts: [surucu, ...salterler(4, "TB1")],
+      models: [
+        {
+            lookupKey: "SIEMENS|6SL31201TE230AC0",
+            supplier: "Siemens",
+            typeNo: "6SL3120-1TE23-0AC0",
+            widthMm: 50,
+            heightMm: 380,
+            depthMm: 270,
+            moduleUnits: null,
+            mountType: "plaka" as const,
+            zone: "guc" as const,
+            clearanceTopMm: null,
+            clearanceBottomMm: null,
+            heatW: null,
+            source: "katalog" as const,
+            note: "",
+        },
+      ],
+      placementOverrides: [],
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    });
+
+    expect(sonuc.roomSize.panelCount).toBe(1);
+    expect(sonuc.fieldSize.panelCount).toBe(1);
+    // Oda derin cihaz yüzünden 400; saha yalnız şalter taşıyor ve daha sığ.
+    expect(sonuc.roomSize.depthMm).toBe(400);
+    expect(sonuc.fieldSize.depthMm).toBeLessThan(sonuc.roomSize.depthMm!);
+  });
+
+  it("KULLANICI AYARI ezilmez — `settings` istek, `roomSize` sonuçtur", () => {
+    const sonuc = computeSwitchboardLayout({
+      parts: salterler(4),
+      models: [],
+      placementOverrides: [],
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    });
+    // Kullanıcı bir şey seçmedi: istek boş kalır.
+    expect(sonuc.settings.heightMm).toBeNull();
+    expect(sonuc.settings.depthMm).toBeNull();
+    // Sonuç ise dolu.
+    expect(sonuc.roomSize.heightMm).not.toBeNull();
+    expect(sonuc.roomSize.depthMm).not.toBeNull();
+  });
+});
+

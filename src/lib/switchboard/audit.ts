@@ -166,10 +166,63 @@ export function auditPanel(
   return { checks, ok: checks.every((c) => c.ok) };
 }
 
-/** Bütün dizinin denetimi — pano başına tek satıra indirilmiş hâli. */
+/**
+ * Bütün dizinin denetimi — pano başına bir satır, sonunda DİZİ GENELİ satırı.
+ *
+ * EKSİKSİZLİK DİZİ DÜZEYİNDE SINANIR, pano düzeyinde değil: sığmayan bir pano
+ * ikiye bölünür (PANO-10) ve o panonun aygıtları iki göze dağılır; pano başına
+ * beklenen küme tutmazdı. Dizinin tamamında ise küme korunur.
+ *
+ * Ölçüldü (07.09.2026): `expected` opsiyoneldi ve buradan HİÇ geçirilmiyordu —
+ * yani "her aygıt tam bir kez yerleşti" denetimi, bir cihazın sessizce
+ * düşmesini yakalayan TEK denetim, yalnız birim testinde koşuyordu. Ekranda ve
+ * imalatçıya giden kâğıtta yoktu.
+ */
 export function auditLineup(
   panels: PanelLayout[],
-  s: LayoutSettings
+  s: LayoutSettings,
+  expected?: DeviceBox[]
 ): { code: string; result: AuditResult }[] {
-  return panels.map((p) => ({ code: p.code, result: auditPanel(p, s) }));
+  const satirlar = panels.map((p) => ({ code: p.code, result: auditPanel(p, s) }));
+  if (!expected || panels.length === 0) return satirlar;
+
+  const beklenen = new Set(
+    expected.filter((d) => d.mountType === "din" || d.mountType === "plaka").map((d) => d.key)
+  );
+  const yerlesen = new Set(panels.flatMap((p) => p.placements.map((y) => y.deviceKey)));
+  const eksik = [...beklenen].filter((k) => !yerlesen.has(k));
+  const fazla = [...yerlesen].filter((k) => !beklenen.has(k));
+
+  const beklenenKapak = new Set(
+    expected.filter((d) => d.mountType === "kapak").map((d) => d.key)
+  );
+  const yerlesenKapak = new Set(panels.flatMap((p) => p.doorPlacements.map((y) => y.deviceKey)));
+  const eksikKapak = [...beklenenKapak].filter((k) => !yerlesenKapak.has(k));
+
+  const checks: AuditCheck[] = [
+    {
+      key: "eksiksizlik",
+      label: "Plakaya giren her aygıt tam bir kez yerleşti",
+      ok: eksik.length === 0 && fazla.length === 0,
+      detail:
+        eksik.length === 0 && fazla.length === 0
+          ? `${beklenen.size} aygıt`
+          : `eksik ${eksik.length}${eksik.length ? ` (${eksik.slice(0, 5).join(", ")})` : ""}, fazla ${fazla.length}`,
+    },
+    {
+      key: "kapak-eksiksizlik",
+      label: "Kapağa giren her aygıt yerleşti",
+      ok: eksikKapak.length === 0,
+      detail:
+        eksikKapak.length === 0
+          ? `${beklenenKapak.size} aygıt`
+          : `eksik ${eksikKapak.length} (${eksikKapak.slice(0, 5).join(", ")})`,
+    },
+  ];
+
+  satirlar.push({
+    code: "Dizi geneli",
+    result: { checks, ok: checks.every((c) => c.ok) },
+  });
+  return satirlar;
 }
