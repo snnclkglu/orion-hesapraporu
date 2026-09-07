@@ -61,8 +61,6 @@ export const DOUBLE_DOOR_MIN_WIDTH_MM = 600;
 /** DIN ray modül adımı [mm] — 1 kutup MCB = 1 modül (PANO-5). */
 export const MODULE_PITCH_MM = 17.5;
 
-/** TS35 DIN rayının yüksekliği [mm]. */
-export const DIN_RAIL_HEIGHT_MM = 35;
 
 /**
  * Kapak yapılandırması ızgaradan ÇIKARILIR ama kullanıcı seçimi üstündür.
@@ -83,10 +81,6 @@ export function ceilToGrid(deger: number, izgara: readonly number[]): number | n
   return null;
 }
 
-/** Değer ızgarada var mı — kullanıcı girdisini doğrulamak için. */
-export function isOnGrid(deger: number | null, izgara: readonly number[]): boolean {
-  return deger !== null && izgara.includes(deger);
-}
 
 /**
  * ÖNTANIM AYARLAR.

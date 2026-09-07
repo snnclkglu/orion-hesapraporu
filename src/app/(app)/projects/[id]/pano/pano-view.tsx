@@ -27,6 +27,7 @@ import {
   ShieldCheck,
   TriangleAlert,
   Unlock,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -245,6 +246,20 @@ export function PanoView({
               <RefreshCw className="size-3.5" /> Yeniden Yerleştir
             </Button>
           )}
+          {/* ÖLÇÜ DEFTERİ BURADAN DA AÇILIR: kuyrukta ölçüsüz bir cihaz gören
+              kullanıcı, defteri doldurmak için elektrik kartına geri dönmek
+              zorunda kalmamalı. Sayaç düğmenin üstündedir — kaç ürünün
+              beklediği düğmeye basmadan görünür. */}
+          <Button size="sm" variant="outline" asChild>
+            <Link href={`/projects/${projectId}/pano/defter`}>
+              <BookOpen className="size-3.5" /> Ölçü Defteri
+              {sonuc.estimatedCount > 0 && (
+                <span className="ml-1 rounded bg-amber-500/15 px-1 font-mono text-[10px] text-amber-700 dark:text-amber-400">
+                  {sayi(sonuc.estimatedCount)}
+                </span>
+              )}
+            </Link>
+          </Button>
           <Button size="sm" variant="outline" asChild>
             <a href={`/projects/${projectId}/pano/svg${arama.toString() ? `?${arama}` : ""}`}>
               <Download className="size-3.5" /> SVG

@@ -71,3 +71,40 @@ describe("diagramsToSvg", () => {
     expect(diagramsToSvg([SEMA])).not.toContain("<g transform=");
   });
 });
+
+describe("görünür altbilgi (PANO-15)", () => {
+  const cizim: Diagram = {
+    width: 100,
+    height: 60,
+    els: [
+      { kind: "line", x1: 0, y1: 0, x2: 100, y2: 0, stroke: "#262626", strokeWidth: 1 },
+    ],
+  };
+
+  it("altbilgi verilmezse çizim büyümez", () => {
+    const svg = diagramToSvg(cizim);
+    expect(svg).toContain('height="60"');
+  });
+
+  it("altbilgi METNİ dosyada görünür mürekkeple durur", () => {
+    // Ölçüldü: tarih ve parmak izi yalnız <desc> üstverisindeydi; imalatçı
+    // dosyayı açıp bastığında göremiyordu. PDF altbilgisinde görünüyor —
+    // aynı belge iki biçimde iki farklı şey söylüyordu.
+    const svg = diagramToSvg(cizim, { altbilgi: "ORION · parmak izi abc123" });
+    expect(svg).toContain("<text");
+    expect(svg).toContain("parmak izi abc123");
+    // Şerit için yer açılır; çizim kırpılmaz.
+    expect(svg).toContain('height="78"');
+  });
+
+  it("çoklu çizimde altbilgi EN ALTA bir kez yazılır", () => {
+    const svg = diagramsToSvg([cizim, cizim], { altbilgi: "izleme satırı" });
+    expect(svg.split("izleme satırı").length - 1).toBe(1);
+  });
+
+  it("altbilgi kaçırılır — metin SVG'yi bozmaz", () => {
+    const svg = diagramToSvg(cizim, { altbilgi: 'a<b & c"d' });
+    expect(svg).toContain("a&lt;b &amp; c&quot;d");
+  });
+});
+

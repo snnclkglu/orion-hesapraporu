@@ -429,3 +429,66 @@ describe("iki dizi ayrı çözülür (PANO-2)", () => {
   });
 });
 
+describe("pano başına kilit dizinin TABANIDIR (PANO-2)", () => {
+  // Ölçüldü (07.09.2026): `savePanel` yükseklik/derinlik kilidini yazıyor,
+  // `loadPanelOverrides` okuyor, `PanelLayout`e kopyalanıyordu — ama çözücü
+  // yalnız `widthLocked`e bakıyor ve derinliği koşulsuz ortak derinlikle
+  // eziyordu. Ekranda "kilitledim" diyen bir seçim sessizce yok sayılıyordu.
+
+  function pano(code: string, over: Record<string, unknown>) {
+    return {
+      code,
+      name: code,
+      kind: null,
+      widthMm: null,
+      heightMm: null,
+      depthMm: null,
+      baseMm: null,
+      doorConfig: null,
+      orderIndex: null,
+      widthLocked: false,
+      heightLocked: false,
+      depthLocked: false,
+      note: "",
+      ...over,
+    };
+  }
+
+  it("kilitli DERİNLİK ortak derinliği yukarı çeker", () => {
+    const sonuc = computeSwitchboardLayout({
+      parts: [...salterler(3, "P1"), ...salterler(3, "P2")],
+      models: [],
+      placementOverrides: [],
+      panelOverrides: [pano("P1", { depthMm: 600, depthLocked: true })],
+      settings: resolveSettings({}),
+    });
+    // Yalnız şalter taşıyan bir dizi normalde çok daha sığ çıkar.
+    expect(sonuc.roomSize.depthMm).toBe(600);
+    // ORTAK ölçüdür: kilitlenmeyen pano da 600 olur (PANO-2).
+    for (const p of sonuc.room) expect(p.depthMm).toBe(600);
+  });
+
+  it("kilitli YÜKSEKLİK dizinin tabanı olur", () => {
+    const sonuc = computeSwitchboardLayout({
+      parts: [...salterler(3, "P1"), ...salterler(3, "P2")],
+      models: [],
+      placementOverrides: [],
+      panelOverrides: [pano("P2", { heightMm: 2000, heightLocked: true })],
+      settings: resolveSettings({}),
+    });
+    expect(sonuc.roomSize.heightMm).toBe(2000);
+    for (const p of sonuc.room) expect(p.heightMm).toBe(2000);
+  });
+
+  it("kilit YOKSA arama serbesttir", () => {
+    const sonuc = computeSwitchboardLayout({
+      parts: salterler(3, "P1"),
+      models: [],
+      placementOverrides: [],
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    });
+    expect(sonuc.roomSize.heightMm).toBeLessThan(2000);
+  });
+});
+

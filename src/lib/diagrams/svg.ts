@@ -92,8 +92,37 @@ function elemanSvg(el: DiagramEl): string {
 export interface SvgSecenekleri {
   /** `<title>` — ekran okuyucular ve dosya yöneticisi için. */
   baslik?: string;
-  /** Belgeyi kimin, ne zaman ürettiği; sol alt köşeye yazılmaz, üstveridir. */
+  /** `<desc>` üstverisi — dosya yöneticisinde ve ekran okuyucuda görünür. */
   aciklama?: string;
+  /**
+   * ÇİZİMİN ALTINA GÖRÜNÜR MÜREKKEPLE yazılan altbilgi.
+   *
+   * Ölçüldü (07.09.2026): tarih ve parmak izi yalnız `<desc>` üstverisindeydi.
+   * İmalatçı dosyayı bir görüntüleyicide açtığında ya da BASTIĞINDA onu
+   * göremiyordu — oysa PDF'in altbilgisinde her sayfada görünüyor. Aynı belge
+   * iki biçimde iki farklı şey söylüyordu (PANO-15).
+   */
+  altbilgi?: string;
+}
+
+/** Görünür altbilgi şeridinin yüksekliği [çizim birimi]. */
+const ALTBILGI_BOY = 18;
+
+/**
+ * SVG parçalarını ayıran satır sonu.
+ *
+ * Kaçış dizisi yerine kod noktasıyla yazılır: bu dosyaya kabuk/betik yoluyla
+ * yapılan bir düzenlemede `"\n"` bir kez GERÇEK satır sonuna dönüştü ve dosya
+ * derlenmez oldu (PANO-19'un aynı tuzağı, bu kez ters yönde).
+ */
+const SATIR_SONU = String.fromCharCode(10);
+
+function altbilgiSvg(metin: string, en: number, x0: number, y: number): string {
+  return [
+    `<line x1="${n(x0)}" y1="${n(y)}" x2="${n(x0 + en)}" y2="${n(y)}" stroke="#DCD9D7" stroke-width="0.6"/>`,
+    `<text x="${n(x0 + 2)}" y="${n(y + 11)}" font-family="DejaVu Sans, Arial, sans-serif" ` +
+      `font-size="7.5" fill="#8A8480">${kacir(metin)}</text>`,
+  ].join(SATIR_SONU);
 }
 
 /**
@@ -109,21 +138,25 @@ export function diagramToSvg(diagram: Diagram, secenek?: SvgSecenekleri): string
   const y0 = diagram.y0 ?? 0;
   const parcalar: string[] = [];
 
+  const altBoy = secenek?.altbilgi ? ALTBILGI_BOY : 0;
   parcalar.push('<?xml version="1.0" encoding="UTF-8"?>');
   parcalar.push(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${n(diagram.width)}" height="${n(
-      diagram.height
-    )}" viewBox="${n(x0)} ${n(y0)} ${n(diagram.width)} ${n(diagram.height)}">`
+      diagram.height + altBoy
+    )}" viewBox="${n(x0)} ${n(y0)} ${n(diagram.width)} ${n(diagram.height + altBoy)}">`
   );
   if (secenek?.baslik) parcalar.push(`<title>${kacir(secenek.baslik)}</title>`);
   if (secenek?.aciklama) parcalar.push(`<desc>${kacir(secenek.aciklama)}</desc>`);
   // Beyaz zemin: indirilen dosya koyu bir görüntüleyicide de okunmalı.
   parcalar.push(
     `<rect x="${n(x0)}" y="${n(y0)}" width="${n(diagram.width)}" height="${n(
-      diagram.height
+      diagram.height + altBoy
     )}" fill="#FFFFFF"/>`
   );
   for (const el of diagram.els) parcalar.push(elemanSvg(el));
+  if (secenek?.altbilgi) {
+    parcalar.push(altbilgiSvg(secenek.altbilgi, diagram.width, x0, y0 + diagram.height));
+  }
   parcalar.push("</svg>");
   return parcalar.join("\n");
 }
@@ -137,8 +170,10 @@ export function diagramsToSvg(
   if (diagrams.length === 1) return diagramToSvg(diagrams[0], secenek);
 
   const ARA = 28;
+  const altBoy = secenek?.altbilgi ? ALTBILGI_BOY : 0;
   const en = Math.max(...diagrams.map((d) => d.width));
-  const boy = diagrams.reduce((t, d) => t + d.height, 0) + ARA * (diagrams.length - 1);
+  const boy =
+    diagrams.reduce((t, d) => t + d.height, 0) + ARA * (diagrams.length - 1) + altBoy;
 
   const parcalar: string[] = [];
   parcalar.push('<?xml version="1.0" encoding="UTF-8"?>');
@@ -160,6 +195,7 @@ export function diagramsToSvg(
     parcalar.push("</g>");
     y += d.height + ARA;
   }
+  if (secenek?.altbilgi) parcalar.push(altbilgiSvg(secenek.altbilgi, en, 0, boy - altBoy + 4));
   parcalar.push("</svg>");
   return parcalar.join("\n");
 }

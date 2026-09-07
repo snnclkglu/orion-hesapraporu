@@ -535,9 +535,13 @@ export interface SolveAllResult {
 /**
  * BİR DİZİYİ çözer: ortak yükseklik ve ortak derinlik burada belirlenir.
  *
- * Yükseklik TERCİH SIRASINI izler (1800 → 2000), en küçüğü değil: kullanıcı
- * kararı budur ve sebebi ileride ilave yeri kalmasıdır. 1800 sığmıyorsa çözüm
- * daha küçük bir gövde olamaz — 2000'dir; o da yetmezse pano bölünür.
+ * Yükseklik adayları KÜÇÜKTEN BÜYÜĞE denenir ama 1800'ün altı bir eşiğe
+ * bağlıdır (kullanıcı kararı, 06.09.2026) — ayrıntı aşağıdaki blokta.
+ *
+ * PANO BAŞINA KİLİTLİ ÖLÇÜ DİZİNİN TAMAMINI BAĞLAR: dizide ortak yükseklik ve
+ * ortak derinlik zorunludur (PANO-2), dolayısıyla bir panonun kilitlediği
+ * değer dizinin TABANIDIR. Kullanıcı bir panoyu 600 mm derin istediyse
+ * dizideki hiçbir pano ondan sığ olamaz.
  */
 export function solveLineup(input: SolveAllInput): SolveAllResult {
   const s = input.settings;
@@ -550,7 +554,17 @@ export function solveLineup(input: SolveAllInput): SolveAllResult {
     };
   }
 
-  const yukseklikAdaylari = s.heightMm ? [s.heightMm] : [...AUTO_HEIGHTS_MM];
+  // PANO BAŞINA KİLİTLİ YÜKSEKLİK DİZİYİ BAĞLAR (PANO-2): ortak yükseklik
+  // zorunlu olduğu için kilitli en büyük değer dizinin tabanıdır. Bunu yok
+  // saymak, ekranda "kilitledim" diyen bir seçimi sessizce ezerdi.
+  const kilitliYukseklikler = input.panels
+    .map((p) => (p.override?.heightLocked ? p.override.heightMm : null))
+    .filter((v): v is number => typeof v === "number" && v > 0);
+  const yukseklikTabani = kilitliYukseklikler.length ? Math.max(...kilitliYukseklikler) : 0;
+
+  const yukseklikAdaylari = s.heightMm
+    ? [s.heightMm]
+    : [...AUTO_HEIGHTS_MM].filter((h) => h >= yukseklikTabani);
 
   // ═══════════════════════════════════════════ YÜKSEKLİK NASIL SEÇİLİR
   //
@@ -638,10 +652,19 @@ export function solveLineup(input: SolveAllInput): SolveAllResult {
   }
 
   // ORTAK DERİNLİK: en derin panonunki hepsine yazılır (PANO-2).
-  const kilitliDerinlik = s.depthMm;
-  const gerekli = cozumler.reduce((m, c) => Math.max(m, c.layout.requiredDepthMm), 0);
+  //
+  // PANO BAŞINA KİLİTLİ DERİNLİK DE BİR TABANDIR: kullanıcı bir panoyu 600 mm
+  // istediyse dizideki hiçbir pano ondan sığ olamaz. Kilidi yok saymak, ekranda
+  // yapılan bir seçimi sessizce ezerdi.
+  const kilitliDerinlikler = girdiler
+    .map((g) => (g.override?.depthLocked ? g.override.depthMm : null))
+    .filter((v): v is number => typeof v === "number" && v > 0);
+  const gerekli = Math.max(
+    cozumler.reduce((m, c) => Math.max(m, c.layout.requiredDepthMm), 0),
+    ...(kilitliDerinlikler.length ? kilitliDerinlikler : [0])
+  );
   const ortakDerinlik =
-    kilitliDerinlik ??
+    s.depthMm ??
     ceilToGrid(gerekli, PANEL_DEPTHS_MM) ??
     PANEL_DEPTHS_MM[PANEL_DEPTHS_MM.length - 1];
 

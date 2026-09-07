@@ -80,6 +80,13 @@ export async function GET(
     aciklama: `ORION · ${veri.project.docNo} ${veri.project.name} · elektrik projesi ${
       veri.belgeRevizyon || veri.belgeAdi
     } · parmak izi ${sonuc.fingerprint} · ${new Date().toISOString().slice(0, 10)}`,
+    // GÖRÜNÜR MÜREKKEP: imalatçı dosyayı bir görüntüleyicide açtığında ya da
+    // BASTIĞINDA hangi girdiye dayandığını görebilmeli. Üstveride kalan bir
+    // parmak izi kâğıtta yoktur; PDF altbilgisinde görünüyor, SVG'de
+    // görünmüyordu (PANO-15).
+    altbilgi: `ORION · ${veri.project.docNo} ${veri.project.name} · ${
+      veri.belgeRevizyon || veri.belgeAdi
+    } · parmak izi ${sonuc.fingerprint} · ${new Date().toISOString().slice(0, 10)}`,
   });
 
   const ad = downloadFileName(
