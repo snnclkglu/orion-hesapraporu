@@ -89,6 +89,18 @@
   DETERMİNİZM sınaması (aynı girdi iki kez → aynı plan). `--svg` ile şemalar
   dosyaya yazılır; indirilen SVG'nin kendi başına açıldığı böyle görülür.
   Yerleştirme kuralına (PANO-4…PANO-10) dokunmadan önce koştur
+- `npx tsx scripts/switchboard-dimension-plan.ts <parts.json> <katalog-koku> [--out plan.json]`
+  — AYIKLAMA IS LISTESI: hangi urunun olcusu eksik ve o urunu hangi uretici
+  PDF kapsiyor. Iki kaynagi birlestirir: proje malzeme satirlari ve
+  `Elektrik Kataloglari/**` icindeki ESLESME defterleri. Urunleri AILEYE
+  indirir (Siemens 3RV, Schneider GV2 gibi) cunku bir ailenin urunleri ayni
+  katalogda ve cogu zaman ayni tablodadir. Hicbir olcu okumaz, hicbir sey yazmaz
+- `npx tsx scripts/seed-device-models.ts <onayli.json> <parts.json> --out <migration.sql>`
+  — DOGRULANMIS olculeri `electrical_device_models` migration'ina cevirir.
+  `lookup_key` plandan degil GERCEK malzeme satirlarindan uretilir
+  (`materialCatalogIdentity`); ayni urun iki tedarikci yazimiyla geciyorsa IKI
+  anahtar da yazilir. Elle girilmis olcuyu EZMEZ (`where source <> 'elle'`).
+  Kaynak izi (belge · sayfa · birebir alinti) `note` alanindadir
 - `npx tsx scripts/switchboard-dimension-gap.ts <pdf|json> [--marka X]` —
   ÖLÇÜ DEFTERİ BOŞLUK RAPORU: hangi ürünün ölçüsü ne kadar ray uzunluğunu
   belirliyor. Üç kova (ölçüldü · tahmin · eksik), etkiye göre ilk 20, ölçüsü
