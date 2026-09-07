@@ -480,3 +480,48 @@ kaçış dizisi çözülmüş; düzenleyicide ve `sed` çıktısında doğru gö
 Kaynak dosyaya kabuk ya da betik yoluyla regex yazıldıysa
 `grep -n … | cat -A` ile denetlenir. Aynı tuzak besleme (0x0C), düşey sekme
 (0x0B) ve zil (0x07) kaçışlarında da vardır; bu doküman da bir kez ona düştü.
+
+## PANO-20 — Ayıklama AİLE AİLE yürür; her ölçü ÜÇ LENSLE çürütülmeye çalışılır.
+
+Ölçü defterini doldurmak 54 aile, 122 ürün ve 274 üretici PDF'i demektir. Tur
+üç kuralla yürür ve üçü de ölçülmüş bir sebebe dayanır.
+
+**İŞ BİRİMİ ÜRÜN DEĞİL AİLEDİR.** Aynı ailenin ürünleri aynı katalogda ve çoğu
+zaman AYNI TABLODA durur (Siemens `3RV`, Schneider `GV2`, Phoenix `PT`). Ürün
+başına bir ajan, 850 sayfalık bir katalogu on kez açardı; aile başına bir ajan
+bir kez açar ve sütun eşlemesini bir kez kurar. İş listesini
+`scripts/switchboard-dimension-plan.ts` üretir: hangi ürün eksik ve o ürünü
+hangi PDF kapsıyor.
+
+**TEK ÜRÜNLÜK TEKNİK FÖY EN GÜVENİLİR KAYNAKTIR.** Dosya adında sipariş
+numarası geçen belgede sayfadaki her şey o ürünündür ve PANO-17 tuzağı
+doğmaz. Ana katalog en son denenir.
+
+**HER ÖLÇÜ ÜÇ BAĞIMSIZ LENSLE ÇÜRÜTÜLMEYE ÇALIŞILIR** ve en az ikisini
+geçemeyen ölçü deftere GİRMEZ:
+
+| Lens | Sorusu |
+|---|---|
+| `sahiplik` | Sipariş numarası ölçü satırlarının ÜSTÜNDEKİ ürün satırında mı, yoksa “Suitable for” gibi bir referans satırında mı? Çok sütunlu tabloda değer o ürünün SÜTUNUNA mı denk geliyor? |
+| `alinti` | İddia edilen alıntı belirtilen dosya ve sayfada BİREBİR var mı? Kaynaksız ölçü tek başına çürütme sebebidir. |
+| `fizik` | Ölçü bu aile için makul mü? Ambalaj ölçüsü ve pano KESİM ölçüsü cihaz ölçüsü DEĞİLDİR. |
+
+Oy gelmemişse iddia DÜŞER: doğrulanmamış bir ölçü defterde olgu olarak duramaz.
+
+**SÜTUN EŞLEMESİ BAĞIMSIZ BİR KANITA DAYANMALIDIR.** Ölçüldü (D 21.3 s.194):
+üç reaktörlü bir tabloda doğru sütun, yakınlıkla değil anma akımı satırıyla
+bulundu — Siemens akımı sipariş numarasına gömüyor (`-0EE36-2` → 615 A,
+`-0EE38-8` → 885 A, `-0EE41-4` → 1430 A) ve ikinci sütunun ağırlığı,
+endüktansı, kaybı da 885 A'lik bir reaktörle tutarlı çıktı.
+
+**TUR SÜRDÜRÜLEBİLİRDİR.** Oturum kotası bir turu yarıda kesebilir; tamamlanan
+ajanlar önbellekten döner ve yalnız düşenler yeniden çalışır. Bu yüzden
+ayıklama ile doğrulama AYNI turda ve ürün ürün bağımsız yürütülür — tek bir
+bariyer, kotaya takılan bir ajanı bütün turun önünde bekletirdi.
+
+**ÇIKTI DOĞRUDAN VERİTABANINA YAZILMAZ.** `scripts/seed-device-models.ts`
+onaylı satırları migration'a çevirir; kaynak izi (belge · sayfa · birebir
+alıntı · sahiplik kanıtı) `note` alanında kalır ve `source_document_id` katalog
+defterine bağlanır. Çakışmada güncelleme yalnız `source <> 'elle'` satırlarda
+çalışır: mühendisin kendi beyanı toplu bir turla değişmez (PANO-12).
+
