@@ -263,8 +263,16 @@ export function DefterView({
                   <td className="px-3 py-1.5 tabular-nums" data-label="Ölçü (mm)">
                     {olcuMetni(r)}
                   </td>
-                  <td className="px-3 py-1.5" data-label="Kaynak">
+                  {/* KAYNAK İZİ ROZETİN ÜSTÜNDEDİR (`title`): katalogdan gelen
+                      bir ölçünün hangi belgenin hangi sayfasından okunduğu ve
+                      hangi alıntıya dayandığı, o ölçüyü ileride denetlemenin
+                      tek yoludur (PANO-17). Kesilmiş olsun olmasın her hücrede
+                      `title` bulunur (ELEKTRIK-10 ile aynı kural). */}
+                  <td className="px-3 py-1.5" data-label="Kaynak" title={r.note || undefined}>
                     <KaynakRozeti kova={bookSourceBucket(r)} />
+                    {r.note && (
+                      <span className="ml-1 align-middle text-[10px] text-muted-foreground">ⓘ</span>
+                    )}
                   </td>
                   <td className="px-3 py-1.5 text-right tabular-nums" data-label="Etki">
                     <span title={`${r.deviceCount} aygıt · ${r.unitCount} birim`}>
