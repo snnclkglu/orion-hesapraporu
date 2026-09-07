@@ -24,6 +24,7 @@ import { electricalCategory } from "@/lib/electrical/category";
 import { materialCatalogIdentity } from "@/lib/electrical/catalogs";
 import { footprintFor } from "@/lib/switchboard/footprint";
 import { mountRuleFor } from "@/lib/switchboard/mount";
+import { deviceModelLookup } from "@/lib/switchboard/registry";
 import type { DeviceModel } from "@/lib/switchboard/types";
 
 interface Satir {
@@ -76,9 +77,41 @@ async function main() {
   const { parts, proje } = await parcalariOku(yol);
   console.log(`Kaynak: ${parts.length} aygıt satırı · proje: ${proje.join(", ")}`);
 
-  // Defter BOŞ varsayılır: bu rapor "bugün ne eksik" sorusunu cevaplar.
-  // Defter dolduktan sonra aynı betik ilerlemeyi ölçer.
+  // DEFTER OKUNUR: rapor "bugün ne eksik" sorusunu cevaplar ve defter
+  // doldukça aynı betik İLERLEMEYİ ölçer (PANO-18). `--defter <json>`
+  // verilmezse defter boş varsayılır ve rapor başlangıç durumunu gösterir.
+  const defterIdx = process.argv.indexOf("--defter");
   const defter = new Map<string, DeviceModel>();
+  if (defterIdx > 0) {
+    const ham = JSON.parse(readFileSync(process.argv[defterIdx + 1], "utf8")) as Record<
+      string,
+      unknown
+    >[];
+    for (const r of ham) {
+      const sayi = (v: unknown): number | null =>
+        v === null || v === undefined ? null : Number(v);
+      defter.set(String(r.lookup_key), {
+        lookupKey: String(r.lookup_key),
+        supplier: String(r.supplier ?? ""),
+        typeNo: String(r.type_no ?? ""),
+        widthMm: sayi(r.width_mm),
+        heightMm: sayi(r.height_mm),
+        depthMm: sayi(r.depth_mm),
+        moduleUnits: sayi(r.module_units),
+        mountType: (r.mount_type ?? null) as DeviceModel["mountType"],
+        zone: (r.zone ?? null) as DeviceModel["zone"],
+        clearanceTopMm: sayi(r.clearance_top_mm),
+        clearanceBottomMm: sayi(r.clearance_bottom_mm),
+        heatW: sayi(r.heat_w),
+        source: (r.source === "elle" ? "elle" : "katalog") as DeviceModel["source"],
+        note: String(r.note ?? ""),
+      });
+    }
+    console.log(`Defter: ${defter.size} ürün okundu.`);
+  }
+
+  // Defterde arama TEK TANIMDIR (`registry.ts`) — ekran ve yerleşimle aynı.
+  const defterBul = deviceModelLookup(defter.values());
 
   const urunler = new Map<string, Satir>();
   const gorulen = new Set<string>();
@@ -101,7 +134,7 @@ async function main() {
         supplier: p.supplier,
         partNo: p.partNo,
       },
-      defter.get(kimlik.lookupKey) ?? null,
+      defterBul(kimlik.lookupKey),
       null
     );
 

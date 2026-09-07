@@ -492,3 +492,201 @@ describe("pano başına kilit dizinin TABANIDIR (PANO-2)", () => {
   });
 });
 
+describe("bölge sırası çıktıda korunur (PANO-7)", () => {
+  // Denetim (07.09.2026): bölge sırasının ÇIKTIDA gerçekten
+  // giriş → güç → motor → kumanda → klemens olduğu hiç sınanmıyordu. Sıra bir
+  // estetik tercih değil: kalın besleme iletkeni en kısa yolu görsün diye
+  // güç girişin hemen altında, klemens ise kablo girişine yakın en altta durur.
+
+  function aygit(konum: string, kod: string, over: Partial<ElectricalPart>) {
+    return parca({ location: konum, device: kod, deviceTag: `=T1+${konum}-${kod}`, ...over });
+  }
+
+  const karisik = [
+    // Bilerek TERS sırada verildi: sıralamayı yerleştirici kurmalı.
+    aygit("P1", "X1", {
+      designation: "Feed-through terminal block UT 2,5",
+      typeNo: "UT 2,5",
+      supplier: "Phoenix Contact",
+      partNo: "PXC.3044076",
+      qty: 10,
+    }),
+    aygit("P1", "K1", {
+      designation: "CONTACTOR AC-3 4KW/400V 1NO+1NC AC230V",
+      typeNo: "3RT2023-1AP00",
+      supplier: "Siemens",
+      partNo: "SIE.3RT2023",
+    }),
+    aygit("P1", "A1", {
+      designation: "POWER SUPPLY 24VDC 10A",
+      typeNo: "6EP1334-3BA10",
+      supplier: "Siemens",
+      partNo: "SIE.6EP1334",
+    }),
+    aygit("P1", "Q1", {
+      designation: "CIRCUIT BREAKER 400V 6KA, 3POLE, C, 10A",
+      typeNo: "5SL6310-7",
+      supplier: "Siemens",
+      partNo: "SIE.5SL6310-7",
+    }),
+  ];
+
+  const sonuc = computeSwitchboardLayout({
+    parts: karisik,
+    models: [],
+    placementOverrides: [],
+    panelOverrides: [],
+    settings: resolveSettings({}),
+  });
+  const pano = sonuc.room[0];
+
+  it("raylar bölge sırasına göre YUKARIDAN AŞAĞIYA dizilir", () => {
+    const sira = ["giris", "guc", "motor", "kumanda", "klemens"];
+    const gorulen = pano.rails.map((r) => r.zone);
+    // Aynı bölgenin ardışık rayları teke indirilir.
+    const benzersiz = gorulen.filter((z, i) => i === 0 || gorulen[i - 1] !== z);
+    const beklenenSira = benzersiz.map((z) => sira.indexOf(z));
+    expect(beklenenSira).toEqual([...beklenenSira].sort((a, b) => a - b));
+    // Şalter giriş bandında, klemens en altta.
+    expect(benzersiz[0]).toBe("giris");
+    expect(benzersiz[benzersiz.length - 1]).toBe("klemens");
+  });
+
+  it("bölge değişince YENİ RAY açılır — iki bölge aynı raya karışmaz", () => {
+    for (const ray of pano.rails) {
+      const oRayin = pano.placements.filter((y) => y.railIndex === ray.index);
+      const bolgeler = new Set(oRayin.map((y) => y.zone));
+      expect(bolgeler.size).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("y koordinatı bölge sırasıyla ARTAR", () => {
+    const sira = ["giris", "guc", "motor", "kumanda", "klemens"];
+    const enUst = new Map<string, number>();
+    for (const y of pano.placements) {
+      const m = enUst.get(y.zone);
+      if (m === undefined || y.yMm < m) enUst.set(y.zone, y.yMm);
+    }
+    const noktalar = [...enUst.entries()]
+      .sort((a, b) => sira.indexOf(a[0]) - sira.indexOf(b[0]))
+      .map(([, y]) => y);
+    expect(noktalar).toEqual([...noktalar].sort((a, b) => a - b));
+  });
+});
+
+describe("bölme ve harfleme (PANO-10)", () => {
+  // Denetim (07.09.2026): tek bölgede orta noktadan bölme — 0019'un LVD10
+  // durumu, dokümanın en çok vurguladığı senaryo — ve `LVD1`/`LVD10`
+  // en-uzun-kaynak eşleşmesi hiç sınanmıyordu. İkincisi ince ve kırılgan bir
+  // mantık: `LVD1` ile `LVD10` aynı ön eki paylaşır.
+
+  /**
+   * TEK BÖLGEDEN oluşan büyük bir pano — 0019'un LVD10'unun şekli.
+   *
+   * Gerçek belgede bu bir dev şerit DEĞİL, onlarca ayrı klemens etiketidir
+   * (`-X1`, `-X2`, …). Bölme aygıt LİSTESİNİ böler; tek bir aygıtı ikiye
+   * ayırmaz. Fikstür bu yüzden çok etiketli kurulur.
+   */
+  function klemensBankasi(konum: string, etiket: number, adet: number): ElectricalPart[] {
+    return Array.from({ length: etiket }, (_, i) =>
+      parca({
+        location: konum,
+        device: `X${i + 1}`,
+        deviceTag: `=T1+${konum}-X${i + 1}`,
+        designation: "Feed-through terminal block UT 2,5",
+        typeNo: "UT 2,5",
+        supplier: "Phoenix Contact",
+        partNo: "PXC.3044076",
+        qty: adet,
+      })
+    );
+  }
+
+  it("TEK BÖLGEDEN oluşan dev bir pano yine bölünür", () => {
+    // 60 etiket × 200 klemens = 12.000 klemens ≈ 62 metre şerit: en büyük
+    // gövdeye bile sığmaz ve bölgeler arasında kesilecek bir sınır YOKTUR
+    // (hepsi `klemens` bandında) — bölme bölge İÇİNDEN yapılmalı.
+    const sonuc = computeSwitchboardLayout({
+      parts: klemensBankasi("LVD10", 60, 200),
+      models: [],
+      placementOverrides: [],
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    });
+
+    expect(sonuc.room.length).toBeGreaterThan(1);
+    for (const p of sonuc.room) expect(p.splitOf).toBe("LVD10");
+    // Sessizce düşen aygıt YOK.
+    const eksik = sonuc.unplaced.filter((u) => u.reason === "sigmadi");
+    expect(eksik).toHaveLength(0);
+    // Dizi geneli eksiksizlik denetimi geçmeli (PANO-11).
+    const dizi = sonuc.audits.find((a) => a.code === "Dizi geneli");
+    expect(dizi?.result.ok).toBe(true);
+  });
+
+  it("bölünen göz SIRAYLA harflenir ve adı kaynağı gösterir", () => {
+    const sonuc = computeSwitchboardLayout({
+      parts: klemensBankasi("LVD10", 60, 200),
+      models: [],
+      placementOverrides: [],
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    });
+    const kodlar = sonuc.room.map((p) => p.code);
+    expect(kodlar[0]).toBe("LVD10-A");
+    expect(kodlar[1]).toBe("LVD10-B");
+    expect(sonuc.room[0].name).toContain("LVD10");
+  });
+
+  it("LVD1 ile LVD10 KARIŞMAZ — en uzun kaynak eşleşmesi", () => {
+    // İki pano birden bölünürse harfleme kaynağı doğru bulmalı: `LVD10-A`nın
+    // kaynağı `LVD1` değil `LVD10`dur.
+    const sonuc = computeSwitchboardLayout({
+      parts: [...klemensBankasi("LVD1", 60, 200), ...klemensBankasi("LVD10", 60, 200)],
+      models: [],
+      placementOverrides: [],
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    });
+
+    const lvd1 = sonuc.room.filter((p) => p.splitOf === "LVD1");
+    const lvd10 = sonuc.room.filter((p) => p.splitOf === "LVD10");
+    expect(lvd1.length).toBeGreaterThan(1);
+    expect(lvd10.length).toBeGreaterThan(1);
+    // Hiçbir LVD10 gözü LVD1'in çocuğu sayılmamalı.
+    for (const p of lvd10) expect(p.code.startsWith("LVD10-")).toBe(true);
+    for (const p of lvd1) expect(p.code.startsWith("LVD1-")).toBe(true);
+    expect(lvd1.some((p) => p.code.startsWith("LVD10"))).toBe(false);
+  });
+
+  it("kilitli en BÖLÜNMEZ — kullanıcı kararı ezilmez", () => {
+    const sonuc = computeSwitchboardLayout({
+      parts: klemensBankasi("P1", 60, 200),
+      models: [],
+      placementOverrides: [],
+      panelOverrides: [
+        {
+          code: "P1",
+          name: "P1",
+          kind: null,
+          widthMm: 400,
+          heightMm: null,
+          depthMm: null,
+          baseMm: null,
+          doorConfig: null,
+          orderIndex: null,
+          widthLocked: true,
+          heightLocked: false,
+          depthLocked: false,
+          note: "",
+        },
+      ],
+      settings: resolveSettings({}),
+    });
+    expect(sonuc.room).toHaveLength(1);
+    expect(sonuc.room[0].widthMm).toBe(400);
+    // Sığmayan uyarıyla GÖRÜNÜR olur, sessizce bölünmez.
+    expect(sonuc.room[0].warnings.length).toBeGreaterThan(0);
+  });
+});
+
