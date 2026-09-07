@@ -71,7 +71,8 @@ export const RAIL_FAMILY_LABELS: Record<RailFamily, string> = {
 };
 
 /**
- * Ray tablosu: AİLE, baş genişliği [mm], köşe yarıçapı ve metre ağırlığı [kg/m].
+ * Ray tablosu: AİLE, toplam yükseklik [mm], baş genişliği [mm], köşe
+ * yarıçapı ve metre ağırlığı [kg/m].
  *
  * `headWidth` teker basıncının yayıldığı ETKİN genişliktir (DIN 15018 Şekil 9
  * hesabı için); rayın anma baş genişliği değildir.
@@ -90,46 +91,59 @@ export const RAIL_FAMILY_LABELS: Record<RailFamily, string> = {
  */
 export const RAILS: Record<
   string,
-  { family: RailFamily; radius: number | null; headWidth: number; massKgPerM?: number }
+  {
+    family: RailFamily;
+    heightMm: number;
+    radius: number | null;
+    headWidth: number;
+    massKgPerM?: number;
+  }
 > = {
   // --- A serisi (DIN 536-1 Form A vinç rayı) --------------------------------
-  "A150": { family: "a", radius: 10, headWidth: 136.666666666667, massKgPerM: 150.2 },
-  "A120": { family: "a", radius: 10, headWidth: 106.666666666667, massKgPerM: 100.0 },
-  "A100": { family: "a", radius: 10, headWidth: 86.6666666666667, massKgPerM: 74.3 },
-  "A75": { family: "a", radius: 8, headWidth: 64.3333333333333, massKgPerM: 56.2 },
-  "A65": { family: "a", radius: 6, headWidth: 57, massKgPerM: 43.1 },
-  "A55": { family: "a", radius: 5, headWidth: 48.3333333333333, massKgPerM: 31.8 },
-  "A45": { family: "a", radius: 4, headWidth: 39.6666666666667, massKgPerM: 22.1 },
+  "A150": { family: "a", heightMm: 150, radius: 10, headWidth: 136.666666666667, massKgPerM: 150.2 },
+  "A120": { family: "a", heightMm: 105, radius: 10, headWidth: 106.666666666667, massKgPerM: 100.0 },
+  "A100": { family: "a", heightMm: 95, radius: 10, headWidth: 86.6666666666667, massKgPerM: 74.3 },
+  "A75": { family: "a", heightMm: 85, radius: 8, headWidth: 64.3333333333333, massKgPerM: 56.2 },
+  "A65": { family: "a", heightMm: 75, radius: 6, headWidth: 57, massKgPerM: 43.1 },
+  "A55": { family: "a", heightMm: 65, radius: 5, headWidth: 48.3333333333333, massKgPerM: 31.8 },
+  "A45": { family: "a", heightMm: 55, radius: 4, headWidth: 39.6666666666667, massKgPerM: 22.1 },
   // --- S serisi (hafif / Vignole ray) ---------------------------------------
   // Baş genişliği C ve metre ağırlığı üretici çizelgesinden; normlar satır
   // başına ayrıdır (DIN 5901 · DIN 17100 · NF A 45-310 · E1).
-  "S10": { family: "s", radius: null, headWidth: 33, massKgPerM: 11.0 },
-  "S14": { family: "s", radius: null, headWidth: 38, massKgPerM: 14.0 },
-  "S18": { family: "s", radius: null, headWidth: 43, massKgPerM: 18.3 },
-  "S20": { family: "s", radius: null, headWidth: 44, massKgPerM: 21.0 },
-  "S24": { family: "s", radius: null, headWidth: 53, massKgPerM: 24.43 },
-  "S30": { family: "s", radius: null, headWidth: 60, massKgPerM: 30.03 },
-  "S31": { family: "s", radius: null, headWidth: 56, massKgPerM: 31.57 },
-  "S39": { family: "s", radius: null, headWidth: 66, massKgPerM: 39.8 },
-  "S41": { family: "s", radius: null, headWidth: 63, massKgPerM: 40.0 },
-  "S46": { family: "s", radius: null, headWidth: 64, massKgPerM: 46.0 },
-  "S49": { family: "s", radius: null, headWidth: 67, massKgPerM: 49.46 },
+  "S10": { family: "s", heightMm: 70, radius: null, headWidth: 33, massKgPerM: 11.0 },
+  "S14": { family: "s", heightMm: 80, radius: null, headWidth: 38, massKgPerM: 14.0 },
+  "S18": { family: "s", heightMm: 93, radius: null, headWidth: 43, massKgPerM: 18.3 },
+  "S20": { family: "s", heightMm: 100, radius: null, headWidth: 44, massKgPerM: 21.0 },
+  "S24": { family: "s", heightMm: 115, radius: null, headWidth: 53, massKgPerM: 24.43 },
+  "S30": { family: "s", heightMm: 108, radius: null, headWidth: 60, massKgPerM: 30.03 },
+  "S31": { family: "s", heightMm: 125, radius: null, headWidth: 56, massKgPerM: 31.57 },
+  "S39": { family: "s", heightMm: 133.35, radius: null, headWidth: 66, massKgPerM: 39.8 },
+  "S41": { family: "s", heightMm: 138, radius: null, headWidth: 63, massKgPerM: 40.0 },
+  "S46": { family: "s", heightMm: 145, radius: null, headWidth: 64, massKgPerM: 46.0 },
+  "S49": { family: "s", heightMm: 149, radius: null, headWidth: 67, massKgPerM: 49.46 },
   // --- Kare / dikdörtgen dolu çubuk ray -------------------------------------
   // Kod "EN x YÜKSEKLİK"tir: ilk sayı ray başının genişliği, ikincisi kesit
   // yüksekliğidir. Metre ağırlığı bu iki ölçüden hesaplanır.
-  "30x30": { family: "bar", radius: null, headWidth: 30 },
-  "40x30": { family: "bar", radius: null, headWidth: 40 },
-  "40x40": { family: "bar", radius: null, headWidth: 40 },
-  "50x30": { family: "bar", radius: null, headWidth: 50 },
-  "50x50": { family: "bar", radius: null, headWidth: 50 },
-  "60x40": { family: "bar", radius: null, headWidth: 60 },
-  "60x60": { family: "bar", radius: null, headWidth: 60 },
-  "70x40": { family: "bar", radius: null, headWidth: 70 },
-  "80x80": { family: "bar", radius: null, headWidth: 80 },
-  "100x50": { family: "bar", radius: null, headWidth: 100 },
-  "100x100": { family: "bar", radius: null, headWidth: 100 },
-  "120x80": { family: "bar", radius: null, headWidth: 120 },
+  "30x30": { family: "bar", heightMm: 30, radius: null, headWidth: 30 },
+  "40x30": { family: "bar", heightMm: 30, radius: null, headWidth: 40 },
+  "40x40": { family: "bar", heightMm: 40, radius: null, headWidth: 40 },
+  "50x30": { family: "bar", heightMm: 30, radius: null, headWidth: 50 },
+  "50x50": { family: "bar", heightMm: 50, radius: null, headWidth: 50 },
+  "60x40": { family: "bar", heightMm: 40, radius: null, headWidth: 60 },
+  "60x60": { family: "bar", heightMm: 60, radius: null, headWidth: 60 },
+  "70x40": { family: "bar", heightMm: 40, radius: null, headWidth: 70 },
+  "80x60": { family: "bar", heightMm: 60, radius: null, headWidth: 80 },
+  "80x80": { family: "bar", heightMm: 80, radius: null, headWidth: 80 },
+  "100x50": { family: "bar", heightMm: 50, radius: null, headWidth: 100 },
+  "100x100": { family: "bar", heightMm: 100, radius: null, headWidth: 100 },
+  "120x80": { family: "bar", heightMm: 80, radius: null, headWidth: 120 },
 };
+
+/** Seçili rayın toplam kesit yüksekliği [mm]. Tanınmayan kod için `null`. */
+export function railHeightMm(code: string | undefined): number | null {
+  const height = RAILS[(code ?? "").trim()]?.heightMm;
+  return Number.isFinite(height) && height > 0 ? height : null;
+}
 
 /** Bir ailenin ray kodları — tablodaki sırayla (seçim kutusunun listesi). */
 export function railCodesOfFamily(family: string): string[] {

@@ -616,18 +616,17 @@ export const BRAKE_OPTIONS = [
 ] as const;
 /**
  * Redüktörün SİPARİŞ OPSİYONLARI — çoklu seçim (kullanıcı kararı, 24.08.2026).
- * Hesabı değiştirmez; hangi donanımla sipariş edileceğini söyler. "Yok"
- * seçiliyken ekipman listesine yazılmaz.
+ * Hesabı değiştirmez; hangi donanımla sipariş edileceğini söyler. Hiçbiri
+ * istenmiyorsa seçim boş bırakılır.
  */
 export const GEARBOX_OPTIONS = [
-  "Yok",
   "Yağ Göstergesi",
   "Titreşim Sensörü",
   "Sıcaklık Sensörü",
 ] as const;
 export const GEARBOX_OPTIONS_HINT =
-  "Redüktörün sipariş donanımı — bir veya daha fazla seçilebilir. " +
-  "\"Yok\" seçiliyken ekipman listesine yazılmaz.";
+  "Redüktörün sipariş donanımı — bir veya daha fazla seçilebilir; opsiyon " +
+  "istenmiyorsa seçim boş bırakılır.";
 
 /**
  * Kaplin keçe tipi. STANDART OLAN YAZILMAZ: "Standart O-Ring" zaten her
@@ -1607,8 +1606,11 @@ export const CABIN_AUTO_FIELDS: Record<string, string> = {
 };
 
 export const GIRDER_AUTO_FIELDS: Record<string, string> = {
+  railHeightMm: "railHeightAuto",
+  t7Mm: "t7Auto",
   hookTopPositionM: "hookTopPositionAuto",
   bridgeAxleSpacingM: "bridgeAxleSpacingAuto",
+  wheelContactHMm: "wheelContactHAuto",
   wheelContactTMm: "wheelContactTAuto",
   psiHAOverride: "psiHAAuto",
   psiHKOverride: "psiHKAuto",

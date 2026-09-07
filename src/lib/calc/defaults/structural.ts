@@ -40,6 +40,7 @@ export const V5_GIRDER_DEPS: GirderDeps = {
 export const V5_GIRDER_INPUTS: GirderInputs = {
   loadMeasurementsConfirmed: true,
   railHeightMm: 40,           // hr
+  railHeightAuto: false,
   t1Mm: 8,
   b1Mm: 300,
   t2Mm: 8,
@@ -53,6 +54,8 @@ export const V5_GIRDER_INPUTS: GirderInputs = {
   b6Mm: 0,
   aMm: 320,
   xMm: 80,
+  t7Mm: 8,
+  t7Auto: false,
   // Ray altı T profil YOKTUR (referans iş 4 tonluk bir vinçtir). Sıfır ölçü
   // "profil yok" demektir; alanlar burada AÇIKÇA sıfır yazılır ki eski
   // revizyonlar `withDefaults` ile bu değeri devralsın.
@@ -79,6 +82,7 @@ export const V5_GIRDER_INPUTS: GirderInputs = {
   // arası mesafe b = 300" girdisinin geometrik karşılığı).
   webStiffenerOffsetMm: 300,
   wheelContactHMm: 75,
+  wheelContactHAuto: false,
   wheelContactTMm: 12,
   wheelContactTAuto: false,
   // σy,maks / σy,min elle girilmez: teker basıncı σz'den gelir

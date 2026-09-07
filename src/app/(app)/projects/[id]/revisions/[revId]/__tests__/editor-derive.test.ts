@@ -346,6 +346,39 @@ describe("ana kiriş 7.2 / 7.3 katsayı kutuları (madde 22)", () => {
     const g = girderIn(m);
     expect([g.psiHAOverride, g.psiHKOverride, g.amplifyYcOverride]).toEqual([1.11, 1.22, 1.33]);
   });
+
+  it("ana araba rayı değişince hr ve ona bağlı h aynı türetme turunda güncellenir", () => {
+    const m = withDerivedModules(
+      patchSelections(baseModules(), "trolley", { railFamily: "bar", railCode: "80x60" }),
+      SPECS
+    );
+    const g = girderIn(m);
+    expect(g.railHeightMm).toBe(60);
+    expect(g.wheelContactHMm).toBe(60 + g.t2Mm + g.t1Mm);
+  });
+
+  it("t2/t3/t4/t5 değişince otomatik t7 girdiye yazılır", () => {
+    const m = withDerivedModules(
+      patchInputs(baseModules(), "girder", { t2Mm: 14, t3Mm: 14, t4Mm: 14, t5Mm: 14 }),
+      SPECS
+    );
+    expect(girderIn(m).t7Mm).toBe(10);
+  });
+
+  it("hr, t7 ve h otomatikleri kapalıysa mühendisin değerlerini korur", () => {
+    const m = withDerivedModules(
+      patchInputs(baseModules(), "girder", {
+        railHeightAuto: false,
+        railHeightMm: 77,
+        t7Auto: false,
+        t7Mm: 11,
+        wheelContactHAuto: false,
+        wheelContactHMm: 123,
+      }),
+      SPECS
+    );
+    expect(girderIn(m)).toMatchObject({ railHeightMm: 77, t7Mm: 11, wheelContactHMm: 123 });
+  });
 });
 
 // --------------------------------------- 6. Kararlılık: sonsuz döngü olmasın

@@ -18,6 +18,7 @@ import { commonReevingByLabel } from "./reeving";
 import {
   STRUCTURE_AMPLIFY_FACTOR,
   horizontalDynamicFactor,
+  railTProfile,
 } from "./modules/mainGirder";
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
 import type { HookBlockInputs, HookBlockSelections } from "./modules/hookBlock";
@@ -28,6 +29,7 @@ import {
 } from "./modules/travelGroup";
 import type { TravelInputs, TravelSelections } from "./modules/travelGroup";
 import type { MechanismClass, TechnicalSpecs } from "./types";
+import { railHeightMm as railHeightForCode } from "./tables";
 
 // ------------------------------------------------------------- Makara verimi
 
@@ -816,11 +818,16 @@ export interface GirderDeriveContext {
   liftHeightM?: number;
   /** Teker düzenindeki ilk ve son köprü teker ekseni arası [m]. */
   bridgeAxleSpacingM?: number;
+  /** Bu kiriş takımının üstünde çalışan arabanın seçili ray kodu. */
+  trolleyRailCode?: string;
 }
 
 export interface GirderDerivation {
+  railHeightMm?: number;
+  t7Mm?: number;
   hookTopPositionM?: number;
   bridgeAxleSpacingM?: number;
+  wheelContactHMm?: number;
   wheelContactTMm?: number;
   /** Otomatik yatay dinamik katsayı ψhA (araba) */
   psiHAOverride?: number;
@@ -831,8 +838,26 @@ export interface GirderDerivation {
 }
 
 /**
- * Ana kirişin 7.2 "Yükler" ve 7.3 "Yükleme Durumları" bölümlerindeki üç kutu
- * artık elle sorulmaz.
+ * Perde sacı firma kademesi. Ortak eşikler üst kademeye dâhildir; böylece
+ * tam 8, 12 veya 20 mm ortalamada sac kalınlığı aşağı yuvarlanmaz.
+ */
+export function automaticDiaphragmThicknessMm(
+  t2Mm: number,
+  t3Mm: number,
+  t4Mm: number,
+  t5Mm: number
+): number | undefined {
+  const average = (t2Mm + t3Mm + t4Mm + t5Mm) / 4;
+  if (!Number.isFinite(average) || average < 0) return undefined;
+  if (average < 8) return 6;
+  if (average < 12) return 8;
+  if (average < 20) return 10;
+  return 12;
+}
+
+/**
+ * Ana kirişin kesit, yerel teker basıncı ve yük katsayısı otomatiklerini
+ * tek yerde türetir.
  *
  * · ψhA / ψhK — FEM 1.001 A.2.2.3: kütle oranı µ = asılı yük / hareket eden
  *   eşdeğer kütle. Araba için eşdeğer kütle arabanın kendisi, köprü için
@@ -854,6 +879,20 @@ export function deriveGirderInputs(
   const totalLiveLoadKg = hoistLoadKg + ctx.mainHookBlockWeightKg + ctx.mainRopeWeightKg;
   const trolleyWeightKg = (ctx.trolleyWeightT ?? specs.mainTrolleyWeightT) * 1000;
   const bridgeMovingMassKg = specs.bridgeWeightT * 1000 + trolleyWeightKg;
+  const tProfile = railTProfile(inputs);
+
+  if (inputs.railHeightAuto) {
+    const height = railHeightForCode(ctx.trolleyRailCode);
+    if (height !== null) out.railHeightMm = height;
+  }
+  if (inputs.t7Auto) {
+    out.t7Mm = automaticDiaphragmThicknessMm(
+      inputs.t2Mm,
+      inputs.t3Mm,
+      inputs.t4Mm,
+      inputs.t5Mm
+    );
+  }
 
   if (inputs.hookTopPositionAuto && ctx.liftHeightM !== undefined) {
     out.hookTopPositionM = ctx.liftHeightM;
@@ -861,8 +900,14 @@ export function deriveGirderInputs(
   if (inputs.bridgeAxleSpacingAuto && ctx.bridgeAxleSpacingM !== undefined) {
     out.bridgeAxleSpacingM = ctx.bridgeAxleSpacingM;
   }
+  if (inputs.wheelContactHAuto) {
+    const railHeightMm = out.railHeightMm ?? inputs.railHeightMm;
+    // Ray altı T profil varken t1 geometriden iptaldir; aksi hâlde kullanıcının
+    // tarifindeki h = hr + t2 + t1 bağıntısı birebir uygulanır.
+    out.wheelContactHMm = railHeightMm + inputs.t2Mm + (tProfile.present ? 0 : inputs.t1Mm);
+  }
   if (inputs.wheelContactTAuto) {
-    out.wheelContactTMm = inputs.t3Mm;
+    out.wheelContactTMm = tProfile.present ? tProfile.webThkMm : inputs.t3Mm;
   }
 
   if (inputs.psiHAAuto) {

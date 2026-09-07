@@ -12,6 +12,7 @@ import {
   RAIL_FAMILY_LABELS,
   railCodesOfFamily,
   railFamilyOf,
+  railHeightMm,
   railMassKgPerM,
   railNominalHeadWidthMm,
 } from "../tables";
@@ -32,6 +33,7 @@ describe("ray defteri", () => {
   it("her rayın ailesi tanımlı ve tanınan bir ailedir", () => {
     for (const [code, row] of Object.entries(RAILS)) {
       expect(RAIL_FAMILIES as readonly string[], code).toContain(row.family);
+      expect(row.heightMm, code).toBeGreaterThan(0);
     }
   });
 
@@ -119,13 +121,21 @@ describe("ray defteri", () => {
   it("kare/dikdörtgen kodunun İLK sayısı ray başının genişliğidir", () => {
     for (const code of railCodesOfFamily("bar")) {
       expect(RAILS[code].headWidth, code).toBe(Number(code.split("x")[0]));
+      expect(railHeightMm(code), code).toBe(Number(code.split("x")[1]));
     }
+  });
+
+  it("kullanıcının verdiği ray yüksekliği örneklerini ve A tipi katalog ölçüsünü döndürür", () => {
+    expect(railHeightMm("70x40")).toBe(40);
+    expect(railHeightMm("80x60")).toBe(60);
+    expect(railHeightMm("A75")).toBe(85);
+    expect(railHeightMm("bilinmiyor")).toBeNull();
   });
 
   it("kullanıcı çizelgesindeki çubuk ölçüleri defterde vardır", () => {
     for (const code of [
       "40x40", "40x30", "50x50", "50x30", "60x60", "60x40",
-      "100x100", "100x50", "120x80",
+      "80x60", "100x100", "100x50", "120x80",
     ]) {
       expect(RAILS[code], code).toBeDefined();
       expect(RAILS[code].family, code).toBe("bar");

@@ -202,8 +202,8 @@ const gearboxMountingNote = (pos: unknown, dir?: unknown): string => {
  * yazılır — boş alan uydurma değer üretmez (md. 4).
  */
 /**
- * Redüktörün sipariş opsiyonları (çoklu seçim) spec metnine eklenir. "Yok"
- * bir donanım değildir ve satırda yer kaplamaz.
+ * Redüktörün sipariş opsiyonları (çoklu seçim) spec metnine eklenir. Eski
+ * kayıtlardaki "Yok" geriye dönük olarak boş seçim sayılır.
  */
 const gearboxOptionsNote = (options: unknown): string => {
   const t = typeof options === "string" ? options.trim() : "";

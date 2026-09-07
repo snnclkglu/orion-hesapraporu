@@ -111,7 +111,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       "railTProfileWebThkMm", "railTProfileWebHeightMm",
       "t3Mm", "h3Mm", "t4Mm",
       "t5Mm", "b5Mm", "t6Mm", "b6Mm",
-      "aMm", "xMm",
+      "aMm", "xMm", "t7Mm",
     ],
     selectionKeys: [],
     rows: [
@@ -593,26 +593,26 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       // --- σz bileşenleri (teker basıncı) ---
       {
         key: "geometry.wheelContactLength", label: "Teker Basıncı Yayılım Boyu l",
-        formula: "l = 2·h + 40", unit: "mm", digits: 0, standard: "DIN 15018 Şekil 9",
+        formula: "l = 2·h + 50", unit: "mm", digits: 0, standard: "DIN 15018 Şekil 7",
       },
       {
         key: "section.wheelContactWidth", label: "Teker Basıncı Etkin Alanı",
-        formula: "A_z = (0,2·h + 5) · t · 0,1", unit: "cm²",
-        subst: (x) => `(0,2·${n(x.inp.wheelContactHMm)} + 5) · ${n(x.inp.wheelContactTMm)} · 0,1`,
-        standard: "DIN 15018 Şekil 9",
+        formula: "A_z = (2·h + 50) · t / 100", unit: "cm²",
+        subst: (x) => `(2·${n(x.inp.wheelContactHMm)} + 50) · ${n(x.inp.wheelContactTMm)} / 100`,
+        standard: "DIN 15018 Şekil 7",
       },
       {
         key: "stress.sigmaZTrolley", label: "σ9 · Teker Basıncı — Araba",
-        formula: "σ9 = −(P_araba/2) / A_z", unit: "kg/cm²", standard: "DIN 15018 Şekil 9",
+        formula: "σ9 = −(P_araba/2) / A_z", unit: "kg/cm²", standard: "DIN 15018 Şekil 7",
       },
       {
         key: "stress.sigmaZHoist", label: "σ10 · Teker Basıncı — Kaldırma Yükü (×ψ)",
-        formula: "σ10 = −(P_yük/2) / A_z", unit: "kg/cm²", standard: "DIN 15018 Şekil 9",
+        formula: "σ10 = −(P_yük/2) / A_z", unit: "kg/cm²", standard: "DIN 15018 Şekil 7",
       },
       {
         key: "stress.sigmaZCase1", label: "σz TOPLAM — Yükleme Durumu I", formula: "σz = σ9 + ψ·σ10",
         subst: (x) => `${n(num(x.c["stress.sigmaZTrolley"]))} + ${n(num(x.c["load.dynamicFactor"]), 2)}·${n(num(x.c["stress.sigmaZHoist"]))}`,
-        unit: "kg/cm²", standard: "DIN 15018 Şekil 9",
+        unit: "kg/cm²", standard: "DIN 15018 Şekil 7",
       },
 
       // --- Kayma bileşenleri (burulma + kesme) ---
@@ -691,14 +691,14 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       // --- Bileşik gerilmeler (her gövde sacı için ayrı) ---
       {
         key: "stress.combinedBottomMainCase1", label: "σcomb (Alt Lif · Ana Gövde)",
-        formula: "σcomb = √(σx² + σz² − |σx·σz| + 3·τ_ana²)",
-        subst: (x) => `√(${n(num(x.c["stress.sigmaXBottomCase1"]))}² + ${n(num(x.c["stress.sigmaZCase1"]))}² − |σx·σz| + 3·${n(num(x.c["stress.shearMainCase1"]))}²)`,
+        formula: "σcomb = √(σx² + σz² − σx·σz + 3·τ_ana²)",
+        subst: (x) => `√(${n(num(x.c["stress.sigmaXBottomCase1"]))}² + ${n(num(x.c["stress.sigmaZCase1"]))}² − (${n(num(x.c["stress.sigmaXBottomCase1"]))}·${n(num(x.c["stress.sigmaZCase1"]))}) + 3·${n(num(x.c["stress.shearMainCase1"]))}²)`,
         unit: "kg/cm²", standard: "FEM 1.001 3.2.1.3",
       },
       {
         key: "stress.combinedBottomSecondaryCase1", label: "σcomb (Alt Lif · İkincil Gövde)",
-        formula: "σcomb = √(σx² + σz² − |σx·σz| + 3·τ_ikincil²)",
-        subst: (x) => `√(${n(num(x.c["stress.sigmaXBottomCase1"]))}² + ${n(num(x.c["stress.sigmaZCase1"]))}² − |σx·σz| + 3·${n(num(x.c["stress.shearSecondaryCase1"]))}²)`,
+        formula: "σcomb = √(σx² + σz² − σx·σz + 3·τ_ikincil²)",
+        subst: (x) => `√(${n(num(x.c["stress.sigmaXBottomCase1"]))}² + ${n(num(x.c["stress.sigmaZCase1"]))}² − (${n(num(x.c["stress.sigmaXBottomCase1"]))}·${n(num(x.c["stress.sigmaZCase1"]))}) + 3·${n(num(x.c["stress.shearSecondaryCase1"]))}²)`,
         unit: "kg/cm²", standard: "FEM 1.001 3.2.1.3",
       },
       {
@@ -709,12 +709,12 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       },
       {
         key: "stress.combinedTopMainCase1", label: "σcomb (Üst Lif · Ana Gövde)",
-        formula: "σcomb = √(σx,üst² + σz² − |σx·σz| + 3·τ_ana²)",
+        formula: "σcomb = √(σx,üst² + σz² − σx,üst·σz + 3·τ_ana²)",
         unit: "kg/cm²", standard: "FEM 1.001 3.2.1.3",
       },
       {
         key: "stress.combinedTopSecondaryCase1", label: "σcomb (Üst Lif · İkincil Gövde)",
-        formula: "σcomb = √(σx,üst² + σz² − |σx·σz| + 3·τ_ikincil²)",
+        formula: "σcomb = √(σx,üst² + σz² − σx,üst·σz + 3·τ_ikincil²)",
         unit: "kg/cm²", standard: "FEM 1.001 3.2.1.3",
       },
       {
@@ -758,7 +758,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       },
       {
         key: "stress.sigmaZCase3", label: "σz TOPLAM — Yükleme Durumu III", formula: "σz = σ9 + k·σ10",
-        unit: "kg/cm²", standard: "DIN 15018 Şekil 9",
+        unit: "kg/cm²", standard: "DIN 15018 Şekil 7",
       },
       {
         key: "stress.shearMainCase3", label: "τ TOPLAM (Ana Gövde) — Yükleme Durumu III",
@@ -797,7 +797,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         const B1 = "FEM 1.001 3.2.1.1";
         const B2 = "FEM 1.001 3.2.1.2";
         const B3 = "FEM 1.001 3.2.1.3";
-        const D9 = "DIN 15018 Şekil 9";
+        const D7 = "DIN 15018 Şekil 7";
         const rows: (string | number)[][] = [
           ["σ1", "Düşey Eğilme — Kiriş Öz Ağırlığı", "Alt lif (çekme)", mpa(c["stress.sigmaXSelfWeightBottom"]), "+", "+", B1],
           ["σ1", "Düşey Eğilme — Kiriş Öz Ağırlığı", "Üst lif (basınç)", mpa(c["stress.sigmaXSelfWeightTop"]), "+", "+", B1],
@@ -815,8 +815,8 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
           ["σ7", "İkincil Moment — Araba", "Üst lif", mpa(c["stress.sigmaXSecondaryTrolleyTop"]), "+", "+", B1],
           ["σ8", "İkincil Moment — Kaldırma Yükü", "Alt lif", mpa(c["stress.sigmaXSecondaryHoistBottom"]), "+ψ", "+k", B1],
           ["σ8", "İkincil Moment — Kaldırma Yükü", "Üst lif", mpa(c["stress.sigmaXSecondaryHoistTop"]), "+ψ", "+k", B1],
-          ["σ9", "Teker Basıncı — Araba", "Gövde üstü (σz)", mpa(c["stress.sigmaZTrolley"]), "+", "+", D9],
-          ["σ10", "Teker Basıncı — Kaldırma Yükü", "Gövde üstü (σz)", mpa(c["stress.sigmaZHoist"]), "+ψ", "+k", D9],
+          ["σ9", "Teker Basıncı — Araba", "Gövde üstü (σz)", mpa(c["stress.sigmaZTrolley"]), "+", "+", D7],
+          ["σ10", "Teker Basıncı — Kaldırma Yükü", "Gövde üstü (σz)", mpa(c["stress.sigmaZHoist"]), "+ψ", "+k", D7],
           ["τ1", "Burulma — Araba", "Her iki gövde", mpa(c["stress.torsionTrolley"]), "+", "+", B2],
           ["τ2", "Burulma — Kaldırma Yükü", "Her iki gövde", mpa(c["stress.torsionHoist"]), "+ψ", "+k", B2],
           ["τ3", "Kesme — Öz Ağırlık", "Ana gövde", mpa(c["stress.shearMainSelfWeight"]), "+", "+", B2],
@@ -828,7 +828,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
           // --- Toplamlar ---
           ["Σ", "σx,alt TOPLAM", "Alt lif", mpa(c["stress.sigmaXBottomCase1"]), mpa(c["stress.sigmaXBottomCase1"]), mpa(c["stress.sigmaXBottomCase3"]), B1],
           ["Σ", "σx,üst TOPLAM", "Üst lif", mpa(c["stress.sigmaXTopCase1"]), mpa(c["stress.sigmaXTopCase1"]), mpa(c["stress.sigmaXTopCase3"]), B1],
-          ["Σ", "σz TOPLAM", "Gövde üstü", mpa(c["stress.sigmaZCase1"]), mpa(c["stress.sigmaZCase1"]), mpa(c["stress.sigmaZCase3"]), D9],
+          ["Σ", "σz TOPLAM", "Gövde üstü", mpa(c["stress.sigmaZCase1"]), mpa(c["stress.sigmaZCase1"]), mpa(c["stress.sigmaZCase3"]), D7],
           ["Σ", "τ TOPLAM (ana gövde)", "Ana gövde", mpa(c["stress.shearMainCase1"]), mpa(c["stress.shearMainCase1"]), mpa(c["stress.shearMainCase3"]), B2],
           ["Σ", "τ TOPLAM (ikincil gövde)", "İkincil gövde", mpa(c["stress.shearSecondaryCase1"]), mpa(c["stress.shearSecondaryCase1"]), mpa(c["stress.shearSecondaryCase3"]), B2],
           ["σcomb", "Bileşik Gerilme (kritik)", "Alt lif", mpa(c["stress.combinedBottomCase1"]), mpa(c["stress.combinedBottomCase1"]), mpa(c["stress.combinedBottomCase3"]), B3],
@@ -866,12 +866,12 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       {
         key: "fatigue.sigmaYMax", label: "σy,maks", formula: "σy,maks = |σz(I)| / 9,81",
         subst: (x) => `|${n(num(x.c["stress.sigmaZCase1"]))}| / 9,81`, unit: "N/mm²",
-        standard: "DIN 15018 Şekil 9",
+        standard: "DIN 15018 Şekil 7",
       },
       {
         key: "fatigue.sigmaYMin", label: "σy,min", formula: "σy,min = |σ9 (araba, ψ'siz)| / 9,81",
         subst: (x) => `|${n(num(x.c["stress.sigmaZTrolley"]))}| / 9,81`, unit: "N/mm²",
-        standard: "DIN 15018 Şekil 9",
+        standard: "DIN 15018 Şekil 7",
       },
       {
         key: "fatigue.tauMax", label: "τ,maks", formula: "τ,maks = maks(τ_ana(I) ; τ_ikincil(I)) / 9,81",
@@ -995,9 +995,9 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
     selectionKeys: [],
     rows: [
       {
-        key: "camber.diaphragmThickness", label: "Perde Sacı Kalınlığı (En İnce Kutu Sacı)",
-        formula: "t_perde = min(t2 ; t3 ; t4 ; t5)",
-        subst: (x) => `min(${n(x.inp.t2Mm)} ; ${n(x.inp.t3Mm)} ; ${n(x.inp.t4Mm)} ; ${n(x.inp.t5Mm)})`,
+        key: "camber.diaphragmThickness", label: "Perde Sacı Kalınlığı t7",
+        formula: "t_perde = t7",
+        subst: (x) => n(x.inp.t7Mm),
         unit: "mm", digits: 0,
       },
       {

@@ -1850,6 +1850,9 @@ function girderDeriveContext(
   const h = (auxVar ? mods.aux : mods.main)?.inputs as HoistInputs | undefined;
   const wheelInputs = mods.wheelLoads?.inputs as { wheelSpacingsText?: string } | undefined;
   const bridgeInputs = mods.bridge?.inputs as TravelInputs | undefined;
+  const trolleySelections = (
+    auxVar && hasSeparateAuxTrolley(specs) ? mods.auxTrolley : mods.trolley
+  )?.selections as TravelSelections | undefined;
   const wheelsPerSide = normalizeWheelCount(bridgeInputs?.wheelCount ?? 4) / 2;
   const bridgeAxleSpacingM = wheelInputs?.wheelSpacingsText
     ? resolveWheelSpacings(wheelInputs.wheelSpacingsText, wheelsPerSide)
@@ -1865,6 +1868,7 @@ function girderDeriveContext(
         : specs.mainTrolleyWeightT,
     liftHeightM: auxVar ? specs.auxLiftHeightM : specs.mainLiftHeightM,
     bridgeAxleSpacingM,
+    trolleyRailCode: trolleySelections?.railCode,
   };
 }
 
@@ -2077,7 +2081,7 @@ export function withDerivedHookBlock(
   };
 }
 
-/** Ana kirişin 7.2 / 7.3 otomatik katsayıları: ψhA, ψhK, γc. */
+/** Ana kirişin kesit, yerel basınç ve yük katsayısı otomatikleri. */
 export function withDerivedGirder(
   state: ModuleState,
   specs: TechnicalSpecs,
@@ -2090,6 +2094,8 @@ export function withDerivedGirder(
   const put = <K extends keyof GirderInputs>(k: K, v: GirderInputs[K] | undefined) => {
     if (v !== undefined && v !== inputs[k]) patch[k] = v;
   };
+  put("railHeightMm", d.railHeightMm);
+  put("t7Mm", d.t7Mm);
   put("psiHAOverride", d.psiHAOverride);
   put("psiHKOverride", d.psiHKOverride);
   put("amplifyYcOverride", d.amplifyYcOverride);
@@ -2098,6 +2104,7 @@ export function withDerivedGirder(
     (d.bridgeAxleSpacingM !== undefined && d.bridgeAxleSpacingM !== inputs.bridgeAxleSpacingM);
   put("hookTopPositionM", d.hookTopPositionM);
   put("bridgeAxleSpacingM", d.bridgeAxleSpacingM);
+  put("wheelContactHMm", d.wheelContactHMm);
   put("wheelContactTMm", d.wheelContactTMm);
   if (loadGeometryChanged && inputs.loadMeasurementsConfirmed === true) {
     patch.loadMeasurementsConfirmed = false;

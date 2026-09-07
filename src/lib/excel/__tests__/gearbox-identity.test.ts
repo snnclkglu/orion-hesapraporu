@@ -60,7 +60,7 @@ describe("sipariş standartları", () => {
     // karşılaştırması sessizce hep yanlış olur ve satıra yazılmaya başlar.
     expect(COUPLING_SEAL_TYPES).toContain(COUPLING_SEAL_TYPE_STANDARD);
     expect(COUPLING_WEAR_DETECTIONS).toContain(COUPLING_WEAR_DETECTION_STANDARD);
-    expect(GEARBOX_OPTIONS).toContain("Yok");
+    expect(GEARBOX_OPTIONS).not.toContain("Yok");
   });
 
   it("yeni iş şablonu kaplinleri standart değerle açar", () => {

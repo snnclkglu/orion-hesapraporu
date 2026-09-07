@@ -102,7 +102,7 @@ import type { AnyCheck } from "../types";
 // 359 = 316 + 43: elektrik hesap raporunda dokuz olası motor devresinin
 //   sürücü güç/akım ve kablo akım/gerilim düşümü kontrolleri (36), ana besleme
 //   (2) ve feston yerleşimi (5). Koşullu modül aşağıdaki fixture'da açılır.
-const EXPECTED_CHECK_COUNT = 359;
+const EXPECTED_CHECK_COUNT = 360;
 
 const result: CalcResult = runCalc({
   ...NEW_WORK_TEMPLATE,

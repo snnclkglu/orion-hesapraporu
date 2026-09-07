@@ -1714,3 +1714,43 @@ Hesap raporu bir iş emrine ve o iş de kazanılmış bir teklife bağlıysa pro
 başlığında **Şartnameyi Yükle** eyleminin yanında **Teklif** görünür. Bağ yoksa
 buton çizilmez. Bağlantı İşler için üretilen TEKLIF-85 kopyasına gider; fiyat ve
 ödeme şartlarını açmaz ve kullanıcıyı teklif detayına taşımaz.
+
+## HESAP-42 — Ana kirişin ray, yerel teker basıncı ve perde kalınlıkları izlenebilir otomatiklerdir.
+
+Kullanıcı kararı (07.09.2026). **Ray yüksekliği hr**, ilgili araba yürütme
+bölümündeki seçili ray kodundan gelir. A ve S tipi profillerde ray defterinin
+toplam kesit yüksekliği; kare/dikdörtgen dolu çubukta kodun ikinci ölçüsü
+kullanılır (`70×40 → 40 mm`, `80×60 → 60 mm`). `railHeightAuto` yeni işte
+açıktır; kapatılırsa mühendis özel ray ölçüsünü değiştirebilir. İkinci ana
+kiriş takımı ayrı yardımcı araba varsa onun rayını, yoksa ana araba rayını
+izler. Hesap çekirdeği DB'ye gitmez; onaylı ray ölçüleri saf `RAILS` defterinde
+snapshot'a uygun biçimde yaşar.
+
+**Yerel yayılım yüksekliği h** yeni işte otomatik ve `h = hr + t2 + t1`dir.
+Ray altı T profil geçerliyse t1 kesitte iptal olduğundan bu terim sıfırdır.
+DIN 15018 md. 6.9 / Şekil 7 boyuna yayılımı `l = 2h + 50 mm` verir; eski
+`2h + 40` ifadesi ve Şekil 9 bilgi notu kullanılmaz. Etkin alan aynı bağıntıdan
+`Az = l·t/100 [cm²]` kurulur; rapor, ekran ve motor aynı formülü gösterir.
+
+**Teker basıncını taşıyan sac t** otomatiği yeni işte açık gelir. Ray altı T
+profil yoksa ana gövde sacı `t3`, geçerli T profil varsa yük yolundaki düşey
+T yan sacı `tTy` kullanılır. Her iki otomatik de kapatılabilir; son türetilen
+değer kutuda kalır ve mühendis değeri sessizce ezilmez.
+
+**Perde sacı t7** kesit geometrisinin gerçek girdisidir ve perde ağırlığına
+doğrudan girer. Otomatik değer `ort(t2,t3,t4,t5)` ile seçilir: `0 ≤ ort < 8`
+için 6 mm, `8 ≤ ort < 12` için 8 mm, `12 ≤ ort < 20` için 10 mm, 20 mm
+ve üzeri için 12 mm.
+Ortak sınırlar üst kademeye aittir; böylece tam eşikte kalınlık aşağı yuvarlanmaz.
+Anahtar kapatıldığında elle girilen t7 kullanılır.
+
+**FEM eşdeğer gerilmesinde işaret korunur:**
+`σcp = √(σx² + σz² − σx·σz + 3τ²)`. `σx·σz` çarpımını mutlak değere çevirmek
+standardı değiştirir; özellikle
+alt lif çekmesi ile yerel teker basıncı ters işaretliyken taşıyıcı sac
+kalınlaştıkça birleşik gerilmenin ters yönde hareket etmesine neden olur.
+Motor, rapor formülü ve regresyon testi artık işaretli çarpımı birebir kullanır.
+
+Yeni `railHeightAuto`, `wheelContactHAuto` ve `t7Auto` bayrakları
+`revision-load.ts/AUTO_FLAGS` listesindedir. Yeni işler otomatik açılır; bayrağı
+taşımayan eski snapshot'lar elle girilmiş kabul edilip otomatik kapalı yüklenir.

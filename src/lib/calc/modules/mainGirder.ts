@@ -188,6 +188,8 @@ export interface GirderInputs {
   /** 7.2 Yükler bölümündeki yerleşim ölçülerinin kullanıcı onayı. */
   loadMeasurementsConfirmed?: boolean;
   railHeightMm: number;        // hr — ray yüksekliği (raporda gösterilir)
+  /** Ray yüksekliği seçili araba rayının katalog ölçüsünden gelsin. */
+  railHeightAuto?: boolean;
   t1Mm: number;                // ray altı sacı kalınlığı t1
   b1Mm: number;                // ray altı sacı genişliği b1 (merkezi RAY EKSENİNDE)
   t2Mm: number;                // üst iç flanş kalınlığı t2
@@ -201,6 +203,9 @@ export interface GirderInputs {
   b6Mm: number;                // ek flanş genişliği b6
   aMm: number;                 // gövde sacları arası mesafe a
   xMm: number;                 // kenar mesafesi x
+  t7Mm: number;                // perde sacı kalınlığı t7
+  /** t7, t2/t3/t4/t5 ortalamasının firma kademesinden gelsin. */
+  t7Auto?: boolean;
 
   // ------------------------------------------------- Ray altı T profil (opsiyonel)
   /**
@@ -283,8 +288,10 @@ export interface GirderInputs {
    */
   webStiffenerOffsetMm: number;
   wheelContactHMm: number;     // tekerlek basıncı yayılım yüksekliği h [mm]
+  /** h = ray yüksekliği + t2 + etkin t1 bağıntısından gelsin. */
+  wheelContactHAuto?: boolean;
   wheelContactTMm: number;     // tekerlek basıncı taşıyan sac kalınlığı t [mm]
-  /** Teker basıncını taşıyan sac kalınlığı ana gövde sacı t3'e eşitlensin. */
+  /** Taşıyıcı sac t3'e; ray altı T profil varsa T yan sacına eşitlensin. */
   wheelContactTAuto?: boolean;
   /**
    * σy,maks elle ezme [N/mm²]. Verilmezse gerilme analizindeki teker basıncı
@@ -407,7 +414,7 @@ export interface GirderValues {
   camberSupportedMm: number;   // MESNETTE ölçülecek ters sehim (açıklık ortası)
   camberDeadLoadKgPerM: number; // kamber ölü yükü w (toplam)
   // Ölü yük bileşenleri — kirişin gerçek ağırlığı
-  diaphragmThicknessMm: number; // perde sacı kalınlığı (en ince kutu sacı)
+  diaphragmThicknessMm: number; // perde sacı kalınlığı t7
   diaphragmMassKg: number;      // bir perdenin ağırlığı
   diaphragmCount: number;       // açıklık boyunca perde adedi (mesnetler dâhil)
   diaphragmKgPerM: number;      // perdelerin yayılı karşılığı
@@ -466,9 +473,9 @@ function t17(material: FatigueMaterial, notch: NotchClass, group: LoadGroup): nu
   return DIN15018_T17[material === "S355JR" ? "St52" : "St37"][notch][group];
 }
 
-/** von Mises düzlem gerilme bileşkesi: √(σx² + σz² − |σx·σz| + 3τ²) */
+/** FEM 1.001 3.2.1.3: √(σx² + σz² − σx·σz + 3τ²), işaretler korunur. */
 function vonMisesPlane(sigmaX: number, sigmaZ: number, tau: number): number {
-  return Math.sqrt(sigmaX ** 2 + sigmaZ ** 2 - Math.abs(sigmaX * sigmaZ) + 3 * tau ** 2);
+  return Math.sqrt(sigmaX ** 2 + sigmaZ ** 2 - sigmaX * sigmaZ + 3 * tau ** 2);
 }
 
 /**
@@ -949,9 +956,9 @@ export function computeMainGirder(
   const sigmaXSecondaryHoistBottom = momentSecondaryHoist / modulusYBottomCm3;
   const sigmaXSecondaryHoistTop = -momentSecondaryHoist / modulusYTopCm3;
 
-  // σ9, σ10 — tekerlek basıncı → σz (basınç, negatif) — DIN 15018 Şekil 9
-  const wheelContactLengthMm = 2 * inp.wheelContactHMm + 40;
-  const contactWidthCm = (0.2 * inp.wheelContactHMm + 5) * inp.wheelContactTMm * 0.1;
+  // σ9, σ10 — boyuna yük yayılımı l = 2h + 50 mm (DIN 15018 md. 6.9, Şekil 7).
+  const wheelContactLengthMm = 2 * inp.wheelContactHMm + 50;
+  const contactWidthCm = (wheelContactLengthMm * inp.wheelContactTMm) / 100;
   const sigmaZTrolley = -(trolleyWheelLoadKg / 2) / contactWidthCm;
   const sigmaZHoist = -(hoistWheelLoadKg / 2) / contactWidthCm;
 
@@ -1302,11 +1309,12 @@ export function computeMainGirder(
   // (Gerilme hesabındaki bridgeDeadWeightKg başkirişleri de içerdiği için
   // kamberde kullanılmaz — bkz. GirderInputs.camberExtraDeadLoadKgPerM.)
   //
-  // Perde sacı: kutuyu oluşturan sacların EN İNCESİ kadar kalınlıktadır;
+  // Perde sacı: kesit geometrisindeki t7 kalınlığı kullanılır;
   // ölçüsü kutunun iç genişliği (gövde sacları arası a) × iç yüksekliği (h3)
   // kadardır. Ray altı sacı t1 ve ek flanş t6 kutunun dışında kaldığı için
-  // en ince sac aranırken hesaba katılmaz.
-  const diaphragmThicknessMm = Math.min(t2, t3, t4, t5);
+  // t7 otomatik açıkken değer türetme katmanında t2/t3/t4/t5 ortalamasından
+  // firma kademesine oturtulmuştur; kapalıyken mühendisin sayısı aynen geçer.
+  const diaphragmThicknessMm = inp.t7Mm;
   // Hacim mm³ → dm³ : 1 dm = 100 mm olduğundan bölen 100³ = 1.000.000'dur.
   const diaphragmMassKg =
     ((webGapMm * h3 * diaphragmThicknessMm) / 1_000_000) * STEEL_DENSITY_KG_DM3;

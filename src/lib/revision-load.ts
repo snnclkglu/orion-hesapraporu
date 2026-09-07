@@ -592,6 +592,9 @@ const AUTO_FLAGS = [
   "amplifyYcAuto",
   "hookTopPositionAuto",
   "bridgeAxleSpacingAuto",
+  "railHeightAuto",
+  "t7Auto",
+  "wheelContactHAuto",
   "wheelContactTAuto",
   // Teker yükleri (6.2): eski revizyonda anahtar yoksa kayıtlı HC sınıfı,
   // sürünme hızı ve kılavuz boşluğu elle verilmiş kabul edilir.

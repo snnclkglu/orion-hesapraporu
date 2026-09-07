@@ -54,9 +54,10 @@ export const GIRDER_DEP_FIELDS: FieldDef<GirderDeps>[] = [
  */
 const GIRDER_INPUT_INFO: Partial<Record<keyof GirderInputs & string, string>> = {
   railHeightMm:
-    "Kod kullanımı — Rayın anma yüksekliğini kesit şemasında belgelemek için kullanılır. " +
-    "Ray çelik sac kesitinin A, Cz, Cy, Iyy ve Izz hesabına bu ölçüyle katılmaz; kamber " +
-    "ölü yükündeki ray kg/m değeri yürütme bölümünde seçilen ray kodundan ayrıca okunur.",
+    "Kod kullanımı — Otomatikte ilgili araba yürütme bölümünde seçilen rayın toplam " +
+    "yüksekliği katalogdan alınır; kare/dikdörtgen rayda kodun ikinci ölçüsüdür " +
+    "(70×40 → 40 mm). Anahtar kapatılırsa özel ray yüksekliği elle girilebilir. Ray, çelik " +
+    "sac kesitinin A/I hesabına bu ölçüyle katılmaz; yerel yayılım yüksekliği h'ye girer.",
   t1Mm:
     "Kod kullanımı — Ray ekseninde ortalanan ray altı sacının kalınlığıdır; alan, ağırlık " +
     "merkezi ve iki eksendeki atalet hesabına girer. Ray altı T profil 'Var' seçilirse bu " +
@@ -97,7 +98,8 @@ const GIRDER_INPUT_INFO: Partial<Record<keyof GirderInputs & string, string>> = 
   t3Mm:
     "Kod kullanımı — Ray altındaki ana gövde sacıdır; A, Iyy/Izz, kesme ve kapalı " +
     "kesit burulmasına girer. FEM 1.001 Ek A-3.4 yan sac buruşma panelinde kalınlık e " +
-    "olarak kullanılır; teker basıncını taşıyan sac otomatiği de bu değeri izler.",
+    "olarak kullanılır; ray altı T profil yokken teker basıncını taşıyan sac otomatiği " +
+    "de bu değeri izler.",
   h3Mm:
     "Kod kullanımı — Başlıklar arasındaki gövde bölgesinin nominal yüksekliğidir; " +
     "kesit yüksekliği, Iyy, kesme ve burulma geometrisini belirler. FEM 1.001 Ek A-3.4'te " +
@@ -108,8 +110,8 @@ const GIRDER_INPUT_INFO: Partial<Record<keyof GirderInputs & string, string>> = 
     "kısaltılmaz; buruşmada ayrı yan paneli temsil eder.",
   t5Mm:
     "Kod kullanımı — Alt ana başlık kalınlığıdır; A, ağırlık merkezi, Iyy/Izz ve " +
-    "Bredt kapalı-kutu burulma hesabına girer. Perde ağırlığı hesabında kutuyu oluşturan " +
-    "t2/t3/t4/t5 saclarının en ince kalınlığından biri olarak değerlendirilir.",
+    "Bredt kapalı-kutu burulma hesabına girer. Perde t7 otomatiğindeki t2/t3/t4/t5 " +
+    "ortalamasına katılır.",
   b5Mm:
     "Kod kullanımı — Alt ana başlığın genişliğidir. Plaka b2 nominal genişliği içinde " +
     "ortalanır; alan, Cy, Izz ve yatay kesit modüllerini etkiler.",
@@ -128,6 +130,12 @@ const GIRDER_INPUT_INFO: Partial<Record<keyof GirderInputs & string, string>> = 
     "Kod kullanımı — b2 plakasının sol referans kenarından ana gövde sacının dış " +
     "yüzüne yatay mesafedir. Ray ekseni y = x + t3/2 olarak kurulur; ray eksantrikliği " +
     "Cy, Izz ve burulma kolunu etkiler.",
+  t7Mm:
+    "Kod kullanımı — Perde sacının gerçek kalınlığıdır; perde ağırlığı ve ana kiriş ölü " +
+    "yüküne doğrudan girer. Otomatikte t2, t3, t4 ve t5 ortalaması alınır: ortalama " +
+    "0 ≤ ortalama < 8 mm ise 6 mm; 8 ≤ ortalama < 12 mm ise 8 mm; " +
+    "12 ≤ ortalama < 20 mm ise 10 mm; 20 mm ve üzeriyse " +
+    "12 mm seçilir. Anahtar kapatıldığında mühendis değeri korunur.",
   hookTopPositionM:
     "Standart dayanağı — FEM 1.001 Ek A-2.2.3/Şekil A.2.2.1 yatay ivme " +
     "etkisinde sarkaç periyodunu T1 = 2π√(l/g) ile kurar; l kancanın en üst " +
@@ -185,18 +193,19 @@ const GIRDER_INPUT_INFO: Partial<Record<keyof GirderInputs & string, string>> = 
     "başlıktan berkitme eksenine düşey uzaklıktır; kesit A/I hesabına katılmaz. Sıfır, " +
     "boyuna berkitme yok ve tüm h3 tek panel demektir.",
   wheelContactHMm:
-    "Standart dayanağı — DIN 15018 Şekil 9 raydan gelen teker yükünün gövdeye " +
-    "yayılımını yerel σz hesabında tanımlar.\n\nKod kullanımı — Bu geometrik yük yayılım " +
-    "yüksekliği için etkin boy le = 2h + 40 mm ve etkin alan çarpanı (0,2h + 5)·t " +
-    "kurulur; teker çapı veya ray yüksekliği değildir.",
+    "Standart dayanağı — DIN 15018 md. 6.9 ve Şekil 7, h'yi rayın üst kenarından " +
+    "yükü alan kaynak/flanş kenarına kadar olan mesafe; boyuna yayılımı l = 2h + 50 mm " +
+    "olarak tanımlar.\n\nKod kullanımı — Otomatikte h = hr + t2 + t1 alınır. Ray altı T " +
+    "profil varken t1 kesitte iptal olduğundan bu terim sıfırdır. Anahtar kapatılarak " +
+    "detaya özgü gerçek mesafe girilebilir.",
   wheelContactTMm:
-    "Standart dayanağı — DIN 15018 Şekil 9 yerel gövde gerilmesini teker yükünün " +
-    "yayıldığı etkin boy ve taşıyıcı sac kalınlığıyla ilişkilendirir.\n\nKod kullanımı — " +
-    "Otomatikte ana gövde t3 alınır. Yükü gerçekten ayrı bir T yan sacı/takviye taşıyorsa " +
-    "otomatik kapatılıp yük yolundaki gerçek kalınlık girilmelidir.",
+    "Standart dayanağı — DIN 15018 md. 6.9 ve Şekil 7 yerel gövde gerilmesini " +
+    "teker yükünün yayıldığı boy ve taşıyıcı sac kalınlığıyla ilişkilendirir.\n\nKod " +
+    "kullanımı — Otomatikte ray altı T profil yoksa ana gövde t3; profil varsa yük " +
+    "yolundaki T profil yan sacı tTy alınır. Anahtar kapatılırsa gerçek kalınlık girilebilir.",
   sigmaYMaxOverrideNmm2:
     "Kod kullanımı — Yorulma hesabındaki en büyük yerel teker basıncı normal gerilmesi " +
-    "için elle ezmedir. Boşken DIN 15018 Şekil 9 modeliyle Durum I teker yükünden " +
+    "için elle ezmedir. Boşken DIN 15018 Şekil 7 modeliyle Durum I teker yükünden " +
     "hesaplanan |σz(I)| değeri kullanılır; yalnız haricî ayrıntılı analiz varsa doldurulmalıdır.",
   sigmaYMinOverrideNmm2:
     "Kod kullanımı — Yorulma gerilme oranındaki en küçük yerel teker basıncı için elle " +
@@ -226,6 +235,9 @@ const GIRDER_INPUT_FIELDS_BASE: FieldDef<GirderInputs>[] = [
   {
     key: "railHeightMm", label: "hr · Ray Yüksekliği", unit: "mm", type: "number",
     fieldGroup: "rail",
+    hint:
+      "Otomatikken seçili araba rayının katalog yüksekliği gelir; özel ray için " +
+      "anahtar kapatılıp elle değiştirilebilir.",
   },
   // RAY ALTI SACI, T PROFİL VARKEN İPTALDİR: rayı T'nin üst sacı taşır.
   // Alanlar gizlenir (değerleri korunur, hesaba girmez) — "0 gir" demek
@@ -317,6 +329,13 @@ const GIRDER_INPUT_FIELDS_BASE: FieldDef<GirderInputs>[] = [
     hint: "b2'nin sol kenarından ana gövde sacına; ray ekseni = x + t3/2.",
   },
   {
+    key: "t7Mm", label: "t7 · Perde Sacı Kalınlığı", unit: "mm", type: "number",
+    fieldGroup: "geometry",
+    hint:
+      "Otomatik: ort(t2,t3,t4,t5) < 8 → 6 mm; < 12 → 8 mm; " +
+      "< 20 → 10 mm; ≥ 20 → 12 mm.",
+  },
+  {
     key: "hookTopPositionM", label: "Kancanın En Üst Konumu l", unit: "m", type: "number",
     hint:
       "Otomatikken Teknik Özellikler bölümündeki ilgili kaldırma yüksekliğini alır. " +
@@ -377,23 +396,26 @@ const GIRDER_INPUT_FIELDS_BASE: FieldDef<GirderInputs>[] = [
   },
   {
     key: "wheelContactHMm", label: "Teker Basıncı Yayılım Yüksekliği h", unit: "mm",
-    type: "number", standardRef: "DIN 15018 Şekil 9",
+    type: "number", standardRef: "DIN 15018 Şekil 7",
+    hint:
+      "Otomatik: h = ray yüksekliği hr + üst flanş t2 + ray altı sacı t1. " +
+      "Ray altı T profil varken t1 iptaldir.",
   },
   {
-    key: "wheelContactTMm", label: "Teker Basıncı Taşıyan Sac (Ray T-Profil) Kalınlığı t",
-    unit: "mm", type: "number", standardRef: "DIN 15018 Şekil 9",
+    key: "wheelContactTMm", label: "Teker Basıncını Taşıyan Sac Kalınlığı t",
+    unit: "mm", type: "number", standardRef: "DIN 15018 Şekil 7",
     hint:
-      "Otomatikken Kesit Özelliklerindeki ana gövde sacı t3 kalınlığına eşittir. " +
-      "Yükü ayrı bir takviye sacı taşıyorsa anahtar kapatılıp gerçek kalınlık girilebilir.",
+      "Otomatikken T profil yoksa ana gövde t3; ray altı T profil varsa T yan " +
+      "sacı tTy alınır. Anahtar kapatılıp gerçek kalınlık girilebilir.",
   },
   {
     key: "sigmaYMaxOverrideNmm2", label: "σy,maks (Elle)", unit: "N/mm²", type: "number",
-    standardRef: "DIN 15018 Şekil 9",
+    standardRef: "DIN 15018 Şekil 7",
     hint: "Boş bırakılırsa gerilme analizindeki teker basıncından gelir: σy,maks = |σz(I)| / 9,81.",
   },
   {
     key: "sigmaYMinOverrideNmm2", label: "σy,min (Elle)", unit: "N/mm²", type: "number",
-    standardRef: "DIN 15018 Şekil 9",
+    standardRef: "DIN 15018 Şekil 7",
     hint: "Boş bırakılırsa gerilme analizinden gelir: σy,min = |σz(araba)| / 9,81.",
   },
   {

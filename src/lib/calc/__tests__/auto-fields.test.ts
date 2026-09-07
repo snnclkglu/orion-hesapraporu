@@ -20,6 +20,7 @@ import {
   HOIST_DRUM_COUPLING_SERVICE_FACTOR,
   HOIST_GEARBOX_SERVICE_FACTOR,
   STANDARD_SHEAVE_EFFICIENCY,
+  automaticDiaphragmThicknessMm,
   deriveDrumGrooveLengthText,
   deriveDrumWeightKg,
   deriveGirderInputs,
@@ -69,6 +70,13 @@ const withSel = (patch: Partial<HoistSelections>): HoistSelections => ({
 });
 
 describe("motor ve tahrik adet alanları", () => {
+  it("tambur çapını öneri listesi ve Elle Gir seçeneğiyle sunar", () => {
+    const field = HOIST_SELECTION_FIELDS.find((item) => item.key === "drumDiaMm");
+    expect(field).toMatchObject({
+      type: "select", numeric: true, diameter: true, allowCustom: true,
+    });
+  });
+
   it("kaldırma motor adedini yalnız 1, 2 veya 4 seçenekli kutu olarak sunar", () => {
     const field = HOIST_SELECTION_FIELDS.find((item) => item.key === "motorCount");
     expect(field).toMatchObject({ type: "select", options: ["1", "2", "4"], numeric: true });
@@ -514,7 +522,7 @@ describe("yürütme redüktörü tahvil oranı otomatiği", () => {
   });
 });
 
-describe("ana kiriş ψhA / ψhK / γc otomatiği", () => {
+describe("ana kiriş otomatikleri", () => {
   const GIRDER = NEW_WORK_TEMPLATE.girder!.inputs as GirderInputs;
   const DEP = { mainHookBlockWeightKg: 1000, mainRopeWeightKg: 100 };
 
@@ -539,6 +547,52 @@ describe("ana kiriş ψhA / ψhK / γc otomatiği", () => {
     expect(d.psiHAOverride).toBe(2);
   });
 
+  it("seçili ray kodundan hr ve ardından h = hr + t2 + t1 değerini türetir", () => {
+    const d = deriveGirderInputs(
+      { ...GIRDER, railHeightAuto: true, wheelContactHAuto: true },
+      NEW_WORK_SPECS,
+      { ...DEP, trolleyRailCode: "80x60" }
+    );
+    expect(d.railHeightMm).toBe(60);
+    expect(d.wheelContactHMm).toBe(60 + GIRDER.t2Mm + GIRDER.t1Mm);
+  });
+
+  it("ray altı T profilde h hesabından iptal t1'i çıkarır ve taşıyıcı t olarak tTy alır", () => {
+    const d = deriveGirderInputs(
+      {
+        ...GIRDER,
+        railTProfile: "Var",
+        railTProfileTopThkMm: 16,
+        railTProfileTopWidthMm: 240,
+        railTProfileWebThkMm: 14,
+        railTProfileWebHeightMm: 180,
+        wheelContactHAuto: true,
+        wheelContactTAuto: true,
+      },
+      NEW_WORK_SPECS,
+      { ...DEP, trolleyRailCode: "70x40" }
+    );
+    expect(d.wheelContactHMm).toBe(40 + GIRDER.t2Mm);
+    expect(d.wheelContactTMm).toBe(14);
+  });
+
+  it("t7 kademelerini sınır değerleriyle uygular", () => {
+    expect(automaticDiaphragmThicknessMm(7.99, 7.99, 7.99, 7.99)).toBe(6);
+    expect(automaticDiaphragmThicknessMm(8, 8, 8, 8)).toBe(8);
+    expect(automaticDiaphragmThicknessMm(12, 12, 12, 12)).toBe(10);
+    expect(automaticDiaphragmThicknessMm(12, 16, 16, 16)).toBe(10);
+    expect(automaticDiaphragmThicknessMm(20, 20, 20, 20)).toBe(12);
+  });
+
+  it("yeni işte hr, t7, h ve taşıyıcı t otomatikleri açık gelir", () => {
+    expect(GIRDER).toMatchObject({
+      railHeightAuto: true,
+      t7Auto: true,
+      wheelContactHAuto: true,
+      wheelContactTAuto: true,
+    });
+  });
+
   it("anahtarlar kapalıyken elle girilen katsayılara dokunmaz", () => {
     const d = deriveGirderInputs(
       {
@@ -548,6 +602,9 @@ describe("ana kiriş ψhA / ψhK / γc otomatiği", () => {
         amplifyYcAuto: false,
         hookTopPositionAuto: false,
         bridgeAxleSpacingAuto: false,
+        railHeightAuto: false,
+        t7Auto: false,
+        wheelContactHAuto: false,
         wheelContactTAuto: false,
       },
       NEW_WORK_SPECS,

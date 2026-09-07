@@ -1845,6 +1845,21 @@ const DIN_REFS: Record<string, StandardRef> = {
     formulas: [{ expr: "σ_z = P / (l_e · t_g)" }],
   },
 
+  "DIN 15018 Şekil 7": {
+    code: "DIN 15018 Şekil 7",
+    title: "Tekerlek yükünün ray doğrultusunda boyuna yayılımı",
+    source: "DIN 15018-1",
+    clause: "Madde 6.9 · Şekil 7",
+    summary:
+      "Ray doğrultusundaki tekil tekerlek yükü, doğrudan flanş üzerinde taşınırken " +
+      "2h + 50 mm uzunluğa düzgün yayılmış kabul edilir. h, rayın üst kenarından " +
+      "incelenen gövde/kaynak bağlantısı seviyesine kadar ölçülür.",
+    formulas: [
+      { expr: "l_e = 2h + 50 mm" },
+      { expr: "σ_z = P / (l_e · t)" },
+    ],
+  },
+
   "DIN 15061": {
     code: "DIN 15061",
     title: "Tambur ve makara halat yivi (hatve)",

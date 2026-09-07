@@ -49,7 +49,7 @@ Durum sütunu: ✓ = mevcut referans doğru · ~ = doğru ama kesinleştirilmeli
 | Yük kombinasyonu Case I (E362–E376, γc) | `FEM T.3.2.1.1` (kontrol) | Kombinasyon: **FEM 1.001 2.3.1** (γc·(SG + ψ·SL + SH)); γc değeri: **Tablo T.2.3.4** (A1–A8: 1,00…1,20) | ~ | Görev/yol haritasındaki "T.2.3.1" anımsaması **yanlış**tı; doğru tablo numarası **T.2.3.4**. Motor γc'yi elle alır (E138, A6→1,14 ile tutarlı) |
 | Case III test durumu (D386–D391) | `FEM T.3.2.1.1` | Kombinasyon: **FEM 1.001 2.3.3.c** (SG + ψ·ρ1·SL veya SG + ρ2·SL); katsayılar: **Booklet 8 8.1.1 (ρ1 = 1,2), 8.1.2 (ρ2 = 1,4)** | ~ | Booklet 9 9.16 alternatif ρ tablosu verir (yüke/ψ'ye bağlı 1,1…1,3) |
 | İzin gerilmeleri (statik) | `FEM T.3.2.1.1` | FEM 1.001 3.2.1.1, Tablo T.3.2.1.1 | ✓ | GIRDER_ALLOWABLE_STRESS: St37 1630/1834/2191, St44 1783/1987/2450, St52 2450/2750/3310 kg/cm² = 160/180/215, 175/195/240, 240/270/325 N/mm² — **birebir doğrulandı** |
-| Eşdeğer gerilme (von Mises) | — | **FEM 1.001 3.2.1.3** (σcp = √(σx²+σy²−σx·σy+3τ²) ≤ σa) | — | Motor formülü birebir (mutlak değerli ara terimle) |
+| Eşdeğer gerilme (von Mises) | — | **FEM 1.001 3.2.1.3** (σcp = √(σx²+σy²−σx·σy+3τ²) ≤ σa) | — | Motor işaretli çarpımı birebir kullanır; `σx·σy` mutlak değere çevrilmez. |
 | Yorulma (F396–E435) | `DIN 15018 T.17/18, 7.4.5` | DIN 15018 (bilinçli tercih); FEM karşılığı 3.6 | ✓ | |
 | Sehim `girder.deflection` (G447) | — | FEM'de kiriş sehim limiti **yok**; kaynak **CMAA 70 3.5.5.1** (0,001125 in/in ≈ **L/888**; VIF'siz, araba + nominal yük) | — | Limit şu an kullanıcı girdisi; CMAA referansı eklenmeli |
 

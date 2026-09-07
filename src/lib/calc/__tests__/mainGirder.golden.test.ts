@@ -311,10 +311,27 @@ describe("ana kiriş — gerilme analizi", () => {
     const sz = cell(r, "stress.sigmaZCase1");
     const tau = cell(r, "stress.shearMainCase1");
     expect(cell(r, "stress.combinedBottomMainCase1")).toBeCloseTo(
-      Math.sqrt(sx ** 2 + sz ** 2 - Math.abs(sx * sz) + 3 * tau ** 2), 8
+      Math.sqrt(sx ** 2 + sz ** 2 - sx * sz + 3 * tau ** 2), 8
     );
     // Kayma yokken bileşke saf normal gerilmeye iner
     expect(Math.sqrt(sx ** 2)).toBeCloseTo(Math.abs(sx), 10);
+  });
+
+  it("DIN 15018 Şekil 7 boyuna yayılımını l = 2h + 50 olarak uygular", () => {
+    expect(cell(r, "geometry.wheelContactLength")).toBe(2 * V5_GIRDER_INPUTS.wheelContactHMm + 50);
+    expect(cell(r, "section.wheelContactWidth")).toBeCloseTo(
+      (cell(r, "geometry.wheelContactLength") * V5_GIRDER_INPUTS.wheelContactTMm) / 100,
+      10
+    );
+  });
+
+  it("taşıyıcı sac kalınlaştıkça Q10 ve alt-lif bileşik gerilmesi düşer", () => {
+    const ince = run({ inp: { wheelContactTMm: 8, wheelContactTAuto: false } });
+    const kalin = run({ inp: { wheelContactTMm: 16, wheelContactTAuto: false } });
+    expect(Math.abs(cell(kalin, "stress.sigmaZHoist")))
+      .toBeLessThan(Math.abs(cell(ince, "stress.sigmaZHoist")));
+    expect(cell(kalin, "stress.combinedBottomCase1"))
+      .toBeLessThan(cell(ince, "stress.combinedBottomCase1"));
   });
 
   it("γc yapı sınıfından gelir, elle ezilebilir ve gerilmeleri ölçekler", () => {

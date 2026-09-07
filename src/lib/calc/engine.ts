@@ -115,7 +115,7 @@ import {
  * 0.6.0: İsteğe bağlı elektrik hesap raporu — sürücü ve kablo ön seçimi,
  *        ana besleme hesabı ve ağırlık merkezli feston yerleşimi.
  */
-export const ENGINE_VERSION = "0.7.0";
+export const ENGINE_VERSION = "0.8.0";
 
 export interface HoistModuleInput {
   inputs: HoistInputs;

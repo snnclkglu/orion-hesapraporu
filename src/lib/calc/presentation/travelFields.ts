@@ -96,7 +96,10 @@ export const RAIL_CODE_LABELS: Record<string, string> = Object.fromEntries(
       return [code, `${a} × ${b} mm`];
     }
     const head = railNominalHeadWidthMm(code);
-    const parts = [`baş ${head.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} mm`];
+    const parts = [
+      `yükseklik ${row.heightMm.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} mm`,
+      `baş ${head.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} mm`,
+    ];
     if (row.massKgPerM !== undefined) {
       parts.push(`${row.massKgPerM.toLocaleString("tr-TR")} kg/m`);
     }
