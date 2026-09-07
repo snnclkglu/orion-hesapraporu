@@ -13,8 +13,8 @@
 
 import { readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import type { ElectricalPart } from "@/lib/electrical/types";
-import { buildBook, bookSourceBucket, type BookRow } from "@/lib/switchboard/book";
+import { buildBook, bookSourceBucket } from "@/lib/switchboard/book";
+import { readPartsDump } from "./switchboard-parts-dump";
 import { catalogIdentityPart } from "@/lib/electrical/catalogs";
 
 /** Eşleşme defterlerinin adı bu ön ekle başlar. */
@@ -164,19 +164,12 @@ function main() {
     process.exit(1);
   }
 
-  const ham = JSON.parse(readFileSync(partsYolu, "utf8")) as Record<string, unknown>[];
-  const parts: ElectricalPart[] = ham.map((r) => ({
-    deviceTag: String(r.device_tag ?? ""),
-    installation: String(r.installation ?? ""),
-    location: String(r.location ?? ""),
-    device: String(r.device ?? ""),
-    qty: r.qty === null || r.qty === undefined ? null : Number(r.qty),
-    designation: String(r.designation ?? ""),
-    typeNo: String(r.type_no ?? ""),
-    supplier: String(r.supplier ?? ""),
-    partNo: String(r.part_no ?? ""),
-    page: Number(r.page ?? 0),
-  }));
+  // ORTAK OKUYUCU — uygulamanın gördüğü hâl (`cleanElectricalPart`).
+  const dokum = readPartsDump(partsYolu);
+  if (dokum.cleaned || dokum.dropped) {
+    console.log(`Antet temizliği: ${dokum.cleaned} satır düzeltildi, ${dokum.dropped} satır düşürüldü.`);
+  }
+  const parts = dokum.parts;
 
   const rows = buildBook({ parts, models: [] }).filter((r) => r.needsDimensions);
   const indeks = indeksleriOku(katalogKok);

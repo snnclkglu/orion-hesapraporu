@@ -23,6 +23,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { materialCatalogIdentity } from "@/lib/electrical/catalogs";
+import { readPartsDump } from "./switchboard-parts-dump";
 
 interface OnayliSatir {
   typeNo: string;
@@ -61,18 +62,18 @@ function main() {
   }
 
   const onayli = JSON.parse(readFileSync(onayliYolu, "utf8")) as OnayliSatir[];
-  const parts = JSON.parse(readFileSync(partsYolu, "utf8")) as Record<string, unknown>[];
+  // ORTAK OKUYUCU ZORUNLUDUR: temizlenmemiş bir satırdan üretilen anahtar
+  // (`SEASTOR|RXG22BDIMZA100T…`) çalışma anında HİÇ ARANMAZ ve deftere yazılan
+  // ölçü sessizce ölü kalırdı.
+  const dokum = readPartsDump(partsYolu);
+  const parts = dokum.parts;
 
   // Tip numarası → gerçek malzeme satırlarındaki KİMLİKLER.
   const kimlikler = new Map<string, Map<string, { supplier: string; typeNo: string }>>();
   for (const p of parts) {
-    const typeNo = String(p.type_no ?? "");
+    const typeNo = p.typeNo;
     if (!typeNo.trim()) continue;
-    const kimlik = materialCatalogIdentity({
-      supplier: String(p.supplier ?? ""),
-      typeNo,
-      partNo: String(p.part_no ?? ""),
-    });
+    const kimlik = materialCatalogIdentity(p);
     const kutu = kimlikler.get(typeNo) ?? new Map();
     kutu.set(kimlik.lookupKey, { supplier: kimlik.supplier, typeNo: kimlik.typeNo });
     kimlikler.set(typeNo, kutu);

@@ -18,6 +18,7 @@
 
 import { readFileSync } from "node:fs";
 import { readElectricalPdf } from "@/lib/electrical/read-pdf";
+import { readPartsDump } from "./switchboard-parts-dump";
 import type { ElectricalPart } from "@/lib/electrical/types";
 import { electricalCategory } from "@/lib/electrical/category";
 import { materialCatalogIdentity } from "@/lib/electrical/catalogs";
@@ -50,23 +51,14 @@ function sayi(v: number): string {
 
 async function parcalariOku(yol: string): Promise<{ parts: ElectricalPart[]; proje: string[] }> {
   if (yol.toLowerCase().endsWith(".json")) {
-    const ham = JSON.parse(readFileSync(yol, "utf8")) as Record<string, unknown>[];
-    return {
-      parts: ham.map((r) => ({
-        deviceTag: String(r.device_tag ?? ""),
-        installation: String(r.installation ?? ""),
-        location: String(r.location ?? ""),
-        device: String(r.device ?? ""),
-        // NULL SIFIR DEĞİLDİR (değişmez md. 4).
-        qty: r.qty === null || r.qty === undefined ? null : Number(r.qty),
-        designation: String(r.designation ?? ""),
-        typeNo: String(r.type_no ?? ""),
-        supplier: String(r.supplier ?? ""),
-        partNo: String(r.part_no ?? ""),
-        page: Number(r.page ?? 0),
-      })),
-      proje: [...new Set(ham.map((r) => String(r.doc_no ?? "?")))],
-    };
+    // ORTAK OKUYUCU: ham döküm UYGULAMANIN GÖRDÜĞÜ hâle getirilir
+    // (`cleanElectricalPart`, ELEKTRIK-14). Temizlemeden okumak, uygulamanın
+    // hiç görmediği bir tip numarasıyla çalışmak demektir.
+    const d = readPartsDump(yol);
+    if (d.cleaned || d.dropped) {
+      console.log(`Antet temizliği: ${d.cleaned} satır düzeltildi, ${d.dropped} satır düşürüldü.`);
+    }
+    return { parts: d.parts, proje: d.projects };
   }
   const okuma = await readElectricalPdf(new Uint8Array(readFileSync(yol)));
   return { parts: okuma.parts, proje: [okuma.titleBlock.jobNumber || "?"] };
