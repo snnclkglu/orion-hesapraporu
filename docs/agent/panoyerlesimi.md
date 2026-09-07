@@ -525,3 +525,58 @@ alıntı · sahiplik kanıtı) `note` alanında kalır ve `source_document_id` k
 defterine bağlanır. Çakışmada güncelleme yalnız `source <> 'elle'` satırlarda
 çalışır: mühendisin kendi beyanı toplu bir turla değişmez (PANO-12).
 
+## PANO-21 — ÇÜRÜTME AİLEYE YAYILIR; kademeli doğrulamanın kör noktası budur.
+
+Ölçüldü (07.09.2026, 87 ölçü / 137 ajan): doğrulama kademeli yapıldı — ajanın
+“kesin” dediği ve fizik taramasını geçen 62 ölçüye tek lens (sahiplik), şüpheli
+25'ine üç lens. Sonuç: **11 çürütmenin HEPSİ üç lensli kovadan çıktı, tek
+lensli kovadan hiç ret gelmedi.**
+
+Bu, tek lensli ölçülerin daha iyi olduğunu göstermez. Yakalanan hataların çoğu
+ALINTI lensinin işiydi ve o lens tek lensli ürünlerde hiç koşmadı:
+
+- Siemens 5SL6 otomatlarında yükseklik/derinlik katalogda HİÇ YOK; 90/76
+  değerleri başka sipariş numaralarının veri sayfalarından taşınmıştı. Üç
+  varyant (5SL6204/5SL6325/5SL6332) üç lensten geçip çürütüldü; AYNI KUSURU
+  taşıyan yedi kardeşi tek lensten geçip ONAYLANDI.
+- Siemens 3RV2'de katalog derinliği 91 mm, ürün veri sayfası 97 mm. İki varyant
+  çürütüldü, altı kardeşi geçti.
+
+**KURAL: bir çürütmenin gerekçesi tek bir sayıyı değil KAYNAĞI hedef alıyorsa,
+o gerekçe aynı kaynaktan okunan bütün kardeşleri bağlar.** Ret çıkan ailenin
+onaylanmış üyeleri deftere GİRMEZ; karantinaya alınır ve eksik lensten geçirilir.
+
+**OYU EKSİK KALAN ÜRÜN DE KARANTİNADADIR.** Oturum kotası bir doğrulayıcıyı
+düşürdüğünde geri kalan oylar “çoğunluk” sayılmaz: üç lens için tasarlanmış bir
+eşik, tek oyla karşılanmış gibi davranamaz.
+
+Ölçülen sonuç: 76 onaylı üründen 14'ü karantinaya alındı, deftere 62 ürün
+girdi (65 anahtar). Karantinadakiler dış kaynak izniyle yeniden ayıklandı.
+
+## PANO-22 — Kapak cihazının ölçüsü GÖVDE değil KESİM + KOMŞU MESAFESİdir.
+
+Ölçüldü (07.09.2026): Schneider XB4 buton ailesinin on ürünü “ölçüsü yok”
+kuyruğunda duruyordu; ana katalog o satırlarda yalnız referans ve AĞIRLIK
+veriyor. Ölçü kayıp değildi — YANLIŞ YERDE ARANIYORDU. Montaj föyü
+(`BRU46063`) 2. sayfası kapak kesimini veriyor:
+
+```
+Panel cut-out : Ø 22,3   (delik)
+Komsu mesafesi: 30 mm    (standart baslik)
+                40 mm    (mantar baslik / acil stop, Ø 40 ve Ø 60 boslugu)
+```
+
+Kapakta yer kaplayan şey deliğin kendisi değil, **iki delik arasında bırakılması
+gereken mesafedir**: yan yana iki buton 30 mm'den yakın olamaz. Bu yüzden kapak
+cihazında
+
+- EN ve YÜKSEKLİK — kesim + komşu mesafesi (22 mm delik için 30 mm, mantar
+  başlıkta 40 mm),
+- DERİNLİK — kapağın ARKASINDA kalan gövde derinliği (kontak blokları dâhil)
+
+alınır. Gövdenin ön çapını en almak kapağı gereğinden dar hesaplatır; kesim
+ölçüsünü derinlik sanmak da panoyu sığ bırakır.
+
+Tahmin motorunun kumanda elemanları için kullandığı 30 x 30 değeri bu föyle
+DOĞRULANMIŞTIR — yani orada bir tahmin değil, ölçülmüş bir standart vardır.
+
