@@ -63,6 +63,37 @@ describe("özgül kural genelden önce gelir", () => {
   });
 });
 
+describe("ölçüm ailesi ikiye ayrılır", () => {
+  // Ölçüldü (0019 + 0026): 52 PT100 probu + 20 rezistans termometresi + 5 yük
+  // hücresi pano göstergesi sayılınca 7,4 METRE hayalet ray yiyordu.
+  const sahaOrnekleri = [
+    { designation: "PT100 Prob", typeNo: "E-RT21-1K06-5-Ü-E4-1/2NPT-V-IN" },
+    { designation: "Precision resistance thermometer PT100", typeNo: "ELC.PT100 Series" },
+    { designation: "Load cell pin type", typeNo: "LPW1-65MM" },
+    { designation: "Pressure transmitter 0-10 bar", typeNo: "PTX-1000" },
+  ];
+
+  for (const ornek of sahaOrnekleri) {
+    it(`saha elemanı panoya girmez: ${ornek.typeNo}`, () => {
+      const k = mountRuleFor({ category: "Ölçüm ve Enstrümantasyon", ...ornek });
+      expect(k.mountType).toBe("saha");
+      expect(k.zone).toBeNull();
+    });
+  }
+
+  it("pano göstergesi panoda KALIR", () => {
+    // Tarayıcı alarm cihazı 96 x 96 kesitli bir PANO cihazıdır; süreç
+    // bağlantısı (NPT/BSP) yoktur.
+    const k = mountRuleFor({
+      category: "Ölçüm ve Enstrümantasyon",
+      designation: "E690 Advanced Temperature Scanner",
+      typeNo: "E690-1-1-1-1-1-1-0",
+    });
+    expect(k.mountType).toBe("din");
+    expect(k.zone).toBe("kumanda");
+  });
+});
+
 describe("ana şalter bandının başındadır", () => {
   it("yük ayırıcı tanınır", () => {
     expect(
