@@ -2318,6 +2318,8 @@ const ELECTRICAL_REPORT_SOURCES = [
   "ABB — ACS880-01 Donanım Kılavuzu ve teknik verileri",
   "Siemens — SINAMICS S120 Booksize Power Units, D 21.4 üretici kataloğu",
   "HELUKABEL Türkiye ürün kataloğu — TOPFLEX 611-C-PUR, JZ-600, PVC Flat ve kumanda/sinyal kabloları",
+  "ÜNTEL üretici katalogları — H07VVH6-F, NGFLCGÖU, ÜNFLEX PUR ve 2XSLCH-J kablo ölçüleri, ağırlıkları ve bükülme değerleri",
+  "IEC 60364-5-52 — Alçak gerilim elektrik tesisleri; kablo sistemlerinin seçimi ve kurulması",
   "Vasel — I-Beam Cable Festoon Systems, VS2020A-4WF",
   "Conductix-Wampfler — KAT0320-0003-EN, I-kiriş feston arabaları",
 ] as const;

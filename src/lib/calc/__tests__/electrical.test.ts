@@ -9,7 +9,7 @@ import {
   computeElectrical,
   type ElectricalDeps,
 } from "@/lib/calc/modules/electrical";
-import { driveModelsFor } from "@/lib/calc/electrical-catalog";
+import { ELECTRICAL_CABLE_MODELS, driveModelsFor } from "@/lib/calc/electrical-catalog";
 
 const oneMotor: ElectricalDeps = {
   motors: [{ key: "main", label: "Ana Kaldırma", motorPowerKw: 75, motorCount: 1 }],
@@ -46,7 +46,7 @@ describe("elektrik hesap raporu", () => {
     expect(driveModelsFor("Schneider Electric", "ATV930")).toHaveLength(23);
     const result = computeElectrical(
       { ...NEW_WORK_SPECS, hasElectricalCalculation: "yes" },
-      { ...DEFAULT_ELECTRICAL_INPUTS, lineVoltageV: 400 },
+      { ...DEFAULT_ELECTRICAL_INPUTS, lineVoltageV: 400, lineVoltageAuto: false },
       {
         ...DEFAULT_ELECTRICAL_SELECTIONS,
         drives: {
@@ -86,6 +86,55 @@ describe("elektrik hesap raporu", () => {
     expect(Number.isFinite(cable.voltageDropPct)).toBe(true);
   });
 
+  it("HELUKABEL ve ÜNTEL kataloglarını marka ile yuvarlak/yassı biçimde sunar", () => {
+    const combinations = new Set(ELECTRICAL_CABLE_MODELS.map((cable) => `${cable.brand}:${cable.shape}`));
+    expect(combinations).toEqual(new Set([
+      "HELUKABEL:round", "HELUKABEL:flat", "ÜNTEL:round", "ÜNTEL:flat",
+    ]));
+    expect(ELECTRICAL_CABLE_MODELS.find((cable) => cable.family === "NGFLCGÖU" && cable.sectionMm2 === 10)).toMatchObject({
+      brand: "ÜNTEL", shape: "flat", shielded: true, festoonSuitable: true,
+      widthMm: 35.6, heightMm: 11.7, weightKgPerM: 0.952,
+    });
+  });
+
+  it("gerilim, motor, feston devreleri ve loop yüksekliğini üst bölümlerden otomatik alır", () => {
+    const result = computeElectrical(
+      { ...NEW_WORK_SPECS, supplyVoltage: "400 VAC, 3 Faz, 50 Hz" },
+      DEFAULT_ELECTRICAL_INPUTS,
+      DEFAULT_ELECTRICAL_SELECTIONS,
+      {
+        motors: [
+          { key: "main", label: "Ana Kaldırma", motorPowerKw: 11, motorCount: 1 },
+          { key: "trolley", label: "Ana Araba Yürütme", motorPowerKw: 3, motorCount: 2 },
+        ],
+        festoon: { circuitKeys: ["main", "trolley"], loopHeightM: 2.25, trolleyCount: 8, sourceLabel: "Ana araba" },
+      }
+    );
+    expect(result.values.settings.lineVoltageV).toBe(400);
+    expect(result.values.festoon.loopHeightM).toBe(2.25);
+    expect(result.values.festoon.circuitKeys).toEqual(["main", "trolley"]);
+    expect(result.values.motorCables.every((row) => row.selectedCable?.brand === "ÜNTEL" && row.selectedCable.shape === "flat")).toBe(true);
+  });
+
+  it("sabit tesis VFD kablosu feston paketine seçilirse ayrıca uyarır", () => {
+    const result = computeElectrical(
+      NEW_WORK_SPECS,
+      {
+        ...DEFAULT_ELECTRICAL_INPUTS,
+        festoonCircuitKeys: ["main"],
+        festoonCircuitKeysAuto: false,
+        circuits: { main: { cableAuto: false } },
+      },
+      {
+        ...DEFAULT_ELECTRICAL_SELECTIONS,
+        motorCables: { main: { articleNo: "UNTEL-2XSLCH-J-4G10", parallelRuns: 1 } },
+      },
+      { motors: [{ key: "main", label: "Ana Kaldırma", motorPowerKw: 4, motorCount: 1 }] }
+    );
+    expect(result.values.festoon.fitsCableApplication).toBe(false);
+    expect(result.checks.find((check) => check.id === "electrical.festoon.application")?.pass).toBe(false);
+  });
+
   it("çift sıra seçimi geniş kablo paketini daraltır ve ağırlık merkezini ortalar", () => {
     const deps: ElectricalDeps = {
       motors: [{ key: "main", label: "Ana Kaldırma", motorPowerKw: 4, motorCount: 4 }],
@@ -102,8 +151,8 @@ describe("elektrik hesap raporu", () => {
         purpose: "control" as const,
       }],
     };
-    const single = computeElectrical(NEW_WORK_SPECS, { ...common, rowCount: 1 }, DEFAULT_ELECTRICAL_SELECTIONS, deps);
-    const double = computeElectrical(NEW_WORK_SPECS, { ...common, rowCount: 2 }, DEFAULT_ELECTRICAL_SELECTIONS, deps);
+    const single = computeElectrical(NEW_WORK_SPECS, { ...common, rowCount: 1, rowCountAuto: false }, DEFAULT_ELECTRICAL_SELECTIONS, deps);
+    const double = computeElectrical(NEW_WORK_SPECS, { ...common, rowCount: 2, rowCountAuto: false }, DEFAULT_ELECTRICAL_SELECTIONS, deps);
 
     expect(double.values.festoon.packageWidthMm).toBeLessThan(single.values.festoon.packageWidthMm);
     expect(Math.abs(double.values.festoon.centerOffsetMm)).toBeLessThanOrEqual(2);

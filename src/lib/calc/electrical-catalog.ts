@@ -133,8 +133,10 @@ export const ELECTRICAL_DRIVE_MODELS: readonly ElectricalDriveModel[] = [
 
 export type CablePurpose = "power" | "control" | "signal";
 export type CableShape = "round" | "flat";
+export type CableBrand = "HELUKABEL" | "ÜNTEL";
 
 export interface ElectricalCableModel {
+  brand: CableBrand;
   articleNo: string;
   family: string;
   construction: string;
@@ -147,7 +149,10 @@ export interface ElectricalCableModel {
   sectionMm2?: number;
   cores?: number;
   shielded: boolean;
+  /** Üreticinin hareketli/feston kullanımına açıkça uygun gördüğü ürün. */
+  festoonSuitable: boolean;
   source: string;
+  sourceUrl?: string;
 }
 
 const helu = "HELUKABEL Kablo ve İletkenler katalogu (yerel 0019 kaynak seti)";
@@ -165,10 +170,12 @@ function round(
   shielded: boolean
 ): ElectricalCableModel {
   return {
-    articleNo, family, construction, purpose, shape: "round",
+    brand: "HELUKABEL", articleNo, family, construction, purpose, shape: "round",
     widthMm: diameterMm, heightMm: diameterMm,
     weightKgPerM: weightKgPerKm / 1000,
-    bendRadiusFactor, sectionMm2, cores, shielded, source: helu,
+    bendRadiusFactor, sectionMm2, cores, shielded,
+    festoonSuitable: family.startsWith("TOPFLEX") || family.startsWith("ROBOFLEX") || family.includes("PUR"),
+    source: helu,
   };
 }
 
@@ -182,10 +189,80 @@ function flat(
   cores: number
 ): ElectricalCableModel {
   return {
-    articleNo, family: "PVC Flat", construction, purpose: "power", shape: "flat",
+    brand: "HELUKABEL", articleNo, family: "PVC Flat", construction, purpose: "power", shape: "flat",
     widthMm, heightMm, weightKgPerM: weightKgPerKm / 1000,
     // Üretici hareketli kullanım için kablo KALINLIĞININ 10 katını verir.
-    bendRadiusFactor: 10, sectionMm2, cores, shielded: false, source: helu,
+    bendRadiusFactor: 10, sectionMm2, cores, shielded: false, festoonSuitable: true, source: helu,
+  };
+}
+
+const untelFlatSource = "ÜNTEL üretici ürün tablosu — vinç/feston kabloları";
+const untelSourceUrl = "https://www.untel.com.tr/en/crane-cables/";
+
+/** ÜNTEL tablolarındaki kalınlık × genişlik ve serbest hareket bükülme yarıçapı. */
+function untelFlat(
+  family: "H07VVH6-F (UNFLAT)" | "NGFLCGÖU",
+  construction: string,
+  thicknessMm: number,
+  widthMm: number,
+  weightKgPerKm: number,
+  bendRadiusMm: number,
+  sectionMm2: number,
+  cores: number,
+  shielded: boolean
+): ElectricalCableModel {
+  return {
+    brand: "ÜNTEL",
+    articleNo: `UNTEL-${family.startsWith("NG") ? "NGFLCGOU" : "H07VVH6F"}-${construction.replace(/[^0-9A-Za-z]+/g, "-")}`,
+    family,
+    construction,
+    purpose: "power",
+    shape: "flat",
+    widthMm,
+    heightMm: thicknessMm,
+    weightKgPerM: weightKgPerKm / 1000,
+    bendRadiusFactor: bendRadiusMm / thicknessMm,
+    sectionMm2,
+    cores,
+    shielded,
+    festoonSuitable: true,
+    source: untelFlatSource,
+    sourceUrl: untelSourceUrl,
+  };
+}
+
+function untelRound(
+  family: "ÜNFLEX PUR" | "2XSLCH-J",
+  construction: string,
+  diameterMm: number,
+  weightKgPerKm: number,
+  bendRadiusFactor: number,
+  sectionMm2: number,
+  cores: number,
+  shielded: boolean,
+  festoonSuitable: boolean
+): ElectricalCableModel {
+  return {
+    brand: "ÜNTEL",
+    articleNo: `UNTEL-${family === "ÜNFLEX PUR" ? "UNFLEX-PUR" : "2XSLCH-J"}-${construction.replace(/[^0-9A-Za-z]+/g, "-")}`,
+    family,
+    construction,
+    purpose: sectionMm2 <= 2.5 && cores > 4 ? "control" : "power",
+    shape: "round",
+    widthMm: diameterMm,
+    heightMm: diameterMm,
+    weightKgPerM: weightKgPerKm / 1000,
+    bendRadiusFactor,
+    sectionMm2,
+    cores,
+    shielded,
+    festoonSuitable,
+    source: family === "ÜNFLEX PUR"
+      ? "ÜNTEL ÜNFLEX PUR üretici ürün tablosu"
+      : "ÜNTEL 2XSLCH-J üretici ürün tablosu — VFD motor kablosu, sabit tesis",
+    sourceUrl: family === "ÜNFLEX PUR"
+      ? "https://www.untel.com.tr/en/industrial-cables/unflex-pur/"
+      : "https://www.untel.com.tr/en/industrial-cables/2xslch-j/",
   };
 }
 
@@ -224,6 +301,42 @@ const flatRows = [
   ["27024", 70, 4, 64.2, 20, 4090],
 ] as const;
 
+// ÜNTEL H07VVH6-F: ekranlamasız, 450/750 V, vinç/feston için yassı güç ve
+// kumanda kablosu. Üretici tablosundaki 4 damarlı güç satırları.
+const untelH07FlatRows = [
+  [1.5, 5.3, 14.9, 154, 27], [2.5, 5.4, 17.2, 202, 27],
+  [4, 6.3, 19.2, 282, 32], [6, 6.8, 21.2, 367, 34],
+  [10, 8.9, 28, 624, 45], [16, 9.8, 28, 861, 49],
+  [25, 12.4, 40.8, 1342, 74], [35, 13.6, 45.3, 1747, 82],
+  [50, 17, 56.2, 2603, 102], [70, 19.4, 64.5, 3597, 116],
+  [95, 21, 77.4, 4657, 126], [120, 24.8, 84.2, 5999, 149],
+  [150, 26.6, 95.9, 7350, 160],
+] as const;
+
+// ÜNTEL NGFLCGÖU: kalaylı bakır örgü ekranlı, 300/500 V, doğrudan feston
+// uygulaması için üretici tarafından yayımlanan 4 damarlı güç satırları.
+const untelScreenedFlatRows = [
+  [1.5, 6.8, 20.4, 290, 20], [2.5, 8.1, 23.1, 422, 32],
+  [4, 9.2, 26.7, 498, 37], [6, 10, 32.1, 677, 40],
+  [10, 11.7, 35.6, 952, 47], [16, 13.5, 44.1, 1341, 68],
+  [25, 15, 54, 2004, 75], [35, 16, 56, 2470, 80],
+  [50, 19.5, 63.5, 3130, 98], [70, 21.5, 73.8, 4588, 108],
+  [95, 24.1, 79.2, 5206, 121], [120, 27.8, 91.4, 7246, 139],
+] as const;
+
+const untelVfdRows = [
+  [1.5, 10.6, 160], [2.5, 12, 225], [10, 17.5, 592],
+  [16, 20.3, 866], [25, 25.8, 1315], [35, 28.3, 1750],
+  [50, 32.9, 2380], [70, 38.7, 3432], [95, 42.8, 4315],
+  [120, 47.8, 5441], [150, 52.6, 6675],
+] as const;
+
+const untelControlRows = [
+  [7, 1.5, 9.6, 161], [12, 1.5, 12.6, 280],
+  [18, 1.5, 14.8, 396], [21, 1.5, 15.6, 450],
+  [25, 1.5, 17.8, 565], [32, 1.5, 19.3, 686],
+] as const;
+
 export const ELECTRICAL_CABLE_MODELS: readonly ElectricalCableModel[] = [
   ...topflexRows.map(([article, section, od, weight]) =>
     round(article, "TOPFLEX 611-C-PUR", `4G${section}`, "power", od, weight, 10, section, 4, true)),
@@ -231,6 +344,14 @@ export const ELECTRICAL_CABLE_MODELS: readonly ElectricalCableModel[] = [
     round(article, "JZ-600", `4G${section}`, "power", od, weight, 7.5, section, 4, false)),
   ...flatRows.map(([article, section, cores, width, height, weight]) =>
     flat(article, `${cores}G${section}`, width, height, weight, section, cores)),
+  ...untelH07FlatRows.map(([section, thickness, width, weight, bendRadius]) =>
+    untelFlat("H07VVH6-F (UNFLAT)", `4G${section}`, thickness, width, weight, bendRadius, section, 4, false)),
+  ...untelScreenedFlatRows.map(([section, thickness, width, weight, bendRadius]) =>
+    untelFlat("NGFLCGÖU", `4G${section}`, thickness, width, weight, bendRadius, section, 4, true)),
+  ...untelVfdRows.map(([section, diameter, weight]) =>
+    untelRound("2XSLCH-J", `4G${section}`, diameter, weight, 10, section, 4, true, false)),
+  ...untelControlRows.map(([cores, section, diameter, weight]) =>
+    untelRound("ÜNFLEX PUR", `${cores}G${section}`, diameter, weight, 10, section, cores, false, true)),
   round("10365", "JZ-500", "3G1.5", "control", 6.8, 90, 7.5, 1.5, 3, false),
   round("10366", "JZ-500", "4G1.5", "control", 7.6, 109, 7.5, 1.5, 4, false),
   round("10367", "JZ-500", "5G1.5", "control", 8.3, 131, 7.5, 1.5, 5, false),
@@ -243,6 +364,8 @@ export const ELECTRICAL_CABLE_MODELS: readonly ElectricalCableModel[] = [
   round("705221", "TOPGEBER 512 PUR", "4x2x0.25", "signal", 7.5, 88, 10, 0.25, 8, true),
   round("25474", "ROBOFLEX 2001", "18G1", "control", 15.4, 306, 7.5, 1, 18, false),
 ];
+
+export const CABLE_BRANDS = ["HELUKABEL", "ÜNTEL"] as const;
 
 export const DRIVE_BRANDS = ["Schneider Electric", "ABB", "Siemens"] as const;
 

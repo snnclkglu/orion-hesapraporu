@@ -614,6 +614,21 @@ const AUTO_FLAGS = [
   "roomDeviceHeatAuto",
   "panelDeviceHeatAuto",
   "cabinGlazingAreaAuto",
+  // Elektrik hesap raporu — eski kayıtta bu anahtarlar yoksa mühendis mevcut
+  // sayısal değerleri/arabayı elle seçmiş sayılır; yeni şablon onları ezmez.
+  "lineVoltageAuto",
+  "powerFactorAuto",
+  "motorEfficiencyAuto",
+  "voltageDropLimitAuto",
+  "mainDemandFactorAuto",
+  "defaultMotorCableLengthAuto",
+  "mainCableLengthAuto",
+  "mainCableAuto",
+  "festoonCircuitKeysAuto",
+  "trolleyPresetAuto",
+  "loopHeightAuto",
+  "rowCountAuto",
+  "cableGapAuto",
 ] as const;
 
 function keepManualValues<T extends object>(stored: T | null | undefined, merged: T): T {

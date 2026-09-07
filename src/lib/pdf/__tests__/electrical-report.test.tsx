@@ -67,6 +67,9 @@ describe("elektrik hesap raporu PDF", () => {
     expect(all).toContain("0026 tamamlanmış elektrik projesi");
     expect(all).toContain("0019 tamamlanmış elektrik projesi");
     expect(all).toContain("HELUKABEL Türkiye ürün kataloğu");
+    expect(all).toContain("ÜNTEL üretici katalogları");
+    expect(all).toContain("Toplam Akım Düzeltme Katsayısı");
+    expect(all).toContain("Araba Başına Taşınan Yaklaşık Kablo Boyu");
     expect(all).toContain("Conductix-Wampfler");
 
   }, 180_000);

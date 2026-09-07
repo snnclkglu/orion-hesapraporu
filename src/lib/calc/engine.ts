@@ -115,7 +115,7 @@ import {
  * 0.6.0: İsteğe bağlı elektrik hesap raporu — sürücü ve kablo ön seçimi,
  *        ana besleme hesabı ve ağırlık merkezli feston yerleşimi.
  */
-export const ENGINE_VERSION = "0.6.0";
+export const ENGINE_VERSION = "0.7.0";
 
 export interface HoistModuleInput {
   inputs: HoistInputs;
@@ -543,7 +543,21 @@ export function electricalDepsFrom(input: CalcInput): ElectricalDeps {
       motorCount: Number.isFinite(count) && count > 0 ? Math.max(1, Math.round(count)) : 1,
     });
   }
-  return { motors };
+  const trolleyInputs = input.trolley?.inputs as Record<string, unknown> | undefined;
+  const trolleyUsesFestoon = input.specs.trolleyPowerSupply === "festoon";
+  const festoonCircuitKeys: ElectricalCircuitKey[] = ["main", "aux", "trolley"]
+    .filter((key): key is ElectricalCircuitKey => motors.some((motor) => motor.key === key));
+  return {
+    motors,
+    festoon: trolleyUsesFestoon
+      ? {
+          circuitKeys: festoonCircuitKeys,
+          loopHeightM: Number(trolleyInputs?.festoonLoopHeightM),
+          trolleyCount: Number(trolleyInputs?.festoonTrolleyCount),
+          sourceLabel: "Ana araba yürütme · feston sistemi",
+        }
+      : undefined,
+  };
 }
 
 export function runCalc(input: CalcInput): CalcResult {
