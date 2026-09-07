@@ -55,3 +55,25 @@ describe("pano paleti", () => {
     }
   });
 });
+
+describe("select.ts'e KAYDEDİLMEZ (PANO-16)", () => {
+  // `select.ts` hesap sihirbazının BÖLÜM diyagramlarını yönlendirir; pano
+  // yerleşimi bir hesap bölümü değildir ve oraya kaydedilirse hesap raporunun
+  // her revizyonunda çizilmeye çalışılır. `nesting.ts` de aynı sebeple orada
+  // değildir — doğrudan çağrılır.
+  //
+  // Bugün doğru; bu koruma YARIN bir ajanın eklemesini engeller. Kaynak dosya
+  // OKUNARAK sınanır (değişmez md. 8, `terms.test.ts` deseni).
+  const select = readFileSync(join(process.cwd(), "src/lib/diagrams/select.ts"), "utf8");
+
+  it("panoLayout içe aktarılmaz", () => {
+    expect(select).not.toContain("panoLayout");
+    expect(select).not.toContain("panoDizilimDiagram");
+    expect(select).not.toContain("panoIcYerlesimDiagram");
+  });
+
+  it("switchboard çekirdeği içe aktarılmaz", () => {
+    expect(select).not.toContain("lib/switchboard");
+  });
+});
+

@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { ElectricalPart } from "@/lib/electrical/types";
-import { auditPanel } from "../audit";
+import { auditLineup, auditPanel } from "../audit";
 import { computeSwitchboardLayout, resolveSettings } from "../compute";
 import { deviceKeyOf, naturalCompare } from "../panels";
 import { plateWidthMm, railCapacityMm, sideDuctCount } from "../sizes";
@@ -687,6 +687,130 @@ describe("bölme ve harfleme (PANO-10)", () => {
     expect(sonuc.room[0].widthMm).toBe(400);
     // Sığmayan uyarıyla GÖRÜNÜR olur, sessizce bölünmez.
     expect(sonuc.room[0].warnings.length).toBeGreaterThan(0);
+  });
+});
+
+describe("denetçi GERÇEKTEN hata yakalıyor mu (PANO-11)", () => {
+  // Denetim (07.09.2026): sekiz denetimden yalnız üçü fiilen sınanıyordu;
+  // `kanal`, `yuz-ayrimi`, `derinlik`, `ray-dizilimi`, `negatif-koordinat`
+  // için NEGATİF VAKA yoktu — yani bir hatayı gerçekten yakalayıp
+  // yakalamadıkları bilinmiyordu. Denetçinin değeri tam olarak budur:
+  // yerleştiricinin sessiz bir işaret hatası ancak burada görünür.
+
+  const temel = computeSwitchboardLayout({
+    parts: salterler(6),
+    models: [],
+    placementOverrides: [],
+    panelOverrides: [],
+    settings: resolveSettings({}),
+  });
+  const saglam = temel.room[0];
+  const ayar = temel.settings;
+
+  function boz(degistir: (p: typeof saglam) => typeof saglam) {
+    return auditPanel(degistir(JSON.parse(JSON.stringify(saglam))), ayar);
+  }
+
+  function kontrol(sonuc: ReturnType<typeof auditPanel>, anahtar: string) {
+    const c = sonuc.checks.find((x) => x.key === anahtar);
+    expect(c, `denetim bulunamadı: ${anahtar}`).toBeDefined();
+    return c!;
+  }
+
+  it("sağlam yerleşim BÜTÜN denetimleri geçer", () => {
+    const d = auditPanel(saglam, ayar);
+    expect(d.ok).toBe(true);
+    // Sekiz denetimin yedisi `expected` olmadan koşar.
+    expect(d.checks.length).toBeGreaterThanOrEqual(7);
+  });
+
+  it("negatif koordinat YAKALANIR", () => {
+    const d = boz((p) => {
+      p.placements[0].xMm = -5;
+      return p;
+    });
+    expect(kontrol(d, "negatif-koordinat").ok).toBe(false);
+    expect(d.ok).toBe(false);
+  });
+
+  it("çakışma YAKALANIR", () => {
+    const d = boz((p) => {
+      // İkinci cihazı birincinin üstüne oturt.
+      p.placements[1].xMm = p.placements[0].xMm;
+      p.placements[1].yMm = p.placements[0].yMm;
+      return p;
+    });
+    expect(kontrol(d, "cakisma").ok).toBe(false);
+  });
+
+  it("kanal payının yenmesi YAKALANIR", () => {
+    const d = boz((p) => {
+      p.rails[0].ductMm = 0;
+      return p;
+    });
+    expect(kontrol(d, "kanal").ok).toBe(false);
+  });
+
+  it("yüz ayrımının bozulması YAKALANIR", () => {
+    const d = boz((p) => {
+      p.placements[0].mountType = "kapak";
+      return p;
+    });
+    expect(kontrol(d, "yuz-ayrimi").ok).toBe(false);
+  });
+
+  it("gövdeden derin cihaz YAKALANIR", () => {
+    const d = boz((p) => {
+      p.placements[0].depthMm = p.depthMm + 100;
+      return p;
+    });
+    expect(kontrol(d, "derinlik").ok).toBe(false);
+  });
+
+  it("ray dizilimindeki binme YAKALANIR", () => {
+    const d = boz((p) => {
+      if (p.rails.length > 1) p.rails[1].yMm = p.rails[0].yMm;
+      else p.rails[0].yMm = -10;
+      return p;
+    });
+    expect(kontrol(d, "ray-dizilimi").ok).toBe(false);
+  });
+
+  it("plakaya sığmama YAKALANIR", () => {
+    const d = boz((p) => {
+      p.rails[0].heightMm = 5000;
+      return p;
+    });
+    expect(kontrol(d, "plaka-yuksekligi").ok).toBe(false);
+  });
+
+  it("auditLineup DİZİ GENELİ satırını ekler ve eksik aygıtı yakalar", () => {
+    const beklenen = temel.room.flatMap((p) =>
+      p.placements.map((y) => ({
+        key: y.deviceKey,
+        mountType: y.mountType,
+      }))
+    ) as never[];
+
+    // Sağlam: dizi geneli geçer.
+    const iyi = auditLineup(temel.room, ayar, beklenen);
+    const dizi = iyi.find((a) => a.code === "Dizi geneli");
+    expect(dizi).toBeDefined();
+    expect(dizi!.result.ok).toBe(true);
+
+    // Bir aygıt sessizce düşerse yakalanır.
+    const eksikli = auditLineup(temel.room, ayar, [
+      ...beklenen,
+      { key: "HAYALET|AYGIT", mountType: "din" } as never,
+    ]);
+    const dizi2 = eksikli.find((a) => a.code === "Dizi geneli");
+    expect(dizi2!.result.ok).toBe(false);
+    expect(dizi2!.result.checks.find((c) => c.key === "eksiksizlik")!.detail).toContain("eksik 1");
+  });
+
+  it("beklenen verilmezse DİZİ GENELİ satırı EKLENMEZ", () => {
+    const d = auditLineup(temel.room, ayar);
+    expect(d.some((a) => a.code === "Dizi geneli")).toBe(false);
   });
 });
 
