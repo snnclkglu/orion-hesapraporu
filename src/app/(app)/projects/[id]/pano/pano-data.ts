@@ -17,12 +17,13 @@ import {
   type SwitchboardApproval,
 } from "@/lib/switchboard-data";
 import { computeSwitchboardLayout, type ComputeResult } from "@/lib/switchboard/compute";
+import { normalizeSettings } from "@/lib/switchboard/settings";
 import {
   PANEL_BASE_HEIGHTS_MM,
   PANEL_DEPTHS_MM,
   PANEL_HEIGHTS_MM,
 } from "@/lib/switchboard/sizes";
-import type { PanelOverride } from "@/lib/switchboard/types";
+import type { LineupPrefs, PanelOverride } from "@/lib/switchboard/types";
 
 /** Adresten gelen ölçü YALNIZ ızgaradaysa geçerlidir; değilse yok sayılır. */
 function izgaradan(
@@ -76,9 +77,27 @@ export async function loadPanoVerisi(
     loadApproval(supabase, projectId),
   ]);
 
-  const yukseklik = izgaradan(sorgu.yukseklik, PANEL_HEIGHTS_MM);
-  const derinlik = izgaradan(sorgu.derinlik, PANEL_DEPTHS_MM);
-  const baza = izgaradan(sorgu.baza, PANEL_BASE_HEIGHTS_MM);
+  // İKİ DİZİ, İKİ AYRI ANAHTAR TAKIMI. Eski tekil anahtarlar (`yukseklik`,
+  // `derinlik`, `baza`) ODANIN yedeği olarak kabul edilir: paylaşılmış eski bir
+  // bağlantı çalışmayı sürdürsün. İkisine birden yazmak, kaldırılan bağlılığı
+  // adres üzerinden geri getirirdi.
+  const eskiY = izgaradan(sorgu.yukseklik, PANEL_HEIGHTS_MM);
+  const eskiD = izgaradan(sorgu.derinlik, PANEL_DEPTHS_MM);
+  const eskiB = izgaradan(sorgu.baza, PANEL_BASE_HEIGHTS_MM);
+
+  const dizi = (onek: "oda" | "saha"): Partial<LineupPrefs> => {
+    const oda = onek === "oda";
+    const y = izgaradan(sorgu[`${onek}Yukseklik`], PANEL_HEIGHTS_MM) ?? (oda ? eskiY : null);
+    const d = izgaradan(sorgu[`${onek}Derinlik`], PANEL_DEPTHS_MM) ?? (oda ? eskiD : null);
+    const b = izgaradan(sorgu[`${onek}Baza`], PANEL_BASE_HEIGHTS_MM) ?? (oda ? eskiB : null);
+    return {
+      ...(y !== null ? { heightMm: y } : {}),
+      ...(d !== null ? { depthMm: d } : {}),
+      ...(b !== null ? { baseMm: b } : {}),
+    };
+  };
+
+  const kayitli = normalizeSettings(onay?.settings);
 
   const sonuc = computeSwitchboardLayout({
     parts: parcalar,
@@ -86,10 +105,9 @@ export async function loadPanoVerisi(
     panelOverrides: panoKararlari,
     placementOverrides: yerlesimKararlari,
     settings: {
-      ...onay?.settings,
-      ...(yukseklik !== null ? { heightMm: yukseklik } : {}),
-      ...(derinlik !== null ? { depthMm: derinlik } : {}),
-      ...(baza !== null ? { baseMm: baza } : {}),
+      ...kayitli,
+      room: { ...kayitli.room, ...dizi("oda") },
+      field: { ...kayitli.field, ...dizi("saha") },
     },
   });
 

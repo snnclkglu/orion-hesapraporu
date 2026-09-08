@@ -56,7 +56,13 @@ import {
   PANEL_WIDTHS_MM,
 } from "@/lib/switchboard/sizes";
 import type { ComputeResult } from "@/lib/switchboard/compute";
-import type { PanelLayout, PanelOverride, Unplaced } from "@/lib/switchboard/types";
+import type {
+  LineupPrefs,
+  LineupSize,
+  PanelLayout,
+  PanelOverride,
+  Unplaced,
+} from "@/lib/switchboard/types";
 import type { SwitchboardApproval } from "@/lib/switchboard-data";
 import {
   approveLayout,
@@ -208,28 +214,29 @@ export function PanoView({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <OlcuSecici
-              etiket="Yükseklik"
-              deger={sonuc.settings.heightMm}
-              cozulen={sonuc.roomSize.heightMm ?? sonuc.fieldSize.heightMm}
-              secenekler={PANEL_HEIGHTS_MM}
-              onChange={(v) => adresYaz("yukseklik", v)}
-            />
-            <OlcuSecici
-              etiket="Derinlik"
-              deger={sonuc.settings.depthMm}
-              cozulen={sonuc.roomSize.depthMm ?? sonuc.fieldSize.depthMm}
-              secenekler={PANEL_DEPTHS_MM}
-              onChange={(v) => adresYaz("derinlik", v)}
-            />
-            <OlcuSecici
-              etiket="Baza"
-              deger={sonuc.settings.baseMm}
-              secenekler={PANEL_BASE_HEIGHTS_MM}
-              onChange={(v) => adresYaz("baza", v)}
-              zorunlu
-            />
+          {/* İKİ DİZİ, İKİ AYRI ÖLÇÜ GRUBU (kullanıcı kararı 08.09.2026):
+              "oda panosu ile saha pano ölçüleri birbirine bağlı değil, tamamen
+              ayrı." Boş dizinin grubu GÖSTERİLMEZ — var olmayan bir panonun
+              ölçüsünü sormak, kâğıda basılan yanlış sayının ekrandaki hâlidir. */}
+          <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
+            {sonuc.roomSize.panelCount > 0 && (
+              <OlcuGrubu
+                baslik="Elektrik odası"
+                onek="oda"
+                tercih={sonuc.settings.room}
+                cozulen={sonuc.roomSize}
+                onChange={adresYaz}
+              />
+            )}
+            {sonuc.fieldSize.panelCount > 0 && (
+              <OlcuGrubu
+                baslik="Saha panoları"
+                onek="saha"
+                tercih={sonuc.settings.field}
+                cozulen={sonuc.fieldSize}
+                onChange={adresYaz}
+              />
+            )}
           </div>
         </div>
 
@@ -532,17 +539,18 @@ export function PanoView({
           {sonuc.roomSize.panelCount > 0 && (
             <>
               Oda dizisi: ortak yükseklik {sayi(sonuc.roomSize.heightMm ?? 0)} mm · ortak
-              derinlik {sayi(sonuc.roomSize.depthMm ?? 0)} mm.{" "}
+              derinlik {sayi(sonuc.roomSize.depthMm ?? 0)} mm · baza{" "}
+              {sayi(sonuc.settings.room.baseMm)} mm.{" "}
             </>
           )}
           {sonuc.fieldSize.panelCount > 0 && (
             <>
               Saha dizisi: ortak yükseklik {sayi(sonuc.fieldSize.heightMm ?? 0)} mm · ortak
-              derinlik {sayi(sonuc.fieldSize.depthMm ?? 0)} mm.{" "}
+              derinlik {sayi(sonuc.fieldSize.depthMm ?? 0)} mm · baza{" "}
+              {sayi(sonuc.settings.field.baseMm)} mm.{" "}
             </>
           )}
-          Baza {sayi(sonuc.settings.baseMm)} mm. Elle seçilen bir ölçü KİLİTLENİR ve
-          “Yeniden Yerleştir” onu ezmez.
+          Elle seçilen bir ölçü KİLİTLENİR ve “Yeniden Yerleştir” onu ezmez.
         </p>
       </section>
 
@@ -724,6 +732,56 @@ function KapakSemasi({
     <SemaKabi>
       <DiagramSvg diagram={d} themeAware />
     </SemaKabi>
+  );
+}
+
+/**
+ * BİR DİZİNİN ölçü grubu — yükseklik · derinlik · baza.
+ *
+ * Adres anahtarları önekle ayrılır (`odaYukseklik`, `sahaYukseklik`): tek bir
+ * `yukseklik` anahtarı iki diziye birden yazıyordu ve kullanıcı odayı 2000'e
+ * çektiğinde duvara asılan saha kutusu da 2000 oluyordu.
+ */
+function OlcuGrubu({
+  baslik,
+  onek,
+  tercih,
+  cozulen,
+  onChange,
+}: {
+  baslik: string;
+  onek: "oda" | "saha";
+  tercih: LineupPrefs;
+  cozulen: LineupSize;
+  onChange: (anahtar: string, deger: string) => void;
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <span className="oc-kicker text-[10px] text-muted-foreground">{baslik}</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <OlcuSecici
+          etiket="Yükseklik"
+          deger={tercih.heightMm}
+          cozulen={cozulen.heightMm}
+          secenekler={PANEL_HEIGHTS_MM}
+          onChange={(v) => onChange(`${onek}Yukseklik`, v)}
+        />
+        <OlcuSecici
+          etiket="Derinlik"
+          deger={tercih.depthMm}
+          cozulen={cozulen.depthMm}
+          secenekler={PANEL_DEPTHS_MM}
+          onChange={(v) => onChange(`${onek}Derinlik`, v)}
+        />
+        <OlcuSecici
+          etiket="Baza"
+          deger={tercih.baseMm}
+          secenekler={PANEL_BASE_HEIGHTS_MM}
+          onChange={(v) => onChange(`${onek}Baza`, v)}
+          zorunlu
+        />
+      </div>
+    </div>
   );
 }
 

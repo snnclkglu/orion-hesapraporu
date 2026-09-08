@@ -287,13 +287,27 @@ export interface PanelLayout {
   warnings: string[];
 }
 
-/** Yerleştiricinin ayarları — hepsi kullanıcı tarafından değiştirilebilir. */
-export interface LayoutSettings {
-  /** Ortak yükseklik; `null` ise sistem seçer (PANO-9). */
+/**
+ * BİR DİZİNİN sipariş ölçüleri — kullanıcının İSTEĞİ, çözülmüş sonuç değil.
+ *
+ * `null` = "sistem karar versin" (PANO-9). Oda ve saha dizileri bu tercihleri
+ * AYRI AYRI taşır: kullanıcının kendi cümlesiyle "oda panosu ile saha pano
+ * ölçüleri birbirine bağlı değil, tamamen ayrı" (08.09.2026). Tek bir alan
+ * ikisine birden dayatıldığında duvara asılan bir klemens kutusu, elektrik
+ * odasındaki 2000 mm'lik gövdeyle aynı boya çıkıyordu.
+ */
+export interface LineupPrefs {
   heightMm: number | null;
-  /** Ortak derinlik; `null` ise sistem seçer. */
   depthMm: number | null;
   baseMm: number;
+}
+
+/** Yerleştiricinin ayarları — hepsi kullanıcı tarafından değiştirilebilir. */
+export interface LayoutSettings {
+  /** Elektrik odası dizisinin sipariş ölçüleri. */
+  room: LineupPrefs;
+  /** Saha dizisinin sipariş ölçüleri — ODANINKİNDEN BAĞIMSIZ. */
+  field: LineupPrefs;
   /** Bu ön eklerle başlayan konumlar SAHA panosudur. */
   fieldPrefixes: string[];
   /** Montaj plakası payları (PANO-3). */

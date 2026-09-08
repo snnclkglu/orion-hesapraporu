@@ -108,7 +108,7 @@ describe("yükseklik seçimi", () => {
   it("kullanıcının verdiği yükseklik EŞİK ARANMADAN uygulanır", () => {
     const sonuc = computeSwitchboardLayout({
       parts: salterler(6),
-      settings: { heightMm: 2000 },
+      settings: { room: { heightMm: 2000 } },
     });
     expect(sonuc.roomSize.heightMm).toBe(2000);
   });
@@ -421,8 +421,10 @@ describe("iki dizi ayrı çözülür (PANO-2)", () => {
       settings: resolveSettings({}),
     });
     // Kullanıcı bir şey seçmedi: istek boş kalır.
-    expect(sonuc.settings.heightMm).toBeNull();
-    expect(sonuc.settings.depthMm).toBeNull();
+    expect(sonuc.settings.room.heightMm).toBeNull();
+    expect(sonuc.settings.room.depthMm).toBeNull();
+    expect(sonuc.settings.field.heightMm).toBeNull();
+    expect(sonuc.settings.field.depthMm).toBeNull();
     // Sonuç ise dolu.
     expect(sonuc.roomSize.heightMm).not.toBeNull();
     expect(sonuc.roomSize.depthMm).not.toBeNull();
@@ -838,7 +840,7 @@ describe("parmak izi girdinin TAMAMINI kapsar (PANO-14)", () => {
   it("AYAR değişince iz DEĞİŞİR", () => {
     const f = computeSwitchboardLayout({
       ...temelGirdi,
-      settings: resolveSettings({ baseMm: 300 }),
+      settings: resolveSettings({ room: { baseMm: 300 } }),
     }).fingerprint;
     expect(f).not.toBe(temel);
   });

@@ -161,7 +161,14 @@ export async function loadPlacementOverrides(
 
 export interface SwitchboardApproval {
   inputFingerprint: string;
-  settings: Partial<LayoutSettings>;
+  /**
+   * Onaylandığı andaki AYAR — ham jsonb, biçimi ZAMANLA DEĞİŞMİŞTİR.
+   *
+   * 08.09.2026 öncesi satırlar ölçüyü düz taşıyor. Okuyan taraf
+   * `switchboard/settings.ts` içindeki `normalizeSettings` ile geçirir; burada
+   * hiçbir şey varsayılmaz (`revision-load.ts` ilkesi).
+   */
+  settings: unknown;
   note: string;
   approvedBy: string | null;
   approvedAt: string;
@@ -181,7 +188,7 @@ export async function loadApproval(
   return {
     inputFingerprint: String(r.input_fingerprint ?? ""),
     // JSONB serbest biçimlidir; okuma GÜVENLİ olmalı (`revision-load.ts` ilkesi).
-    settings: (r.settings ?? {}) as Partial<LayoutSettings>,
+    settings: r.settings ?? {},
     note: String(r.note ?? ""),
     approvedBy: metinVeyaNull(r.approved_by),
     approvedAt: String(r.approved_at ?? ""),

@@ -91,9 +91,10 @@ export function ceilToGrid(deger: number, izgara: readonly number[]): number | n
  * edilmesinden doğar — bu yüzden hepsi ekrandan görülebilir ve düzeltilebilir.
  */
 export const DEFAULT_SETTINGS: LayoutSettings = {
-  heightMm: null,
-  depthMm: null,
-  baseMm: DEFAULT_BASE_MM,
+  // İKİ DİZİ, İKİ AYRI TERCİH: elektrik odasındaki gövde ile duvara asılan saha
+  // kutusu aynı sipariş kararına bağlı değildir (kullanıcı kararı 08.09.2026).
+  room: { heightMm: null, depthMm: null, baseMm: DEFAULT_BASE_MM },
+  field: { heightMm: null, depthMm: null, baseMm: DEFAULT_BASE_MM },
   fieldPrefixes: ["TB"],
   plateSideMm: 30,
   plateTopMm: 50,

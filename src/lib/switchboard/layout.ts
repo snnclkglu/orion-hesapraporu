@@ -35,6 +35,7 @@ import type {
   DeviceBox,
   DoorConfig,
   LayoutSettings,
+  LineupPrefs,
   PanelKind,
   PanelLayout,
   PanelOverride,
@@ -405,7 +406,8 @@ export interface PanelSolve {
 export function solvePanel(
   input: PanelInput,
   heightMm: number,
-  s: LayoutSettings
+  s: LayoutSettings,
+  prefs: LineupPrefs
 ): PanelSolve {
   const { plaka, kapak, govde, yan, disari } = ayir(input.devices);
   const yukseklikKapasitesi = plateCapacityHeightMm(heightMm, s);
@@ -463,7 +465,7 @@ export function solvePanel(
     widthMm: secilen.en,
     heightMm,
     depthMm: 0, // ortak derinlik sonra yazılır
-    baseMm: input.override?.baseMm ?? s.baseMm,
+    baseMm: input.override?.baseMm ?? prefs.baseMm,
     doorConfig: kapakSecimi,
     widthLocked: Boolean(input.override?.widthLocked),
     heightLocked: Boolean(input.override?.heightLocked),
@@ -546,10 +548,11 @@ const MAX_SPLIT = 4;
 function bolerekCoz(
   panels: PanelInput[],
   heightMm: number,
-  s: LayoutSettings
+  s: LayoutSettings,
+  prefs: LineupPrefs
 ): { girdiler: PanelInput[]; cozumler: PanelSolve[] } {
   let girdiler = panels;
-  let cozumler = girdiler.map((p) => solvePanel(p, heightMm, s));
+  let cozumler = girdiler.map((p) => solvePanel(p, heightMm, s, prefs));
 
   for (let tur = 0; tur < MAX_SPLIT; tur++) {
     if (cozumler.every((c) => c.fits)) break;
@@ -568,7 +571,7 @@ function bolerekCoz(
     }
     if (!degisti) break;
     girdiler = yeni;
-    cozumler = girdiler.map((p) => solvePanel(p, heightMm, s));
+    cozumler = girdiler.map((p) => solvePanel(p, heightMm, s, prefs));
   }
 
   return { girdiler, cozumler };
@@ -577,6 +580,14 @@ function bolerekCoz(
 export interface SolveAllInput {
   panels: PanelInput[];
   settings: LayoutSettings;
+  /**
+   * BU DİZİNİN sipariş tercihleri (`settings.room` ya da `settings.field`).
+   *
+   * Çözücü hangi diziyi çözdüğünü BİLMEZ ve bilmemelidir — çağıran söyler.
+   * Tercihi `settings` içinden kendisi seçseydi, "oda mı saha mı" sorusu iki
+   * ayrı yerde cevaplanır ve bir gün ayrışırdı.
+   */
+  prefs: LineupPrefs;
 }
 
 export interface SolveAllResult {
@@ -599,12 +610,13 @@ export interface SolveAllResult {
  */
 export function solveLineup(input: SolveAllInput): SolveAllResult {
   const s = input.settings;
+  const tercih = input.prefs;
   if (input.panels.length === 0) {
     return {
       layouts: [],
       unplaced: [],
-      heightMm: s.heightMm ?? AUTO_HEIGHTS_MM[0],
-      depthMm: s.depthMm ?? PANEL_DEPTHS_MM[0],
+      heightMm: tercih.heightMm ?? AUTO_HEIGHTS_MM[0],
+      depthMm: tercih.depthMm ?? PANEL_DEPTHS_MM[0],
     };
   }
 
@@ -616,8 +628,8 @@ export function solveLineup(input: SolveAllInput): SolveAllResult {
     .filter((v): v is number => typeof v === "number" && v > 0);
   const yukseklikTabani = kilitliYukseklikler.length ? Math.max(...kilitliYukseklikler) : 0;
 
-  const yukseklikAdaylari = s.heightMm
-    ? [s.heightMm]
+  const yukseklikAdaylari = tercih.heightMm
+    ? [tercih.heightMm]
     : [...AUTO_HEIGHTS_MM].filter((h) => h >= yukseklikTabani);
 
   // ═══════════════════════════════════════════ YÜKSEKLİK NASIL SEÇİLİR
@@ -638,7 +650,7 @@ export function solveLineup(input: SolveAllInput): SolveAllResult {
   let secilen: { h: number; girdiler: PanelInput[]; cozumler: PanelSolve[] } | null = null;
 
   for (const h of yukseklikAdaylari) {
-    const deneme = bolerekCoz(input.panels, h, s);
+    const deneme = bolerekCoz(input.panels, h, s, tercih);
     const sigmayan = deneme.cozumler.filter((c) => !c.fits).length;
 
     if (sigmayan === 0) {
@@ -738,7 +750,7 @@ export function solveLineup(input: SolveAllInput): SolveAllResult {
     ...(kilitliDerinlikler.length ? kilitliDerinlikler : [0])
   );
   const ortakDerinlik =
-    s.depthMm ??
+    tercih.depthMm ??
     ceilToGrid(gerekli, PANEL_DEPTHS_MM) ??
     PANEL_DEPTHS_MM[PANEL_DEPTHS_MM.length - 1];
 

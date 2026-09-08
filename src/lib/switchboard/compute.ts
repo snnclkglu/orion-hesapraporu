@@ -24,26 +24,51 @@ import type {
   DeviceModel,
   LayoutResult,
   LayoutSettings,
+  LineupPrefs,
   PanelOverride,
   PlacementOverride,
   Unplaced,
 } from "./types";
+
+/**
+ * Kısmi ayar girdisi — iç içe dizi tercihleri de PARÇALI verilebilir.
+ *
+ * `Partial<LayoutSettings>` YETMEZ: kullanıcı yalnız oda yüksekliğini
+ * seçtiğinde `{ room: { heightMm: 2000 } }` gelir ve `baseMm` alanı eksiktir.
+ */
+export interface LayoutSettingsInput
+  extends Partial<Omit<LayoutSettings, "room" | "field">> {
+  room?: Partial<LineupPrefs>;
+  field?: Partial<LineupPrefs>;
+}
 
 export interface ComputeInput {
   parts: ElectricalPart[];
   models?: DeviceModel[];
   panelOverrides?: PanelOverride[];
   placementOverrides?: PlacementOverride[];
-  settings?: Partial<LayoutSettings>;
+  settings?: LayoutSettingsInput;
 }
 
 export interface ComputeResult extends LayoutResult {
   audits: { code: string; result: AuditResult }[];
 }
 
-/** Kısmi ayarları öntanımla birleştirir. */
-export function resolveSettings(partial?: Partial<LayoutSettings>): LayoutSettings {
-  return { ...DEFAULT_SETTINGS, ...(partial ?? {}) };
+/**
+ * Kısmi ayarları öntanımla birleştirir.
+ *
+ * BİRLEŞTİRME İKİ KATLIDIR. Sığ bir yayma (`{...DEFAULT, ...partial}`)
+ * `room` nesnesinin TAMAMINI değiştirirdi: kullanıcı yalnız yüksekliği
+ * seçtiğinde `baseMm` `undefined` kalır, o değer panonun `baseMm` alanına
+ * geçer ve çizimde "Baza undefined mm" yazar, sipariş tablosuna boş girer.
+ */
+export function resolveSettings(partial?: LayoutSettingsInput): LayoutSettings {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...(partial ?? {}),
+    room: { ...DEFAULT_SETTINGS.room, ...(partial?.room ?? {}) },
+    field: { ...DEFAULT_SETTINGS.field, ...(partial?.field ?? {}) },
+  };
 }
 
 /**
@@ -113,8 +138,11 @@ export function computeSwitchboardLayout(input: ComputeInput): ComputeResult {
     else odaGirdi.push(girdi);
   }
 
-  const oda = solveLineup({ panels: odaGirdi, settings });
-  const saha = solveLineup({ panels: sahaGirdi, settings });
+  // HER DİZİ KENDİ TERCİHİYLE ÇÖZÜLÜR (PANO-2). Tek bir yükseklik/derinlik
+  // ayarı ikisine birden dayatıldığında, duvara asılan bir saha kutusu
+  // elektrik odasındaki 2000 mm'lik gövdenin ölçüsünü alıyordu.
+  const oda = solveLineup({ panels: odaGirdi, settings, prefs: settings.room });
+  const saha = solveLineup({ panels: sahaGirdi, settings, prefs: settings.field });
 
   const unplaced: Unplaced[] = [...oda.unplaced, ...saha.unplaced];
 

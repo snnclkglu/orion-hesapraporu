@@ -358,10 +358,21 @@ export function PanoLayoutDocument({ sonuc, meta, company }: PanoLayoutProps) {
               </View>
             </>
           )}
-          <View style={S.kutu}>
-            <Text style={S.kutuBaslik}>BAZA</Text>
-            <Text style={S.kutuDeger}>{say(sonuc.settings.baseMm)}</Text>
-          </View>
+          {/* BAZA DA DİZİ BAŞINADIR: oda gövdesi 200 mm baza üstünde durur,
+              duvara asılan saha kutusunun bazası hiç olmayabilir. Tek bir kutu
+              basmak, imalatçıya var olmayan bir ortak karar bildirirdi. */}
+          {sonuc.roomSize.panelCount > 0 && (
+            <View style={S.kutu}>
+              <Text style={S.kutuBaslik}>ODA BAZA</Text>
+              <Text style={S.kutuDeger}>{say(sonuc.settings.room.baseMm)}</Text>
+            </View>
+          )}
+          {sonuc.fieldSize.panelCount > 0 && (
+            <View style={S.kutu}>
+              <Text style={S.kutuBaslik}>SAHA BAZA</Text>
+              <Text style={S.kutuDeger}>{say(sonuc.settings.field.baseMm)}</Text>
+            </View>
+          )}
         </View>
 
         <Text style={S.not}>

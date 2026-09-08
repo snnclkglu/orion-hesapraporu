@@ -313,7 +313,31 @@ export function fingerprintParts(input: BuildInput): string[] {
     )
     .sort();
 
-  const ayar = JSON.stringify(input.settings, Object.keys(input.settings).sort());
+  const ayar = kararliJson(input.settings);
 
   return [...satirlar, "--", ...duzeltmeler, "--", ...panolar, "--", ayar];
+}
+
+/**
+ * DERİNLİKTEN BAĞIMSIZ, ANAHTAR SIRALI JSON.
+ *
+ * `JSON.stringify(v, Object.keys(v).sort())` KULLANILMAZ. Dizi biçimindeki
+ * ikinci argüman bir *PropertyList*tir ve şartname onu HER DÜZEYDEKİ nesneye
+ * uygular. `settings` iç içe bir nesne taşıdığı anda (`room`, `field`) o
+ * nesnenin alanları üst düzey listede bulunmaz ve `{}` diye serileşir — yani
+ * ODA YÜKSEKLİĞİNİ DEĞİŞTİRMEK PARMAK İZİNİ DEĞİŞTİRMEZ, "onay eskidi" uyarısı
+ * HİÇ ÇIKMAZ ve imalatçıya eski onayla pano sipariş edilir (PANO-14'ün tam
+ * olarak engellemek için var olduğu şey).
+ *
+ * Diziler etkilenmiyordu — `fieldPrefixes` doğru serileşiyor — ve hata bu
+ * yüzden bugüne kadar görünmedi.
+ */
+function kararliJson(v: unknown): string {
+  if (v === null || typeof v !== "object") return JSON.stringify(v) ?? "null";
+  if (Array.isArray(v)) return `[${v.map(kararliJson).join(",")}]`;
+  const o = v as Record<string, unknown>;
+  return `{${Object.keys(o)
+    .sort()
+    .map((k) => `${JSON.stringify(k)}:${kararliJson(o[k])}`)
+    .join(",")}}`;
 }
