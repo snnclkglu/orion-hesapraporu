@@ -147,6 +147,41 @@ describe("pano yerleşimi belgesi", () => {
     expect(eskimis.length).not.toBe(onayli.length);
   });
 
+  it("GÖVDE GERECİ ve PANO YANI belgeye girer", async () => {
+    // Ölçüldü (08.09.2026): fan, termostat ve siren hesaplanıyordu ama ne
+    // çizime ne listeye giriyordu — imalatçının kâğıdında hiç yoktular.
+    const gereclisiz = coz(salterler(4, "P1"));
+    const gerecli = coz([
+      ...salterler(4, "P1"),
+      parca({
+        location: "P1",
+        device: "M9",
+        deviceTag: "=T1+P1-M9",
+        designation: "Panels Ventilation Fan Filter 27W",
+        typeNo: "FULL2500",
+        supplier: "QUICK",
+        partNo: "QCK.FULL2500",
+      }),
+      parca({
+        location: "P1",
+        device: "H9",
+        deviceTag: "=T1+P1-H9",
+        designation: "40W 108dB Siren",
+        typeNo: "SNT-SL190-22",
+        supplier: "MC",
+        partNo: "MC.SNT-SL190-22",
+      }),
+    ]);
+    // Aygıtlar gerçekten ÇİZİLMEYEN listelerde.
+    expect(gerecli.room[0].bodyDevices).toHaveLength(1);
+    expect(gerecli.room[0].sideDevices).toHaveLength(1);
+
+    const a = await renderPanoLayoutPdf({ sonuc: gereclisiz, meta: meta(), company: COMPANY });
+    const b = await renderPanoLayoutPdf({ sonuc: gerecli, meta: meta(), company: COMPANY });
+    // İki belge AYNI OLAMAZ: iki kalem kâğıda girdi.
+    expect(b.length).not.toBe(a.length);
+  }, 30_000);
+
   it("bölünen pano belgede ayrı göz olarak görünür", async () => {
     const klemens = Array.from({ length: 60 }, (_, i) =>
       parca({

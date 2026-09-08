@@ -73,6 +73,50 @@ import {
   withdrawApproval,
 } from "./actions";
 
+/**
+ * KUYRUK GEREKÇESİYLE SIRALANIR (PANO-30).
+ *
+ * "Panoya girmeyen aygıtlar" beş ayrı şeyi tek başlık altında topluyordu ve
+ * kullanıcı buna bakınca "modül eksik" gördü (08.09.2026). Oysa çoğu satır
+ * DOĞRU davranıştır — bir motor panoya girmez — ve gerçek eksik (ölçüsü
+ * olmayan sürücü) o kalabalığın içinde kayboluyordu.
+ *
+ * Sıra bir önem sırasıdır: önce SORUN, sonra beklenen.
+ */
+export const KUYRUK_SIRASI: readonly Unplaced["reason"][] = [
+  "olcusuz",
+  "sigmadi",
+  "siniflanmamis",
+  "etiketsiz",
+  "saha",
+  "urunsuz",
+];
+
+/** Bu kuyruk bir EKSİK mi, yoksa beklenen bir sonuç mu? */
+export const KUYRUK_SORUN: Record<Unplaced["reason"], boolean> = {
+  olcusuz: true,
+  sigmadi: true,
+  siniflanmamis: true,
+  etiketsiz: true,
+  saha: false,
+  urunsuz: false,
+};
+
+/** Her kuyruğun tek cümlelik gerekçesi — kullanıcı ne yapacağını bilsin. */
+export const KUYRUK_ACIKLAMA: Record<Unplaced["reason"], string> = {
+  olcusuz:
+    "Bu cihazların ölçüsü bilinmiyor; panonun eni ve derinliği EKSİK hesaplandı. Ölçü Defteri'nden girilmeli.",
+  sigmadi:
+    "Bu cihazlar boş bir raya bile sığmadı; pano eni yetmiyor ya da cihaz ölçüsü yanlış.",
+  siniflanmamis:
+    "Ürün tanınmadı, montaj tipi TAHMİN EDİLMEDİ. Sınıflandırma sözlüğü bu ürünü öğrenmeli.",
+  etiketsiz: "Aygıt etiketi okunamadı; elektrik projesindeki satır kontrol edilmeli.",
+  saha:
+    "DOĞRU: bunlar panonun içinde değil — motor, enkoder, limit şalteri, fren direnci. Vincin üstünde durur.",
+  urunsuz:
+    "Aygıt etiketi var ama malzeme satırında ürün yok. Bir hata değil, elektrik projesindeki bir boşluk.",
+};
+
 export const KUYRUK_ADI: Record<Unplaced["reason"], string> = {
   olcusuz: "Ölçüsü yok",
   siniflanmamis: "Sınıflanmamış",

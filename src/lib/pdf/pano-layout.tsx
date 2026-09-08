@@ -232,6 +232,7 @@ function PanoSayfasi({ panel, sonuc }: { panel: PanelLayout; sonuc: ComputeResul
     olcekYazisi: false,
   });
   const kapak = panoKapakDiagram({ panel, settings: sonuc.settings, olcek: PDF_OLCEK });
+  const gerecler = [...panel.bodyDevices, ...panel.sideDevices];
   const sirali = [...panel.placements].sort(
     (a, b) => a.railIndex - b.railIndex || a.xMm - b.xMm
   );
@@ -319,6 +320,43 @@ function PanoSayfasi({ panel, sonuc }: { panel: PanelLayout; sonuc: ComputeResul
           <Text style={[S.hucre, { width: 90 }]}>{COLOR_GROUP_LABEL[y.colorGroup]}</Text>
         </View>
       ))}
+
+      {/* ÇİZİLMEYEN AMA SİPARİŞ EDİLEN KALEMLER AYNI SAYFADA DURUR.
+          Gövde gereci (fan, termostat, pano lambası) montaj plakasına
+          girmez; pano yanı ekipmanı (siren, projektör) panonun dışına asılır.
+          İkisi de bu panonun parçası ve imalatçının listesinde olmalı — ayrı
+          bir belgeye bırakılsalar o belge unutulurdu. */}
+      {gerecler.length > 0 && (
+        <>
+          <Text style={S.bolumBaslik}>{panel.code} — GÖVDE GERECİ ve PANO YANI</Text>
+          <View style={S.baslikSatir}>
+            <Text style={[S.hucre, S.mono, { width: 62 }]}>Aygıt</Text>
+            <Text style={[S.hucre, { width: 78 }]}>Yer</Text>
+            <Text style={[S.hucre, { width: 150 }]}>Ürün</Text>
+            <Text style={[S.hucre, { width: 96, textAlign: "right" }]}>Ölçü (mm)</Text>
+            <Text style={[S.hucre, { width: 152 }]}>Tanım</Text>
+          </View>
+          {gerecler.map((d) => (
+            <View key={d.key} style={S.satir} wrap={false}>
+              <Text style={[S.hucre, S.mono, { width: 62 }]}>{d.label}</Text>
+              <Text style={[S.hucre, { width: 78 }]}>
+                {d.mountType ? MOUNT_LABEL[d.mountType] : "—"}
+              </Text>
+              <Text style={[S.hucre, S.mono, { width: 150 }]}>
+                {d.supplier} {d.typeNo}
+              </Text>
+              <Text style={[S.hucre, S.mono, { width: 96, textAlign: "right" }]}>
+                {d.widthMm !== null
+                  ? `${Math.round(d.widthMm)}×${Math.round(d.heightMm ?? 0)}×${Math.round(
+                      d.depthMm ?? 0
+                    )}`
+                  : "ölçü yok"}
+              </Text>
+              <Text style={[S.hucre, { width: 152 }]}>{d.designation}</Text>
+            </View>
+          ))}
+        </>
+      )}
     </>
   );
 }

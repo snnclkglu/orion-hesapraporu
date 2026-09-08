@@ -50,7 +50,10 @@ import {
 import { PanoBolumBari, type PanoBolumu } from "./pano-bolum-bari";
 import {
   Baslik,
+  KUYRUK_ACIKLAMA,
   KUYRUK_ADI,
+  KUYRUK_SIRASI,
+  KUYRUK_SORUN,
   OlcuDiyalogu,
   OlcuGrubu,
   Secici,
@@ -101,12 +104,20 @@ export function PanoView({
   // parmak izidir; tutmuyorsa kullanıcı eski bir belgeye göre sipariş vermesin.
   const onayEskidi = Boolean(onay && onay.inputFingerprint !== sonuc.fingerprint);
 
+  // ÖNEM SIRASI, İLK GÖRÜLME SIRASI DEĞİL: gerçek eksikler önce (PANO-30).
   const kuyruklar = useMemo(() => {
     const m = new Map<Unplaced["reason"], Unplaced[]>();
+    for (const sebep of KUYRUK_SIRASI) {
+      const liste = sonuc.unplaced.filter((u) => u.reason === sebep);
+      if (liste.length > 0) m.set(sebep, liste);
+    }
+    // SIRALAMADA UNUTULAN SEBEP KAYBOLMAZ. Yeni bir `UnplacedReason` eklenip
+    // sıraya yazılmazsa o kuyruk ekrandan silinirdi — bir aygıtın sessizce
+    // kaybolması, bu modülün en çok kaçındığı şeydir (PANO-10).
     for (const u of sonuc.unplaced) {
-      const l = m.get(u.reason);
-      if (l) l.push(u);
-      else m.set(u.reason, [u]);
+      if (!m.has(u.reason)) {
+        m.set(u.reason, sonuc.unplaced.filter((x) => x.reason === u.reason));
+      }
     }
     return m;
   }, [sonuc.unplaced]);
@@ -604,11 +615,24 @@ export function PanoView({
           </h3>
           <div className="grid gap-4 md:grid-cols-2">
             {[...kuyruklar.entries()].map(([sebep, liste]) => (
-              <div key={sebep} className="rounded-md border p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
+              <div
+                key={sebep}
+                className={`rounded-md border p-3 ${
+                  KUYRUK_SORUN[sebep] ? "border-amber-500/40 bg-amber-500/5" : ""
+                }`}
+              >
+                <div className="mb-1 flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold">{KUYRUK_ADI[sebep]}</span>
-                  <Badge variant="outline">{sayi(liste.length)}</Badge>
+                  <Badge variant={KUYRUK_SORUN[sebep] ? "destructive" : "outline"}>
+                    {sayi(liste.length)}
+                  </Badge>
                 </div>
+                {/* HER KUYRUĞUN GEREKÇESİ YAZILIR. "Panoya girmeyen aygıtlar"
+                    beş ayrı şeyi topluyordu ve kullanıcı buna bakınca "modül
+                    eksik" gördü; oysa çoğu satır DOĞRU davranıştır. */}
+                <p className="mb-2 text-[11px] leading-snug text-muted-foreground">
+                  {KUYRUK_ACIKLAMA[sebep]}
+                </p>
                 <ul className="grid gap-1 text-xs text-muted-foreground">
                   {liste.slice(0, 12).map((u, i) => (
                     <li
