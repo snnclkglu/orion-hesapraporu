@@ -4,10 +4,17 @@
 // taşır — 0019-00 gibi çok panolu karmaşık bir iş ve 0026-01 gibi tek panolu
 // standart bir vinç. Bir tanesiyle iyi görünen bir şema ötekinde dağılabilir.
 
+// SAYFA DEVİNGEN İSTENİR. Statik ön-render'da `useSearchParams` kullanan
+// istemci bileşenleri Suspense YEDEĞİNDE donuyordu: ekranın kendisi — bu
+// sayfanın var oluş sebebi — hiç görünmüyordu, yalnız "Yükleniyor…" yazıyordu.
+// Değişmez md. 11 buraya BAKMAYI şart koşuyor; bakılacak bir şey olmalı.
+export const dynamic = "force-dynamic";
+
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { DiagramSvg } from "@/components/diagrams/diagram-svg";
 import { PanoView } from "@/app/(app)/projects/[id]/pano/pano-view";
+import { IcYerlesimView } from "@/app/(app)/projects/[id]/pano/ic/ic-view";
 import { DefterView } from "@/app/(app)/projects/[id]/pano/defter/defter-view";
 import { buildBook } from "@/lib/switchboard/book";
 import {
@@ -159,6 +166,14 @@ export default async function PanoPreviewPage() {
     { ad: "Standart vinç (0026 benzeri)", parts: BASIT },
   ];
 
+  // EN KALABALIK PANO GÖSTERİLİR. İlk pano çoğu zaman yalnız kapak elemanı
+  // taşıyan bir kumanda kutusudur ve iç yerleşimi boş çıkar — tıkla-baloncuk
+  // davranışı boş bir plakada denenemez.
+  const KARMASIK_SONUC = computeSwitchboardLayout({ parts: KARMASIK });
+  const KALABALIK_PANO =
+    [...KARMASIK_SONUC.room].sort((a, b) => b.placements.length - a.placements.length)[0]?.code ??
+    "";
+
   return (
     <main className="grid gap-8 p-6">
       <h1 className="text-lg font-semibold">Pano Yerleşimi Önizleme (dev)</h1>
@@ -198,6 +213,26 @@ export default async function PanoPreviewPage() {
               sonuc={computeSwitchboardLayout({ parts: KARMASIK })}
               panoKararlari={[]}
               onay={null}
+            />
+          </Suspense>
+        </div>
+      </section>
+
+      {/* İÇ YERLEŞİM AYRI SAYFADIR (08.09.2026) ve değişmez md. 11 onu da
+          auth'suz görmeyi ister: şemadaki tıkla-baloncuk davranışı yalnız
+          burada denenebilir. */}
+      <section className="grid gap-2">
+        <h2 className="oc-kicker text-foreground/80">Ekran (İç yerleşim) — tıklanabilir şema</h2>
+        <div className="rounded-lg border">
+          <Suspense fallback={<div className="p-6 text-sm">Yükleniyor…</div>}>
+            <IcYerlesimView
+              projectId="00000000-0000-0000-0000-000000000000"
+              docNo="0019-00"
+              projectName="185/40T ŞARJ VİNCİ (fikstür)"
+              canEdit
+              sonuc={KARMASIK_SONUC}
+              istenenPano={KALABALIK_PANO}
+              olcek={4}
             />
           </Suspense>
         </div>
@@ -248,6 +283,17 @@ export default async function PanoPreviewPage() {
               <div className="oc-diagram-theme oc-scrollx overflow-x-auto rounded-lg border bg-[var(--oc-diagram-canvas)] p-4">
                 <DiagramSvg
                   diagram={panoIcYerlesimDiagram({ panel: ic, settings: sonuc.settings })}
+                  themeAware
+                />
+              </div>
+            )}
+
+            {/* AYNI PANO 1:2'DE — ölçek seçeneği gerçekten çalışıyor mu, iki
+                çizimi yan yana görmeden anlaşılmaz (öntanım 1:4). */}
+            {ic && (
+              <div className="oc-diagram-theme oc-scrollx overflow-x-auto rounded-lg border bg-[var(--oc-diagram-canvas)] p-4">
+                <DiagramSvg
+                  diagram={panoIcYerlesimDiagram({ panel: ic, settings: sonuc.settings, olcek: 2 })}
                   themeAware
                 />
               </div>

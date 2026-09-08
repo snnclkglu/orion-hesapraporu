@@ -369,6 +369,27 @@ export interface LayoutResult {
   roomSize: LineupSize;
   /** Saha dizisinin çözülmüş ortak ölçüsü — ODANINKİNDEN FARKLI olabilir. */
   fieldSize: LineupSize;
+  /**
+   * Oda dizisinin yanına asılan ekipmanlar — dizilim şemasında çizilir.
+   *
+   * Pano AÇMAYAN konumlardakiler de buraya girer: bir siren tek başına bir
+   * gövde açmaz (PANO-2) ama o yüzden KAYBOLMAMALIDIR.
+   */
+  roomSideDevices: DeviceBox[];
+  /** Saha dizisinin yanına asılan ekipmanlar. */
+  fieldSideDevices: DeviceBox[];
+  /**
+   * BU İŞTE GEÇEN BÜTÜN AYGIT KUTULARI, anahtarına göre.
+   *
+   * `Placement` yalnız GEOMETRİDİR: nerede, ne kadar geniş, hangi rayda.
+   * "Bu ne?" sorusunun cevabı (üretici, tip numarası, kategori, ölçü kaynağı)
+   * `DeviceBox`tadır. Kimliği `Placement`a kopyalamak yerine burada bir kez
+   * taşınır — bölünmüş bir klemens şeridi onlarca dilim üretir ve aynı kimliği
+   * onlarca kez taşırdı.
+   *
+   * Şemada bir cihaza tıklandığında açılan bilgi baloncuğu buradan okur.
+   */
+  devices: DeviceBox[];
   /** Ölçüsü doğrulanmamış (tahmin) aygıt sayısı — sipariş kapısı (PANO-12). */
   estimatedCount: number;
   /** Girdinin kararlı parmak izi — onayın eskidiğini bu gösterir. */

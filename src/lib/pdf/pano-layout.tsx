@@ -217,8 +217,21 @@ function SiparisTablosu({ panolar, baslik }: { panolar: PanelLayout[]; baslik: s
 
 function PanoSayfasi({ panel, sonuc }: { panel: PanelLayout; sonuc: ComputeResult }) {
   const numaralar = panoNumaralari(panel);
-  const ic = panoIcYerlesimDiagram({ panel, settings: sonuc.settings });
-  const kapak = panoKapakDiagram({ panel, settings: sonuc.settings });
+  // KÂĞITTAKİ ORAN MODELİN ÖLÇEĞİ DEĞİLDİR ve bu yüzden yazılmaz.
+  //
+  // `PdfDiagram` çizimi `maxWidth`/`maxHeight` ile sayfaya yeniden sığdırır;
+  // 400 x 2000 mm'lik bir pano 1:2 modelde ~520 x 1090 birimken kâğıtta
+  // ~298 birime iner, yani basılan oran ~1:10'dur. Altyazıda "ölçek 1:2"
+  // yazmak, cetvelle ölçen bir imalatçıya YALAN SÖYLEMEK olurdu. Model ölçeği
+  // burada yalnız AYRINTI YOĞUNLUĞUNU belirler; en yoğunu seçilir.
+  const PDF_OLCEK = 2;
+  const ic = panoIcYerlesimDiagram({
+    panel,
+    settings: sonuc.settings,
+    olcek: PDF_OLCEK,
+    olcekYazisi: false,
+  });
+  const kapak = panoKapakDiagram({ panel, settings: sonuc.settings, olcek: PDF_OLCEK });
   const sirali = [...panel.placements].sort(
     (a, b) => a.railIndex - b.railIndex || a.xMm - b.xMm
   );
@@ -396,6 +409,7 @@ export function PanoLayoutDocument({ sonuc, meta, company }: PanoLayoutProps) {
                 panels: sonuc.room,
                 baslik: "Elektrik odası pano dizilimi",
                 not: `${sonuc.room.length} göz · ön görünüş · panolar bitişik`,
+                yanCihazlar: sonuc.roomSideDevices,
               })}
               maxWidth={ICERIK_EN}
               maxHeight={ICERIK_BOY / 2}
@@ -409,6 +423,7 @@ export function PanoLayoutDocument({ sonuc, meta, company }: PanoLayoutProps) {
                 panels: sonuc.field,
                 baslik: "Saha panoları",
                 not: `${sonuc.field.length} göz · elektrik odasına girmez`,
+                yanCihazlar: sonuc.fieldSideDevices,
               })}
               maxWidth={ICERIK_EN}
               maxHeight={ICERIK_BOY / 2}

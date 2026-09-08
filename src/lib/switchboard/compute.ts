@@ -21,6 +21,7 @@ import {
 } from "./panels";
 import { DEFAULT_SETTINGS } from "./sizes";
 import type {
+  DeviceBox,
   DeviceModel,
   LayoutResult,
   LayoutSettings,
@@ -138,6 +139,20 @@ export function computeSwitchboardLayout(input: ComputeInput): ComputeResult {
     else odaGirdi.push(girdi);
   }
 
+  // PANO AÇMAYAN KONUMUN YAN EKİPMANI KAYBOLMAZ. Bir sirenin ya da projektörün
+  // yazıldığı konum kodu bir gövde açmaz (yerleşecek aygıtı yoktur), ama o
+  // cihaz sipariş edilecek ve şemada görünmelidir. `panelKindFor` "oda mı saha
+  // mı" sorusunu panoya gerek duymadan cevaplar.
+  const oksuzYan: { oda: DeviceBox[]; saha: DeviceBox[] } = { oda: [], saha: [] };
+  const acilanKodlar = new Set([...odaGirdi, ...sahaGirdi].map((g) => g.code));
+  for (const { code, devices } of [...byPanel].map(([code, devices]) => ({ code, devices }))) {
+    if (acilanKodlar.has(code)) continue;
+    const yan = devices.filter((d) => d.mountType === "yan");
+    if (yan.length === 0) continue;
+    const kind = code ? panelKindFor(code, settings, panelOverrides.get(code) ?? null) : "oda";
+    (kind === "saha" ? oksuzYan.saha : oksuzYan.oda).push(...yan);
+  }
+
   // HER DİZİ KENDİ TERCİHİYLE ÇÖZÜLÜR (PANO-2). Tek bir yükseklik/derinlik
   // ayarı ikisine birden dayatıldığında, duvara asılan bir saha kutusu
   // elektrik odasındaki 2000 mm'lik gövdenin ölçüsünü alıyordu.
@@ -203,6 +218,16 @@ export function computeSwitchboardLayout(input: ComputeInput): ComputeResult {
       depthMm: oda.layouts.length ? oda.depthMm : null,
       panelCount: oda.layouts.length,
     },
+    // Bütün aygıtlar — hangi kuyruğa düştüğünden bağımsız.
+    devices: [...byPanel.values()].flat().sort((a, b) => naturalCompare(a.label, b.label)),
+    roomSideDevices: [
+      ...oda.layouts.flatMap((p) => p.sideDevices),
+      ...oksuzYan.oda,
+    ].sort((a, b) => naturalCompare(a.label, b.label)),
+    fieldSideDevices: [
+      ...saha.layouts.flatMap((p) => p.sideDevices),
+      ...oksuzYan.saha,
+    ].sort((a, b) => naturalCompare(a.label, b.label)),
     fieldSize: {
       heightMm: saha.layouts.length ? saha.heightMm : null,
       depthMm: saha.layouts.length ? saha.depthMm : null,

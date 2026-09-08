@@ -54,6 +54,7 @@ export async function GET(
           panels: sonuc.room,
           baslik: "Elektrik odası pano dizilimi",
           not: `${sonuc.room.length} göz · ön görünüş`,
+          yanCihazlar: sonuc.roomSideDevices,
         })
       );
     }
@@ -63,6 +64,7 @@ export async function GET(
           panels: sonuc.field,
           baslik: "Saha panoları",
           not: `${sonuc.field.length} göz · ön görünüş`,
+          yanCihazlar: sonuc.fieldSideDevices,
         })
       );
     }

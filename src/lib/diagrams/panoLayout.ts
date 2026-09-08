@@ -32,8 +32,15 @@ import {
   type Diagram,
   type DiagramEl,
 } from "./model";
-import type { ColorGroup, LayoutSettings, PanelLayout, Placement } from "@/lib/switchboard/types";
+import type {
+  ColorGroup,
+  DeviceBox,
+  LayoutSettings,
+  PanelLayout,
+  Placement,
+} from "@/lib/switchboard/types";
 import { COLOR_GROUP_LABEL, ZONE_LABEL } from "@/lib/switchboard/mount";
+import { naturalCompare } from "@/lib/switchboard/panels";
 import { plateHeightMm, plateWidthMm, sideDuctCount } from "@/lib/switchboard/sizes";
 
 // ═══════════════════════════════════════════════════ KATEGORİ PALETİ
@@ -68,9 +75,35 @@ export const PANO_RENK: Record<ColorGroup, string> = {
  */
 const TUVAL_SOFT = "#FAF8F7";
 
-/** Şema ölçekleri [çizim birimi / mm]. */
-const OLCEK_DIZILIM = 0.16;
-const OLCEK_IC = 0.5;
+/**
+ * ŞEMA ÖLÇEĞİ 1:N BİÇİMİNDE TUTULUR — çizim çarpanı `k = 1 / N`.
+ *
+ * Altyazı, adres anahtarı ve açılır kutu aynı dili konuşsun diye payda
+ * saklanır; tek dönüşüm noktası `1 / olcek`tir. Kullanıcı 1:2'yi "fazla" buldu
+ * (08.09.2026) ve öntanım 1:4 oldu.
+ *
+ * 1:10 BİLEREK YOK: 85 mm'lik bir cihaz 8,5 birime iner ve `h >= 10` eşiğinin
+ * altına düşer — o ölçekte HİÇBİR cihaz ne etiket ne numara alır, PANO-13'ün
+ * "resim yerleşimi, liste kimliği" sözleşmesi iki yönden birden kopar.
+ */
+export const IC_OLCEKLERI = [2, 4, 5] as const;
+export type IcOlcek = (typeof IC_OLCEKLERI)[number];
+export const IC_OLCEK_ONTANIM: IcOlcek = 4;
+
+/** Dizilim şeması ölçeği [1:N]. `1/6.25 === 0.16` — eski sabitle bit-aynı. */
+const DIZILIM_OLCEK = 6.25;
+
+/** `4` → `"1:4"`, `6.25` → `"1:6,25"`. */
+export function olcekMetni(payda: number): string {
+  return `1:${fmtN(payda, Number.isInteger(payda) ? 0 : 2)}`;
+}
+
+/** Adresten gelen ölçek YALNIZ izinli kümedeyse geçerlidir. */
+export function icOlcekCoz(ham: string | string[] | undefined): IcOlcek {
+  const t = Array.isArray(ham) ? ham[0] : ham;
+  const n = t ? Number(t) : NaN;
+  return (IC_OLCEKLERI as readonly number[]).includes(n) ? (n as IcOlcek) : IC_OLCEK_ONTANIM;
+}
 
 /** Bu birim genişliğin altına yazı KONMAZ (ölçüldü: 2 karakter ≈ 7 birim). */
 const EN_KUCUK_ETIKET = 12;
@@ -128,14 +161,16 @@ function klemensAgzi(els: DiagramEl[], x: number, y: number, w: number, h: numbe
   els.push(ln(x + 1, y + h - ic, x + w - 1, y + h - ic, DCOL.muted, 0.4));
 }
 
-function cihazCiz(els: DiagramEl[], sembol: Sembol, x: number, y: number, w: number, h: number, fill: string, birim: number) {
+function cihazCiz(els: DiagramEl[], sembol: Sembol, x: number, y: number, w: number, h: number, fill: string, birim: number, k: number) {
   govde(els, x, y, w, h, fill);
 
   switch (sembol) {
     case "salter": {
       klemensAgzi(els, x, y, w, h);
       // Kutup ayrım çizgileri: 17,5 mm'lik modüller.
-      const modul = w / Math.max(1, Math.round(w / (17.5 * OLCEK_IC)));
+      // ADIM ÖLÇEKLE GELİR: sabit `0.5` bırakılsaydı 1:4'te üç kutuplu bir
+      // şalter (13,1 birim) tek modül sayılır ve kutup ayrımları KAYBOLURDU.
+      const modul = w / Math.max(1, Math.round(w / (17.5 * k)));
       for (let m = modul; m < w - 0.5; m += modul) {
         els.push(ln(x + m, y + 2, x + m, y + h - 2, DCOL.faint, 0.4));
       }
@@ -286,7 +321,23 @@ export interface DizilimGirdisi {
   panels: PanelLayout[];
   baslik: string;
   not?: string;
+  /** Ölçek 1:N. Öntanım `DIZILIM_OLCEK` (1:6,25 — eski sabitle bit-aynı). */
+  olcek?: number;
+  /**
+   * PANO YANINA ASILAN ekipman — siren, korna, ikaz kolonu, projektör.
+   *
+   * Dizinin sağında AYRI bir şeritte çizilir. Boşsa şerit hiç çizilmez
+   * (`panoKapakDiagram`ın "boş kapak resmi bilgi taşımaz" ilkesi).
+   */
+  yanCihazlar?: readonly DeviceBox[];
 }
+
+/** Dizi ile yan şerit arasındaki ayırıcı boşluk [mm]. */
+const YAN_BOSLUK_MM = 400;
+/** Yan ekipmanlar arasındaki boşluk [mm]. */
+const YAN_ARALIK_MM = 150;
+/** Ölçüsü bilinmeyen yan ekipmanın YER TUTUCU kutusu [mm]. */
+const YAN_VARSAYILAN_MM = 200;
 
 /**
  * Panolar yan yana, altta tek parça baza.
@@ -297,7 +348,7 @@ export interface DizilimGirdisi {
  */
 export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
   const els: DiagramEl[] = [];
-  const k = OLCEK_DIZILIM;
+  const k = 1 / (g.olcek ?? DIZILIM_OLCEK);
 
   if (g.panels.length === 0) {
     caption(els, g.baslik, "Bu dizide pano yok.");
@@ -408,14 +459,144 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
     })
   );
 
-  return fitDiagram(els, Math.max(460, sol + gW + 110), yBazaAlt + 80);
+  // ═══════════════════════════════════════════ PANO YANI EKİPMANLARI
+  //
+  // Kullanıcının cümlesi (08.09.2026): "şemada panoların yanında dursun,
+  // bunlar genelde sahada oluyor ya da panonun yanına falan asılıyor."
+  //
+  // Şerit dizinin SAĞINDA, PANOLARLA AYNI ÖLÇEKTE durur ki okuyan kişi bir
+  // sirenin panoya göre ne kadar olduğunu görebilsin. Kesikli bir ayırıcı,
+  // şeridin bir göz sanılmasını engeller.
+  //
+  // TOPLAM EN ÖLÇÜSÜNE GİRMEZ: yukarıdaki `Toplam N mm` imalatçıya giden dizi
+  // enidir ve bir sirenle büyümez. Yalnız çizim tuvali genişler.
+  const yanlar = [...(g.yanCihazlar ?? [])].sort((a, b) => naturalCompare(a.label, b.label));
+  let yanSagKenar = sol + gW;
+  if (yanlar.length > 0) {
+    const ayiracX = sol + gW + (YAN_BOSLUK_MM / 2) * k;
+    els.push(ln(ayiracX, yUst - 20, ayiracX, yBazaAlt + 6, DCOL.faint, 0.8, "5 4"));
+    els.push(
+      txt(ayiracX + 8, yUst - 24, `Pano yanı ekipmanları (${yanlar.length})`, 8, {
+        fill: DCOL.muted,
+        fixed: true,
+        bold: true,
+      })
+    );
+
+    let yx = sol + gW + YAN_BOSLUK_MM * k;
+    for (const d of yanlar) {
+      const bilinen = d.widthMm !== null && d.heightMm !== null;
+      const enMm = d.widthMm ?? YAN_VARSAYILAN_MM;
+      const boyMm = d.heightMm ?? YAN_VARSAYILAN_MM;
+      const w = Math.max(4, enMm * k);
+      const h = Math.max(4, boyMm * k);
+      // Cihazlar panonun ALT hattına oturur: göz onları gövdeyle aynı zeminde
+      // karşılaştırabilsin.
+      const yy = yAlt - h;
+
+      els.push({
+        kind: "rect",
+        x: yx,
+        y: yy,
+        w,
+        h,
+        fill: PANO_RENK[d.colorGroup],
+        stroke: DCOL.ink,
+        strokeWidth: bilinen ? 0.7 : 0.5,
+        rx: 0.8,
+      });
+      // ÖLÇÜSÜ BİLİNMEYEN KUTU YER TUTUCU GİBİ GÖRÜNÜR: taralı ve soru
+      // işaretli. Kesin bir kutu çizmek, ölçülmemiş bir sayıyı ölçülmüş
+      // gösterirdi (değişmez md. 4).
+      if (!bilinen) {
+        tarama(els, yx, yy, w, h);
+        els.push(txt(yx + w / 2, yy + h / 2 + 3, "?", 9, { anchor: "middle", fixed: true }));
+      }
+      els.push(
+        txt(yx + w / 2, yAlt + 12, d.label, 7, { anchor: "middle", fixed: true })
+      );
+      if (bilinen) {
+        els.push(
+          txt(yx + w / 2, yAlt + 21, `${fmtN(enMm, 0)}×${fmtN(boyMm, 0)}`, 6, {
+            anchor: "middle",
+            fill: DCOL.muted,
+            fixed: true,
+          })
+        );
+      }
+      yx += w + YAN_ARALIK_MM * k;
+    }
+    yanSagKenar = yx;
+  }
+
+  return fitDiagram(els, Math.max(460, yanSagKenar + 110), yBazaAlt + 80);
 }
 
 // ═══════════════════════════════════════════════════════ İÇ YERLEŞİM
 
+/**
+ * Şemadaki bir cihazın TIKLANABİLİR dikdörtgeni [çizim birimi].
+ *
+ * Koordinatlar diyagramın kendi ekseninde verilir ve `fitDiagram` sonrasında da
+ * geçerlidir: `fitDiagram` yalnız ÖLÇER ve görüş kutusunu genişletir, hiçbir
+ * elemanı ötelemez. `resolveTextOverlaps` de yalnız `text` elemanlarını oynatır.
+ */
+export interface IcKutu {
+  /** `panoNumaralari` ile AYNI anahtar — iki liste birbirine bağlanabilsin. */
+  anahtar: string;
+  deviceKey: string;
+  label: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Şemaya yazılabilen numara; sığmadıysa `null`. */
+  no: number | null;
+}
+
+export interface IcYerlesimCizimi {
+  diagram: Diagram;
+  kutular: IcKutu[];
+  /** Ne etiketi ne numarası sığan cihaz sayısı — altyazı bunu söyler. */
+  yazisiz: number;
+}
+
+/**
+ * Bir noktaya en yakın cihaz kutusu — önce İÇİNDEKİ, sonra yakındaki.
+ *
+ * Hoşgörü olmadan 1:4'te 1,3 birimlik bir klemens hiç tıklanamazdı; parmakla
+ * hiç tıklanamaz. Saf tutulur: DOM olmadan sınanabilir.
+ */
+export function kutuBul(kutular: readonly IcKutu[], x: number, y: number, tolerans = 4): IcKutu | null {
+  let enYakin: IcKutu | null = null;
+  let enKisa = Number.POSITIVE_INFINITY;
+  for (const kutu of kutular) {
+    const dx = x < kutu.x ? kutu.x - x : x > kutu.x + kutu.w ? x - (kutu.x + kutu.w) : 0;
+    const dy = y < kutu.y ? kutu.y - y : y > kutu.y + kutu.h ? y - (kutu.y + kutu.h) : 0;
+    if (dx === 0 && dy === 0) return kutu;
+    const d = Math.hypot(dx, dy);
+    if (d < enKisa) {
+      enKisa = d;
+      enYakin = kutu;
+    }
+  }
+  return enKisa <= tolerans ? enYakin : null;
+}
+
 export interface IcYerlesimGirdisi {
   panel: PanelLayout;
   settings: LayoutSettings;
+  /** Ölçek 1:N. Öntanım `IC_OLCEK_ONTANIM` (1:4). */
+  olcek?: IcOlcek;
+  /**
+   * Altyazıya "ölçek 1:N" YAZILSIN MI?
+   *
+   * Yalnız 1 çizim birimi = 1 piksel olan tüketicide DOĞRUDUR (ekran ve
+   * indirilen SVG). PDF çizimi sayfaya yeniden sığdırır (`pdf/diagram.tsx`
+   * `maxWidth`/`maxHeight` ile küçültür), yani kâğıttaki oran modelin ölçeği
+   * DEĞİLDİR; orada bu ibare bir yalandır ve kapatılır.
+   */
+  olcekYazisi?: boolean;
 }
 
 /**
@@ -426,9 +607,25 @@ export interface IcYerlesimGirdisi {
  * sanır ve sığmayan bir pano sipariş eder.
  */
 export function panoIcYerlesimDiagram(g: IcYerlesimGirdisi): Diagram {
+  return panoIcYerlesim(g).diagram;
+}
+
+/**
+ * Çizim VE tıklama kutuları — TEK GEOMETRİ GEÇİŞİNDEN.
+ *
+ * Şemada bir cihaza tıklayınca bilgi baloncuğu açılması isteniyor; bunun için
+ * her cihazın çizim birimindeki dikdörtgeni gerekir. O dikdörtgeni İKİNCİ bir
+ * döngüde yeniden hesaplamak, `pdf/diagram.tsx`in başındaki uyarının anlattığı
+ * hatanın aynısı olurdu: iki paralel uygulama bir gün ayrışır ve baloncuk
+ * YANLIŞ cihazı anlatır. Kutular çizimin kendi döngüsünde toplanır.
+ */
+export function panoIcYerlesim(g: IcYerlesimGirdisi): IcYerlesimCizimi {
   const { panel: p, settings: s } = g;
+  const olcek = g.olcek ?? IC_OLCEK_ONTANIM;
   const els: DiagramEl[] = [];
-  const k = OLCEK_IC;
+  const kutular: IcKutu[] = [];
+  let yazisiz = 0;
+  const k = 1 / olcek;
 
   const sol = 78;
   const ust = 62;
@@ -445,7 +642,7 @@ export function panoIcYerlesimDiagram(g: IcYerlesimGirdisi): Diagram {
   caption(
     els,
     `${p.code} — iç yerleşim`,
-    `${fmtN(p.widthMm, 0)} × ${fmtN(p.heightMm, 0)} × ${fmtN(p.depthMm, 0)} mm · baza ${p.baseMm} · ${p.doorConfig === "cift" ? "çift kapak" : "tek kapak"} · ölçek 1:2`
+    `${fmtN(p.widthMm, 0)} × ${fmtN(p.heightMm, 0)} × ${fmtN(p.depthMm, 0)} mm · baza ${p.baseMm} · ${p.doorConfig === "cift" ? "çift kapak" : "tek kapak"}${g.olcekYazisi === false ? "" : ` · ölçek ${olcekMetni(olcek)}`}`
   );
 
   // Gövde ve montaj plakası.
@@ -506,8 +703,11 @@ export function panoIcYerlesimDiagram(g: IcYerlesimGirdisi): Diagram {
     const yy = plakaY + y.yMm * k;
     const fill = PANO_RENK[y.colorGroup];
 
-    cihazCiz(els, sembolFor(y.colorGroup), x, yy, w, h, fill, (y.widthMm / y.unitCount) * k);
+    cihazCiz(els, sembolFor(y.colorGroup), x, yy, w, h, fill, (y.widthMm / y.unitCount) * k, k);
     if (y.dimSource === "tahmin") tarama(els, x, yy, w, h);
+
+    const numara = numaralar.get(yerlesimAnahtari(y)) ?? null;
+    kutular.push({ anahtar: yerlesimAnahtari(y), deviceKey: y.deviceKey, label: y.label, x, y: yy, w, h, no: numara });
 
     const kayit = efsane.find((e) => e.grup === y.colorGroup);
     if (kayit) kayit.sayi += y.unitCount;
@@ -520,6 +720,12 @@ export function panoIcYerlesimDiagram(g: IcYerlesimGirdisi): Diagram {
     } else if (w >= EN_KUCUK_NUMARA && h >= 10) {
       const n = numaralar.get(yerlesimAnahtari(y));
       if (n) els.push(txt(x + w / 2, yy + h / 2 + 2.4, String(n), 6, { anchor: "middle", fixed: true }));
+      else yazisiz++;
+    } else {
+      // NE ETİKET NE NUMARA SIĞDI. Ölçek küçüldükçe artar (1:4'te tek kutuplu
+      // bir otomat 4,4 birime iner) ve kullanıcı bunu BİLMELİ — kimlik o zaman
+      // yalnız cihaz listesindedir (PANO-13 merdiveninin son basamağı).
+      yazisiz++;
     }
   }
 
@@ -549,7 +755,20 @@ export function panoIcYerlesimDiagram(g: IcYerlesimGirdisi): Diagram {
     }
   }
 
-  return fitDiagram(els, Math.max(520, sol + gW + 190), ey + 30);
+  if (yazisiz > 0) {
+    els.push(
+      txt(sol, ey + 18, `${yazisiz} cihazın etiketi bu ölçekte sığmadı; kimlikleri listededir.`, 7, {
+        fill: DCOL.muted,
+        fixed: true,
+      })
+    );
+  }
+
+  return {
+    diagram: fitDiagram(els, Math.max(520, sol + gW + 190), ey + (yazisiz > 0 ? 46 : 30)),
+    kutular,
+    yazisiz,
+  };
 }
 
 // ═══════════════════════════════════════════════════════ KAPAK GÖRÜNÜŞÜ
@@ -560,13 +779,22 @@ export function panoKapakDiagram(g: IcYerlesimGirdisi): Diagram | null {
   if (p.doorPlacements.length === 0) return null;
 
   const els: DiagramEl[] = [];
-  const k = OLCEK_IC;
+  const k = 1 / (g.olcek ?? IC_OLCEK_ONTANIM);
   const sol = 60;
   const ust = 58;
   const gW = p.widthMm * k;
   const gH = p.heightMm * k;
 
-  caption(els, `${p.code} — kapak görünüşü`, `${p.doorPlacements.length} kapak elemanı · ölçek 1:2`);
+  // ÖLÇEK İDDİASI YOK — ve bu bilinçli. Kapak yerleşimi `kapagaDiz` içinde
+  // sabit 90 mm'lik bir ızgaraya diziliyor (gerçek kesim yerleri değil), ayrıca
+  // küçük semboller görünür kalsın diye taban ölçülerle çiziliyor
+  // (`Math.max(20, …)`, `r = Math.max(4.5, …)`). Bu çizim bir yerleşim
+  // KROKİSİDİR; ölçek yazmak, ölçülemeyen bir sayıyı iddia etmek olurdu.
+  caption(
+    els,
+    `${p.code} — kapak görünüşü`,
+    `${p.doorPlacements.length} kapak elemanı · şematik yerleşim, kesim ölçüsü değildir`
+  );
 
   els.push({ kind: "rect", x: sol, y: ust, w: gW, h: gH, fill: TUVAL_SOFT, stroke: DCOL.ink, strokeWidth: 1.2 });
   if (p.doorConfig === "cift") {

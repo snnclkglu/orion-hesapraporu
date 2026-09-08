@@ -147,16 +147,35 @@ export function DiagramSvg({
   diagram,
   className,
   themeAware = false,
+  overlay,
+  svgRef,
+  ariaLabel,
 }: {
   diagram: Diagram;
   className?: string;
   /** Yalnız uygulama içi görünüm; PDF model renklerini aynen kullanır. */
   themeAware?: boolean;
+  /**
+   * Diyagramın ÜSTÜNE, AYNI `viewBox` içinde basılan etkileşim katmanı.
+   *
+   * `Diagram` saf veridir ve öyle kalmalı: elemanlara kimlik/olay eklemek onu
+   * 25 modülün ve üç çevirinin paylaştığı bir yerde kirletirdi. Bunun yerine
+   * çağıran, kendi hesapladığı saydam dikdörtgenleri buraya koyar — koordinat
+   * sistemi ortak olduğu için ikinci bir ölçüm katmanı gerekmez.
+   */
+  overlay?: React.ReactNode;
+  /** Ekran koordinatını çizim koordinatına çevirmek için (`getScreenCTM`). */
+  svgRef?: React.Ref<SVGSVGElement>;
+  ariaLabel?: string;
 }) {
   return (
     <svg
+      ref={svgRef}
       viewBox={`${diagram.x0 ?? 0} ${diagram.y0 ?? 0} ${diagram.width} ${diagram.height}`}
-      role="img"
+      // `role="img"` çocukları ekran okuyucuya KAPATIR; etkileşim katmanı
+      // varken bu, katmanı erişilemez yapardı.
+      role={overlay ? "group" : "img"}
+      aria-label={ariaLabel}
       className={className}
       style={{
         width: "100%",
@@ -167,6 +186,7 @@ export function DiagramSvg({
       }}
     >
       {diagram.els.map((el, i) => renderEl(el, i, themeAware))}
+      {overlay}
     </svg>
   );
 }

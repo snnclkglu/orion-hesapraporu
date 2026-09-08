@@ -602,3 +602,204 @@ doğal kod sırası ayırır — belirsizlik bırakılmaz (PANO-11).
 sıra baskındır; bir rayın kapasitesi cihazın oraya sığacağını garanti etmez ve
 garanti ediyormuş gibi davranmak sahada yanlış pano ürettirir.
 
+## PANO-24 — ALT AYGIT ana aygıtın içindedir; ayrı yer istemez.
+
+`=100T+LVD0-U20-U15` bir aygıt değil, `-U20` sürücüsünün yuvasına takılan bir
+karttır. IEC 81346'nın alt aygıt yazımıdır ve elektrik projesinde ayrı bir
+malzeme satırı açar; panoda ise ayrı bir gövde AÇMAZ.
+
+Kural: etiketi `<ana>-<alt>` biçiminde olan ve **ana aygıtı aynı listede
+bulunan** satır, ana aygıtın kutusuna yutulur. Bu, `buildDeviceBoxes`in "aynı
+etiketin ikinci satırı ölçüyü büyütmez" kuralının kardeşidir — orada kontaktör
+ile yardımcı kontağı tek etikette, burada sürücü ile kartı iki etikette gelir.
+
+ÖKSÜZ ALT AYGIT KENDİ KUTUSUDUR. Ölçüldü (0026-01): `-M36-1G12` enkoderi var
+ama `-M36` motoru malzeme listesinde yok. Onu yutacak bir gövde olmadığı için
+kendi başına durur ve saha kuyruğunda görünür — sessizce kaybolmaz.
+
+Ölçülen kazanç: 0026'da dört sahte sürücü kartı kutusu düştü; her biri montaj
+plakasında kendi yerini istiyordu.
+
+## PANO-25 — Sözlük, ÜZERİNDE ÇALIŞILAN İŞİN kelime dağarcığıyla ölçülür.
+
+Sınıflandırma (`lib/electrical/category.ts`) 0019-00'ın Siemens/ABB yazımıyla
+kuruldu ve orada kusursuz görünüyordu. Aynı kod 0026-01'e uygulandığında
+ölçüldü (08.09.2026):
+
+| | 0019-00 (Siemens/ABB) | 0026-01 (Schneider) |
+|---|---|---|
+| Benzersiz ürün | 184 | 54 |
+| Sınıflanmamış (`Diğer`) | **1** | **22 · %41** |
+| Sürücü (`plaka`) | 12 | **0** |
+
+Kullanıcının ekranda gördüğü "Panoya girmeyen aygıtlar (50)" yığınının 35'i
+buydu. Bir yerleştirme hatası değil, bir SÖZLÜK eksiğiydi — ve gerçek eksikler
+(ölçüsü olmayan dört sürücü) o kalabalığın içinde görünmüyordu.
+
+Ölçüt tek bir işte iyi çalışmak değil, YENİ BİR İŞİ TANIMAKTIR. Her yeni iş
+için sınıflanmama oranı ölçülür; `switchboard/__tests__/is0026.guard.test.ts`
+o işin gerçek malzeme satırlarını taşır ve yeni bir marka geldiğinde oraya o
+işin satırları eklenir.
+
+Aynı ilkenin ikinci yüzü OKUMADIR: "Automat. **two-pole** C 16 A" ile
+"CIRCUIT BREAKER … **3POLE**" aynı cümledir. Kutup sayısını yalnız rakamla
+arayan okuyucu 13 Acti9 otomatını ölçüsüz bırakıyordu; yazıyla yazılmış kutup
+bir tahmin değil bir okumadır (PANO-5).
+
+Üçüncü yüzü İŞARETİN NEREDE OLDUĞUDUR: `MATIS 4000`ün tanımı yalnız
+"400-230V , 4kVA" diyor — ne "trafo" ne "transformer" geçiyor. **kVA bir
+işarettir** (yalnız trafo ve UPS kVA ile anılır, anahtarlamalı güç kaynağı W
+ile) ve 4 kVA'lık bir trafo o işaret okunmadığı için DIN rayına oturuyordu.
+
+## PANO-26 — Aksesuar EN EKLER Mİ, bu AYRI bir sorudur.
+
+Yardımcı kontak bloğu gövdenin YANINA takılıyorsa toplam eni büyütür, ÖNÜNE ya
+da ÜSTÜNE takılıyorsa büyütmez. Katalog bunu söyler ve söylediği yerden okunur;
+varsayılmaz.
+
+Ölçüldü (0026-01, TeSys ve Acti9 katalogları):
+
+- `A9A26904` (Acti9 iOF): montaj kuralları sayfası "à esquerda" (sola) diyor —
+  9 mm takım enine EKLENİR.
+- `GVAE11` (GV2/GV3): "Front mounting add-on contact blocks" — ene 0 ekler,
+  derinliğe ~15 mm.
+- `LAG8N113P` (P HARFLİ, "1st left or right"): dipnot açıkça *"Does not
+  increase the contactor dimensions"*.
+- `LAG8N113` (P HARFSİZ, "2nd left or right"): aynı katalog *"a' = a + 20 mm
+  with additional auxiliary contact blocks on both sides (externally)"* diyor —
+  yani YAN BAŞINA ~10 mm EKLER.
+
+İki ürün tek bir harfle ayrılıyor ve biri ölçüyü büyütüyor, öteki büyütmüyor.
+
+İkinci kural: **FİŞLİ RÖLE BİR TAKIMDIR.** Deftere giren ölçü röleyle soketin
+BİRLİKTE kapladığı yerdir — en soketin eni, boy soket + röle. `RXG22BD` ve
+`RGZE1S48M` satırları aynı takım ölçüsünü taşır ve `note` alanı bunu söyler.
+Ölçüldü: sistem bu takımı 6,2 mm sanıyordu, gerçeği 15,8 mm — 23 adetlik bir
+kalemde 220 mm ray farkı.
+
+## PANO-27 — `yan`: pano yanına asılan ekipman ÇİZİLİR ama YERLEŞMEZ.
+
+Siren, korna, ikaz kolonu, LED emniyet spotu ve projektör panonun içinde
+değildir; vincin üstüne ya da panonun yanına asılır. Kullanıcının kendi
+cümlesi (08.09.2026): *"şemada panoların yanında dursun, bunlar genelde sahada
+oluyor ya da panonun yanına falan asılıyor."*
+
+`saha`dan (motor, enkoder, limit şalteri, fren direnci) farkı ÇİZİLMESİDİR:
+saha ekipmanı makinenin üstündedir ve pano çiziminde işi yoktur; `yan` ekipman
+panonun görünür komşusudur.
+
+Ölçülen hata (0026-01): 108 dB'lik bir siren, bir boru korna ve üç katlı bir
+ikaz kolonu pano KAPAĞINA 30 × 30 mm delik olarak çiziliyordu — o ölçü
+PANO-22'nin kapak KESİM standardıdır ve vincin üstündeki bir cihazda hiçbir
+anlamı yok. Dört adet 160 W LED projektör ise "gövde gereci" sayıldığı için
+**hiçbir yerde görünmüyordu**: ne çizimde, ne listede, ne kuyrukta.
+
+Uygulama:
+
+- Dizilim şemasında dizinin SAĞINDA, panolarla AYNI ÖLÇEKTE ayrı bir şerit;
+  kesikli bir ayırıcı şeridi bir göz sanılmaktan korur.
+- **Dizinin toplam en ölçüsüne GİRMEZ.** O sayı imalatçıya giden gövde enidir
+  ve bir sirenle büyümez; yalnız çizim tuvali genişler.
+- Ölçüsü bilinmeyen cihaz taralı bir YER TUTUCU kutuyla ve `?` ile çizilir.
+  Tahmin ÜRETİLMEZ (değişmez md. 4) — kapak elemanlarının 30 × 30 kesim
+  ölçüsü buraya UYGULANMAZ.
+- Sipariş kapısını (PANO-12) KAPATMAZ: bir sirenin eni panonun gövdesini
+  belirlemez.
+- Tek başına yan ekipman taşıyan konum PANO AÇMAZ (PANO-2), ama o cihazlar
+  dizinin şeridinde görünmeye devam eder.
+
+Aynı görünürlük kuralı `govde` için de geçerlidir: fan, termostat ve pano
+lambası hesaplanıyordu ve tipin kendi yorumu "listede durur" diyordu — böyle
+bir liste HİÇBİR YERDE YOKTU. Artık iç yerleşim sayfasında listelenir.
+
+Montaj tipi ÜÇ YERDE yaşıyor (TypeScript birliği, SQL kısıtı, iki Zod listesi)
+ve ayrışmayı `mount.sql.guard.test.ts` migration dosyasını OKUYARAK engeller
+(değişmez md. 8).
+
+## PANO-28 — Şema ölçeği bir GÖRÜNÜM parametresidir; ayara ve parmak izine girmez.
+
+İç yerleşim ölçeği seçilebilir (1:2 · 1:4 · 1:5, öntanım **1:4** — kullanıcı
+1:2'yi fazla buldu) ve altyazıdaki "ölçek 1:N" ibaresi DEĞERDEN ÜRETİLİR. Elle
+yazılmış bir ibare, ölçek değişince sessizce yalan söyler; nitekim söylüyordu.
+
+**1:10 bilerek yoktur:** 85 mm'lik bir cihaz 8,5 çizim birimine iner ve
+`h >= 10` eşiğinin altına düşer — o ölçekte hiçbir cihaz ne etiket ne numara
+alır, PANO-13'ün "resim yerleşimi, liste kimliği" sözleşmesi iki yönden birden
+kopar. 1:4'te de bazı cihazların yazısı sığmaz (tek kutuplu bir otomat 4,4
+birime iner) ve altyazı bunu SAYIYLA söyler. Okunurluk tabanları çizim birimi
+cinsindendir ve ÖLÇEKLE KÜÇÜLMEZ (MOBIL-9).
+
+Ölçek `LayoutSettings`e KONMAZ. Ayar nesnesi parmak izine giriyor (PANO-14) ve
+onay kaydında saklanıyor; ölçeği oraya koymak, çizim ölçeğini değiştirmeyi
+ONAYI GEÇERSİZ KILAN bir olay yapardı.
+
+**Kâğıttaki oran modelin ölçeği DEĞİLDİR.** `PdfDiagram` çizimi sayfaya
+yeniden sığdırır: 400 × 2000 mm'lik bir pano 1:2 modelde ~520 × 1090 birimken
+kâğıtta ~298 birime iner, yani basılan oran ~1:10'dur. Bu yüzden PDF ölçek
+ibaresi BASMAZ ve model ölçeği orada yalnız ayrıntı yoğunluğunu belirler.
+
+Kapak görünüşü de ölçek İDDİA ETMEZ: kapak elemanları sabit 90 mm'lik bir
+ızgaraya diziliyor (gerçek kesim yerleri değil) ve küçük semboller görünür
+kalsın diye taban ölçülerle çiziliyor. O çizim bir yerleşim KROKİSİDİR.
+
+## PANO-29 — Şema TIKLANABİLİR; vuruş kutuları çizimin KENDİ geçişinden gelir.
+
+Şemada bir cihaza basınca kimlik kartı açılır: aygıt kodu, tanım, ürün,
+kategori, montaj yeri, ölçü ve ÖLÇÜ KAYNAĞI (tahminse kehribar — o satır
+sipariş edilemez, PANO-12).
+
+Vuruş kutuları (`panoIcYerlesim().kutular`) çizim döngüsünün İÇİNDE toplanır.
+İkinci bir geometri geçişi yazılmaz: `pdf/diagram.tsx`in başındaki uyarı aynı
+hatanın bedelini anlatıyor — iki paralel uygulama bir gün ayrışır ve baloncuk
+YANLIŞ cihazı anlatır. Bir test her yerleşimin tam bir kutusu olduğunu, kutu
+anahtarının `panoNumaralari` anahtarıyla aynı olduğunu ve kutuların çizilen
+dikdörtgenlerle örtüştüğünü sabitler.
+
+Kimlik `Placement`ta DEĞİL `DeviceBox`tadır: yerleşim yalnız geometridir ve
+bölünmüş bir klemens şeridi aynı kimliği onlarca dilimde taşırdı. Bütün aygıt
+kutuları sonuçta bir kez taşınır (`LayoutResult.devices`).
+
+`Diagram` modeli SAF KALIR. Elemanlara kimlik ya da olay eklemek, 25 modülün
+ve üç çeviricinin paylaştığı bir yeri tek ekran için kirletirdi; bunun yerine
+`DiagramSvg` isteğe bağlı bir `overlay` alır ve çağıran kendi saydam
+dikdörtgenini AYNI `viewBox` içine koyar. `role` o zaman `img`den `group`a
+döner — `img` çocukları ekran okuyucuya kapatır ve etkileşim katmanını
+erişilemez yapardı.
+
+Hedef TEK bir saydam dikdörtgendir, cihaz başına bir tane değil: en kalabalık
+panoda 659 düğüm demekti ve o düğümlerin çoğu 1,3 birimlik klemenslerdir —
+üst üste binen dokunma hedefleri (MOBIL-28'in ölçülmüş hatası). Nokta sınaması
+hoşgörülüdür (~4 birim), yoksa ince cihaz parmakla hiç tıklanamaz.
+
+## PANO-30 — Ekran BÖLÜMLERE ayrılır; sekme YEREL durumdur.
+
+Pano ekranı sekiz yığılmış bölümdü ve şemalar yüzünden çok uzundu. Kullanıcı
+(08.09.2026): *"pano yerleşimi sayfasına bir üst bar yapalım, sayfa aşağı
+doğru gitmesin, daha çok sayfa içinde bölümler olsun. Pano iç yerleşimleri de
+ayrı sayfa olsun."*
+
+Beş bölüm: **Özet · Dizilim · Panolar · Denetim · Aygıt kuyruğu**. İç yerleşim
+ve kapak görünüşü ayrı sayfadadır: `pano/ic?pano=LVD10`.
+
+**Dinamik segment (`pano/[kod]`) KULLANILMAZ.** İki sebep: pano kodu EPLAN'ın
+konum dizesinden gelir (`LVD1.1` noktalı, `LVD10-A` bölünmüş) ve yol parçası
+olarak güvenli değildir; ayrıca kullanıcının kaydetmediği ölçü denemeleri
+zaten sorguda taşınıyor (PANO-14) ve sayfa değişince kaybolmamalı.
+`svg/route.ts` de aynı `?pano=` sözleşmesini kullanıyor.
+
+**SEKME DURUMU ADRESE YAZILMAZ.** `page.tsx` `searchParams` okuyor ve her
+sorgu değişikliği sunucu render'ını yeniden koşturur — dört Supabase turu artı
+bütün yerleşim araması. Bir sekmeye basmak bir GÖRÜNÜM değişikliğidir; bedeli
+yeniden çözüm olmamalı. Deneme ölçüleri ve ölçek adreste kalır, çünkü onlar
+gerçekten yeniden çözüm gerektirir.
+
+**KUYRUK GEREKÇESİYLE AYRILIR.** "Panoya girmeyen aygıtlar" beş ayrı şeyi tek
+başlık altında topluyordu: gerçekten sahada olan motor (doğru), ölçüsü
+bilinmediği için düşen cihaz (gerçek eksik), sınıflanmamış ürün, etiketsiz
+satır, ürünsüz satır. Kullanıcı buna bakınca "modül eksik" görüyor, oysa çoğu
+doğru davranış — ve gerçek eksik o yığının içinde kayboluyordu.
+
+Ürünsüz satır (tedarikçi, tip ve parça numarası BOŞ) artık kendi kovasındadır:
+bu bir hata değil, malzeme listesindeki bir BOŞLUKTUR. Ölçüldü (0026-01):
+`-Y64`…`-Y75` fren bobinleri redüktörle geliyor ve elektrik projesinde malzeme
+satırı açılmamış; altı satır "Sınıflanmamış" kuyruğunu kirletiyordu.
