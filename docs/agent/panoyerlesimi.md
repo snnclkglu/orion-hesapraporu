@@ -870,6 +870,67 @@ değişince yeni ray açar (PANO-4) ve sonuç ÇİZİMDE görünür: giriş · k
 giriş, üç ray. Sessizce reddetmek ya da rayları karıştırmak, ikisi de yanlış
 olurdu; denetim yine geçer.
 
+## PANO-32 — Pano şeması EL KİTABINA kendi ucundan girer, DONMUŞ olarak.
+
+İşletme ve Bakım El Kitabı'na pano dizilimi, iç yerleşim ve kapak görünüşü
+eklenebilir. Şema `kind: "diagram"` bloğu olarak girer — vektördür, teslim
+PDF'inde keskin kalır ve rasterlenmez (KITAP-22).
+
+### AYRI UÇ, AYNI SEÇİCİ
+
+El kitabının şema seçicisi hesap motorunun diyagramlarını `diagrams/select.ts`
+defterinden sayar. Pano çizimleri oraya KAYDEDİLMEZ ve bu yazılı bir karardır
+(PANO-16): `select.ts` hesap raporunun bölüm şemalarının defteridir ve bir pano
+yerleşiminin orada işi yoktur — kaydedilseydi şema hesap sihirbazının bölüm
+listesine de girerdi.
+
+Bu yüzden pano şemaları **kendi ucundan** gelir (`semalar/pano`), ama
+sözleşmesi kardeşiyle birebir aynıdır (`{key, baslik, modul, bolum}` katalogu +
+`{key}` ile model). Aynı seçici bileşeni iki uca birden bakar; iki ayrı seçici
+yazmak, birinde düzeltilen bir davranışın ötekinde unutulmasına açık kapı
+bırakırdı.
+
+Katalog SAF bir modüldedir (`diagrams/panoKitap.ts`), uç dosyasında değil: uç
+`server-only`dir ve içine yazılan bir mantık hiçbir testten geçemezdi.
+
+### DONMUŞ, CANLI DEĞİL — ve bu iki kural ÖRTÜŞÜR
+
+KITAP-22 şemayı ekleme anında çözüp payload'a yazmayı şart koşar. Burada o
+kural PANO-14 ile tam örtüşür: pano planı zaten saklanmıyor, her açılışta
+yeniden hesaplanıyor. Canlı bir bağ kurulsaydı teslim edilmiş bir kılavuz,
+elektrik projesi yeniden okunduğunda (ELEKTRIK-6: satırlar silinip yeniden
+üretilir) sessizce başka bir panoyu anlatırdı.
+
+### LİSTEDE GÖRÜNEN HER ŞEMA ÇİZİLEBİLMELİ
+
+Boş bir dizinin dizilim şeması, kapak elemanı olmayan bir panonun kapak
+görünüşü ve yerleşimi olmayan bir gövdenin iç görünüşü listeye HİÇ girmez.
+Seçilebilir görünüp boş dönen bir satır, hiç göstermemekten kötüdür.
+
+### KİTAP ÖLÇEĞİ 1:4
+
+Kılavuzu okuyan bakımcı panonun tamamını bir sayfada görmek ister. 1:5'e
+düşürmek de bir seçenekti ve REDDEDİLDİ: o ölçekte cihazların etiketi düşer
+(PANO-28) ve okuyan hangi cihazın nerede olduğunu göremezdi.
+
+### GENİŞLİK YÜZDESİ SUNUCUDA HESAPLANIR — ölçülmüş taşma
+
+`pdf/diagram.tsx`in başındaki uyarı bir hatayı anlatıyor: uzun bir çizime
+yalnız genişlik verilirse `wrap={false}` onu bir sonraki sayfaya iter ve orada
+da taşar. Görsel bloklar bunu bugüne kadar yaşamadı çünkü hesap şemaları geniş
+ve alçaktır.
+
+**Pano şemaları değil.** Ölçüldü (08.09.2026): 2.000 mm'lik dar bir panonun
+kapak görünüşü 1:4'te tam genişlikte **706 pt** yer istiyor, el kitabı gövdesi
+ise **698 pt** — sekiz punto taşıyordu ve kimse fark etmezdi.
+
+Bu yüzden şema eklenirken `semaGenisligiYuzdesi` oranı sığdıran en büyük
+yüzdeyi hesaplar (o çizimde %95) ve blok o yüzdeyle kurulur. Sığan şema
+GEREKSİZ KÜÇÜLTÜLMEZ: dizilim şeması geniş ve alçaktır, %100 kalır. Hesap
+gerçek yerleşim ölçücüsünü (`blokOlcusu`) kullanan bir testle çivilenmiştir —
+altyazı ve görsel payı da yüksekliğe girer ve ikinci bir formül yazmak ikisini
+ayrıştırırdı.
+
 ## ÖLÇÜM — gerçek iki iş (08.09.2026)
 
 Modülün var oluş sebebi iki işte birden ölçüldü. Sayılar
@@ -880,12 +941,12 @@ Modülün var oluş sebebi iki işte birden ölçüldü. Sayılar
 
 | | Sözlük ve defter ÖNCESİ | SONRASI |
 |---|---|---|
-| Oda dizisi | 1 göz · **500 × 1600 × 300** mm | 4 göz · toplam **2.500** mm · **1800 × 400** |
+| Oda dizisi | 1 göz · **500 × 1600 × 300** mm | 4 göz · toplam **2.600** mm · **1800 × 400** |
 | Saha dizisi | 1 göz · 400 × 1400 × 200 | değişmedi (artık AYRI çözülüyor) |
 | Sınıflanmamış ürün | 22 / 54 (%41) | **0** |
-| Kuyruk | 50 | **28** (21 saha · 6 ürünsüz · 1 gerçek eksik) |
-| Ölçüsü doğrulanmamış aygıt | 38 | **2** |
-| Pano denetimi | 1 / 4 başarısız | pano denetimleri geçiyor |
+| Kuyruk | 50 | **27** (21 saha · 6 ürünsüz · **0 gerçek eksik**) |
+| Ölçüsü doğrulanmamış aygıt | 38 | **1** |
+| Denetim | 1 / 4 başarısız | **0 / 7 başarısız** |
 
 Derinliği belirleyen kalem 90 kW'lık `ATV930D90N4`: **325,5 mm** derinlik +
 40 mm arka pay + 20 mm kapak payı = 385,5 mm, yani 300 mm gövde YETMİYOR.
@@ -897,9 +958,19 @@ başına 220 mm ray farkı).
 **Eski sayılarla sipariş edilseydi 500 mm'lik bir gövde alınacaktı; iş 2.500
 mm istiyor.**
 
-Kalan tek gerçek eksik `BC1-1403-7420` prizinin yüksekliği: BEMIS'in tek
-ürünlük föyünde o kot ÇİZİLMEMİŞ ve genel katalogda fiş/priz için ölçü resmi
-bölümü yok. Uydurulmadı (değişmez md. 4).
+Ölçüsü hâlâ bilinmeyen tek ürün EAE'nin pano armatürü (`51041`): üreticinin
+2022 ve 2025 baskıları, canlı ürün sayfası ve doküman veritabanının tamamı
+tarandı; kesit ölçüsü hiçbirinde yok. Karşıt kanıt da toplandı — aynı sayfadaki
+komşu ürünün ölçülü çizimi VAR, yani EAE ölçüsü olan ürüne çizim koyuyor.
+Uydurulmadı (değişmez md. 4) ve gövde gereci olduğu için panonun ölçüsünü
+etkilemiyor.
+
+Üç ürün ikinci turda kapandı ve ikisi ölçülmüş bir yanlışı düzeltti:
+`OCS-CU01` (**83 × 110 × 44** mm) üreticinin canlı sitesinde 404 veren ama
+arşivde duran kendi broşüründen çıktı ve **TBM panosunun 96 × 96 varsayımını
+çürüttü**; `BC1-1403-7420`in flanşı **85 × 85** (kare) çıktı ve önceki turun
+"kare değil" ölçümü, föydeki çizimin düşeyde %14 gerilmiş olduğu gösterilerek
+düzeltildi.
 
 ### 0019-00 — 185/40 T şarj vinci · 1.107 malzeme satırı · 184 benzersiz ürün
 

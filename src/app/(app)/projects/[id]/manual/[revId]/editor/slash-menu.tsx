@@ -95,6 +95,7 @@ export function SlashMenu({
   bolumKey,
   gorselEkle,
   semaEkle,
+  panoSemaEkle,
   paftaEkle,
   katalogEkle,
   onEkle,
@@ -109,6 +110,7 @@ export function SlashMenu({
   gorselEkle?: () => void;
   /** Hesap motorunun şema seçicisini açar. */
   semaEkle?: () => void;
+  panoSemaEkle?: () => void;
   /** Teknik Resim Takibi'nden pafta seçicisini açar. */
   paftaEkle?: () => void;
   /** Üretici katalog sayfası seçicisini açar. */
@@ -200,6 +202,23 @@ export function SlashMenu({
                     <span>Şema (hesaptan)</span>
                     <span className="text-xs text-muted-foreground">
                       Halat donanımı, tambur, teker düzeni, kesit…
+                    </span>
+                  </span>
+                </CommandItem>
+              ) : null}
+              {panoSemaEkle ? (
+                <CommandItem
+                  value="Pano yerleşim şema elektrik dizilim"
+                  onSelect={() => {
+                    panoSemaEkle();
+                    setAcik(false);
+                  }}
+                >
+                  <Ruler className="size-4" />
+                  <span className="flex flex-col">
+                    <span>Şema (pano yerleşimi)</span>
+                    <span className="text-xs text-muted-foreground">
+                      Pano dizilimi, iç yerleşim, kapak görünüşü…
                     </span>
                   </span>
                 </CommandItem>

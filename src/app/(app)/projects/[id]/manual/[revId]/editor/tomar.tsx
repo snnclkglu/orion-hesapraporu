@@ -62,6 +62,7 @@ export interface TomarEylemleri {
   onDeftereKaydet: (bolum: ManualSection, blok: ManualBlock) => void;
   onGorselEkle: (bolumId: string, index: number) => void;
   onSemaEkle: (bolumId: string, index: number) => void;
+  onPanoSemaEkle: (bolumId: string, index: number) => void;
   onPaftaEkle: (bolumId: string, index: number) => void;
   onKatalogEkle: (bolumId: string, index: number) => void;
 }
@@ -170,6 +171,7 @@ export function Tomar({
                 tetikSinifi="opacity-0 focus-within:opacity-100 hover:opacity-100 pointer-coarse:opacity-100"
                 gorselEkle={() => eylem.onGorselEkle(s.id, 0)}
                 semaEkle={() => eylem.onSemaEkle(s.id, 0)}
+                panoSemaEkle={() => eylem.onPanoSemaEkle(s.id, 0)}
                 paftaEkle={() => eylem.onPaftaEkle(s.id, 0)}
                 katalogEkle={() => eylem.onKatalogEkle(s.id, 0)}
                 onEkle={(b) => eylem.onBlokEkle(s.id, 0, b)}
@@ -292,6 +294,7 @@ export function Tomar({
                       tetikSinifi="opacity-0 focus-within:opacity-100 hover:opacity-100 pointer-coarse:opacity-100"
                       gorselEkle={() => eylem.onGorselEkle(s.id, i + 1)}
                       semaEkle={() => eylem.onSemaEkle(s.id, i + 1)}
+                      panoSemaEkle={() => eylem.onPanoSemaEkle(s.id, i + 1)}
                       paftaEkle={() => eylem.onPaftaEkle(s.id, i + 1)}
                       katalogEkle={() => eylem.onKatalogEkle(s.id, i + 1)}
                       onEkle={(nb) => eylem.onBlokEkle(s.id, i + 1, nb)}

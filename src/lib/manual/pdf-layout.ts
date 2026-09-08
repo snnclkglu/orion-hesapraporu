@@ -269,6 +269,38 @@ export const TAM_GENISLIK_SISME_ESIGI = 1.6;
  */
 export const TAM_GENISLIK_GORSEL_ESIGI = 55;
 
+/**
+ * BİR ŞEMANIN SAYFAYA SIĞACAĞI EN BÜYÜK GENİŞLİK YÜZDESİ.
+ *
+ * `pdf/diagram.tsx`in başındaki uyarı ölçülmüş bir hatayı anlatıyor: uzun bir
+ * çizime yalnız genişlik verilirse `wrap={false}` onu bir sonraki sayfaya iter
+ * ve orada da taşar. Görsel bloklar bunu bugüne kadar yaşamadı çünkü hesap
+ * şemaları geniş ve alçaktır.
+ *
+ * PANO ŞEMALARI DEĞİL. Ölçüldü (08.09.2026): 2.000 mm'lik dar bir panonun
+ * kapak görünüşü 1:4'te tam genişlikte **706 pt** yer istiyor, gövde ise
+ * **698 pt** — sekiz punto taşıyordu ve kimse fark etmezdi.
+ *
+ * Bu yüzden şema EKLENİRKEN yüzdesi hesaplanır: oranı sığdıran en büyük
+ * yüzde. Çizimi küçültmek yerine ölçeği düşürmek de bir seçenekti ve
+ * REDDEDİLDİ — 1:5'te cihazların etiketi düşer (PANO-28) ve kılavuzu okuyan
+ * bakımcı hangi cihazın nerede olduğunu göremezdi. Beş punto dar bir çizim,
+ * kimliksiz bir çizimden iyidir.
+ */
+export function semaGenisligiYuzdesi(
+  diagram: { width: number; height: number },
+  altyaziVar = true,
+  kapasite: number = MANUAL_GOVDE_YUKSEKLIK
+): number {
+  if (!(diagram.width > 0) || !(diagram.height > 0)) return 100;
+  const bosluk = kapasite - (altyaziVar ? ALTYAZI_YUK : 0) - GORSEL_PAY;
+  if (bosluk <= 0) return 10;
+  const oran = diagram.height / diagram.width;
+  const sigan = bosluk / oran;
+  const yuzde = Math.floor((sigan / TAM_GENISLIK) * 100);
+  return Math.max(10, Math.min(100, yuzde));
+}
+
 // ————————————————————————————————————————————————————————————— tipler
 
 /**

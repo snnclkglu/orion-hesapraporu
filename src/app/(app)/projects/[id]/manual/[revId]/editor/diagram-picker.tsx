@@ -9,6 +9,13 @@
 // LİSTE O VİNÇTE GERÇEKTEN ÜRETİLENLERDİR. Üretilemeyen bir şema listede hiç
 // görünmez — kullanıcıya seçebileceğini sanıp boş dönen bir satır göstermek,
 // hiç göstermemekten kötüdür.
+//
+// İKİ KAYNAK, TEK SEÇİCİ: hesap motorunun şemaları `semalar` ucundan, pano
+// yerleşim şemaları `semalar/pano` ucundan gelir. İkisi ayrı uçtur çünkü pano
+// çizimleri `diagrams/select.ts` defterine BİLEREK kaydedilmez (PANO-16) —
+// ama sözleşmeleri aynıdır ve bu bileşen ikisini de sürer. İki ayrı seçici
+// yazmak, birinde düzeltilen bir davranışın ötekinde unutulmasına açık kapı
+// bırakırdı.
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -42,14 +49,27 @@ export function DiagramPicker({
   acik,
   projectId,
   revisionId,
+  uc = "semalar",
+  baslik = "Hesaptan şema ekle",
+  bosMetin = "Bu vinç için üretilebilen şema yok.",
   onKapat,
   onSec,
 }: {
   acik: boolean;
   projectId: string;
   revisionId: string;
+  /** Uç segmenti: `semalar` (hesap) ya da `semalar/pano` (pano yerleşimi). */
+  uc?: string;
+  baslik?: string;
+  bosMetin?: string;
   onKapat: () => void;
-  onSec: (sema: { diagramKey: string; baslik: string; diagram: ManualDiagramModel }) => void;
+  onSec: (sema: {
+    diagramKey: string;
+    baslik: string;
+    diagram: ManualDiagramModel;
+    /** Sunucunun sayfaya sığdırdığı genişlik yüzdesi; yoksa tam genişlik. */
+    widthPct?: number;
+  }) => void;
 }) {
   const [liste, setListe] = useState<SemaKaydi[] | null>(null);
   const [not, setNot] = useState("");
@@ -60,7 +80,7 @@ export function DiagramPicker({
     let iptal = false;
     void (async () => {
       try {
-        const r = await fetch(`/projects/${projectId}/manual/${revisionId}/semalar`);
+        const r = await fetch(`/projects/${projectId}/manual/${revisionId}/${uc}`);
         const j = (await r.json()) as { semalar?: SemaKaydi[]; not?: string; error?: string };
         if (iptal) return;
         if (j.error) {
@@ -80,12 +100,12 @@ export function DiagramPicker({
     return () => {
       iptal = true;
     };
-  }, [acik, liste, projectId, revisionId]);
+  }, [acik, liste, projectId, revisionId, uc]);
 
   async function sec(kayit: SemaKaydi) {
     setSeciliyor(kayit.key);
     try {
-      const r = await fetch(`/projects/${projectId}/manual/${revisionId}/semalar`, {
+      const r = await fetch(`/projects/${projectId}/manual/${revisionId}/${uc}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: kayit.key }),
@@ -94,6 +114,7 @@ export function DiagramPicker({
         diagramKey?: string;
         baslik?: string;
         diagram?: ManualDiagramModel;
+        widthPct?: number;
         error?: string;
       };
       if (!r.ok || j.error || !j.diagram) {
@@ -104,6 +125,7 @@ export function DiagramPicker({
         diagramKey: j.diagramKey ?? kayit.key,
         baslik: j.baslik ?? kayit.baslik,
         diagram: j.diagram,
+        ...(typeof j.widthPct === "number" ? { widthPct: j.widthPct } : {}),
       });
       onKapat();
     } finally {
@@ -123,7 +145,7 @@ export function DiagramPicker({
     <Dialog open={acik} onOpenChange={(a) => !a && onKapat()}>
       <DialogContent className="max-h-[85dvh] sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Hesaptan şema ekle</DialogTitle>
+          <DialogTitle>{baslik}</DialogTitle>
           <DialogDescription>
             Şema EKLEME ANINDA çözülür ve belgeye yazılır; hesap sonradan revize
             edilirse bu kılavuz değişmez. Vektördür — teslim PDF&apos;inde keskin kalır.
@@ -136,7 +158,7 @@ export function DiagramPicker({
           </p>
         ) : liste.length === 0 ? (
           <p className="py-6 text-sm text-muted-foreground">
-            {not || "Bu vinç için üretilebilen şema yok."}
+            {not || bosMetin}
           </p>
         ) : (
           <Command className="max-h-[55dvh]">

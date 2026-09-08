@@ -198,7 +198,9 @@ export function ManualEditor({
     null
   );
   const [parcaBaslik, setParcaBaslik] = useState("");
-  const [semaSecici, setSemaSecici] = useState(false);
+  // İKİ ŞEMA KAYNAĞI: hesap motorunun diyagramları ve pano yerleşimi. Ayrı
+  // uçlardır (PANO-16) ama aynı seçiciyle sürülür.
+  const [semaSecici, setSemaSecici] = useState<null | "hesap" | "pano">(null);
   const [medyaSecici, setMedyaSecici] = useState<MediaTuru | null>(null);
   const [kaydediliyor, kaydetBasla] = useTransition();
   const [yayimlaniyor, yayimlaBasla] = useTransition();
@@ -595,7 +597,11 @@ export function ManualEditor({
         },
         onSemaEkle: (bolumId, index) => {
           gorselHedefi.current = { bolumId, index };
-          setSemaSecici(true);
+          setSemaSecici("hesap");
+        },
+        onPanoSemaEkle: (bolumId, index) => {
+          gorselHedefi.current = { bolumId, index };
+          setSemaSecici("pano");
         },
         onPaftaEkle: (bolumId, index) => {
           gorselHedefi.current = { bolumId, index };
@@ -1153,10 +1159,19 @@ export function ManualEditor({
       )}
 
       <DiagramPicker
-        acik={semaSecici}
+        acik={semaSecici !== null}
         projectId={projectId}
         revisionId={revisionId}
-        onKapat={() => setSemaSecici(false)}
+        uc={semaSecici === "pano" ? "semalar/pano" : "semalar"}
+        baslik={
+          semaSecici === "pano" ? "Pano yerleşim şeması ekle" : "Hesaptan şema ekle"
+        }
+        bosMetin={
+          semaSecici === "pano"
+            ? "Bu projede çizilebilen pano şeması yok."
+            : "Bu vinç için üretilebilen şema yok."
+        }
+        onKapat={() => setSemaSecici(null)}
         onSec={(sema) => {
           const hedef = gorselHedefi.current;
           if (!hedef) return;
@@ -1166,6 +1181,11 @@ export function ManualEditor({
             diagramKey: sema.diagramKey,
             diagram: sema.diagram,
             caption: sema.baslik,
+            // Sunucu şemayı sayfaya sığdıran yüzdeyi hesaplar; uzun bir pano
+            // çizimi tam genişlikte gövdeyi taşırırdı.
+            ...(sema.widthPct !== undefined && sema.widthPct < 100
+              ? { widthPct: sema.widthPct }
+              : {}),
           });
           toast.success("Şema eklendi — kaydetmeyi unutmayın.");
         }}
