@@ -53,13 +53,8 @@ function coz(parts: ElectricalPart[]) {
 }
 
 const COMPANY: CompanyInfo = {
-  name: "ORION CRANES",
+  company: "ORION CRANES",
   address: "",
-  phone: "",
-  email: "",
-  web: "",
-  taxOffice: "",
-  taxNo: "",
 };
 
 function meta(over: Partial<Record<string, string>> = {}) {

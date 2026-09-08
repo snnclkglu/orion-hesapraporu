@@ -157,6 +157,19 @@ export interface DeviceBox {
   splittable: boolean;
   /** Belgedeki sıra — eşitlik bozucu son kıstas (PANO-11). */
   sort: number;
+  /**
+   * Kullanıcı bu aygıtı ŞEMADA başka bir yere taşıdı mı?
+   *
+   * SABİTLEME SIRAYI KORUR, KOORDİNATI DEĞİL (PANO-23): bir aygıtı taşımak
+   * onu o KOMŞULUĞA taşımaktır. Koordinat yeniden hesaplanır, çünkü komşu bir
+   * cihazın eni değişince bu cihazın yeri de değişmelidir; donmuş bir
+   * koordinat bir sonraki yerleştirmede çakışma üretirdi.
+   */
+  pinned: boolean;
+  /** Kullanıcının bıraktığı sıra (panonun tamamında). `null` = serbest. */
+  pinnedOrder: number | null;
+  /** Kullanıcının bıraktığı ray — bilgi amaçlı; sıra baskındır. */
+  pinnedRail: number | null;
 }
 
 /** Bir aygıtın montaj plakasındaki yeri [mm, plakanın sol üstünden]. */

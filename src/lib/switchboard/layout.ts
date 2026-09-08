@@ -70,8 +70,41 @@ interface PackResult {
  */
 export const MAX_UNITS = 4000;
 
-/** Aygıtları bölge → ana şalter → renk → doğal kod sırasına dizer. */
+/**
+ * Aygıtları bölge → ana şalter → renk → doğal kod sırasına dizer, sonra
+ * KULLANICININ SABİTLEDİĞİ sıraları yerine oturtur (PANO-23).
+ *
+ * Sabitleme SIRAYI korur, KOORDİNATI değil: bir aygıtı şemada taşımak onu o
+ * KOMŞULUĞA taşımaktır. Koordinat her yerleştirmede yeniden hesaplanır, çünkü
+ * komşu bir cihazın eni değişince bu cihazın yeri de değişmelidir; donmuş bir
+ * koordinat bir sonraki turda çakışma üretirdi.
+ */
 function sirala(devices: DeviceBox[]): DeviceBox[] {
+  const temel = siralaTuretilmis(devices);
+  const sabitli = temel
+    .filter((d) => d.pinnedOrder !== null)
+    .sort((a, b) => (a.pinnedOrder ?? 0) - (b.pinnedOrder ?? 0) || naturalCompare(a.label, b.label));
+  if (sabitli.length === 0) return temel;
+
+  // Sabitlenmiş aygıtlar istedikleri indekse OTURTULUR; gerisi aradaki
+  // boşlukları sırayla doldurur. Aynı indeksi isteyen iki aygıt olursa doğal
+  // kod sırası ayırır — belirsizlik bırakılmaz (PANO-11: determinizm).
+  const serbest = temel.filter((d) => d.pinnedOrder === null);
+  const sonuc: (DeviceBox | null)[] = new Array(temel.length).fill(null);
+  for (const d of sabitli) {
+    let i = Math.max(0, Math.min(temel.length - 1, d.pinnedOrder ?? 0));
+    while (sonuc[i] !== null) i = (i + 1) % temel.length;
+    sonuc[i] = d;
+  }
+  let j = 0;
+  for (let i = 0; i < sonuc.length; i++) {
+    if (sonuc[i] === null) sonuc[i] = serbest[j++] ?? null;
+  }
+  return sonuc.filter((d): d is DeviceBox => d !== null);
+}
+
+/** Sabitleme olmadan türetilen sıra. */
+function siralaTuretilmis(devices: DeviceBox[]): DeviceBox[] {
   return [...devices].sort((a, b) => {
     const za = ZONE_ORDER.indexOf(a.zone as Zone);
     const zb = ZONE_ORDER.indexOf(b.zone as Zone);
@@ -209,7 +242,7 @@ function paketle(
         depthMm: d.depthMm ?? 0,
         unitCount: konacak,
         dimSource: d.dimSource ?? "tahmin",
-        pinned: false,
+        pinned: d.pinned,
       });
 
       aktifX = x + birimEn * konacak;

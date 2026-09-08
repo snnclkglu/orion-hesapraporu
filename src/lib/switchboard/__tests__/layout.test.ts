@@ -1007,3 +1007,101 @@ describe("boş göz sipariş edilmez", () => {
   });
 });
 
+describe("sabitleme SIRAYI korur, koordinatı değil (PANO-23)", () => {
+  // Şemada bir aygıtı taşımak onu o KOMŞULUĞA taşımaktır. Koordinat her
+  // yerleştirmede yeniden hesaplanır: komşu bir cihazın eni değişince bu
+  // cihazın yeri de değişmelidir. Donmuş bir koordinat bir sonraki turda
+  // çakışma üretirdi — denetçi de onu yakalardı.
+
+  function duzeltme(deviceKey: string, order: number) {
+    return {
+      deviceKey,
+      panelCode: null,
+      mountType: null,
+      zone: null,
+      railIndex: 0,
+      orderInRail: order,
+      widthMm: null,
+      heightMm: null,
+      depthMm: null,
+      pinned: true,
+      note: "",
+    };
+  }
+
+  function coz(overrides: ReturnType<typeof duzeltme>[]) {
+    return computeSwitchboardLayout({
+      parts: salterler(6),
+      models: [],
+      placementOverrides: overrides,
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    });
+  }
+
+  it("düzeltme yoksa sıra doğal koddur", () => {
+    const p = coz([]).room[0].placements;
+    expect(p.map((x) => x.label)).toEqual(["F1", "F2", "F3", "F4", "F5", "F6"]);
+  });
+
+  it("sabitlenen aygıt İSTEDİĞİ sıraya oturur", () => {
+    // F6'yı başa al.
+    const p = coz([duzeltme("T1|P1|F6", 0)]).room[0].placements;
+    expect(p[0].label).toBe("F6");
+    // Gerisi doğal sırasını korur.
+    expect(p.slice(1).map((x) => x.label)).toEqual(["F1", "F2", "F3", "F4", "F5"]);
+  });
+
+  it("iki aygıt sabitlenebilir ve ikisi de yerine oturur", () => {
+    const p = coz([duzeltme("T1|P1|F6", 0), duzeltme("T1|P1|F5", 1)]).room[0].placements;
+    expect(p[0].label).toBe("F6");
+    expect(p[1].label).toBe("F5");
+  });
+
+  it("sabitlenen aygıt ROZET taşır — ekran onu gösterebilsin", () => {
+    const p = coz([duzeltme("T1|P1|F6", 0)]).room[0].placements;
+    expect(p.find((x) => x.label === "F6")!.pinned).toBe(true);
+    expect(p.find((x) => x.label === "F1")!.pinned).toBe(false);
+  });
+
+  it("KOORDİNAT DONMAZ: komşunun eni değişince sabitlenen de kayar", () => {
+    const dar = coz([duzeltme("T1|P1|F6", 1)]).room[0].placements;
+    const darX = dar.find((x) => x.label === "F6")!.xMm;
+
+    // İlk cihaza elle daha geniş bir ölçü ver; sabitlenen aygıt SAĞA kaymalı.
+    const genis = computeSwitchboardLayout({
+      parts: salterler(6),
+      models: [],
+      placementOverrides: [
+        duzeltme("T1|P1|F6", 1),
+        {
+          deviceKey: "T1|P1|F1",
+          panelCode: null,
+          mountType: null,
+          zone: null,
+          railIndex: null,
+          orderInRail: null,
+          widthMm: 120,
+          heightMm: null,
+          depthMm: null,
+          pinned: false,
+          note: "",
+        },
+      ],
+      panelOverrides: [],
+      settings: resolveSettings({}),
+    }).room[0].placements;
+    const genisX = genis.find((x) => x.label === "F6")!.xMm;
+
+    expect(genisX).toBeGreaterThan(darX);
+    // Sıra yine korunmuş olmalı: F6 ikinci sırada.
+    expect(genis[1].label).toBe("F6");
+  });
+
+  it("sabitleme DETERMİNİSTİKTİR", () => {
+    const a = coz([duzeltme("T1|P1|F4", 0), duzeltme("T1|P1|F2", 0)]);
+    const b = coz([duzeltme("T1|P1|F4", 0), duzeltme("T1|P1|F2", 0)]);
+    expect(JSON.stringify(a.room)).toBe(JSON.stringify(b.room));
+  });
+});
+

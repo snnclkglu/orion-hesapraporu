@@ -580,3 +580,25 @@ alınır. Gövdenin ön çapını en almak kapağı gereğinden dar hesaplatır;
 Tahmin motorunun kumanda elemanları için kullandığı 30 x 30 değeri bu föyle
 DOĞRULANMIŞTIR — yani orada bir tahmin değil, ölçülmüş bir standart vardır.
 
+## PANO-23 — Sabitleme SIRAYI korur, KOORDİNATI değil.
+
+Şemada bir aygıtı başka bir yere taşımak, onu o KOMŞULUĞA taşımaktır. Bırakılan
+sıra saklanır (`switchboard_placements.order_in_rail`), koordinat ise her
+yerleştirmede YENİDEN HESAPLANIR.
+
+Sebep: koordinat donmuş olsaydı komşu bir cihazın eni değiştiğinde — bir ölçü
+deftere girdiğinde, bir cihaz eklendiğinde, pano eni büyüdüğünde — sabitlenmiş
+aygıt yerinde kalır ve komşusunun üstüne biner. Denetçi bunu `cakisma` olarak
+yakalardı ama zararı çoktan olmuş olurdu: kullanıcı sabitlediği için doğru
+sandığı bir plana bakıyor olurdu.
+
+Uygulama: türetilmiş sıra (bölge → ana şalter → renk → doğal kod) önce
+kurulur, sonra sabitlenmiş aygıtlar istedikleri indekse OTURTULUR ve gerisi
+aradaki boşlukları sırayla doldurur. Aynı indeksi isteyen iki aygıt olursa
+doğal kod sırası ayırır — belirsizlik bırakılmaz (PANO-11).
+
+`pinned` bayrağı yerleşime taşınır: ekran rozet gösterir ve
+“Yeniden Yerleştir” o satırı korur. Ray numarası (`rail_index`) saklanır ama
+sıra baskındır; bir rayın kapasitesi cihazın oraya sığacağını garanti etmez ve
+garanti ediyormuş gibi davranmak sahada yanlış pano ürettirir.
+

@@ -195,6 +195,12 @@ export function buildDeviceBoxes(input: BuildInput): BuildResult {
       unitCount: adet,
       splittable: seritMi,
       sort: sira,
+      // SABİTLEME DÜZELTMEDEN GELİR (PANO-23). Kullanıcı şemada bir cihazı
+      // taşıdığında bıraktığı sıra buraya girer; yerleştirici o SIRAYI korur,
+      // koordinatı yeniden hesaplar.
+      pinned: override?.pinned ?? false,
+      pinnedOrder: override?.orderInRail ?? null,
+      pinnedRail: override?.railIndex ?? null,
     });
 
     // `panelOverride` yalnız pano ADININ/türünün kaynağıdır; kutuya girmez.
