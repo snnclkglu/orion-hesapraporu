@@ -15,7 +15,10 @@ import { describe, expect, it } from "vitest";
 import { electricalCategory } from "@/lib/electrical/category";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { estimateFootprint, kutupOku } from "../footprint";
-import { mountRuleFor } from "../mount";
+import { aksesuarYonu, mountRuleFor } from "../mount";
+import { computeSwitchboardLayout } from "../compute";
+import type { ElectricalPart } from "@/lib/electrical/types";
+import type { DeviceModel } from "../types";
 
 /** Gerçek satırdan kategori + montaj tipi. */
 function coz(designation: string, typeNo: string, supplier = "SE", partNo = "") {
@@ -215,5 +218,157 @@ describe("ağır besleme TAHMİN EDİLMEZ", () => {
       mountType: "plaka",
     });
     expect(t.widthMm).toBeNull();
+  });
+});
+
+describe("AKSESUAR EN EKLER Mİ (PANO-26)", () => {
+  it("Acti9 yardımcı kontağı YANDAN takılır", () => {
+    // Katalogun montaj kuralları sayfası "à esquerda" (sola) diyor.
+    expect(
+      aksesuarYonu({
+        category: "Şalterler ve Devre Kesiciler",
+        designation: "Auxiliary contact iOF, Acti9 A9A, 1 C/O",
+        typeNo: "A9A26904",
+      })
+    ).toBe("yan");
+  });
+
+  it("GV2 yardımcı kontağı ÖNDEN takılır", () => {
+    // "Front mounting add-on contact blocks" — ene 0 ekler.
+    expect(
+      aksesuarYonu({
+        category: "Motor Koruma ve Termik Röleler",
+        designation: "TeSys GV2 & GV3 - auxiliary contact - 1 NO + 1 NC (fault)",
+        typeNo: "GVAE11",
+      })
+    ).toBe("on");
+  });
+
+  it("KANITI OLMAYAN aksesuar eni DEĞİŞTİRMEZ", () => {
+    // Geniş bir `AUXILIARY CONTACT` işareti önden takılan blokları da
+    // yakalar ve panoyu gereksizce genişletirdi (değişmez md. 4).
+    expect(
+      aksesuarYonu({
+        category: "Kontaktörler",
+        designation: "TeSys Giga auxiliary contact blocks 1NO/1NC",
+        typeNo: "LAG8N113",
+      })
+    ).toBeNull();
+    expect(
+      aksesuarYonu({
+        category: "Kumanda ve Güvenlik Röleleri",
+        designation: "Socket, separate contact, 5 A, relay type RXG2",
+        typeNo: "RGZE1S48M",
+      })
+    ).toBeNull();
+  });
+});
+
+describe("yandan takılan aksesuarın eni AYGITA EKLENİR", () => {
+  const DEFTER: DeviceModel[] = [
+    {
+      lookupKey: "SCHNEIDERELECTRIC|A9F74206",
+      supplier: "Schneider Electric",
+      typeNo: "A9F74206",
+      widthMm: 36,
+      heightMm: 85,
+      depthMm: 78.5,
+      moduleUnits: null,
+      mountType: "din",
+      zone: null,
+      clearanceTopMm: null,
+      clearanceBottomMm: null,
+      heatW: null,
+      source: "katalog",
+      note: "",
+    },
+    {
+      lookupKey: "SCHNEIDERELECTRIC|A9A26904",
+      supplier: "Schneider Electric",
+      typeNo: "A9A26904",
+      widthMm: 9,
+      heightMm: 86,
+      depthMm: 67.5,
+      moduleUnits: null,
+      mountType: "din",
+      zone: null,
+      clearanceTopMm: null,
+      clearanceBottomMm: null,
+      heatW: null,
+      source: "katalog",
+      note: "",
+    },
+  ];
+
+  function satir(typeNo: string, designation: string): ElectricalPart {
+    return {
+      deviceTag: "=100T+LVD0-F64",
+      installation: "100T",
+      location: "LVD0",
+      device: "F64",
+      qty: 1,
+      designation,
+      typeNo,
+      supplier: "SE",
+      partNo: `SE.${typeNo}`,
+      page: 1,
+    };
+  }
+
+  const otomat = satir("A9F74206", "Automat. two-pole C 6 A");
+  const aux = satir("A9A26904", "Auxiliary contact iOF, Acti9 A9A, 1 C/O");
+  const dolgu: ElectricalPart[] = Array.from({ length: 3 }, (_, i) => ({
+    ...otomat,
+    device: `F${i + 1}`,
+    deviceTag: `=100T+LVD0-F${i + 1}`,
+  }));
+
+  it("aksesuarsız otomat DEFTERDEKİ enidir", () => {
+    const r = computeSwitchboardLayout({ parts: [otomat, ...dolgu], models: DEFTER });
+    const y = r.room[0].placements.find((p) => p.label === "F64");
+    expect(y?.widthMm).toBe(36);
+  });
+
+  it("YANDAN takılan aksesuar eni BÜYÜTÜR", () => {
+    const r = computeSwitchboardLayout({ parts: [otomat, aux, ...dolgu], models: DEFTER });
+    const y = r.room[0].placements.find((p) => p.label === "F64");
+    expect(y?.widthMm).toBe(45);
+    // Aksesuar AYRI bir kutu açmaz — panoda iki kez yer kaplamaz.
+    expect(r.room[0].placements.filter((p) => p.label === "F64")).toHaveLength(1);
+  });
+
+  it("ÖNDEN takılan aksesuar eni DEĞİŞTİRMEZ", () => {
+    const gvae = { ...aux, typeNo: "GVAE11", partNo: "SE.GVAE11",
+      designation: "TeSys GV2 & GV3 - auxiliary contact - 1 NO + 1 NC (fault)" };
+    const r = computeSwitchboardLayout({ parts: [otomat, gvae, ...dolgu], models: DEFTER });
+    const y = r.room[0].placements.find((p) => p.label === "F64");
+    expect(y?.widthMm).toBe(36);
+  });
+
+  it("aksesuar ANA AYGITIN ölçü düzeltmesini ALMAZ", () => {
+    // `placementOverrides` aygıt anahtarına bağlıdır; aksesuar da aynı anahtarı
+    // taşır. Düzeltme ona da uygulansaydı en İKİ KEZ sayılırdı.
+    const r = computeSwitchboardLayout({
+      parts: [otomat, aux, ...dolgu],
+      models: DEFTER,
+      placementOverrides: [
+        {
+          deviceKey: "100T|LVD0|F64",
+          panelCode: null,
+          mountType: null,
+          zone: null,
+          railIndex: null,
+          orderInRail: null,
+          widthMm: 50,
+          heightMm: 90,
+          depthMm: 80,
+          pinned: false,
+          note: "",
+        },
+      ],
+    });
+    const y = r.room[0].placements.find((p) => p.label === "F64");
+    // 50 (elle) + 9 (aksesuar defteri) = 59; 50 + 50 = 100 DEĞİL.
+    expect(y?.widthMm).toBe(59);
   });
 });

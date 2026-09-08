@@ -14,7 +14,7 @@ import { materialCatalogIdentity, catalogIdentityPart } from "@/lib/electrical/c
 import { electricalCategory } from "@/lib/electrical/category";
 import type { ElectricalPart } from "@/lib/electrical/types";
 import { footprintFor } from "./footprint";
-import { mountRuleFor } from "./mount";
+import { aksesuarYonu, mountRuleFor } from "./mount";
 import { deviceModelLookup } from "./registry";
 import type {
   DeviceBox,
@@ -147,15 +147,49 @@ export function buildDeviceBoxes(input: BuildInput): BuildResult {
       untagged.push(part);
       continue;
     }
-    if (kutular.has(key)) continue;
-    if (anaAygitVar(part)) continue;
-
     const category = electricalCategory({
       designation: part.designation,
       typeNo: part.typeNo,
       supplier: part.supplier,
       partNo: part.partNo,
     });
+
+    // AYNI ETİKETİN İKİNCİ SATIRI: çoğu zaman bir aksesuardır ve gövdeyi
+    // BÜYÜTMEZ — bir kontaktörün önden takılan yardımcı kontağı, bir rölenin
+    // soketi (o zaten takımın kendisidir). Ama YANDAN takılan aksesuar toplam
+    // eni gerçekten büyütür ve saymamak panoyu dar hesaplatır (PANO-26).
+    //
+    // AKSESUAR ANA AYGITIN DÜZELTMESİNİ ALMAZ: `placementOverrides` aygıt
+    // anahtarına bağlıdır ve kullanıcı ana aygıta bir en yazdıysa o en
+    // aksesuara da uygulanır, yani en İKİ KEZ sayılırdı.
+    const mevcut = kutular.get(key);
+    if (mevcut) {
+      const yon = aksesuarYonu({ category, designation: part.designation, typeNo: part.typeNo });
+      if (yon === "yan" && mevcut.widthMm !== null) {
+        const ek = footprintFor(
+          {
+            category,
+            designation: part.designation,
+            typeNo: part.typeNo,
+            supplier: part.supplier,
+            partNo: part.partNo,
+            mountType: mevcut.mountType,
+          },
+          modelBul(materialCatalogIdentity(part).lookupKey),
+          null
+        );
+        if (ek.widthMm !== null && ek.widthMm > 0) {
+          mevcut.widthMm += ek.widthMm;
+          // KAYNAK EN ZAYIF HALKAYA GÖRE (PANO-12): katalogdan gelen bir
+          // gövdeye tahmin edilmiş bir aksesuar eklenirse toplam TAHMİNDİR.
+          if (ek.source === "tahmin" && mevcut.dimSource !== "tahmin") {
+            mevcut.dimSource = "tahmin";
+          }
+        }
+      }
+      continue;
+    }
+    if (anaAygitVar(part)) continue;
     const kural = mountRuleFor({
       category,
       designation: part.designation,

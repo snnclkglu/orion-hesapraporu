@@ -671,6 +671,31 @@ varsayılmaz.
 
 İki ürün tek bir harfle ayrılıyor ve biri ölçüyü büyütüyor, öteki büyütmüyor.
 
+### UYGULAMA: kanıtı olan eklenir, olmayan eklenmez
+
+`mount.ts` içindeki `aksesuarYonu` yalnız kataloğun AÇIKÇA söylediği iki aileyi
+tanır — `A9A`/`iOF`/`iSD` yandan (`+en`), `GVAE` önden (`0`). Liste bilerek
+DARDIR: `AUXILIARY CONTACT` gibi geniş bir işaret önden takılan blokları da
+yakalar ve panoyu gereksizce genişletirdi. Kanıtı olmayan aksesuar `null` döner
+ve eni değiştirmez (değişmez md. 4).
+
+`buildDeviceBoxes` aynı etiketin ikinci satırını görünce yönü sorar; "yan" ise
+aksesuarın KENDİ eni gövdeye eklenir. İki incelik:
+
+- **Aksesuar ana aygıtın ölçü düzeltmesini ALMAZ.** `placementOverrides` aygıt
+  anahtarına bağlıdır ve aksesuar da aynı anahtarı taşır; düzeltme ona da
+  uygulansaydı kullanıcının yazdığı en İKİ KEZ sayılırdı.
+- **Kaynak en zayıf halkaya göre verilir** (PANO-12): katalogdan gelen bir
+  gövdeye tahmin edilmiş bir aksesuar eklenirse toplam TAHMİNDİR.
+
+Ölçüldü (0026-01): iki Acti9 otomatı 36 → **45 mm** oldu; `LVD0-A` doluluğu
+%72'den %74'e çıktı, gövde ızgarası değişmedi.
+
+**`LAG8N113` BEKLİYOR.** Katalog "yan başına ~10 mm" diyor ama ürünün kendi
+ölçüsü hiçbir kaynakta yok, ayrıca iki bloğun iki kontaktöre nasıl dağıldığı
+belgeden çıkmıyor — projeye sorulacak. Ölçü olmadığı için bugün eklenen bir şey
+de yok; kural yazılı, uygulaması veriye bağlı.
+
 İkinci kural: **FİŞLİ RÖLE BİR TAKIMDIR.** Deftere giren ölçü röleyle soketin
 BİRLİKTE kapladığı yerdir — en soketin eni, boy soket + röle. `RXG22BD` ve
 `RGZE1S48M` satırları aynı takım ölçüsünü taşır ve `note` alanı bunu söyler.

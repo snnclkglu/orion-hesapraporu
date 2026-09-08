@@ -187,6 +187,35 @@ export function mountRuleFor(item: MountSource): MountRule {
 }
 
 /**
+ * AKSESUAR AYGITIN ENİNİ BÜYÜTÜR MÜ? (PANO-26)
+ *
+ * Aynı aygıt etiketinin ikinci satırı çoğu zaman bir aksesuardır ve gövdeyi
+ * BÜYÜTMEZ — bir kontaktörün yardımcı kontağı önden takılır, bir rölenin
+ * soketi zaten takımın kendisidir. Ama YANDAN takılan aksesuar toplam eni
+ * gerçekten büyütür ve bunu görmezden gelmek panoyu dar hesaplatır.
+ *
+ * KARAR KATALOĞUN SÖZÜDÜR, tahmin değil. Ölçüldü (0026-01 katalogları):
+ *
+ *  · `A9A26904` (Acti9 iOF): montaj kuralları sayfası "à esquerda" (sola)
+ *    diyor — takım enine 9 mm EKLENİR.
+ *  · `GVAE11` (GV2/GV3): "Front mounting add-on contact blocks" — 0 ekler.
+ *
+ * Liste DAR tutulur: `AUXILIARY CONTACT` gibi geniş bir işaret önden takılan
+ * blokları da yakalar ve panoyu gereksizce genişletirdi. Kanıtı olmayan
+ * aksesuar `null` döner ve eni değiştirmez (değişmez md. 4).
+ */
+export type AksesuarYonu = "yan" | "on";
+
+export function aksesuarYonu(item: MountSource): AksesuarYonu | null {
+  const metin = trKatla(`${item.designation} | ${item.typeNo}`);
+  // Acti9 yardımcı/sinyal kontağı: yandan takılır, en ekler.
+  if (metin.includes("A9A") || metin.includes("IOF") || metin.includes("ISD")) return "yan";
+  // GV2/GV3 önden takılan blok: en eklemez.
+  if (metin.includes("GVAE")) return "on";
+  return null;
+}
+
+/**
  * Pano YANINA / vince asılan ikaz ve aydınlatma mı?
  *
  * ÇIPLAK `HORN` YAZILMAZ: aydınlatma markası THORN'un içinde geçer ve o markanın
