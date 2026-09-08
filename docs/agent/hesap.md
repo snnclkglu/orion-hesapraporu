@@ -344,6 +344,16 @@ arşivi yalnız YAYINDA yazıldığı için yetim dosya kalmaz. Silmeden sonra
 "Yeni Revizyon" KALAN SON revizyondan kopyalar (`createRevision` en büyük
 `rev_no`yu okur): V1 silinince açılan yeni V1 yeniden V0'dan türer.
 
+**Yayınlanmış revizyon YAYIMDAN GERİ ÇEKİLEBİLİR.** Yönetici ve Mühendis,
+yayın düğmesinin yerinde görünen **Geri Çek** eylemiyle revizyonu yeniden
+taslağa alır. Bu işlem içerik güncellemesi değildir: `status` draft olur,
+`issued_at` / `issued_by` temizlenir; girdiler, seçimler, sonuçlar, V numarası,
+etiket ve şablon işareti aynı kalır. Dar kapı `guard_issued_revision`
+tetikleyicisindedir; aynı UPDATE içinde belgeyi değiştirme girişimi reddedilir.
+Arşiv PDF silinmez, `revision.withdraw` denetim kaydı yazılır ve yeniden yayım
+aynı V numarasının arşiv nesnesini günceller. Şablon revizyon önce şablonluktan
+çıkarılmalıdır; aksi hâlde yeni proje kaynağı sessizce taslağa dönüşürdü.
+
 **Editör ekranında çalışma alanı kutsaldır.** Mühendis günün büyük kısmını
 burada geçirir; kalıcı kabuk öğeleri buna göre kısılmıştır:
 - Kontrol özeti + Kaydet editörün üstünde ayrı bir kart DEĞİLDİR; sayfa

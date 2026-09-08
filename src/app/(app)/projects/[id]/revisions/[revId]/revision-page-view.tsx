@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { EDITOR_STATUS_SLOT_ID, RevisionEditor } from "./revision-editor";
 import { IssueRevisionButton } from "./issue-button";
+import { WithdrawRevisionButton } from "./withdraw-button";
 import { ReportMenu } from "./report-menu";
 import { TemplateToggle } from "./template-toggle";
 import {
@@ -27,6 +28,7 @@ import {
   reportContextOf,
   type ReportContext,
 } from "@/lib/report-context";
+import { canEditOffers, canEditReports } from "@/lib/roles";
 
 export async function RevisionPageView({
   params,
@@ -64,6 +66,9 @@ export async function RevisionPageView({
     ? await supabase.from("profiles").select("role").eq("id", user.id).single()
     : { data: null };
   const isAdmin = profile?.role === "admin";
+  const canWithdraw = reportContext === ENGINEERING_REPORT_CONTEXT
+    ? canEditReports(profile?.role)
+    : canEditOffers(profile?.role);
 
   // Teklif kaynaklı V0'da fiyat/sözleşme verisi değil, yalnız kontrollü teknik
   // aktarım görünür. Bu kayıt editörün hesap snapshot'ından ayrı tutulur.
@@ -198,6 +203,15 @@ export async function RevisionPageView({
                   ?.allChecks ?? [])
                   .filter((c) => !c.pass && !(c.id && hiddenCheckIds.has(c.id))).length
               }
+              className="w-full min-w-0 px-1.5 text-xs lg:w-auto lg:px-3 lg:text-sm"
+            />
+          )}
+          {revision.status === "issued" && canWithdraw && (
+            <WithdrawRevisionButton
+              projectId={id}
+              revisionId={revision.id}
+              revNo={revision.rev_no}
+              isTemplate={!!revision.is_template}
               className="w-full min-w-0 px-1.5 text-xs lg:w-auto lg:px-3 lg:text-sm"
             />
           )}

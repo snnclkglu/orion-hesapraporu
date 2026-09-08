@@ -20,6 +20,11 @@ import { MODULE_ORDER } from "@/lib/calc/presentation/module-family";
 import { renderReportPdf } from "@/lib/pdf/report";
 import { getReportSettings } from "@/lib/settings";
 import { loadReportCoverIdentity } from "@/lib/report-cover-identity-server";
+import { canEditOffers, canEditReports } from "@/lib/roles";
+import {
+  ENGINEERING_REPORT_CONTEXT,
+  reportContextOf,
+} from "@/lib/report-context";
 
 export type SaveResult = { error?: string; ok?: boolean };
 
@@ -142,6 +147,92 @@ export async function issueRevision(
         warning:
           "Revizyon yayınlandı ancak PDF arşive yüklenemedi; raporu 'PDF Rapor' bağlantısından indirebilirsiniz.",
       };
+}
+
+/**
+ * Yayımlanmış hesap raporunu içerik değiştirmeden yeniden taslağa alır.
+ *
+ * Arşiv PDF bilerek korunur: daha önce teslim edilmiş belgenin izi kaybolmaz;
+ * aynı V numarası tekrar yayımlandığında `issueRevision` o nesneyi günceller.
+ * Veritabanı tetikleyicisi yalnız status + yayım damgalarına açılan dar kapıyı
+ * denetler; içerik alanları aynı UPDATE içinde değiştirilemez.
+ */
+export async function withdrawRevision(
+  projectId: string,
+  revisionId: string
+): Promise<SaveResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const [{ data: profile }, { data: project }, { data: current }] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("projects")
+      .select("report_context, job_id")
+      .eq("id", projectId)
+      .maybeSingle(),
+    supabase
+      .from("revisions")
+      .select("id, rev_no, label, status, is_template")
+      .eq("id", revisionId)
+      .eq("project_id", projectId)
+      .maybeSingle(),
+  ]);
+
+  if (!project || !current) return { error: "Revizyon bulunamadı." };
+  const context = reportContextOf(project.report_context);
+  const permitted = context === ENGINEERING_REPORT_CONTEXT
+    ? canEditReports(profile?.role)
+    : canEditOffers(profile?.role);
+  if (!permitted) return { error: "Bu hesap raporunu geri çekme yetkiniz yok." };
+  if (current.is_template) {
+    return { error: "Geri çekmeden önce revizyonun şablon işaretini kaldırın." };
+  }
+  if (current.status !== "issued") {
+    return { error: "Revizyon zaten taslak veya artık yayımlanmış değil." };
+  }
+
+  // Tetikleyicinin izin verdiği alanlar TAM OLARAK bunlardır. İçerik, etiket,
+  // revizyon numarası ve şablon işareti aynı UPDATE içinde değişmez.
+  const { data: withdrawn, error } = await supabase
+    .from("revisions")
+    .update({ status: "draft", issued_at: null, issued_by: null })
+    .eq("id", revisionId)
+    .eq("project_id", projectId)
+    .eq("status", "issued")
+    .eq("is_template", false)
+    .select("id");
+
+  if (error) {
+    return {
+      error: error.message.includes("Yayınlanmış")
+        ? "Geri çekme veritabanı tarafından engellendi; ilgili migrasyon uygulanmamış olabilir."
+        : error.message,
+    };
+  }
+  if (!withdrawn?.length) return { error: "Revizyon geri çekilemedi; sayfayı yenileyip tekrar deneyin." };
+
+  await supabase.from("audit_log").insert({
+    project_id: projectId,
+    revision_id: revisionId,
+    actor: user.id,
+    action: "revision.withdraw",
+    detail: {
+      rev_no: current.rev_no,
+      label: current.label,
+      archived_pdf_preserved: true,
+    },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${projectId}/revisions/${revisionId}`);
+  revalidatePath(`/offers/hesap-raporlari/${projectId}`);
+  revalidatePath(`/offers/hesap-raporlari/${projectId}/revisions/${revisionId}`);
+  if (project.job_id) revalidatePath(`/projects/jobs/${project.job_id}`);
+  return { ok: true };
 }
 
 /**
