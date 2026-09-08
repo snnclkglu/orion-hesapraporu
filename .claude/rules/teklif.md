@@ -4,6 +4,8 @@ paths:
   - "orion-hesapraporu/src/lib/offers/**"
   - "src/app/(app)/offers/**"
   - "orion-hesapraporu/src/app/(app)/offers/**"
+  - "src/app/api/agent/**"
+  - "orion-hesapraporu/src/app/api/agent/**"
   - "src/lib/pdf/offer.tsx"
   - "orion-hesapraporu/src/lib/pdf/offer.tsx"
   - "scripts/gen-offer-seed.ts"

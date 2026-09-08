@@ -22,20 +22,9 @@ import { isAdminRole } from "@/lib/roles";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { copyPayloadForCustomer } from "@/lib/offers/copy";
 import { offerValueUpper } from "@/lib/offers/options";
-import { nextSeq, offerNo } from "@/lib/offers/no";
-import {
-  applyDefaults,
-  emptyPayload,
-  greetingFor,
-  withDefaults,
-} from "@/lib/offers/payload";
-import { coverFieldsFromContact, suggestedContact } from "@/lib/customer-contacts";
-import { itemFactsFromRows } from "@/lib/offers/registry";
-import { defaultsOf, loadCustomerContacts, loadOfferOptions } from "./data";
-import { withTotal } from "@/lib/offers/pricing";
+import { withDefaults } from "@/lib/offers/payload";
 import { offerFileName } from "@/lib/pdf/doc-naming";
 import { OFFER_STATUSES, type OfferStatus } from "@/lib/offers/status";
-import { DEFAULT_OFFER_WIN_SCORE, defaultOfferExpectedOn } from "@/lib/offers/analiz";
 import { renderOfferPdf } from "@/lib/pdf/offer";
 import {
   isOfferSignaturePath,
@@ -53,9 +42,7 @@ import { offerIssuerCompany, offerIssuerName } from "@/lib/offers/issuer";
 import {
   copyOfferSchema,
   ensureOptionSchema,
-  newOfferSchema,
   offerDetailsSchema,
-  saveRevisionSchema,
   type CopyOfferInput,
   type EnsureOptionInput,
   type NewOfferInput,
@@ -64,6 +51,14 @@ import {
   type OfferSubjectInput,
   type SaveRevisionInput,
 } from "./schema";
+import {
+  createOfferDraft,
+  createOfferRevisionDraft,
+  loadOfferAuthor,
+  saveOfferRevisionDraft,
+  todayIsoDate,
+  writeOfferRecord,
+} from "./mutations";
 
 export type OfferActionResult = { error?: string; warning?: string; ok?: boolean };
 
@@ -82,85 +77,11 @@ function tazele(offerId?: string) {
   if (offerId) revalidatePath(`/offers/${offerId}`);
 }
 
-/** Bugünün ISO tarihi — teklif numarası ondan türer. */
 function bugun(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayIsoDate();
 }
 
 // ————————————————————————————————————————————————————————— teklif açma
-
-/**
- * Yeni teklif numarası önerir.
- *
- * ÖNERİDİR, KİLİT DEĞİLDİR: asıl tekillik `offers_seq_uidx` benzersiz
- * indeksindedir. İki kişi aynı anda teklif açarsa ikincinin insert'i 23505 ile
- * düşer ve çağıran sırayı bir artırıp yeniden dener (`order-no.ts` ile aynı
- * ruh). Numarayı bir kilit altında üretmek, günde birkaç teklif açan bir firma
- * için gereksiz bir karmaşıklık olurdu.
- */
-async function oneriliSira(supabase: SupabaseClient, lang: string, tarih: string): Promise<number> {
-  const { data } = await supabase
-    .from("offers")
-    .select("seq")
-    .eq("lang", lang)
-    .eq("issue_date", tarih);
-  return nextSeq((data ?? []).map((r) => r.seq as number));
-}
-
-interface YeniTeklifKaydi {
-  lang: string;
-  issue_date: string;
-  customer_id: string;
-  customer_name: string;
-  subject: string;
-  currency: string;
-  created_by: string;
-}
-
-/** Numara çakışırsa sırayı artırıp yeniden dener; üç denemeden sonra vazgeçer. */
-async function teklifYaz(
-  supabase: SupabaseClient,
-  kayit: YeniTeklifKaydi
-): Promise<{ id: string; offer_no: string } | { error: string }> {
-  let seq = await oneriliSira(supabase, kayit.lang, kayit.issue_date);
-  for (let deneme = 0; deneme < 3; deneme += 1) {
-    const { data, error } = await supabase
-      .from("offers")
-      .insert({
-        ...kayit,
-        seq,
-        offer_no: offerNo(kayit.lang as "tr" | "en", kayit.issue_date, seq),
-        expected_on: defaultOfferExpectedOn(kayit.issue_date),
-        win_score: DEFAULT_OFFER_WIN_SCORE,
-      })
-      .select("id, offer_no")
-      .single();
-    if (!error && data) return data as { id: string; offer_no: string };
-    if (error?.code !== "23505") return { error: error?.message ?? "Teklif oluşturulamadı" };
-    seq += 1;
-  }
-  return { error: "Teklif numarası üretilemedi; lütfen tekrar deneyin." };
-}
-
-/** Teklifi hazırlayanın künyesi — kapağın "KİMDEN" sütununu doldurur. */
-async function hazirlayan(
-  supabase: SupabaseClient,
-  userId: string
-): Promise<{ name: string; title: string; email: string }> {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, title")
-    .eq("id", userId)
-    .maybeSingle();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return {
-    name: (profile?.full_name as string) ?? "",
-    title: (profile?.title as string) ?? "",
-    email: user?.email ?? "",
-  };
-}
 
 export async function createOffer(input: NewOfferInput): Promise<OfferActionResult> {
   const supabase = await createClient();
@@ -169,122 +90,17 @@ export async function createOffer(input: NewOfferInput): Promise<OfferActionResu
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı" };
 
-  const parsed = newOfferSchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
-
-  const [{ data: customer }, { data: issuerCustomer }] = await Promise.all([
-    supabase
-      .from("customers")
-      .select("name")
-      .eq("id", parsed.data.customerId)
-      .maybeSingle(),
-    parsed.data.issuerCustomerId
-      ? supabase
-          .from("customers")
-          .select("id, name, address, tax_office, tax_no, phone, fax")
-          .eq("id", parsed.data.issuerCustomerId)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
-  if (!customer) return { error: "Müşteri defterde bulunamadı" };
-  if (parsed.data.issuerCustomerId && !issuerCustomer) {
-    return { error: "Teklifi hazırlayan firma müşteri defterinde bulunamadı" };
-  }
-
-  const yazildi = await teklifYaz(supabase, {
-    lang: parsed.data.lang,
-    issue_date: bugun(),
-    customer_id: parsed.data.customerId,
-    // MÜŞTERİ ADI FOTOĞRAFTIR: defter sonradan düzeltilince teslim edilmiş
-    // teklif değişmemelidir.
-    customer_name: customer.name as string,
-    subject: parsed.data.subject,
-    currency: parsed.data.currency,
-    created_by: user.id,
-  });
-  if ("error" in yazildi) return { error: yazildi.error };
-
-  // İlk revizyon (R0) — kapak künyesi, defter varsayılanları ve muhatap dolu;
-  // teknik kalemler editörde, kalem kalem eklenir.
-  let payload = emptyPayload(parsed.data.currency);
-  if (issuerCustomer) {
-    payload.issuer = {
-      customerId: issuerCustomer.id as string,
-      company: (issuerCustomer.name as string) ?? "",
-      address: (issuerCustomer.address as string) ?? "",
-      taxOffice: (issuerCustomer.tax_office as string) ?? "",
-      taxNo: (issuerCustomer.tax_no as string) ?? "",
-      phone: (issuerCustomer.phone as string) ?? "",
-      fax: (issuerCustomer.fax as string) ?? "",
-      // Müşteri defterinde bugün e-posta/web alanı yoktur; uydurulmaz.
-      email: "",
-      web: "",
-    };
-  }
-  const kunye = await hazirlayan(supabase, user.id);
-  payload.cover = {
-    ...payload.cover,
-    fromName: kunye.name,
-    fromTitle: kunye.title,
-    fromEmail: kunye.email,
-  };
-  // TEST YÜKÜ, GEÇERLİLİK VE GİRİŞ PARAGRAFI DEFTERDEN DOLU GELİR (kullanıcı
-  // isteği). Değerler koda gömülmez; Tanımlar sayfasından değiştirilir.
-  const defter = await loadOfferOptions(supabase);
-  payload = applyDefaults(payload, defaultsOf(defter));
-
-  // MÜŞTERİ SEÇİLDİĞİNDE MUHATAP DA GELİR (kullanıcı isteği: *"Müşteri
-  // seçtiğimde müşteri bilgilerini de getir"*). Defterdeki BİRİNCİL kişi
-  // önerilir; kullanıcı editörde başkasını seçebilir. Kişi yoksa alanlar BOŞ
-  // kalır — uydurma bir muhatap adı, kapağın en görünür satırında yanlış
-  // olurdu (değişmez md. 4).
-  const kisiler = await loadCustomerContacts(supabase, parsed.data.customerId);
-  const muhatap = suggestedContact(kisiler);
-  if (muhatap) {
-    const ek = defter.find((o) => o.list_key === "cover.honorific" && o.is_default)?.value ?? "";
-    payload.cover = {
-      ...payload.cover,
-      ...coverFieldsFromContact(muhatap),
-      greeting: greetingFor(muhatap.name, ek),
-    };
-  }
-
-  // İLK KALEM "VİNÇ - 1"DİR, TEKLİF KONUSU DEĞİL (kullanıcı isteği,
-  // 17.08.2026: *"girdiğim teklif konusu ekleyeceğim vinç ile aynı olmayabilir;
-  // konu kapak bölümüne gelsin, ilk vinç Vinç - 1 olarak gelsin"*). Konu
-  // BELGENİN adıdır ("YENİ FABRİKA VİNÇ TEKLİFLERİ") ve üç vinçlik bir teklifin
-  // ilk vincine onu takmak, kullanıcının her seferinde sildiği bir başlık
-  // üretirdi. Başlık zaten kapasite ve vinç tipi girildiğinde kendiliğinden
-  // yazılır (`withAutoTitle`).
-  // TEKLİF KALEMSİZ AÇILIR (kullanıcı isteği, 17.08.2026: *"şablon seçimini
-  // teklifi oluştururken değil de kalem eklerken yapsak daha iyi olur; teklif
-  // ilk boş olarak gelsin, ben kalem eklerken hangi şablona göre geldiğini
-  // orada seçeyim, çünkü bir teklif içerisinde hem tek kirişli hem çift kirişli
-  // hem portal olabilir"*).
-  //
-  // Şablonu teklif düzeyinde sormak, ÇOK ÜRÜNLÜ bir belgeyi tek bir vinç tipine
-  // bağlamak olurdu: ASTOR'un "Yeni Fabrika" teklifinde bir çift kirişli, bir
-  // tek kirişli ve iki monoray var. Şablon artık KALEMİN sorusudur ve her
-  // kalemde yeniden sorulur (`KalemEkleDialog`).
-  payload.items = [];
-
-  const { error: revError } = await supabase.from("offer_revisions").insert({
-    offer_id: yazildi.id,
-    rev_no: 0,
-    label: "R0",
-    payload,
-    created_by: user.id,
-  });
-  if (revError) return { error: revError.message };
+  const result = await createOfferDraft(supabase, user.id, input);
+  if (result.error) return { error: result.error.message };
 
   await audit(supabase, user.id, "offer.create", {
-    offer_id: yazildi.id,
-    offer_no: yazildi.offer_no,
-    customer: customer.name,
-    issuer: issuerCustomer?.name ?? "ORION VİNÇ",
+    offer_id: result.data.offerId,
+    offer_no: result.data.offerNo,
+    customer: result.data.customerName,
+    issuer: result.data.issuerName,
   });
-  tazele(yazildi.id);
-  redirect(`/offers/${yazildi.id}`);
+  tazele(result.data.offerId);
+  redirect(`/offers/${result.data.offerId}`);
 }
 
 /**
@@ -323,27 +139,27 @@ export async function copyOfferToCustomer(input: CopyOfferInput): Promise<OfferA
     .limit(1)
     .maybeSingle();
 
-  const yazildi = await teklifYaz(supabase, {
+  const yazildi = await writeOfferRecord(supabase, {
     lang: kaynak.lang as string,
-    issue_date: bugun(),
+    issue_date: todayIsoDate(),
     customer_id: parsed.data.customerId,
     customer_name: customer.name as string,
     subject: parsed.data.subject,
     currency: kaynak.currency as string,
     created_by: user.id,
   });
-  if ("error" in yazildi) return { error: yazildi.error };
+  if (yazildi.error) return { error: yazildi.error.message };
 
   const payload = copyPayloadForCustomer(
     withDefaults(revision?.payload, kaynak.currency as string),
     {
       customerName: customer.name as string,
-      from: await hazirlayan(supabase, user.id),
+      from: await loadOfferAuthor(supabase, user.id),
     }
   );
 
   const { error: revError } = await supabase.from("offer_revisions").insert({
-    offer_id: yazildi.id,
+    offer_id: yazildi.data.id,
     rev_no: 0,
     label: "R0",
     payload,
@@ -352,13 +168,13 @@ export async function copyOfferToCustomer(input: CopyOfferInput): Promise<OfferA
   if (revError) return { error: revError.message };
 
   await audit(supabase, user.id, "offer.copy", {
-    offer_id: yazildi.id,
-    offer_no: yazildi.offer_no,
+    offer_id: yazildi.data.id,
+    offer_no: yazildi.data.offerNo,
     source_offer_id: parsed.data.sourceOfferId,
     customer: customer.name,
   });
-  tazele(yazildi.id);
-  redirect(`/offers/${yazildi.id}`);
+  tazele(yazildi.data.id);
+  redirect(`/offers/${yazildi.data.id}`);
 }
 
 // ————————————————————————————————————————————————————————— düzenleme
@@ -628,35 +444,15 @@ export async function createOfferRevision(offerId: string): Promise<OfferActionR
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı" };
 
-  const id = z.uuid("Geçersiz teklif").safeParse(offerId);
-  if (!id.success) return { error: id.error.issues[0].message };
+  const result = await createOfferRevisionDraft(supabase, user.id, offerId);
+  if (result.error) return { error: result.error.message };
 
-  const { data: son } = await supabase
-    .from("offer_revisions")
-    .select("rev_no, payload, notes")
-    .eq("offer_id", id.data)
-    .order("rev_no", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const revNo = (son?.rev_no ?? -1) + 1;
-  const { data, error } = await supabase
-    .from("offer_revisions")
-    .insert({
-      offer_id: id.data,
-      rev_no: revNo,
-      label: `R${revNo}`,
-      payload: son?.payload ?? emptyPayload(),
-      notes: son?.notes ?? "",
-      created_by: user.id,
-    })
-    .select("id")
-    .single();
-  if (error) return { error: error.message };
-
-  await audit(supabase, user.id, "offer.revision_create", { offer_id: id.data, rev_no: revNo });
-  tazele(id.data);
-  return { id: data.id as string };
+  await audit(supabase, user.id, "offer.revision_create", {
+    offer_id: offerId,
+    rev_no: result.data.revNo,
+  });
+  tazele(offerId);
+  return { id: result.data.revisionId };
 }
 
 export async function deleteOfferRevision(
@@ -695,50 +491,8 @@ export async function saveOfferRevision(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı" };
 
-  const parsed = saveRevisionSchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
-
-  const payload = withDefaults(parsed.data.payload);
-  payload.pricing = withTotal(payload.pricing);
-  // KALEM KÜNYESİ TEKNİK SATIRLARDAN TÜRETİLİR (kullanıcı isteği: kapasite ve
-  // açıklık artık yalnız GENEL ÖZELLİKLER'de sorulur). Teklif listesindeki
-  // tonaj ve vinç tipi süzgeçleri bu sayıları okur; ayrı bir alanda
-  // saklanmadıkları için belgeden AYRIŞAMAZLAR.
-  payload.items = payload.items.map((item) => {
-    const kunye = itemFactsFromRows(item.groups);
-    return {
-      ...item,
-      capacityT: kunye.capacityT,
-      spanM: kunye.spanM,
-      // VİNÇ TİPİ TÜRETİLMEZ, SORULUR (md. 3): `GENEL ÖZELLİKLER > Vinç Tipi`
-      // satırı emekliye ayrıldı ve tek soruluşu kalem künyesindeki kutudur.
-      craneType: item.craneType || "",
-    };
-  });
-
-  // NOT VERİLMEDİYSE SÜTUNA HİÇ DOKUNULMAZ (bkz. `saveRevisionSchema`):
-  // otomatik kayıt saniyede bir yazdığı için, "yazılmayan alan boşaltılır"
-  // varsayımı burada revizyon notunu sessizce silmek olurdu.
-  const guncelleme: Record<string, unknown> = { payload };
-  if (parsed.data.notes !== undefined) guncelleme.notes = parsed.data.notes;
-
-  const { data: yazilan, error } = await supabase
-    .from("offer_revisions")
-    .update(guncelleme)
-    .eq("id", revisionId)
-    .eq("offer_id", offerId)
-    .eq("status", "draft")
-    .select("id");
-  if (error) {
-    return {
-      error: error.message.includes("Yayınlanmış")
-        ? "Yayımlanmış revizyon değiştirilemez; yeni bir revizyon oluşturun."
-        : error.message,
-    };
-  }
-  if (!yazilan?.length) {
-    return { error: "Revizyon bulunamadı ya da yayımlanmış — yeni bir revizyon oluşturun." };
-  }
+  const result = await saveOfferRevisionDraft(supabase, offerId, revisionId, input);
+  if (result.error) return { error: result.error.message };
 
   // ARKA PLAN KAYDI YOL TAZELEMEZ: editör kendi durumunu zaten elinde tutar ve
   // yürürlükteki sayfayı her yazma duraklamasında yeniden çektirmek boş bir ağ
@@ -746,7 +500,7 @@ export async function saveOfferRevision(
   // üretilir; tazeleme doğruluk için değil hız içindi. Yayım kendi yollarını
   // yine tam tazeler (`issueOfferRevision`) — kilitlenen belge listede anında
   // görünmelidir.
-  if (!parsed.data.background) {
+  if (!input.background) {
     tazele(offerId);
     revalidatePath(`/offers/${offerId}/revisions/${revisionId}`);
   }

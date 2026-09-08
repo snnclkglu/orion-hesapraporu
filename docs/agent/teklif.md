@@ -2022,3 +2022,76 @@ atanmış kazanılmış teklifleri seçtirir. Son yayımlanmış revizyon kaynak
 `offer_job_conversions` satırına sabitlenir; bundan sonra İşler ve Mühendislik
 TEKLIF-85'teki sade dokümanı görür. Bu yol teklif teknik verisinden yeni iş
 kalemi üretmez ve mevcut iş emri alanlarını değiştirmez (IS-35).
+
+## TEKLIF-87 — Agent kapısı kimlik ve scope'u ayırır; Teklifçi yalnız TASLAK yazar.
+
+Çerezsiz entegrasyon `/api/agent/` altında Bearer token ile çalışır. Tercih
+edilen ayar tek bir gizli `AGENT_API_CLIENTS` JSON dizisidir; her kayıt ayrı
+`id`, görünen ad, en az 32 karakter token, profil UUID'si, scope listesi ve
+isteğe bağlı dakika sınırı taşır. Eski tek-agent kurulumu için
+`AGENT_API_TOKEN` + `AGENT_USER_ID` geriye dönük olarak kabul edilir, ancak yeni
+agent'lar bu ortak token'a eklenmez. Token audit'e, yanıta veya veritabanına
+yazılmaz.
+
+Route önce kendi scope'unu açıkça ister, sonra bağlanan profili her istekte
+yeniden okur. Bugünkü scope'lar `offers:read` ve `offers:draft:write`tır; ikisi
+de uygulamanın Yönetici/Müdür teklif kapısıyla ayrıca doğrulanır. Böylece bir
+agent token'ında yazma scope'u bulunsa dahi profil teklifi yazamıyorsa 403
+döner. Yarın başka bölüm açıldığında yeni scope ile o bölümün rol sorusu
+birlikte eklenir; var olan teklif token'ları kendiliğinden genişlemez. Agent'a
+Supabase kullanıcı oturumu, anon anahtarı veya service-role anahtarı verilmez;
+RLS'i aşan istemci yalnız route'un sunucu paketinde kalır.
+
+**KAPI İZİN LİSTESİDİR:** müşteri arama, teklif + R0 taslağı açma, teklif ve
+revizyon okuma, yalnız taslak revizyon kaydetme, son snapshot'tan yeni taslak
+revizyon üretme, `offer_options` ve etkin kalem şablonlarını okuma. Yayımlama,
+silme, kopyalama, yayımdan geri çekme, maliyet, imza ve PDF ucu YOKTUR. Service
+role kullanılması bu işlevleri dolaylı olarak açmaz; route ağacında onları
+çağıran bir handler bulunmaz.
+
+Ekranın `createOffer` / `saveOfferRevision` / `createOfferRevision` action'ları
+ile agent route'ları aynı `offers/mutations.ts` çekirdeğini çağırır. Böylece
+R0 varsayılanları, birincil muhatap, toplam (`withTotal`), kalem künyesi
+(`itemFactsFromRows`) ve yayımlanmış revizyon uyarısı iki ayrı uygulamaya
+bölünmez. İlk revizyon insert'i kimliğini döndürür; ekran yine yönlendirir,
+agent ise `{ offerId, offerNo, revisionId, appUrl }` JSON'unu alır. Şablondan
+kalem ekleme de agent'ın grup/satır anahtarı uydurması değildir: sunucu etkin
+`offer_templates` satırını okur, arayüzle aynı `emptyItem` kurucusunu çağırır,
+kalemi ortak taslak kayıt yolundan geçirir ve oluşan gerçek satırları döndürür.
+
+Her doğrulanmış iş isteği, asıl okumaya/yazmaya BAŞLAMADAN `audit_log`a yazılır.
+Sütundaki `actor` UUID kalmaya devam eder; `detail.actor = "agent"`, agent
+kimliği ve adı, kullanılan scope, istek kimliği, yöntem, yol ve varsa
+teklif/revizyon kimliği agent niteliğini açıkça taşır. Audit insert'i
+başarısızsa işlem başlamaz. OPTIONS yalnız CORS ön uçuşudur ve iş isteği/audit
+olayı sayılmaz.
+
+Yanıtlar `Cache-Control: no-store`, CORS `*` ve JSON hata sözleşmesi taşır.
+Token yok/yanlış 401; scope ya da profil yetkisiz 403; kayıt yok 404;
+yayımlanmış revizyon ve eşzamanlı revizyon yarışı 409; gövde/UUID doğrulaması
+422'dir. Veritabanı ve iç yol mesajı istemciye döndürülmez. Basit oran sınırı
+varsayılan olarak agent kimliği + IP başına dakikada 60 doğrulanmış istektir;
+her agent kaydında ayrı verilebilir, yoksa `AGENT_API_RATE_LIMIT` (1–600)
+uygulanır. Sayaç Vercel örneği başına çalışır ve dış kalıcı sayaç gerektirmez.
+
+## TEKLIF-88 — Agent POST komutları tekrar güvenlidir; anahtar payload'a karışmaz.
+
+Teklif ve revizyon açmak ağ tekrarında iki kayıt üretebilen işlemlerdir. Agent
+POST isteklerinde 8–128 görünür ASCII karakterlik `Idempotency-Key` gönderebilir.
+Sunucu agent kimliği + anahtar çiftini yöntem, sorgu yolu ve gövde SHA-256
+özetiyle `agent_api_idempotency` tablosunda sahiplenir. Aynı komut tamamlandıysa
+kayıtlı JSON/status yeniden oynatılır ve `Idempotency-Replayed: true` döner;
+aynı anahtar farklı gövde/yolda kullanılırsa ya da ilk komut hâlâ sürüyorsa 409
+döner.
+
+Ham bearer token ve iş payload'ı bu deftere girmez. Tablo RLS açıktır, anon ve
+oturumlu rollere bütünüyle kapalıdır; yalnız agent route'unun service-role
+istemcisi erişir. Teklif tablolarına entegrasyon sütunu eklenmez. PUT tam taslak
+snapshot'ını aynı sonuca yazdığı için bu POST defterini kullanmaz.
+
+Revizyon GET'i tam teklif içeriğini taşır ama imzacıdaki `userId`, özel
+`signaturePath` ve özgün `signatureName` alanlarını dışarı vermez. PUT da bu
+alanları agent gövdesinden kabul etmez; mevcut sunucu değerlerini geri takıp
+sonra ortak kaydetme çekirdeğine girer. İmza yükleme scope'u açılmadığı için ham
+payload üzerinden imza silmek ya da başka bir özel depo yolu enjekte etmek de
+mümkün değildir.

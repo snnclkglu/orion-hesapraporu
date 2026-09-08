@@ -162,6 +162,14 @@
   listesi + detay/editör/ekipman/PDF rota kabukları. Hesap kodu burada
   kopyalanmaz; `projects` altındaki ortak görünümleri ve `lib/calc` motorunu
   kullanır, yalnız `projects.report_context = 'offer'` kayıtlarını gösterir.
+- `src/app/api/agent/` — bütün harici agent'ların ortak, çerezsiz API kapısı.
+  `_lib.ts` kimlik + scope + profil rolü, oran sınırı, audit ve POST tekrar
+  güvenliğini tek yerde uygular. Bugünkü `offers:read` ve
+  `offers:draft:write` uçları müşteri/defter/şablon okur; teklif + R0 taslağı,
+  yeni taslak revizyon ve şablondan kalem açar; taslak payload kaydeder.
+  Yayımlama, silme, geri çekme ve kopyalama ucu bilerek yoktur. Ekran action'ı
+  ile API'nin ortak yazma çekirdeği `src/app/(app)/offers/mutations.ts`tir.
+  Dış entegrasyon sözleşmesi `docs/agent-api.md`tedir.
 - `src/lib/pdf/offer.tsx` — TEKLİF BELGESİ: kapak (KİMDEN/KİME) → kalem başına
   teknik sayfalar → test yükü → ticari blok → tek şemalı fiyat tablosu →
   notlar → kapsam dışı; altbilgi künyesi her sayfada

@@ -23,6 +23,12 @@ export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/qr/")) {
     return NextResponse.next({ request });
   }
+  // AGENT API ÇEREZ TAŞIMAZ. Bu muafiyet yalnız giriş yönlendirmesini atlar;
+  // her handler kendi içinde Bearer token'ı, agent profilini ve oran sınırını
+  // doğrular. Aksi halde geçerli token'lı istek bile `/login`e 307 ile gider.
+  if (request.nextUrl.pathname.startsWith("/api/agent/")) {
+    return NextResponse.next({ request });
+  }
 
   let response = NextResponse.next({ request });
 

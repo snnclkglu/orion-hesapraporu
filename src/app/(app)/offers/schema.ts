@@ -118,6 +118,20 @@ export const saveRevisionSchema = z.object({
 
 export type SaveRevisionInput = z.infer<typeof saveRevisionSchema>;
 
+/**
+ * Agent ve arayüzün aynı güvenli şablon kurucusunu kullanabilmesi için kalem
+ * ekleme komutu. Agent grup/satır anahtarlarını uydurmaz; yalnız defterdeki
+ * şablon kimliğini ve isterse görünen başlığı söyler.
+ */
+export const addOfferTemplateItemSchema = z
+  .object({
+    templateId: z.uuid("Teklif şablonu geçersiz"),
+    title: z.string().trim().max(200, "Kalem başlığı çok uzun").optional(),
+  })
+  .strict();
+
+export type AddOfferTemplateItemInput = z.infer<typeof addOfferTemplateItemSchema>;
+
 /** Defterin listeleri kapalı değildir: yazılan değer tek tıkla deftere girer. */
 export const ensureOptionSchema = z.object({
   listKey: z.string().trim().min(1),
