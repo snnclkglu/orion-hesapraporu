@@ -311,13 +311,26 @@ interface Ayirma {
   plaka: DeviceBox[];
   kapak: DeviceBox[];
   govde: DeviceBox[];
+  /** Pano YANINA asılanlar — yerleşmez ama çizilir. */
+  yan: DeviceBox[];
   disari: Unplaced[];
 }
 
 /** Aygıtları montaj tipine göre ayırır; yerleşemeyeni SEBEBİYLE kaydeder. */
 function ayir(devices: DeviceBox[]): Ayirma {
-  const out: Ayirma = { plaka: [], kapak: [], govde: [], disari: [] };
+  const out: Ayirma = { plaka: [], kapak: [], govde: [], yan: [], disari: [] };
   for (const d of devices) {
+    // ÜRÜNSÜZ SATIR SINIFLANMAMIŞ DEĞİLDİR. Sınıflandırıcıya kızmanın anlamı
+    // yok: ortada sınıflanacak bir ürün yok. Ayrı bir kova, gerçek eksiklerin
+    // (ölçüsüz sürücü) görünürlüğünü korur.
+    if (d.mountType === null && !d.supplier && !d.typeNo && !d.partNo) {
+      out.disari.push({
+        device: d,
+        reason: "urunsuz",
+        note: "Aygıt etiketi var ama malzeme satırında ürün yok",
+      });
+      continue;
+    }
     if (d.mountType === null) {
       out.disari.push({
         device: d,
@@ -332,6 +345,13 @@ function ayir(devices: DeviceBox[]): Ayirma {
     }
     if (d.mountType === "govde") {
       out.govde.push(d);
+      continue;
+    }
+    // PANO YANI KUYRUĞA DÜŞMEZ, LİSTEYE GİRER. Ölçüsü bilinmese de görünür:
+    // bir sirenin eni panoyu büyütmez, o yüzden burada ölçü aranmaz — ölçü
+    // denetimi `olcusuz` yalnız plakaya/kapağa GİREN cihaz için geçerlidir.
+    if (d.mountType === "yan") {
+      out.yan.push(d);
       continue;
     }
     if (!olculuMu(d)) {
@@ -387,7 +407,7 @@ export function solvePanel(
   heightMm: number,
   s: LayoutSettings
 ): PanelSolve {
-  const { plaka, kapak, govde, disari } = ayir(input.devices);
+  const { plaka, kapak, govde, yan, disari } = ayir(input.devices);
   const yukseklikKapasitesi = plateCapacityHeightMm(heightMm, s);
 
   const kilitliEn = input.override?.widthLocked ? input.override.widthMm : null;
@@ -452,6 +472,7 @@ export function solvePanel(
     placements: secilen.paket.placements,
     doorPlacements: kapakYerlesim,
     bodyDevices: govde,
+    sideDevices: yan,
     requiredDepthMm: gerekliDerinlik,
     fillRatio: doluluk,
     splitOf: null,
@@ -665,7 +686,8 @@ export function solveLineup(input: SolveAllInput): SolveAllResult {
   const doluMu = (c: PanelSolve): boolean =>
     c.layout.placements.length > 0 ||
     c.layout.doorPlacements.length > 0 ||
-    c.layout.bodyDevices.length > 0;
+    c.layout.bodyDevices.length > 0 ||
+    c.layout.sideDevices.length > 0;
 
   const tutulan = tumCozumler.map((c, i) => ({ c, g: tumGirdiler[i] })).filter((x) => doluMu(x.c));
   const girdiler = tutulan.map((x) => x.g);

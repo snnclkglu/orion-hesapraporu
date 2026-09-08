@@ -41,6 +41,7 @@ export const MOUNT_LABEL: Record<MountType, string> = {
   plaka: "Montaj plakası",
   kapak: "Kapak",
   govde: "Gövde gereci",
+  yan: "Pano yanı",
   saha: "Pano dışı (saha)",
 };
 
@@ -154,7 +155,74 @@ export function mountRuleFor(item: MountSource): MountRule {
     }
   }
 
+  // İKAZ VE AYDINLATMA AİLESİ DE İKİYE AYRILIR (kullanıcı kararı, 08.09.2026).
+  // Ölçüldü (0026): 108 dB'lik bir siren, boru korna, üç katlı ikaz kolonu ve
+  // 160 W'lık dört projektör pano KAPAĞINA 30 x 30 mm delik olarak çiziliyordu
+  // — hiçbiri panonun kapağında değil, vincin üstünde ya da panonun yanında.
+  // Projektörler ise `govde` sayıldığı için çizimde de listede de kuyrukta da
+  // GÖRÜNMÜYORDU; bir aygıtın sessizce yok olması en kötü sonuçtur (PANO-10).
+  if (item.category === "Sinyal ve İkaz Elemanları" || item.category === "Aydınlatma") {
+    if (panoYaniMi(metin)) {
+      return { mountType: "yan", zone: null, colorGroup: "kumanda" };
+    }
+  }
+
+  // FREN DİRENCİ SÜRÜCÜ AİLESİNDEDİR AMA PANOYA GİRMEZ (kullanıcı kararı,
+  // 08.09.2026). 0026'da 75 kW'lık bir direnç var; kendi havalandırmalı
+  // kafesinde, panonun dışında durur. Aile doğru, montaj ayrı — PT100
+  // ayrımının aynı deseni.
+  if (item.category === "Sürücüler ve Güç Elektroniği" && frenDirenciMi(metin)) {
+    return { mountType: "saha", zone: null, colorGroup: "diger" };
+  }
+
+  // MAKİNE PRİZİ RAYA OTURMAZ. Eğik makine prizi pano sacına/kapağına gömülür;
+  // "Fiş, Priz, Klemens" ailesinin klemens tarafı raydadır, priz tarafı değil.
+  // Defterde `BC1-3504-7420` zaten `kapak` yazıyor — kural onu doğruluyor,
+  // kardeşi `BC1-1403-7420` defterde olmasa da aynı yere gitsin.
+  if (item.category === "Fiş, Priz, Klemens ve Bağlantı" && makinePriziMi(metin)) {
+    return { mountType: "kapak", zone: "kumanda", colorGroup: "klemens" };
+  }
+
   return temel;
+}
+
+/**
+ * Pano YANINA / vince asılan ikaz ve aydınlatma mı?
+ *
+ * ÇIPLAK `HORN` YAZILMAZ: aydınlatma markası THORN'un içinde geçer ve o markanın
+ * bir pano armatürünü sessizce panonun yanına asardı. Gerçek veride geçen yazım
+ * "1 Layer Pipe Horns" — o yüzden korna işareti PARÇALI değil TAM yazılır.
+ */
+function panoYaniMi(metin: string): boolean {
+  return [
+    "SIREN",
+    "SIGNAL HORN",
+    "PIPE HORN",
+    "KORNA",
+    "BUZZER",
+    "LIGHT COLUMN",
+    "SIGNAL COLUMN",
+    "STACK LIGHT",
+    "FLOOR LIGHT",
+    "IKAZ KOLONU",
+    "BEACON",
+    "FLOODLIGHT",
+    "PROJEKTOR",
+    "SAFETY SPOT",
+    "LINE LIGHT",
+  ].some((isaret) => metin.includes(isaret));
+}
+
+/** Sürücü ailesindeki fren direnci mi (pano dışı)? */
+function frenDirenciMi(metin: string): boolean {
+  return ["BRAKING RESISTOR", "BRAKE RESISTOR", "FREN DIRENC"].some((i) => metin.includes(i));
+}
+
+/** Pano sacına gömülen makine prizi mi (klemens değil)? */
+function makinePriziMi(metin: string): boolean {
+  return ["MACHINE PLUG", "MACHINE SOCKET", "MAKINE PRIZ", "PLUG-SOCKET"].some((i) =>
+    metin.includes(i)
+  );
 }
 
 /**
@@ -183,11 +251,19 @@ function sahaElemaniMi(metin: string): boolean {
   ].some((isaret) => metin.includes(isaret));
 }
 
-/** Trafo · reaktör · filtre: raya değil plakaya. */
+/**
+ * Trafo · reaktör · filtre: raya değil plakaya.
+ *
+ * `KVA` BİR İŞARETTİR: yalnız trafo ve UPS kVA ile anılır, anahtarlamalı güç
+ * kaynağı W ile. Ölçüldü (0026): `MATIS 4000`ün tanımı yalnız "400-230V ,
+ * 4kVA" diyor — ne "trafo" ne "transformer" geçiyor — ve 4 kVA'lık bir
+ * kontrol trafosu DIN rayına oturuyor görünüyordu.
+ */
 function agirBeslemeMi(metin: string): boolean {
   return [
     "TRANSFORMER",
     "TRAFO",
+    "KVA",
     "REACTOR",
     "REAKTOR",
     "DROSSEL",

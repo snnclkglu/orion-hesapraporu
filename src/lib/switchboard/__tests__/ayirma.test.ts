@@ -1,0 +1,198 @@
+// AYGIT AYIRMA — alt aygıt, ürünsüz satır ve pano yanı ekipmanı.
+//
+// Üçü de "Panoya girmeyen aygıtlar" yığınının nasıl okunacağıyla ilgilidir.
+// Ölçüldü (0026-01, 08.09.2026): o yığın 50 satırdı ve 35'i bir yerleşim
+// hatası değil bir SINIFLANDIRMA eksiğiydi; gerçek eksik olan dört ölçüsüz
+// sürücü o kalabalığın içinde görünmüyordu. Kuyruğun her satırının TEK ve
+// DOĞRU bir gerekçesi olmak zorunda.
+
+import { describe, expect, it } from "vitest";
+import type { ElectricalPart } from "@/lib/electrical/types";
+import { computeSwitchboardLayout } from "../compute";
+
+function parca(over: Partial<ElectricalPart> = {}): ElectricalPart {
+  return {
+    deviceTag: "=100T+LVD0-F1",
+    installation: "100T",
+    location: "LVD0",
+    device: "F1",
+    qty: 1,
+    designation: "CIRCUIT BREAKER 400V 6KA, 3POLE, C, 10A",
+    typeNo: "5SL6310-7",
+    supplier: "Siemens",
+    partNo: "SIE.5SL6310-7",
+    page: 1,
+    ...over,
+  };
+}
+
+function coz(parts: ElectricalPart[]) {
+  return computeSwitchboardLayout({ parts });
+}
+
+/** Kuyruğun sebep sayaçları. */
+function kuyruk(r: ReturnType<typeof coz>): Record<string, number> {
+  const m: Record<string, number> = {};
+  for (const u of r.unplaced) m[u.reason] = (m[u.reason] ?? 0) + 1;
+  return m;
+}
+
+describe("alt aygıt ana aygıta yutulur (PANO-24)", () => {
+  it("sürücünün opsiyon kartı AYRI yer istemez", () => {
+    // 0026'nın gerçek satırları: `-U20` sürücü, `-U20-U15` onun yuvasına takılan
+    // enkoder arayüz kartı. İkinci satır ayrı bir kutu olsaydı montaj
+    // plakasında kendi yerini isterdi.
+    const r = coz([
+      parca({
+        device: "U20",
+        deviceTag: "=100T+LVD0-U20",
+        designation: "ATV930 - 90kW - 400/480V - with braking unit - IP21",
+        typeNo: "ATV930D90N4",
+        supplier: "SE",
+        partNo: "SE.ATV930D90N4",
+      }),
+      parca({
+        device: "U20-U15",
+        deviceTag: "=100T+LVD0-U20-U15",
+        designation: "ATV900 HTL encoder interface modul",
+        typeNo: "VW3A3424",
+        supplier: "SE",
+        partNo: "SE.VW3A3424",
+      }),
+      ...Array.from({ length: 3 }, (_, i) =>
+        parca({ device: `F${i + 1}`, deviceTag: `=100T+LVD0-F${i + 1}` })
+      ),
+    ]);
+    const anahtarlar = r.unplaced.map((u) => u.device.key);
+    expect(anahtarlar).not.toContain("100T|LVD0|U20U15");
+    // Sürücünün kendisi kuyrukta (ölçüsü defterde yok) ama kart YOK.
+    expect(anahtarlar).toContain("100T|LVD0|U20");
+  });
+
+  it("ÖKSÜZ alt aygıt kendi kutusudur", () => {
+    // 0026'da `-M36-1G12` enkoderi var, `-M36` motoru malzeme listesinde yok.
+    // Onu yutacak bir gövde olmadığı için kaybolmamalı.
+    const r = coz([
+      ...Array.from({ length: 3 }, (_, i) =>
+        parca({ device: `F${i + 1}`, deviceTag: `=100T+LVD0-F${i + 1}` })
+      ),
+      parca({
+        device: "M36-1G12",
+        deviceTag: "=100T+LVD0-M36-1G12",
+        designation: "Hollow Shaft Encoder for Direct Coupling",
+        typeNo: "80H20630V1024-R3",
+        supplier: "FNC",
+        partNo: "FNC.80H",
+      }),
+    ]);
+    expect(r.unplaced.map((u) => u.device.key)).toContain("100T|LVD0|M361G12");
+  });
+});
+
+describe("ürünsüz satır SINIFLANMAMIŞ değildir", () => {
+  it("tedarikçisi, tipi ve parça numarası boş satır kendi kovasına düşer", () => {
+    // 0026'nın `-Y64`…`-Y75` fren bobinleri: aygıt etiketi var, malzeme yok
+    // (redüktörle birlikte geliyor). Sınıflandırıcıya kızmanın anlamı yok.
+    const r = coz([
+      ...Array.from({ length: 3 }, (_, i) =>
+        parca({ device: `F${i + 1}`, deviceTag: `=100T+LVD0-F${i + 1}` })
+      ),
+      parca({
+        device: "Y64",
+        deviceTag: "=100T+LVD0-Y64",
+        qty: null,
+        designation: "",
+        typeNo: "",
+        supplier: "",
+        partNo: "",
+      }),
+    ]);
+    expect(kuyruk(r).urunsuz).toBe(1);
+    expect(kuyruk(r).siniflanmamis ?? 0).toBe(0);
+  });
+
+  it("ürünü OLAN ama tanınmayan satır hâlâ SINIFLANMAMIŞTIR", () => {
+    // Ayrım anlamlıdır: burada sınıflandırılacak bir ürün VAR ve tanınmadı.
+    const r = coz([
+      ...Array.from({ length: 3 }, (_, i) =>
+        parca({ device: `F${i + 1}`, deviceTag: `=100T+LVD0-F${i + 1}` })
+      ),
+      parca({
+        device: "Z9",
+        deviceTag: "=100T+LVD0-Z9",
+        designation: "BILINMEYEN CIHAZ",
+        typeNo: "XYZ-1",
+        supplier: "ACME",
+        partNo: "ACME.XYZ1",
+      }),
+    ]);
+    expect(kuyruk(r).siniflanmamis).toBe(1);
+    expect(kuyruk(r).urunsuz ?? 0).toBe(0);
+  });
+});
+
+describe("pano yanı ekipmanı KUYRUĞA DÜŞMEZ, listeye girer (PANO-27)", () => {
+  const yanSatirlar = [
+    parca({
+      device: "H166",
+      deviceTag: "=100T+LVD0-H166",
+      designation: "40W 108dB Siren",
+      typeNo: "SNT-SL190-22",
+      supplier: "MC",
+      partNo: "MC.SNT-SL190-22",
+    }),
+    parca({
+      device: "E151",
+      deviceTag: "=100T+LVD0-E151",
+      designation: "160W 5000K 230VAC LED Floodlight",
+      typeNo: "N1000-P-2/160W.5000K",
+      supplier: "NIKI",
+      partNo: "NIKI.N1000",
+    }),
+  ];
+
+  it("siren ve projektör panonun yan listesindedir", () => {
+    const r = coz([
+      ...Array.from({ length: 3 }, (_, i) =>
+        parca({ device: `F${i + 1}`, deviceTag: `=100T+LVD0-F${i + 1}` })
+      ),
+      ...yanSatirlar,
+    ]);
+    const yan = r.room.flatMap((p) => p.sideDevices).map((d) => d.label);
+    expect(yan.sort()).toEqual(["E151", "H166"]);
+  });
+
+  it("kuyrukta GÖRÜNMEZ ve SİPARİŞ KAPISINI kapatmaz", () => {
+    const salterler = Array.from({ length: 3 }, (_, i) =>
+      parca({ device: `F${i + 1}`, deviceTag: `=100T+LVD0-F${i + 1}` })
+    );
+    const yansiz = coz(salterler);
+    const yanli = coz([...salterler, ...yanSatirlar]);
+
+    expect(yanli.unplaced.map((u) => u.device.label)).toEqual([]);
+    // Ölçüsü bilinmiyor ama sipariş sayacını KIPIRDATMAZ: bir sirenin eni
+    // panonun gövdesini belirlemez (PANO-12 sayacı GÖVDE içindir).
+    expect(yanli.estimatedCount).toBe(yansiz.estimatedCount);
+  });
+
+  it("montaj plakasına ve kapağa GİRMEZ", () => {
+    const r = coz([
+      ...Array.from({ length: 3 }, (_, i) =>
+        parca({ device: `F${i + 1}`, deviceTag: `=100T+LVD0-F${i + 1}` })
+      ),
+      ...yanSatirlar,
+    ]);
+    for (const p of r.room) {
+      expect(p.placements.some((y) => y.mountType === "yan")).toBe(false);
+      expect(p.doorPlacements.some((y) => y.mountType === "yan")).toBe(false);
+    }
+  });
+
+  it("YALNIZ yan ekipman olan konum PANO AÇMAZ", () => {
+    // Bir sirenin asıldığı yer bir gövde değildir (PANO-2 ile aynı ilke:
+    // tek başına bir lamba da pano açmaz).
+    const r = coz(yanSatirlar);
+    expect(r.room).toHaveLength(0);
+    expect(r.excluded.map((e) => e.code)).toContain("LVD0");
+  });
+});

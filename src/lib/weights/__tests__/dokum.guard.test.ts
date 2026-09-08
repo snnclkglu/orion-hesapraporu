@@ -234,7 +234,7 @@ describe("sınır — döküm bir HESAP DEĞİLDİR", () => {
     // anlatılıyor ve "@/lib/offers/cost/model" dizgisi bir yasağı AÇIKLAYAN
     // yorumda da geçiyor. Metin arayan bir koruma, kuralı yazan yorumu ihlal
     // sanardı.
-    const ithal = /from\s+"@\/lib\/offers\/cost\/model"/;
+    const ithal = /^\s*(?:import|export)\b[^\n]*?\bfrom\s+"@\/lib\/offers\/cost\/model"/m;
     const sizanlar = tsDosyalari(path.join(KOK, "lib", "weights")).filter((f) =>
       ithal.test(fs.readFileSync(f, "utf8"))
     );
@@ -244,7 +244,7 @@ describe("sınır — döküm bir HESAP DEĞİLDİR", () => {
   it("`lib/weights` firma tablolarını TEK DİKİŞ YERİNDEN okur", () => {
     // `firma-tablolari.ts` dışındaki hiçbir dosya `offers/cost`a doğrudan
     // bağlanmaz; bağlansaydı sınırın gerekçesi dosya dosya dağılırdı.
-    const dogrudan = /from\s+"@\/lib\/offers\/cost\//;
+    const dogrudan = /^\s*(?:import|export)\b[^\n]*?\bfrom\s+"@\/lib\/offers\/cost\//m;
     const sizanlar = tsDosyalari(path.join(KOK, "lib", "weights"))
       .filter((f) => !f.endsWith("firma-tablolari.ts"))
       .filter((f) => dogrudan.test(fs.readFileSync(f, "utf8")));

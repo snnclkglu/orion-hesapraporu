@@ -19,6 +19,17 @@ export type MountType =
   | "kapak"
   /** Gövde/kapak gereci (fan, klima, pano lambası). */
   | "govde"
+  /**
+   * PANO YANINA ASILAN ekipman — siren, korna, ikaz kolonu, projektör.
+   *
+   * `saha`dan ayrıdır ve ayrım kullanıcının kendi cümlesidir (08.09.2026):
+   * "şemada panoların yanında dursun, bunlar genelde sahada oluyor ya da
+   * panonun yanına falan asılıyor." Motor ve enkoder vincin üstündedir ve
+   * çizilmez; bunlar ise panonun görünür komşusudur ve dizilim şemasında
+   * kendi şeridinde durur — ölçüsü sipariş edilecek kadar önemlidir ama
+   * montaj plakasında YER KAPLAMAZ.
+   */
+  | "yan"
   /** Panonun DIŞINDA (motor, enkoder, limit şalteri, kablo). */
   | "saha";
 
@@ -221,6 +232,15 @@ export type UnplacedReason =
   | "siniflanmamis"
   | "sigmadi"
   | "etiketsiz"
+  /**
+   * Aygıt etiketi var ama ÜRÜN YOK — tedarikçi, tip ve parça numarası boş.
+   *
+   * Bu bir hata değil bir BOŞLUKTUR: 0026'da `-Y64`…`-Y75` fren bobinleri
+   * redüktörle birlikte geliyor ve elektrik projesinde malzeme satırı
+   * açılmamış. Altı satır "Sınıflanmamış" kuyruğunda hata gibi duruyordu ve
+   * gerçek eksikleri (ölçüsüz sürücü) gölgeliyordu.
+   */
+  | "urunsuz"
   | "saha";
 
 export interface Unplaced {
@@ -249,6 +269,14 @@ export interface PanelLayout {
   doorPlacements: Placement[];
   /** Gövde gereçleri — yerleşimi çizilmez, listede durur. */
   bodyDevices: DeviceBox[];
+  /**
+   * Pano YANINA asılan ekipman (siren, korna, ikaz kolonu, projektör).
+   *
+   * Montaj plakasında yer kaplamaz ama dizilim şemasında kendi şeridinde
+   * çizilir: kullanıcı bunları görmek istedi ve bugün `govde` sayılanları
+   * hiçbir yerde göremiyordu (PANO-27).
+   */
+  sideDevices: DeviceBox[];
   /** Bu panonun gerektirdiği derinlik (ortak derinlik seçilmeden önce). */
   requiredDepthMm: number;
   /** Kullanılan ray genişliğinin kapasiteye oranı [0..1]. */

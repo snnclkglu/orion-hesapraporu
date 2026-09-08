@@ -16,7 +16,7 @@ import type {
   Zone,
 } from "./switchboard/types";
 
-const MOUNT_TIPLERI: MountType[] = ["din", "plaka", "kapak", "govde", "saha"];
+const MOUNT_TIPLERI: MountType[] = ["din", "plaka", "kapak", "govde", "yan", "saha"];
 const BOLGELER: Zone[] = ["giris", "guc", "motor", "kumanda", "klemens"];
 const PANO_TURLERI: PanelKind[] = ["oda", "saha", "haric"];
 const KAPAKLAR: ("tek" | "cift")[] = ["tek", "cift"];

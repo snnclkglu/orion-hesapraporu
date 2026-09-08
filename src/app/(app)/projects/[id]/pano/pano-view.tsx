@@ -73,6 +73,7 @@ const KUYRUK_ADI: Record<Unplaced["reason"], string> = {
   siniflanmamis: "Sınıflanmamış",
   sigmadi: "Yerleşmedi",
   etiketsiz: "Etiketsiz satır",
+  urunsuz: "Ürünsüz satır",
   saha: "Pano dışı (saha)",
 };
 

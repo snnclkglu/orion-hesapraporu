@@ -92,6 +92,9 @@ export function electricalCategory(item: ElectricalCategorySource): ElectricalCa
       "ASYNCHRONOUS MOTOR",
       "ASENKRON MOTOR",
       "ELEKTRIK MOTORU",
+      // 0026'nın yazımı: GAMAK gövde tipini yazıyor, "asenkron" demiyor.
+      "CAST IRON MOTOR",
+      "DOKUM GOVDE MOTOR",
       "VEM MOTORS",
       "INNOMOTICS",
       "SIMOTICS",
@@ -130,6 +133,12 @@ export function electricalCategory(item: ElectricalCategorySource): ElectricalCa
       "INTERCOMMUNICATION",
       "INTERCOM",
       "HABERLESME MODUL",
+      // Vinç telsiz kumandası: alıcı panonun içinde, verici operatörün elinde;
+      // satın alma ve bakım için ikisi tek üründür (0026 `ESX_MID 602`).
+      "RADIO CONTROL",
+      "RADIO REMOTE",
+      "TELSIZ KUMANDA",
+      "RECEIVER-TRANSMITTER",
       "FPNO-",
       "FENA-",
       "6GK",
@@ -213,10 +222,22 @@ export function electricalCategory(item: ElectricalCategorySource): ElectricalCa
       "CONTROL UNIT /2_CH",
       "CHARGING RESISTOR",
       "BRAKE CHOPPER",
+      // FREN DİRENCİ BİR GÜÇ ELEKTRONİĞİ KALEMİDİR, mekanik fren değil: sürücünün
+      // ara devresini boşaltır ve sürücüyle birlikte sipariş edilir. NEREYE
+      // MONTE EDİLDİĞİ ayrı bir sorudur ve `mount.ts` cevaplar (kullanıcı
+      // kararı 08.09.2026: pano dışı).
+      "BRAKING RESISTOR",
+      "BRAKE RESISTOR",
+      "FREN DIRENC",
       "DRIVE FILTER",
       "FILTER UNIT | BLCL",
       "ACS880",
       "SINAMICS",
+      // Schneider Altivar: 0026'nın dört sürücüsü de bu ailede ve tanımda
+      // "inverter" sözcüğü GEÇMİYOR — yalnız tip adı var.
+      "ALTIVAR",
+      "ATV9",
+      "ATV3",
       "6SL",
       "BCU-02",
       "ZCU-14",
@@ -257,7 +278,15 @@ export function electricalCategory(item: ElectricalCategorySource): ElectricalCa
       "THERMAL OVERLOAD",
       "3RV",
       "3RU",
-      "3RN"
+      "3RN",
+      // Schneider'in motor koruma şalteri: tanımı "circuit breaker" der ve genel
+      // şalter kuralına düşerdi; oysa kardeşi 3RV burada. İkisi de motor
+      // bandına oturmalı (PANO-7) — aynı işi yapan iki ürün iki ayrı bölgeye
+      // düşerse dizilim işten işe değişir. `GVAE` yardımcı kontağı da buraya.
+      "GV2ME",
+      "GV2P",
+      "GV3P",
+      "GVAE"
     )
   ) {
     return "Motor Koruma ve Termik Röleler";
@@ -270,11 +299,19 @@ export function electricalCategory(item: ElectricalCategorySource): ElectricalCa
       "KONTAKTOR",
       "AUX. SWITCH BLOCK",
       "AUX.SWITCH BLOCK",
+      "CONTACT BLOCK",
       "3RT",
       "3TF",
       "3RH",
       "AF30-",
-      "AF SERIES CONTACTOR"
+      "AF SERIES CONTACTOR",
+      // Schneider TeSys aileleri: Giga (185 A) tanımında "contactor" sözcüğü
+      // geçmiyor, yalnız aile adı var.
+      "TESYS GIGA",
+      "LC1G",
+      "LC1D",
+      "LP1K",
+      "LAG8"
     )
   ) {
     return "Kontaktörler";
@@ -316,7 +353,15 @@ export function electricalCategory(item: ElectricalCategorySource): ElectricalCa
       "3VA",
       "5SL",
       "ATYS",
-      "5ST3010"
+      "5ST3010",
+      // Schneider Acti9: 0026'da 13 otomat. Tanım "Automat. two-pole C 16 A"
+      // diyor — ne "circuit breaker" ne "MCB" geçiyor; kimlik tip önekindedir.
+      // `A9A` ailenin yandan takılan yardımcı kontağıdır ve aynı aileye aittir.
+      "AUTOMAT.",
+      "ACTI9",
+      "ACTI 9",
+      "A9F",
+      "A9A"
     ) ||
     biriVar(metin, "SIRCO", "SIRCOVER") ||
     (metin.includes("SOCOMEC") && metin.includes("AUXILIARY BLOCK"))
@@ -361,6 +406,9 @@ export function electricalCategory(item: ElectricalCategorySource): ElectricalCa
       "YUK HUCRESI",
       "YUK GOSTERGESI",
       "KOBASTAR",
+      "LOADPIN",
+      "LOAD PIN",
+      "YUK PIMI",
       "LPW1-",
       "E690-"
     )
@@ -375,6 +423,18 @@ export function electricalCategory(item: ElectricalCategorySource): ElectricalCa
       "SINIR SALTER",
       "ROTARY LIMIT",
       "GEAR LIMIT",
+      // Vincin ağırlıklı (kontrol ağırlıklı) limit şalteri ve EMAS'ın çapraz
+      // sınır şalteri: ikisi de sınır şalteridir ama tanımlarında "limit
+      // switch" geçmez.
+      "COUNTER-WEIGHT LIMIT",
+      "COUNTERWEIGHT LIMIT",
+      "AGIRLIKLI LIMIT",
+      // `STAY PUT` DENENDİ VE GERİ ALINDI: 0019'un `XB4BD21` kapak seçici
+      // şalteri de "2-position stay put" diyor — o terim mandallı/yaylı
+      // ayrımıdır, sınır şalteri işareti değil. EMAS'ın çapraz sınır şalteri
+      // tip adıyla tanınır (üretici föyü: "CSM04 Çapraz Sınır Şalteri").
+      "TYP013",
+      "CSM04",
       "CLS02",
       "XCK",
       "STROMAG 51-",
@@ -440,6 +500,10 @@ export function electricalCategory(item: ElectricalCategorySource): ElectricalCa
       "PILOT LIGHT",
       "STACK LIGHT",
       "SIGNAL COLUMN",
+      "LIGHT COLUMN",
+      "FLOOR LIGHT",
+      "IKAZ KOLONU",
+      "BEACON",
       "IKAZ LAMB",
       "SIGNAL HORN",
       "HORN",

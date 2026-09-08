@@ -15,7 +15,7 @@
 
 import { trKatla } from "@/lib/drawings/tr-text";
 import { MODULE_PITCH_MM } from "./sizes";
-import type { DeviceModel, DimSource, PlacementOverride } from "./types";
+import type { DeviceModel, DimSource, MountType, PlacementOverride } from "./types";
 
 export interface FootprintSource {
   category: string;
@@ -23,6 +23,14 @@ export interface FootprintSource {
   typeNo: string;
   supplier: string;
   partNo: string;
+  /**
+   * Çözülmüş montaj tipi — tahmin kuralı buna BAKMAK ZORUNDADIR.
+   *
+   * Kapak elemanlarının 30 × 30 mm tahmini PANO-22'nin KESİM + KOMŞU MESAFESİ
+   * standardıdır ve yalnız kapakta anlamlıdır. Aynı ailedeki bir sireni ya da
+   * 160 W projektörü 30 × 30 saymak, panonun yanına sahte bir kutu çizerdi.
+   */
+  mountType?: MountType | null;
 }
 
 export interface Footprint {
@@ -143,6 +151,13 @@ function enZayifKaynak(kaynaklar: DimSource[]): DimSource {
 export function estimateFootprint(item: FootprintSource): Footprint {
   const metin = trKatla(`${item.designation} | ${item.typeNo} | ${item.partNo}`);
 
+  // PANO YANI ve PANO DIŞI EKİPMAN TAHMİN EDİLMEZ. Bunlar gövdenin içinde yer
+  // kaplamaz; ölçüleri yalnız sipariş için gerekir ve ancak DEFTERDEN gelir.
+  // Aksi hâlde "Kumanda Elemanları"nın 30 x 30 kapak kesimi bir sirene, bir
+  // korna borusuna ve 160 W'lık bir projektöre yapışırdı (PANO-22 yalnız
+  // KAPAK için geçerlidir).
+  if (item.mountType === "yan" || item.mountType === "saha") return BOS;
+
   // ── Klemens serisi: SERİ ADI kategoriden önce gelir ─────────────────────
   //
   // Ölçüldü (06.09.2026): `PT 4-HESILED 24 (5X20)` bir SİGORTALI KLEMENSTİR ve
@@ -205,6 +220,13 @@ export function estimateFootprint(item: FootprintSource): Footprint {
 
   // ── Anahtarlamalı güç kaynağı (trafo/reaktör DEĞİL — `mount.ts` ayırır) ──
   if (item.category === "Güç Kaynakları ve Trafolar") {
+    // AĞIR BESLEME TAHMİN EDİLMEZ ve kararı `mount.ts` verir: oraya `plaka`
+    // yazdıysa cihaz trafo/reaktördür. Kelime listesini burada TEKRARLAMAK
+    // ikisinin ayrışmasına açık kapı bırakırdı — ölçüldü (0026): `MATIS 4000`
+    // "400-230V , 4kVA" diyor, "trafo" demiyor; `mount.ts` kVA işaretinden onu
+    // plakaya koyuyordu ama buradaki liste tutmadığı için 4 kVA'lık bir trafo
+    // 50 x 125 x 125 mm'lik bir güç kaynağı sanılıyordu.
+    if (item.mountType === "plaka") return BOS;
     if (["TRANSFORMER", "TRAFO", "REACTOR", "REAKTOR"].some((i) => metin.includes(i))) {
       return BOS;
     }
@@ -260,8 +282,28 @@ export function kutupOku(metin: string): number | null {
   if (/\b3\s*\+\s*N\b/.test(metin)) return 4;
   const m = metin.match(/\b([1-4])\s*-?\s*(?:POLE|POLES|POL|P)\b/);
   if (m) return Number(m[1]);
+  // KUTUP SAYISI YAZIYLA DA YAZILIR. Ölçüldü (0026): Schneider Acti9 satırları
+  // "Automat. two-pole C 16 A" diyor; Siemens'in "3POLE" yazımına göre kurulmuş
+  // okuyucu 13 otomatı ölçüsüz bırakıyordu. Bu bir TAHMİN değil bir OKUMADIR —
+  // "two-pole" ile "2P" aynı cümledir (PANO-5).
+  const yazi = metin.match(
+    /\b(ONE|TWO|THREE|FOUR|TEK|CIFT|IKI|UC|DORT)\s*-?\s*(?:POLE|POLES|KUTUP|KUTUPLU)\b/
+  );
+  if (yazi) return YAZIYLA_KUTUP[yazi[1]] ?? null;
   return null;
 }
+
+const YAZIYLA_KUTUP: Record<string, number> = {
+  ONE: 1,
+  TEK: 1,
+  TWO: 2,
+  IKI: 2,
+  CIFT: 2,
+  THREE: 3,
+  UC: 3,
+  FOUR: 4,
+  DORT: 4,
+};
 
 /** Klemens kesiti: `2,5MM2` · `2.5 MM²` · `UT 4` · `UK 10`. */
 export function kesitOku(metin: string): number | null {

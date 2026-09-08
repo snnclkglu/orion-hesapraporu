@@ -120,6 +120,26 @@ export function buildDeviceBoxes(input: BuildInput): BuildResult {
   const kutular = new Map<string, DeviceBox>();
   const untagged: ElectricalPart[] = [];
 
+  // ALT AYGIT ANA AYGITIN İÇİNDEDİR (PANO-24). `=100T+LVD0-U20-U15` bir aygıt
+  // değil, `-U20` sürücüsünün yuvasına takılan bir karttır; `-M21-B21` motorun
+  // içindeki PTC'dir. Bunlara ayrı kutu açmak, sürücünün enkoder kartını
+  // montaj plakasında AYRI yer isteyen bir cihaz yapardı.
+  //
+  // ÖKSÜZ ALT AYGIT KENDİ KUTUSUDUR: 0026'da `-M36-1G12` enkoderi var ama
+  // `-M36` motoru malzeme listesinde yok; onu yutacak bir gövde olmadığı için
+  // kendi başına durur ve saha kuyruğunda görünür.
+  const tumAnahtarlar = new Set<string>();
+  for (const p of parts) {
+    const k = deviceKeyOf(p);
+    if (k) tumAnahtarlar.add(k);
+  }
+  const anaAygitVar = (part: ElectricalPart): boolean => {
+    const kesme = part.device.lastIndexOf("-");
+    if (kesme <= 0) return false;
+    const ana = deviceKeyOf({ ...part, device: part.device.slice(0, kesme) });
+    return ana !== null && tumAnahtarlar.has(ana);
+  };
+
   for (let sira = 0; sira < parts.length; sira++) {
     const part = parts[sira];
     const key = deviceKeyOf(part);
@@ -128,6 +148,7 @@ export function buildDeviceBoxes(input: BuildInput): BuildResult {
       continue;
     }
     if (kutular.has(key)) continue;
+    if (anaAygitVar(part)) continue;
 
     const category = electricalCategory({
       designation: part.designation,
@@ -143,6 +164,9 @@ export function buildDeviceBoxes(input: BuildInput): BuildResult {
     const kimlik = materialCatalogIdentity(part);
     const model = modelBul(kimlik.lookupKey);
     const override = placementOverrides.get(key) ?? null;
+    // Montaj tipi ÖLÇÜDEN ÖNCE çözülür: tahmin kuralı cihazın nereye takıldığını
+    // bilmek zorunda (`footprint.ts` — pano yanı ve saha tahmin edilmez).
+    const mountType = override?.mountType ?? model?.mountType ?? kural.mountType;
     const olcu = footprintFor(
       {
         category,
@@ -150,6 +174,7 @@ export function buildDeviceBoxes(input: BuildInput): BuildResult {
         typeNo: part.typeNo,
         supplier: part.supplier,
         partNo: part.partNo,
+        mountType,
       },
       model,
       override
@@ -184,7 +209,7 @@ export function buildDeviceBoxes(input: BuildInput): BuildResult {
       partNo: part.partNo,
       category,
       colorGroup: kural.colorGroup,
-      mountType: override?.mountType ?? model?.mountType ?? kural.mountType,
+      mountType,
       zone: override?.zone ?? model?.zone ?? kural.zone,
       widthMm: olcu.widthMm,
       heightMm: olcu.heightMm,
@@ -230,7 +255,7 @@ export function buildDeviceBoxes(input: BuildInput): BuildResult {
  */
 export function fingerprintOf(parcalar: readonly string[]): string {
   let h = 0x811c9dc5;
-  const metin = parcalar.join("");
+  const metin = parcalar.join("\u0001");
   for (let i = 0; i < metin.length; i++) {
     h ^= metin.charCodeAt(i);
     h = Math.imul(h, 0x01000193) >>> 0;
@@ -251,7 +276,7 @@ export function fingerprintParts(input: BuildInput): string[] {
         part.typeNo,
         part.partNo,
         part.qty ?? "",
-      ].join("")
+      ].join("\u0002")
     );
   }
   satirlar.sort();
@@ -269,7 +294,7 @@ export function fingerprintParts(input: BuildInput): string[] {
         o.heightMm ?? "",
         o.depthMm ?? "",
         o.pinned ? "1" : "0",
-      ].join("")
+      ].join("\u0002")
     )
     .sort();
 
@@ -284,7 +309,7 @@ export function fingerprintParts(input: BuildInput): string[] {
         p.baseMm ?? "",
         p.doorConfig ?? "",
         p.orderIndex ?? "",
-      ].join("")
+      ].join("\u0002")
     )
     .sort();
 
