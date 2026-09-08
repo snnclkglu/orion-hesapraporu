@@ -804,6 +804,72 @@ bu bir hata değil, malzeme listesindeki bir BOŞLUKTUR. Ölçüldü (0026-01):
 `-Y64`…`-Y75` fren bobinleri redüktörle geliyor ve elektrik projesinde malzeme
 satırı açılmamış; altı satır "Sınıflanmamış" kuyruğunu kirletiyordu.
 
+## PANO-31 — Sürükle-bırak SIRA yazar, pano kodu YAZMAZ.
+
+Şemada bir aygıtı sürüklemek onu bir KOMŞULUĞA taşımaktır (PANO-23). Bırakılan
+yer `switchboard_placements.order_in_rail` alanına, panonun aygıt sırasındaki
+İNDEKS olarak yazılır ve satır `pinned` olur.
+
+**Temel yarım bağlıydı:** `order_in_rail` ve `rail_index` sütunları okunuyordu
+(`switchboard-data.ts`), yerleştirici onları dinliyordu (`sirala`, PANO-23) —
+ama HİÇBİR KOD ONLARA YAZMIYORDU. Okuyan ve uygulayan taraf vardı, yazan taraf
+yoktu.
+
+### `savePlacement` KULLANILMAZ; `movePlacement` ayrı bir eylemdir
+
+`savePlacement`in şemasında `widthMm`/`heightMm`/`depthMm` alanları
+`.default(null)` taşıyor. Yalnız sıra göndermek, kullanıcının o aygıta ELLE
+yazdığı ölçüyü SİLERDİ. Bir cihazı şemada sağa kaydırmak, ölçüsünü
+unutturmamalı.
+
+### PANO KODUNA DOKUNULMAZ — ölçülmüş tuzak
+
+Bölünmüş bir gözün kodu (`LVD0-D`) gerçek bir konum değil, bölücünün ÜRETTİĞİ
+bir addır (PANO-10). Onu bir yerleşim düzeltmesi olarak yazmak aygıtı var
+olmayan bir panoya taşır.
+
+Ölçüldü (0026-01, 08.09.2026): tek bir sürüklemeden sonra dizide **aynı kodlu
+ikinci bir göz** belirdi ve toplam en **2.500 mm'den 2.900 mm'ye** çıktı —
+imalatçı fazladan bir gövde keserdi. Aygıtı BAŞKA bir panoya taşımak ayrı bir
+iştir ve `savePlacement` üstünden yapılır.
+
+### SIRA ÇİZİM SIRASINDAN TÜRETİLİR
+
+Yerleştirici plaka aygıtlarını `sirala()` sırasıyla tüketiyor ve şemaya ray ray,
+soldan sağa basıyor. Yani ÇİZİMDEKİ SIRA, sabitlemenin indekslediği sıranın ta
+kendisidir; ikinci bir hesap yazmak ikisini ayrıştırırdı (PANO-29'un aynı
+ilkesi). Bölünmüş bir klemens şeridi birden çok dilim üretir; sıra AYGIT
+sırasıdır, dilim sırası değil — ilk görüldüğü yer sayılır.
+
+**Off-by-one saf bir işlevde yaşar** (`birakmaIndeksi`): taşınan aygıt listeden
+çıkacağı için, hedef indeks onun eski yerinden SONRAYSA bir azaltılmalıdır.
+Azaltılmazsa cihaz her sürüklemede bir adım geride kalır ve kullanıcı "tuttu
+ama tam oraya gitmedi" diye ikinci kez sürükler. Bir React bileşeninin içinde
+yaşasaydı hiç sınanamazdı; mutasyon denemesiyle iki testin de bu hatayı
+yakaladığı doğrulandı.
+
+### DOKUNMATİKTE SÜRÜKLEME YOK, ve bu bilinçli
+
+Şema kabı yatay kaydırılıyor (MOBIL-9: diyagramlar küçülmez, kaydırılır).
+Parmakla sürüklemeyi yakalamak o kaydırmayı öldürürdü ve 2.500 mm'lik bir
+diziyi telefonda sürükleyerek düzenlemek zaten gerçek bir iş akışı değil.
+Dokunmatik ve KLAVYE yolu, bilgi baloncuğundaki "öne al / arkaya al"
+düğmeleridir — sürükleme tek yol olsaydı klavyeyle hiç erişilemezdi.
+
+### SABİTLEME GERİ ALINABİLİR
+
+`unpinPlacement` sırayı sisteme geri verir; ölçü düzeltmesi varsa DURUR.
+Sabitleyip geri alamamak bir tuzaktır: "Yeniden Yerleştir" sabitlenmiş satırı
+bilerek KORUR (PANO-14) ve yanlış yere taşınan bir cihazın dönüşü kalmazdı.
+
+### BÖLGE SINIRI AŞILABİLİR
+
+Kullanıcı bir kumanda rölesini giriş bandının ortasına sürükleyebilir.
+Yerleştirici bunu ENGELLEMEZ — mühendis kendi panosunu bilir — ama bölge
+değişince yeni ray açar (PANO-4) ve sonuç ÇİZİMDE görünür: giriş · kumanda ·
+giriş, üç ray. Sessizce reddetmek ya da rayları karıştırmak, ikisi de yanlış
+olurdu; denetim yine geçer.
+
 ## ÖLÇÜM — gerçek iki iş (08.09.2026)
 
 Modülün var oluş sebebi iki işte birden ölçüldü. Sayılar

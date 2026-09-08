@@ -583,6 +583,32 @@ export function kutuBul(kutular: readonly IcKutu[], x: number, y: number, tolera
   return enKisa <= tolerans ? enYakin : null;
 }
 
+/**
+ * SÜRÜKLENEN AYGITIN YENİ SIRA İNDEKSİ — saf, DOM'suz, sınanabilir.
+ *
+ * `sirali` panonun aygıt sırasıdır (çizim sırasından türetilir); `tasinan`
+ * sürüklenen aygıt, `komsu` bırakıldığı yerdeki aygıt, `oncesine` ise imlecin
+ * o aygıtın orta noktasının solunda olup olmadığı.
+ *
+ * OFF-BY-ONE BURADA YAŞAR ve bir bileşenin içinde sınanamazdı: taşınan aygıt
+ * listeden ÇIKACAĞI için, hedef indeks onun eski yerinden sonraysa bir
+ * azaltılmalıdır. Azaltılmazsa cihaz her sürüklemede bir adım geride kalır ve
+ * kullanıcı "tuttu ama tam oraya gitmedi" diye ikinci kez sürükler.
+ */
+export function birakmaIndeksi(
+  sirali: readonly string[],
+  tasinan: string,
+  komsu: string,
+  oncesine: boolean
+): number | null {
+  const k = sirali.indexOf(komsu);
+  if (k < 0) return null;
+  const eski = sirali.indexOf(tasinan);
+  let hedef = oncesine ? k : k + 1;
+  if (eski >= 0 && hedef > eski) hedef -= 1;
+  return Math.max(0, Math.min(Math.max(0, sirali.length - 1), hedef));
+}
+
 export interface IcYerlesimGirdisi {
   panel: PanelLayout;
   settings: LayoutSettings;

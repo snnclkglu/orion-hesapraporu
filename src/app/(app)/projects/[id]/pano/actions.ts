@@ -147,6 +147,91 @@ export async function savePlacement(girdi: z.input<typeof YerlesimSemasi>): Prom
   return { ok: true };
 }
 
+const TasimaSemasi = z.object({
+  projectId: z.string().uuid(),
+  deviceKey: z.string().min(1).max(200),
+  /** Aygıtın panonun sırasındaki YENİ yeri (0 tabanlı). */
+  orderInRail: z.number().int().min(0).max(9999),
+  /** Bırakıldığı ray — bilgi amaçlı; sıra baskındır (PANO-23). */
+  railIndex: z.number().int().min(0).max(999).nullable().default(null),
+});
+
+/**
+ * ŞEMADA TAŞINAN AYGITIN SIRASINI YAZAR — ölçüsüne DOKUNMAZ.
+ *
+ * `savePlacement` KULLANILAMAZ ve bu tuzak ölçülmüştür: onun şemasında
+ * `widthMm`/`heightMm`/`depthMm` alanları `.default(null)` taşıyor, yani
+ * yalnız sıra göndermek kullanıcının o aygıta ELLE yazdığı ölçüyü SİLERDİ.
+ * Bir cihazı şemada sağa kaydırmak, ölçüsünü unutturmamalı.
+ *
+ * `pinned` burada zorunlu olarak `true` olur: kullanıcı bir aygıtı bilerek
+ * taşıdıysa "Yeniden Yerleştir" onu geri almamalıdır (PANO-14).
+ *
+ * SIRA SAKLANIR, KOORDİNAT DEĞİL (PANO-23). Yazılan sayı panonun aygıt
+ * sırasındaki indekstir; koordinat her çözümde yeniden hesaplanır, çünkü komşu
+ * bir cihazın eni değişince bu cihazın yeri de değişmelidir.
+ *
+ * PANO KODUNA DOKUNULMAZ ve bu ölçülmüş bir tuzaktır. Bölünmüş bir gözün kodu
+ * (`LVD0-D`) gerçek bir konum değil, bölücünün ÜRETTİĞİ bir addır; onu bir
+ * yerleşim düzeltmesi olarak yazmak aygıtı var olmayan bir panoya taşır.
+ * Ölçüldü (0026-01): tek bir sürüklemeden sonra dizide AYNI KODLU İKİNCİ bir
+ * göz beliriyor ve toplam en 2.500 mm'den 2.900 mm'ye çıkıyordu — imalatçı
+ * fazladan bir gövde keserdi. Aygıtı BAŞKA bir panoya taşımak ayrı bir iştir
+ * ve `savePlacement` üstünden yapılır.
+ */
+export async function movePlacement(girdi: z.input<typeof TasimaSemasi>): Promise<Sonuc> {
+  const kapi = await yetkiliMi();
+  if ("error" in kapi) return kapi;
+  const ayris = TasimaSemasi.safeParse(girdi);
+  if (!ayris.success) return { error: ayris.error.issues[0]?.message ?? "Geçersiz girdi." };
+  const v = ayris.data;
+
+  const { error } = await kapi.supabase.from("switchboard_placements").upsert(
+    {
+      project_id: v.projectId,
+      device_key: v.deviceKey,
+      rail_index: v.railIndex,
+      order_in_rail: v.orderInRail,
+      pinned: true,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "project_id,device_key" }
+  );
+  if (error) return { error: error.message };
+
+  revalidatePath(`/projects/${v.projectId}/pano`);
+  return { ok: true };
+}
+
+/**
+ * Bir aygıtın SABİTLEMESİNİ kaldırır — sırayı sisteme geri verir.
+ *
+ * Sabitleyip geri alamamak bir tuzaktır: kullanıcı bir cihazı yanlış yere
+ * taşıdığında "Yeniden Yerleştir" onu KORUR (öyle olması gerekiyor) ve geriye
+ * dönüş kalmazdı. Ölçü düzeltmesi varsa DURUR; silinen yalnız sıradır.
+ */
+export async function unpinPlacement(projectId: string, deviceKey: string): Promise<Sonuc> {
+  const kapi = await yetkiliMi();
+  if ("error" in kapi) return kapi;
+  if (!z.string().uuid().safeParse(projectId).success) return { error: "Geçersiz proje." };
+  if (!deviceKey) return { error: "Aygıt anahtarı boş." };
+
+  const { error } = await kapi.supabase
+    .from("switchboard_placements")
+    .update({
+      rail_index: null,
+      order_in_rail: null,
+      pinned: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("project_id", projectId)
+    .eq("device_key", deviceKey);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/projects/${projectId}/pano`);
+  return { ok: true };
+}
+
 /**
  * "Yeniden Yerleştir" — bir YAZMA değil, bir SİLME işlemidir.
  *
