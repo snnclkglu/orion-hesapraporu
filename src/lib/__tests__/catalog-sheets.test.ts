@@ -30,7 +30,7 @@ describe("katalog sayfası defteri", () => {
     const kinds = new Set(sheets.map((s) => s.kind));
     for (const kind of [
       "coupling", "bearing", "bearing_housing", "brake", "buffer", "gearbox", "motor",
-      "rope", "load_cell",
+      "rope", "load_cell", "hook", "wedge_socket",
     ]) {
       expect(kinds.has(kind), `${kind} türünde sayfa yok`).toBe(true);
     }
@@ -38,6 +38,7 @@ describe("katalog sayfası defteri", () => {
       "SIBRE fren sayfası yok").toBe(true);
     for (const brand of [
       "OZGUN", "SIBRE", "JAURE", "SKF", "ABB", "GAMAK", "ELK", "Esit", "Kobastar",
+      "Akyüzlü", "Van Beest",
     ]) {
       expect(sheets.some((s) => s.brand === brand), `${brand} yok`).toBe(true);
     }
@@ -208,13 +209,13 @@ describe("model → sayfa eşlemesi", () => {
     expect(findCatalogSheet("festoon", "Vasel", "VS26-S3")).toBeUndefined();
   });
 
-  it("henüz kapsanmayan tür için düğme hiç gösterilmez", () => {
+  it("kapsanan ve henüz kapsanmayan türler için düğmeyi doğru gösterir", () => {
     expect(hasCatalogSheets("coupling")).toBe(true);
     expect(hasCatalogSheets("gearbox")).toBe(true);
-    // Halat kataloglarının kaynak PDF'i 2026-08-09'da workspace'e girdi
-    // (CASAR · Haşçelik · OLIVEIRA · DIEPA); kanca, makara ve tekerinki hâlâ yok.
+    // Halat katalogları ile DIN 15401/15402 kanca tabloları kapsamda;
+    // makara ve teker için üretici teknik yaprağı henüz yok.
     expect(hasCatalogSheets("rope")).toBe(true);
-    expect(hasCatalogSheets("hook")).toBe(false);
+    expect(hasCatalogSheets("hook")).toBe(true);
     expect(hasCatalogSheets("sheave")).toBe(false);
     expect(hasCatalogSheets("wheel")).toBe(false);
     // Feston: iki markanın da kaynak kataloğu workspace'tedir — Vasel
@@ -270,15 +271,24 @@ describe("model → sayfa eşlemesi", () => {
     expect(h1400?.id).not.toBe(h900?.id);
   });
 
-  it("SNL, SIBRE, halat ve yük hücresi detayları manifestte bağlıdır", () => {
+  it("SNL, SIBRE, halat, yük hücresi, kanca ve soket detayları manifestte bağlıdır", () => {
     expect(findCatalogSheet("bearing_housing", "SKF", "SNL 216")?.images).toHaveLength(2);
     expect(findCatalogSheet("coupling", "SIBRE", "APC-AT 160")?.source)
       .toContain("APC-AT 2021_EN.pdf");
     expect(findCatalogSheet("brake", "SIBRE", "TEc200/23/5")?.images).toHaveLength(1);
     expect(findCatalogSheet("brake", "SIBRE", "USB5-05 D250 23/5")?.images).toHaveLength(2);
     expect(findCatalogSheet("brake", "SIBRE", "SHI 75-1")?.images).toHaveLength(2);
-    expect(findCatalogSheet("load_cell", "Esit", "PLC 2000")?.images).toHaveLength(1);
+    expect(findCatalogSheet("load_cell", "Esit", "PL-20")?.images).toHaveLength(2);
+    expect(findCatalogSheet("load_cell", "Esit", "PLI-20")?.images).toHaveLength(2);
     expect(findCatalogSheet("load_cell", "Kobastar", "LPW1 5t")?.images).toHaveLength(2);
+    expect(findCatalogSheet("hook", undefined, "DIN 15401")?.source)
+      .toContain("akyuzlu.com.tr/urunler-01");
+    expect(findCatalogSheet("hook", undefined, "DIN 15402")?.source)
+      .toContain("akyuzlu.com.tr/urunler-02");
+    expect(findCatalogSheet("wedge_socket", "Van Beest", "SKGOW019")?.images)
+      .toHaveLength(1);
+    expect(findCatalogSheet("wedge_socket", "Van Beest", "SKGOW019L")?.title)
+      .toContain("G-6419");
     expect(hasCatalogSheets("rope", "Haşçelik")).toBe(true);
     expect(hasCatalogSheets("rope", "İzmit A.Ş.")).toBe(true);
   });

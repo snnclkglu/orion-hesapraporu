@@ -227,19 +227,25 @@ Ekipman listesi PDF'i `scope = "full"` iken bir EKİPMAN DÖKÜMÜ değil bir
    Rapor Firması, son müşteri logosu, güncel proje adı, vinç yeri, vinç
    özellikleri ve alttaki Müşteri/Tarih/Hazırlayan/Kontrol/Revizyon satırı.
    Yatay A4'te vinç özellikleri iki eşit kolona bölünür.
-2. **Bölüm Dizini** — bütün ekipman gruplarını sıra numarası aralığıyla tek
-   yatay yaprakta verir. Grup sayısı arttığında iki kolona bölünür; her satır
-   PDF içi bağlantıyla tablo bandına gider.
+2. **Bölüm Dizini** — `1 Teknik Özellikler`, `2.x Ekipman Listesi` grupları ve
+   `3.x Teknik Ressam Özeti` alt bölümlerinin TAMAMINI tek dizinde verir. Grup
+   sayısı arttığında iki kolona bölünür; her satır kendi bölümünün benzersiz
+   PDF çıpasına gider. Özet satırlarının hepsinin ekipman listesinin ilk
+   yaprağına gitmesi yasaktır.
 3. **Teknik Özellikler** — hesap raporunun özet sayfasındaki tablonun
    KENDİSİ. Veri `summarySpecsForReport`, çizen bileşen `FieldTable`; ikisi de
    `pdf/report.tsx`ten dışa açıktır. İkinci bir tablo yazılsaydı iki belge bir
    gün farklı alan basardı ve ressam hangisinin güncel olduğunu bilemezdi.
    Kapatılan bölümlerin alanları burada da düşer (`specFieldVisibleForModules`).
-4. **Ekipman Listesi** — bütün bölümlerde kesintisiz sıra numarası kullanır;
+   Bütün teknik özellik tablolarında kaldırma kapasitesi açıklıktan önce gelir.
+4. **Ekipman Listesi** — `2.x` bölüm numarası ve bütün bölümlerde kesintisiz
+   satır numarası kullanır;
    çift numaralı satırlar soluk gri zeminlidir. PDF, ekran ve Excel aynı
    sırayı taşır. Ekipman/Marka/Özellikler alanları genişletilmiş, Ek
    Özellikler daraltılmıştır; Ek Belge yalnız kompakt `EK` göstergesidir.
-5. **Teknik Ressam Özeti** — ölçü çizelgeleri + şemalar + Notlar.
+5. **Teknik Ressam Özeti** — `3.x` bölüm numarası taşıyan, önceki boydan daha
+   büyük alt başlıklarla ölçü çizelgeleri + şemalar + Notlar. Raylar bölümü
+   vinç yolu rayını ve köprü üzerindeki araba rayını ayrı adlarla verir.
 
 **HER GRUP AYRI BİR `BrandPage`TİR, `break` DEĞİL.** Ekipman tablosunun başlığı
 `fixed`tir ve aynı sayfa bileşeninin BÜTÜN yapraklarında tekrar eder; özet
@@ -295,6 +301,13 @@ yoktu — halat kesiti, makara ve grafik çalışma noktası kayboluyordu; `bold
 çizgi ucu da yok sayılıyordu). `PdfDiagram` İKİ YÖNDEN kelepçelenir
 (`maxWidth` + `maxHeight`): yalnız genişlik verilirse kareye yakın bir çizim
 yaprağı taşırır ve `wrap={false}` kutusu bir sonrakine atlayıp orada da taşar.
+
+Tambur mili bölümü ölçü tablosu ve yükleme şemasını `keepTogether` ile aynı
+yaprakta tutar. Redüktör mil yönleri sayfaları yalnız yön çizimi bırakmaz;
+oran, gereken/anma torku, emniyet, mil çapları, ağırlık ve montaj bilgilerini
+aynı boşlukta gösterir. Ana kiriş kesiti satırları uygulamadaki alan gruplarını
+ve renklerini `fieldGroup` üzerinden korur; çizim yüksekliği ve satır öbekleri
+yatay A4'te tek sayfayı aşmayacak sınırdadır.
 
 **MOBİLDE “PDF İNDİR” GÖRÜNTÜLEYİCİYE YÖNLENDİRMEZ.** Üretilen uygulama
 belgeleri `PdfDownloadLink` / `PdfDownloadForm` üzerinden aynı kaynaklı blob

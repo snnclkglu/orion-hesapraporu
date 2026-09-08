@@ -79,6 +79,7 @@ describe("denge rulmanı katalog eşlemesi", () => {
       "balanceBearingCode",
       "balanceBearingDynCKn",
       "balanceBearingStatC0Kn",
+      "balanceBearingBoreMm",
       // AĞIRLIK hesabın değil AĞIRLIK DÖKÜMÜNÜN girdisidir (HESAP-35): hiçbir
       // kontrolü beslemez, yalnız vincin kaç kilo geldiğini toplar. Ağırlık
       // taşıyan her katalog türünde bulunması `catalog-weight-mapping.guard`

@@ -833,6 +833,14 @@ açıklamalar kutu altında değil başlıktaki bilgi açılırında gösterilir
 hesap raporu ve ekipman listesi aynı saf halat planını okur; metre veya helis
 yönü çıktılarda yeniden hesaplanmaz.
 
+Denge traversi/makarası yeni işte **Rulmanlı** başlar; kullanıcı `Rulman Yok`
+seçerse rulman kullanılmayacağı anlamına gelir ve hem C0 kontrolü hem ekipman
+satırı düşer. Rulmanlı düzende katalogdan gelen iç çap, statik C0 yükünün hemen
+yanındaki ayrı seçim kutusudur ve ekipman özelliğine de iner. ESİT loadpin
+seçimi PLC kodu üretmez: kullanıcı PL (çelik, varsayılan) veya PLI (paslanmaz)
+serisini seçer; kapasiteyle birlikte güncel ürün kodu ve A…F ölçüleri hesap
+sonucuna ve ekipman listesine taşınır.
+
 DIN 15401/15402 kanca kapasitesi raporda ve ekipman listesinde aynı DIN 15400
 Tablo 3 hücresinden okunur; snapshot'taki eski `hookCapacityKg` değeri satın alma
 satırına kaynak olamaz. Katalogda SIBRE TE frenin model kodundaki Eldro tipi ile
@@ -947,10 +955,10 @@ yüksekliği, teker aralıkları ya da 7.2 girdileri değiştiğinde 7.2 onayı 
 açılır. Kancanın en üst konumu kaldırma yüksekliğinden, köprü dingil açıklığı
 6.1 teker aralıkları toplamından, teker basıncını taşıyan sac ise ana kiriş t3
 gövde sacından otomatik türetilir; üçü de anahtarı kapatılarak elle değişebilir.
-Bu onaylar yalnız UYGULAMA iş akışıdır: müşteri hesap raporunda “Kullanıcı
-Ölçü Onayı” hesap satırı, firma onay kontrolü, “Diğer Kontroller” satırı veya
-Kontrol Özeti girdisi olarak basılmaz. Hesap motorundaki engelleyici davranış
-ve editördeki onay düğmesi korunur; süzgeç yalnız `pdf/report.tsx` sunumundadır.
+Bu onaylar uygulama iş akışıdır ama bir bölümün yargısını değiştirdiği için
+müşteri hesap raporundan gizlenmez. Sayısal eşik gibi `0 ≥ 1` basılmaz;
+“Kullanıcı Ölçü Onayı · UYGUN/UYGUN DEĞİL” biçiminde gösterilir. Hesap motoru,
+editör, bölüm Uygunluk Özeti ve PDF aynı kontrol nesnesini okur.
 
 Ana kiriş 7.8'de CMAA 70 §3.5.1 oranları normatif kontrol edilir: `L/h ≤ 25`
 ve web plakaları arası net genişlik için `L/b ≤ 65`. Ekran açıklaması bu
@@ -966,36 +974,35 @@ gösterir.
 
 ## HESAP-25 — Uygunluk Özeti şeridi: bölümün yargısı bölümün BAŞINDADIR.
 
-Kullanıcı kararı (23.08.2026): tambur milinde denenen "İzin Verilen / Oluşan
-Gerilmeler" şeridi *"kontrolü çok kolaylaştırıyor"* — bu yüzden SAYISAL YARGI
-ÜRETEN HER bölüme konur. Kolaylığın kaynağı ayrıntı değil **tekdüze yerdir**:
+Kullanıcı kararı (23.08.2026; kapsam düzeltmesi 08.09.2026): tambur milinde
+denenen "İzin Verilen / Oluşan Gerilmeler" şeridi *"kontrolü çok
+kolaylaştırıyor"* — bu yüzden KONTROL ÜRETEN HER bölüme konur. Kolaylığın
+kaynağı ayrıntı değil **tekdüze yerdir**:
 mühendis "bu bölüm uygun mu?" sorusunun cevabını her bölümde AYNI noktada
 bulur, satırların dibinde aramaz. Ayrıntılı hesap satırları ve onlara bağlı
 kontroller (`check-anchors.ts`) aşağıda AYNEN kalır; şerit yalnız kararı
 hızlandıran tekrardır ve hiçbir eşiği kendisi hesaplamaz — sayılar da
 uygunluk da kontrolün kendi `pass` değerinden gelir.
 
-Tanım TEK YERDEDİR: `module-adapters.ts` içindeki `*_HEADLINES` haritaları
-(`AdapterHeadline`). Ekran (`HeadlineBand`/`HeadlineBadge`) ve PDF
-(`HeadlineLine`) aynı haritayı okur — iki yüzey ayrışamaz.
+Tanım TEK YERDEDİR: bölümün `checkSuffixes` dizisi Uygunluk Özeti kapsamının
+da kaynağıdır. `module-adapters.ts` içindeki `*_HEADLINES` haritaları yalnız
+satırın özel başlık/etiket sunumunu ezer; haritada olmayan bir kontrol yine
+kontrolün kendi etiketiyle özete girer. Ekran (`HeadlineBand`/`HeadlineBadge`)
+ve PDF (`HeadlineLine`) aynı üretilmiş listeyi okur — sayaç 3/3 iken özetin iki
+satır göstermesi mümkün değildir.
 
 **İKİ YERLEŞİM.** `band` girdilerle katalog seçimi ARASINA girer ve
 bölümlerin geneli için budur. `catalog` ise rozetleri "Katalogdan Seç"
 düğmesinin YANINA koyar; kararın kataloğa bakarken verildiği iki bölümde
 kullanılır (2.1 halat emniyet katsayısı, 4.3 makara rulmanı).
 
-**ŞERİDE GİRMEYENLER.** Şerit "hesaplanan ⟨işaret⟩ sınır" diye okunur; iki
-sayısı olmayan kontrol orada bilgi vermez:
-· ONAY / VARLIK kontrolleri — ölçü onayı (7.2 · 10.1), "tahvil oranı
-  seçilmiş" (5.5), "fren boşluğu bandda" (2.8). Bunlar "0 ≥ 1" diye görünür;
-  kararın kendisi zaten kutunun yanındadır.
-· KAPSAM bilgilendirmeleri — "rüzgâr modellenmiyor" (8.2), "tepki yapıya
-  aktarılmaz" (5.8), kılavuz kuvveti denge artığı (10.3).
-· KABİN / ELEKTRİK ODASI (11.x) BÜTÜNÜYLE dışarıdadır: oradaki kontroller bir
-  mühendislik yargısı değil KATALOG DURUMUDUR ("ürün seçilmiş mi", "katalogda
-  sınır yayımlanmış mı"). Ürün seçilmemişken sınır 0'dır ve şerit
-  "1,39 ≤ 0,00 kW" diye bağırırdı — olmayan bir hesap hatasını varmış gibi
-  gösterirdi.
+**ŞERİDE GİRMEYEN KONTROL YOKTUR.** Bölümün sayacına giren her kontrol aynı
+bölümün şeridinde görünür. Sayısal kontroller gereken/seçilen ya da
+oluşan/izin verilen değerleriyle; onay, varlık ve katalog-durumu kontrolleri
+ise sayı uydurmadan yalnız etiket + `UYGUN/UYGUN DEĞİL` hükmüyle basılır.
+Bilgilendirme niteliğindeki kontroller de bölüm `checkSuffixes` listesinde
+tanımlıysa aynı kapsamdadır; kapsam dışı bırakma ikinci, gizli bir listeyle
+yapılmaz.
 
 **ETİKETLER CİNSE GÖREDİR ve gerektiğinde SATIR BAŞINA ezilir**
 (`AdapterHeadlineCheck.computedLabel` / `limitLabel`). Bir bölümün
@@ -1019,12 +1026,10 @@ gibi bırakıyordu. Tek sınıra indirilir, bağıntı `=` olur. Gerçek aralık
 −10 … 5 %" iki ayrı aralık okutur; sınır metni zaten "alt … üst" biçimindedir.
 
 **KAPSAM KORUMASI** `__tests__/headlines.guard.test.ts`tedir ve üç şeyi birden
-tutar: şerideki her sonek bölümün `checkSuffixes` bildiriminde vardır; sayısal
-yargı üreten her bölümün şeridi vardır; şerit o bölümün BÜTÜN yargılarını
-taşır. Sonuncusu önemlidir — eksik bir şerit, hepsi ✓ görünürken dışarıda
-kalan bir kontrolü gizler ve özet YANILTIR. Yeni bir kontrol eklendiğinde test
-kırılır ve mühendis onu şeride eklemeye (ya da gerekçesiyle muaf listesine
-yazmaya) zorlanır.
+tutar: şeritteki her sonek bölümün `checkSuffixes` bildiriminde vardır; kontrol
+üreten her bölümün şeridi vardır; çalışma anında üretilen bölüm kontrol kümesi
+ile şerit kümesi BİREBİR aynıdır ve görünür bir kontrol yinelenmez. Yeni bir
+kontrol eklendiğinde `checkSuffixes` güncellenmeden test kapanmaz.
 
 ## HESAP-26 — Ana kiriş ve teker yüklerinde her kutu kendi tasarım notunu taşır.
 

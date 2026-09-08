@@ -1762,44 +1762,6 @@
    ]
   },
   {
-   "id": "load_cell/kobastar-lpw1",
-   "kind": "load_cell",
-   "brand": "Kobastar",
-   "series": "LPW1",
-   "title": "Kobastar LPW1 — pim tipi yük hücresi teknik föyü",
-   "source": "Elektrik Katalogları/KOBASTAR - LPW1 Pim Tipi Yuk Hucresi Veri Sayfasi (TR).pdf",
-   "printedPages": "s.1-2",
-   "images": [
-    "load_cell/kobastar-lpw1-p1.webp",
-    "load_cell/kobastar-lpw1-p2.webp"
-   ],
-   "models": [
-    "LPW1 5t",
-    "LPW1 10t",
-    "LPW1 20t",
-    "LPW1 40t"
-   ]
-  },
-  {
-   "id": "load_cell/esit-plc",
-   "kind": "load_cell",
-   "brand": "Esit",
-   "series": "PLC",
-   "title": "Esit PLC — resmi ürün detay sayfası",
-   "source": "Elektrik Katalogları/ESIT - PLC Yuk Hucresi Resmi Urun Sayfasi.pdf",
-   "printedPages": "ürün sayfası s.1",
-   "images": [
-    "load_cell/esit-plc-p1.webp"
-   ],
-   "models": [
-    "PLC 2000",
-    "PLC 5000",
-    "PLC 10",
-    "PLC 15",
-    "PLC 30"
-   ]
-  },
-  {
    "id": "buffer/sibre-sp",
    "kind": "buffer",
    "brand": "SIBRE",
@@ -31374,6 +31336,178 @@
     "B4-26",
     "B4-27",
     "B4-28"
+   ]
+  },
+  {
+   "id": "hook/akyuzlu-din-15401",
+   "kind": "hook",
+   "brand": "Akyüzlü",
+   "series": "DIN 15401",
+   "title": "Akyüzlü DIN 15401 — tek ağızlı vinç kancaları",
+   "source": "https://www.akyuzlu.com.tr/urunler-01-din-15401-tek-agizli-vinc-kancalari.html",
+   "printedPages": "teknik ölçü tablosu",
+   "models": [
+    "DIN 15401"
+   ],
+   "images": [
+    "hook/akyuzlu-din-15401.webp"
+   ]
+  },
+  {
+   "id": "hook/akyuzlu-din-15402",
+   "kind": "hook",
+   "brand": "Akyüzlü",
+   "series": "DIN 15402",
+   "title": "Akyüzlü DIN 15402 — çift ağızlı vinç kancaları",
+   "source": "https://www.akyuzlu.com.tr/urunler-02-din-15402-cift-agizli-vinc-kancalari.html",
+   "printedPages": "teknik ölçü tablosu",
+   "models": [
+    "DIN 15402"
+   ],
+   "images": [
+    "hook/akyuzlu-din-15402.webp"
+   ]
+  },
+  {
+   "id": "load_cell/kobastar-lpw1",
+   "kind": "load_cell",
+   "brand": "Kobastar",
+   "series": "LPW1",
+   "title": "Kobastar LPW1 — pim tipi yük hücresi teknik föyü",
+   "source": "Elektrik Katalogları/KOBASTAR - LPW1 Pim Tipi Yuk Hucresi Veri Sayfasi (TR).pdf",
+   "printedPages": "s.1-2",
+   "images": [
+    "load_cell/kobastar-lpw1-p1.webp",
+    "load_cell/kobastar-lpw1-p2.webp"
+   ],
+   "models": [
+    "LPW1 5t",
+    "LPW1 10t",
+    "LPW1 20t",
+    "LPW1 40t"
+   ]
+  },
+  {
+   "id": "load_cell/esit-pl-2-5",
+   "kind": "load_cell",
+   "brand": "Esit",
+   "series": "PL-2-5",
+   "title": "Esit PL/PLI 2–5 t — güncel ölçüler ve ürün kodları",
+   "source": "Elektrik Katalogları/ESIT - PL PLI Guncel Kodlar 2025.pdf",
+   "printedPages": "s.2 + s.6",
+   "images": [
+    "load_cell/esit-pl-2-5-p1.webp",
+    "load_cell/esit-pl-2-5-p2.webp"
+   ],
+   "models": [
+    "PL-2",
+    "PL-5",
+    "PLI-2",
+    "PLI-5"
+   ]
+  },
+  {
+   "id": "load_cell/esit-pl-10-15",
+   "kind": "load_cell",
+   "brand": "Esit",
+   "series": "PL-10-15",
+   "title": "Esit PL/PLI 10–15 t — güncel ölçüler ve ürün kodları",
+   "source": "Elektrik Katalogları/ESIT - PL PLI Guncel Kodlar 2025.pdf",
+   "printedPages": "s.3 + s.6",
+   "images": [
+    "load_cell/esit-pl-10-15-p1.webp",
+    "load_cell/esit-pl-2-5-p2.webp"
+   ],
+   "models": [
+    "PL-10",
+    "PL-15",
+    "PLI-10",
+    "PLI-15"
+   ]
+  },
+  {
+   "id": "load_cell/esit-pl-20-30",
+   "kind": "load_cell",
+   "brand": "Esit",
+   "series": "PL-20-30",
+   "title": "Esit PL/PLI 20–30 t — güncel ölçüler ve ürün kodları",
+   "source": "Elektrik Katalogları/ESIT - PL PLI Guncel Kodlar 2025.pdf",
+   "printedPages": "s.4 + s.6",
+   "images": [
+    "load_cell/esit-pl-20-30-p1.webp",
+    "load_cell/esit-pl-2-5-p2.webp"
+   ],
+   "models": [
+    "PL-20",
+    "PL-30",
+    "PLI-20",
+    "PLI-30"
+   ]
+  },
+  {
+   "id": "load_cell/esit-pl-60",
+   "kind": "load_cell",
+   "brand": "Esit",
+   "series": "PL-60",
+   "title": "Esit PL/PLI 60 t — güncel ölçüler ve ürün kodları",
+   "source": "Elektrik Katalogları/ESIT - PL PLI Guncel Kodlar 2025.pdf",
+   "printedPages": "s.5 + s.6",
+   "images": [
+    "load_cell/esit-pl-60-p1.webp",
+    "load_cell/esit-pl-2-5-p2.webp"
+   ],
+   "models": [
+    "PL-60",
+    "PLI-60"
+   ]
+  },
+  {
+   "id": "wedge_socket/van-beest-open-wedge-socket-cp",
+   "kind": "wedge_socket",
+   "brand": "Van Beest",
+   "series": "Open Wedge Socket CP",
+   "title": "Green Pin G-6413 — açık kamalı halat soketi",
+   "source": "Diğer kataloglar/Green Pin - Sockets.pdf",
+   "printedPages": "s.7",
+   "images": [
+    "wedge_socket/van-beest-open-wedge-socket-cp-p1.webp"
+   ],
+   "models": [
+    "SKGOW008",
+    "SKGOW010",
+    "SKGOW013",
+    "SKGOW016",
+    "SKGOW019",
+    "SKGOW022",
+    "SKGOW025",
+    "SKGOW028",
+    "SKGOW032",
+    "SKGOW035",
+    "SKGOW038",
+    "SKGOW040",
+    "SKGOW045"
+   ]
+  },
+  {
+   "id": "wedge_socket/van-beest-open-long-wedge-socket-cp",
+   "kind": "wedge_socket",
+   "brand": "Van Beest",
+   "series": "Open Long Wedge Socket CP",
+   "title": "Green Pin G-6419 — uzun açık kamalı halat soketi",
+   "source": "Diğer kataloglar/Green Pin - Product Catalogue Metric 2024.pdf",
+   "printedPages": "s.125",
+   "images": [
+    "wedge_socket/van-beest-open-long-wedge-socket-cp-p1.webp"
+   ],
+   "models": [
+    "SKGOW010L",
+    "SKGOW013L",
+    "SKGOW016L",
+    "SKGOW019L",
+    "SKGOW022L",
+    "SKGOW025L",
+    "SKGOW028L",
+    "SKGOW032L"
    ]
   }
  ]

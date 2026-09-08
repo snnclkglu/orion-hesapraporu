@@ -163,6 +163,7 @@ export const V5_MAIN_HOIST_SELECTIONS: HoistSelections = {
   // Kobastar seçebilir). Model/kapasite/MBL otomatik.
   balanceSocketType: "Normal",
   balanceLoadcellBrand: "Esit",
+  balanceLoadcellSeries: "PL",
   ropeBrand: "Hasçelik",
   ropeDiaMm: 18,
   ropeConstruction: "6x36",
@@ -458,6 +459,7 @@ export const NEW_WORK_DISABLED_MODULES: readonly string[] = [
 const NEW_WORK_HOIST_INPUTS: HoistInputs = {
   ...V5_MAIN_HOIST_INPUTS,
   ropeBalancingType: "equalizerBeam",
+  balanceBearingUsage: "bearing",
   // Başlangıç rulmanı 22212'nin iç çapı Ø60 ile birebir eşleşir.
   shaftD2Mm: 60,
   reevingLabel: "2/4",
@@ -514,6 +516,7 @@ const NEW_WORK_HOIST_SELECTIONS: HoistSelections = {
 const NEW_WORK_AUX_HOIST_INPUTS: HoistInputs = {
   ...V5_AUX_HOIST_INPUTS,
   ropeBalancingType: "equalizerBeam",
+  balanceBearingUsage: "bearing",
   shaftD2Mm: 60,
   sheaveEfficiency: STANDARD_SHEAVE_EFFICIENCY,
   ropeWeightAuto: true,

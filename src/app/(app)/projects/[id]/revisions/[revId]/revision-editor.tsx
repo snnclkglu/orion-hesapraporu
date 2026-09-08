@@ -65,6 +65,7 @@ import {
   type RevisionSectionNotes,
 } from "@/lib/revision-load";
 import { checkDisplay, checkKind, checkSeverity } from "@/lib/calc/types";
+import { isExistenceCheck } from "@/lib/pdf/report-compact";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "@/lib/calc/types";
 import type { TravelInputs, TravelValues } from "@/lib/calc/modules/travelGroup";
 import type { GirderSelections } from "@/lib/calc/modules/mainGirder";
@@ -852,9 +853,12 @@ function headlineTexts(check: AnyCheck): { computed: string; limit: string } {
 function HeadlineBadge({ item }: { item: HeadlineItem }) {
   const { check, label, computedLabel, limitLabel } = item;
   const t = headlineTexts(check);
+  const existence = isExistenceCheck(check);
   return (
     <span
-      title={`${check.label} — ${limitLabel} ${t.limit} / ${computedLabel} ${t.computed}`}
+      title={existence
+        ? `${check.label} — ${check.pass ? "Uygun" : "Uygun değil"}`
+        : `${check.label} — ${limitLabel} ${t.limit} / ${computedLabel} ${t.computed}`}
       className={cn(
         // Sayısal rozet mobilde bir kademe büyür (sözleşme §3)
         "inline-flex flex-wrap items-baseline gap-x-1.5 border px-2 py-0.5 font-mono text-xs tabular-nums sm:text-[11px]",
@@ -866,12 +870,21 @@ function HeadlineBadge({ item }: { item: HeadlineItem }) {
       <span aria-hidden="true" className="font-semibold">
         {check.pass ? "✓" : "✗"}
       </span>
-      <span className="tracking-wide uppercase opacity-70">{limitLabel}</span>
-      <span className="font-semibold">{t.limit}</span>
-      <span aria-hidden="true" className="opacity-40">·</span>
-      <span className="tracking-wide uppercase opacity-70">{computedLabel}</span>
-      <span className="font-semibold">{t.computed}</span>
-      <span className="sr-only">{label}</span>
+      {existence ? (
+        <>
+          <span className="font-sans font-medium normal-case">{label}</span>
+          <span className="font-semibold">{check.pass ? "UYGUN" : "UYGUN DEĞİL"}</span>
+        </>
+      ) : (
+        <>
+          <span className="tracking-wide uppercase opacity-70">{limitLabel}</span>
+          <span className="font-semibold">{t.limit}</span>
+          <span aria-hidden="true" className="opacity-40">·</span>
+          <span className="tracking-wide uppercase opacity-70">{computedLabel}</span>
+          <span className="font-semibold">{t.computed}</span>
+          <span className="sr-only">{label}</span>
+        </>
+      )}
     </span>
   );
 }
@@ -897,6 +910,7 @@ function HeadlineBand({
       <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
         {items.map(({ label, check, computedLabel, limitLabel }) => {
           const t = headlineTexts(check);
+          const existence = isExistenceCheck(check);
           return (
             <div
               key={check.id}
@@ -917,6 +931,14 @@ function HeadlineBand({
                 {check.pass ? "✓" : "✗"}
               </span>
               <span className="font-medium">{label}</span>
+              {existence ? (
+                <span className={cn(
+                  "ml-auto font-mono text-[11px] font-semibold",
+                  check.pass ? "text-success" : "text-destructive"
+                )}>
+                  {check.pass ? "UYGUN" : "UYGUN DEĞİL"}
+                </span>
+              ) : (
               <span className="inline-flex flex-wrap items-baseline gap-x-1.5 font-mono text-[11px] tabular-nums">
                 <span className="text-[11px] tracking-wide text-muted-foreground uppercase">
                   {computedLabel}
@@ -943,6 +965,7 @@ function HeadlineBand({
                 </span>
                 <span className="text-foreground/80">{t.limit}</span>
               </span>
+              )}
             </div>
           );
         })}

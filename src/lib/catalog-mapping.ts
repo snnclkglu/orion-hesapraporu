@@ -942,6 +942,7 @@ const BALANCE_BEARING_MAP: SectionCatalogMapping = {
     { sel: "balanceBearingCode", from: "model" },
     { sel: "balanceBearingDynCKn", from: { attr: "dynamic_load_kn" } },
     { sel: "balanceBearingStatC0Kn", from: { attr: "static_load_kn" } },
+    { sel: "balanceBearingBoreMm", from: { attr: "bore_mm" } },
       // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
       { sel: "balanceBearingWeightKg", from: { attr: "weight_kg" } },
   ],

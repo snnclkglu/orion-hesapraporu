@@ -112,6 +112,9 @@ describe("ekipman listesi PDF düzeni", () => {
 
   it("rapor firması kimliğini teknik özellikler, liste ve teknik özet yapraklarında korur", async () => {
     const input = structuredClone(V5_TEMPLATE);
+    input.mainHoist!.selections.gearboxShaftDirection = "R2";
+    const groups = buildEquipmentGroups(input);
+    const summary = buildSummarySections(input, runCalc(input));
     const pdf = await renderEquipmentPdf({
       meta: {
         docNo: "EQ-04",
@@ -124,8 +127,8 @@ describe("ekipman listesi PDF düzeni", () => {
         checkedBy: "Alkım Kelleci",
       },
       partner: { name: "Karçel Ortak Firma", logo: BRAND_LOGO_INK },
-      groups: buildEquipmentGroups(input),
-      summary: buildSummarySections(input, runCalc(input)),
+      groups,
+      summary,
       specTable: { ...summarySpecsForReport(input), specs: input.specs },
     });
 
@@ -136,6 +139,27 @@ describe("ekipman listesi PDF düzeni", () => {
     const { text } = await extractText(textDocument, { mergePages: true });
     expect(String(text)).toContain("KARÇEL ORTAK FİRMA");
     expect(String(text).toLocaleUpperCase("tr-TR")).not.toContain("PARTNER");
+
+    const directoryLinks = document.getPage(1).node.lookupMaybe(PDFName.of("Annots"), PDFArray);
+    expect(directoryLinks?.size()).toBeGreaterThanOrEqual(1 + groups.length + summary.length);
+    const byPage = await extractText(textDocument, { mergePages: false });
+    const pages = (byPage.text as string[]).map((page) => page.toLocaleUpperCase("tr-TR"));
+    const directoryText = pages[1].replace(/\s+/g, "");
+    expect(directoryText).toContain("1TEKNİKÖZELLİKLER");
+    expect(directoryText).toContain("2.1ANAKALDIRMA");
+    expect(directoryText).toContain("3.1GENELÖLÇÜLERVEKAPASİTELER");
+
+    // Ölçü zinciri ve şema başlığı aynı yapraktadır; bölüm iki sayfaya bölünmez.
+    const contentPages = pages.slice(2);
+    const shaftPages = contentPages.filter((page) => page.includes("TAMBUR MİLİ · ANA KALDIRMA"));
+    expect(shaftPages).toHaveLength(1);
+    expect(shaftPages[0]).toContain("MİL ÖLÇÜSÜ A");
+    expect(shaftPages[0]).toContain("MİL ÖLÇÜSÜ G");
+
+    // Renkli/gruplu ana kiriş kesiti de baştan sona tek yaprakta kalır.
+    const girderPages = contentPages.filter((page) => page.includes("ANA KİRİŞ KESİTİ"));
+    expect(girderPages).toHaveLength(1);
+    expect(girderPages[0]).toContain("KİRİŞ TOPLAM AĞIRLIĞI");
 
     const smokeOut = process.env.EQUIPMENT_REPORT_BRAND_OUT;
     if (smokeOut) writeFileSync(smokeOut, pdf);

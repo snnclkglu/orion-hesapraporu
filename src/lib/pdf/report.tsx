@@ -304,17 +304,12 @@ function docCodeFor(project: ReportProject, revision: ReportRevision): string {
   return docCode("HR", project.doc_no, revision.rev_no);
 }
 
-/**
- * Ölçü onayı editörde engelleyici bir iş akışı kontrolüdür; müşteri hesap
- * raporunda hesap sonucu gibi gösterilmez. Motor ve uygulama davranışı aynen
- * korunur, yalnız PDF sunum katmanı bu kontrolü ve karşılık gelen satırı süzer.
- */
 function reportCheckVisible(check: AnyCheck): boolean {
-  return !check.id.endsWith(".measurements.confirmed");
+  return Boolean(check.id);
 }
 
 function reportCalculationRowVisible(key: string): boolean {
-  return !key.endsWith(".measurementsConfirmed");
+  return Boolean(key);
 }
 
 // Modül erişimi (girdi durumu / sonuç / sunum bağlamı) ortak katmandan gelir:
@@ -871,7 +866,15 @@ export function technicalSpecsForReport(input: CalcInput): {
   defs: AnyFieldDef[];
   source: Record<string, unknown>;
 } {
-  const defs = specFieldsFor(input);
+  const rawDefs = specFieldsFor(input);
+  // Belge yüzlerinde en önemli veri ilk okunur: kaldırma kapasitesi, hemen
+  // ardından açıklık. Aynı yardımcı hesap raporu, ekipman listesi ve kullanım
+  // kılavuzunun teknik özellik tablosunu besler.
+  const priority = ["mainCapacityT", "spanM"];
+  const defs = [
+    ...priority.flatMap((key) => rawDefs.filter((field) => field.key === key)),
+    ...rawDefs.filter((field) => !priority.includes(field.key)),
+  ];
   const source: Record<string, unknown> = { ...input.specs };
 
   for (const [specKey, moduleKey] of HOIST_ARRANGEMENT_ROWS) {
@@ -1157,6 +1160,10 @@ function HeadlineLine({ item }: { item: HeadlineItem }) {
     >
       <CheckGlyph pass={check.pass} size={7} />
       <Text style={s.headlineLabel}>{label}</Text>
+      {isExistenceCheck(check) ? (
+        <Text style={[s.cmpValue, { color }]}>{check.pass ? "UYGUN" : "UYGUN DEĞİL"}</Text>
+      ) : (
+        <>
       <Text style={s.cmpLabel}>{computedLabel.toLocaleUpperCase("tr-TR")}</Text>
       <Text style={[s.cmpValue, s.cmpGap, { color }]}>
         {fmt(computed.value)}
@@ -1170,6 +1177,8 @@ function HeadlineLine({ item }: { item: HeadlineItem }) {
         {limitText}
         {unit ? <Text style={s.cmpUnit}>{unit}</Text> : null}
       </Text>
+        </>
+      )}
     </View>
   );
 }

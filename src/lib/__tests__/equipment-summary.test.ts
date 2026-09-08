@@ -20,4 +20,36 @@ describe("Teknik Ressam Özeti", () => {
     expect(hook?.rows.find((row) => row.label === "Keçe tipi")?.value).toBe("KK-T");
     expect(hook?.rows.some((row) => row.label === "Rulman kapak tipi")).toBe(false);
   });
+
+  it("vinç yolu ve köprü üstü araba rayını ayrı ve açık adlarla gösterir", () => {
+    const rails = sections.find((section) => section.name === "Raylar");
+    expect(rails?.rows.map((row) => row.label)).toEqual(expect.arrayContaining([
+      "Vinç rayı · köprü yürütme",
+      "Köprü rayı · ana araba",
+    ]));
+  });
+
+  it("tambur mili ölçüleriyle şemasını aynı, birlikte tutulacak bölümde taşır", () => {
+    const shaft = sections.find((section) => section.name === "Tambur Mili · Ana Kaldırma");
+    expect(shaft?.diagram).toBeDefined();
+    expect(shaft?.keepTogether).toBe(true);
+    expect(shaft?.rows.some((row) => row.label.startsWith("Mil ölçüsü A"))).toBe(true);
+    expect(shaft?.rows.some((row) => row.label.startsWith("Mil ölçüsü G"))).toBe(true);
+  });
+
+  it("ana kaldırma redüktör yönü sayfasını tork, ağırlık ve mil bilgileriyle doldurur", () => {
+    const input = structuredClone(NEW_WORK_TEMPLATE);
+    input.mainHoist!.selections.gearboxShaftDirection = "R2";
+    const directionalSections = buildSummarySections(input, runCalc(input));
+    const gearbox = directionalSections.find(
+      (section) => section.name === "Redüktör Mil Yönleri · Ana Kaldırma"
+    );
+    const labels = gearbox?.rows.map((row) => row.label) ?? [];
+    expect(labels).toEqual(expect.arrayContaining([
+      "Gerekli tork",
+      "Ağırlık",
+      "Giriş mili",
+      "Çıkış mili",
+    ]));
+  });
 });

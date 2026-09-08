@@ -57,7 +57,7 @@ describe("hesap raporu PDF duman testi", () => {
     );
   });
 
-  it("özet teknik tablosunu genel bilgi → kaldırma → araba → köprü sırasına dizer", () => {
+  it("özet teknik tablosunu kapasite → açıklık → genel bilgi → araba → köprü sırasına dizer", () => {
     const summary = summarySpecsForReport({
       ...input,
       specs: {
@@ -73,7 +73,8 @@ describe("hesap raporu PDF duman testi", () => {
     const labels = new Map(summary.defs.map((f) => [f.key, f.label]));
     const bridgeWeight = keys.indexOf("bridgeWeightT");
 
-    expect(keys[0]).toBe("spanM");
+    expect(keys[0]).toBe("mainCapacityT");
+    expect(keys[1]).toBe("spanM");
     expect(keys).not.toContain("monorailCount");
     expect(keys).not.toContain("trolleyBufferImpactSpeedPct");
     expect(keys).not.toContain("bridgeBufferImpactSpeedPct");
@@ -94,10 +95,12 @@ describe("hesap raporu PDF duman testi", () => {
     );
 
     const firstMainHoist = keys.findIndex((key) => key === "mainCapacityT");
+    const firstGeneral = keys.findIndex((key) => key === "installationEnvironment");
     const firstTrolley = keys.findIndex((key) => key === "trolleySpeedMpm");
     const firstBridge = keys.findIndex((key) => key === "bridgeSpeedMpm");
-    expect(firstMainHoist).toBeGreaterThan(keys.indexOf("installationEnvironment"));
-    expect(firstTrolley).toBeGreaterThan(firstMainHoist);
+    expect(firstMainHoist).toBe(0);
+    expect(firstGeneral).toBeGreaterThan(keys.indexOf("spanM"));
+    expect(firstTrolley).toBeGreaterThan(firstGeneral);
     expect(firstBridge).toBeGreaterThan(firstTrolley);
   });
 
@@ -271,12 +274,12 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
     }
   }, 300_000);
 
-  it("kullanıcı ölçü onaylarını ve bunların firma kontrolünü PDF'e basmaz", async () => {
+  it("kullanıcı ölçü onaylarını ve bunların firma kontrolünü PDF'e basar", async () => {
     const detayli = await pagesOf(await atLevel("detayli"));
-    expect(detayli.all).not.toContain("Kullanıcı Ölçü Onayı");
-    expect(detayli.all).not.toContain("Vinç Verileri ve Teker Düzeni Ölçü Onayı");
-    expect(detayli.all).not.toContain("Yükler Bölümü Ölçü Onayı");
-    expect(detayli.all).not.toContain("ORION tasarım veri onayı");
+    expect(detayli.all).toContain("Kullanıcı Ölçü Onayı");
+    expect(detayli.all).toContain("Vinç Verileri ve Teker Düzeni Ölçü Onayı");
+    expect(detayli.all).toContain("Yükler Bölümü Ölçü Onayı");
+    expect(detayli.all).toContain("ORION tasarım veri onayı");
   }, 300_000);
 
   it("uzun hesap bölümlerinin anteti devam sayfalarında da tekrarlanır", async () => {
@@ -334,7 +337,7 @@ describe("rapor seviyeleri — bölüm kapsamı", () => {
     // halat kartının kendi "1/1" rozeti basılsaydı metinde "1/1UYGUN" olurdu.
     expect(basit.squeezed).toContain("25/30UYGUN");
     expect(basit.squeezed).not.toContain("1/1UYGUN");
-    expect(basit.squeezed).not.toContain("3/3UYGUN");
+    expect(basit.squeezed).toContain("3/3UYGUN");
     // Ek (Kaynaklar) YOK; KISA gizlilik metni hesap akışının sonunda
     expect(basit.squeezed).not.toContain("KAYNAKLARVESTANDARTLAR");
     expect(basit.squeezed).toContain("GİZLİLİKVEKULLANIMKOŞULLARI");

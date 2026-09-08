@@ -1072,11 +1072,11 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       inputs === undefined ||
       (inputs as { ropeBalancingType?: string }).ropeBalancingType === "equalizerBeam",
     equipmentSlugs: ["balanceSocket", "balanceLoadcell", "balanceBearing"],
-    inputKeys: ["balanceRopeCount"],
+    inputKeys: ["balanceRopeCount", "balanceBearingUsage"],
     selectionKeys: [
-      "balanceSocketType", "balanceLoadcellBrand", "balanceBearingBrand",
+      "balanceSocketType", "balanceLoadcellBrand", "balanceLoadcellSeries", "balanceBearingBrand",
       "balanceBearingType", "balanceBearingCode", "balanceBearingDynCKn",
-      "balanceBearingStatC0Kn",
+      "balanceBearingStatC0Kn", "balanceBearingBoreMm",
     ],
     rows: [
       {
@@ -1113,11 +1113,11 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       inputs === undefined ||
       (inputs as { ropeBalancingType?: string }).ropeBalancingType === "equalizerSheave",
     equipmentSlugs: ["balanceSheave", "balanceLoadcell", "balanceBearing"],
-    inputKeys: ["balanceRopeCount"],
+    inputKeys: ["balanceRopeCount", "balanceBearingUsage"],
     selectionKeys: [
-      "balanceSheaveDiaMm", "balanceLoadcellBrand", "balanceBearingBrand",
+      "balanceSheaveDiaMm", "balanceLoadcellBrand", "balanceLoadcellSeries", "balanceBearingBrand",
       "balanceBearingType", "balanceBearingCode", "balanceBearingDynCKn",
-      "balanceBearingStatC0Kn",
+      "balanceBearingStatC0Kn", "balanceBearingBoreMm",
     ],
     rows: [
       {

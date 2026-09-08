@@ -27,6 +27,7 @@ import { docCode } from "@/lib/pdf/doc-naming";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { toDisplayUnitLabel } from "@/lib/units";
 import { PdfDiagram } from "@/lib/pdf/diagram";
+import { FIELD_GROUPS } from "@/lib/calc/field-groups";
 // TEKNİK ÖZELLİKLER TABLOSU HESAP RAPORUNUNKİYLE AYNI BİLEŞENDİR: ikinci bir
 // tablo yazmak, iki belgenin bir gün farklı alan basmasıyla biterdi.
 import {
@@ -88,8 +89,12 @@ const s = StyleSheet.create({
   altIndent: { paddingLeft: 12 },
   // özet
   sumSection: {
-    backgroundColor: BRAND.paper150, fontFamily: FONTS.sans, fontSize: 8, fontWeight: 700,
-    color: BRAND.ink, paddingVertical: 3, paddingHorizontal: 5,
+    backgroundColor: BRAND.paper150, fontFamily: FONTS.sans, fontSize: 10, fontWeight: 800,
+    color: BRAND.ink, paddingVertical: 4, paddingHorizontal: 6, letterSpacing: 0.3,
+  },
+  sumGroupTitle: {
+    fontFamily: FONTS.mono, fontSize: 5.8, fontWeight: 700, letterSpacing: 0.5,
+    marginBottom: 1,
   },
   sLabel: { flex: 1 },
   sVal: {
@@ -120,6 +125,14 @@ const s = StyleSheet.create({
     flexShrink: 0,
     gap: 4,
   },
+  // Ana kiriş kesiti üç sütuna sıkıştırılır; renkli grup başlıkları korunur
+  // fakat satır yüksekliği iki sütunlu genel özetten daha küçüktür. Böylece
+  // şema + bütün kesit ölçüleri gerçek bir yatay A4'e birlikte sığar.
+  sumRowCompact: { paddingVertical: 1, gap: 2 },
+  sLabelTextCompact: { fontSize: 6.5 },
+  sValCompact: { fontSize: 6.5 },
+  sUnitCompact: { fontSize: 5.8, width: 30 },
+  sumGroupTitleCompact: { fontSize: 5.1, marginBottom: 0 },
   sLabelText: { fontFamily: FONTS.sans, fontSize: 7.4, color: BRAND.gray700 },
   sValText: {},
   // NOTLAR kutusu: kırmızı omurga, kağıt zemin (hesap raporundaki mühendis
@@ -151,17 +164,17 @@ const s = StyleSheet.create({
     color: BRAND.red, paddingTop: 7, paddingBottom: 3,
   },
   directoryRow: {
-    flexDirection: "row", alignItems: "center", minHeight: 25,
+    flexDirection: "row", alignItems: "center", minHeight: 18,
     borderBottomWidth: 0.5, borderBottomColor: BRAND.line300,
     textDecoration: "none", color: BRAND.ink,
   },
   directoryRange: {
-    width: 52, fontFamily: FONTS.mono, fontSize: 7.2, fontWeight: 600,
+    width: 42, fontFamily: FONTS.mono, fontSize: 7.2, fontWeight: 600,
     color: BRAND.red,
   },
-  directoryName: { flex: 1, fontFamily: FONTS.sans, fontSize: 9, fontWeight: 700 },
+  directoryName: { flex: 1, fontFamily: FONTS.sans, fontSize: 8, fontWeight: 700 },
   directoryCount: {
-    width: 42, fontFamily: FONTS.mono, fontSize: 7, color: BRAND.gray600,
+    width: 62, fontFamily: FONTS.mono, fontSize: 6.5, color: BRAND.gray600,
     textAlign: "right" as const,
   },
 });
@@ -368,6 +381,11 @@ export function equipmentGroupAnchor(
   return `ekipman-grup-${sectionKey}-${sectionIndex + 1}-${groupIndex + 1}`;
 }
 
+/** Teknik ressam özeti alt bölümünün kararlı belge içi çapası. */
+export function summarySectionAnchor(index: number): string {
+  return `teknik-ressam-ozeti-${index + 1}`;
+}
+
 /** Uzun katalog kodlarının sütun sınırında güvenle kırılabileceği işaretler. */
 export function breakEquipmentModelCode(model: string): string {
   return model.replace(/([./_-])/g, "$1\u200B");
@@ -476,27 +494,51 @@ export function EquipmentDocument({
     { key: "mechanical", name: "Mekanik Ekipmanlar", groups },
   ];
   let equipmentSequence = 0;
+  let equipmentGroupSequence = 0;
   const numberedSections = documentSections.map((section, sectionIndex) => ({
     ...section,
     sectionIndex,
     groups: section.groups.map((group, groupIndex) => ({
       ...group,
       groupIndex,
+      directoryIndex: ++equipmentGroupSequence,
       anchor: equipmentGroupAnchor(section.key, sectionIndex, groupIndex),
       rows: group.rows.map((row) => ({ row, no: ++equipmentSequence })),
     })),
   }));
-  const directoryEntries = numberedSections.flatMap((section) =>
+  const numberedSummary = (summary ?? []).map((section, index) => ({
+    ...section,
+    directoryIndex: index + 1,
+    anchor: summarySectionAnchor(index),
+  }));
+  const equipmentDirectoryEntries = numberedSections.flatMap((section) =>
     section.groups.map((group) => ({
-      sectionName: section.name,
-      sectionKey: section.key,
+      sectionName: `2 · Ekipman Listesi · ${section.name}`,
+      sectionKey: `equipment-${section.key}`,
       anchor: group.anchor,
+      number: `2.${group.directoryIndex}`,
       name: group.name,
       startNo: group.rows[0]?.no ?? 0,
       endNo: group.rows.at(-1)?.no ?? 0,
-      count: group.rows.length,
+      detail: group.rows[0]?.no === group.rows.at(-1)?.no
+        ? `#${group.rows[0]?.no ?? 0}`
+        : `#${group.rows[0]?.no ?? 0}–${group.rows.at(-1)?.no ?? 0}`,
     }))
   );
+  const directoryEntries = [
+    ...(specTable ? [{
+      sectionName: "1 · Teknik Özellikler", sectionKey: "specs",
+      anchor: "teknik-ozellikler", number: "1", name: "Teknik Özellikler",
+      startNo: 0, endNo: 0, detail: `${specTable.defs.length} SATIR`,
+    }] : []),
+    ...equipmentDirectoryEntries,
+    ...numberedSummary.map((section) => ({
+      sectionName: "3 · Teknik Ressam Özeti", sectionKey: "summary",
+      anchor: section.anchor, number: `3.${section.directoryIndex}`, name: section.name,
+      startNo: 0, endNo: 0,
+      detail: section.kind === "notes" ? "NOTLAR" : `${section.rows.length} ÖLÇÜ`,
+    })),
+  ];
   const directorySplit = directoryEntries.length > 9
     ? Math.ceil(directoryEntries.length / 2)
     : directoryEntries.length;
@@ -596,8 +638,8 @@ export function EquipmentDocument({
         />
         <Text style={s.directoryTitle}>BÖLÜM DİZİNİ</Text>
         <Text style={s.directoryLead}>
-          Grup adına tıklayınca ekipman tablosundaki ilgili bölüme gidilir. Sıra aralığı,
-          grubun listede izlediği ekipman numaralarını gösterir.
+          Satıra tıklayınca belgedeki ilgili teknik özellik, ekipman grubu veya imalat
+          özeti bölümüne gidilir. Ekipman satırlarında sıra numarası aralığı ayrıca gösterilir.
         </Text>
         <View style={s.directoryGrid}>
           {directoryColumns.map((column, columnIndex) => (
@@ -611,13 +653,9 @@ export function EquipmentDocument({
                       <Text style={s.directorySection}>{trUpper(entry.sectionName)}</Text>
                     ) : null}
                     <Link src={`#${entry.anchor}`} style={s.directoryRow}>
-                      <Text style={s.directoryRange}>
-                        {entry.startNo === entry.endNo
-                          ? `#${entry.startNo}`
-                          : `#${entry.startNo}-${entry.endNo}`}
-                      </Text>
+                      <Text style={s.directoryRange}>{entry.number}</Text>
                       <Text style={s.directoryName}>{trUpper(entry.name)}</Text>
-                      <Text style={s.directoryCount}>{entry.count} SATIR</Text>
+                      <Text style={s.directoryCount}>{entry.detail}</Text>
                     </Link>
                   </React.Fragment>
                 );
@@ -655,12 +693,14 @@ export function EquipmentDocument({
             />
           )}
         >
-          <FieldTable
-            defs={specTable.defs}
-            source={specTable.source}
-            specs={specTable.specs}
-            uppercase
-          />
+          <View id="teknik-ozellikler">
+            <FieldTable
+              defs={specTable.defs}
+              source={specTable.source}
+              specs={specTable.specs}
+              uppercase
+            />
+          </View>
         </BrandPage>
       )}
 
@@ -761,7 +801,7 @@ export function EquipmentDocument({
                     </View>
                   ) : null}
                   <View id={g.anchor} style={s.groupRow}>
-                    <Text style={s.groupCell}>{trUpper(g.name)}</Text>
+                    <Text style={s.groupCell}>{`2.${g.directoryIndex} · ${trUpper(g.name)}`}</Text>
                   </View>
                   {rows[0]}
                 </View>
@@ -779,7 +819,7 @@ export function EquipmentDocument({
         tablosunun `fixed` başlığı özet yapraklarının da tepesinde tekrar
         ediyordu. Ayrı bir sayfa bileşeni başlık kapsamını da ayırır.
       */}
-      {summary && summary.length > 0 && (
+      {numberedSummary.length > 0 && (
         <BrandPage
           docLine={`ORION CRANES · TEKNİK RESSAM ÖZETİ · REV ${rev} · ${year}`}
           docCode={code}
@@ -796,13 +836,14 @@ export function EquipmentDocument({
           )}
         >
           <View>
-            {summary.map((sec) => {
+            {numberedSummary.map((sec) => {
+              const groupedSection = sec.rows.some((row) => row.fieldGroup);
               // NOTLAR bir çizelge değildir: mühendisin cümleleri satır
               // sonlarıyla korunur ve kırmızı omurgalı bir kutuda durur.
               if (sec.kind === "notes") {
                 return (
-                  <View key={sec.name} style={s.sumBlock} wrap={false}>
-                    <Text style={s.sumSection}>{trUpper(sec.name)}</Text>
+                  <View key={sec.anchor} id={sec.anchor} style={s.sumBlock} wrap={false} break={sec.breakBefore}>
+                    <Text style={s.sumSection}>{`3.${sec.directoryIndex} · ${trUpper(sec.name)}`}</Text>
                     <View style={s.noteBox}>
                       {(sec.text ?? "").split(NOTE_LINE_BREAK).map((line, i) => (
                         <Text key={i} style={s.noteLine}>{line || " "}</Text>
@@ -812,17 +853,23 @@ export function EquipmentDocument({
                 );
               }
               return (
-                <View key={sec.name} style={s.sumBlock}>
+                <View
+                  key={sec.anchor}
+                  id={sec.anchor}
+                  style={s.sumBlock}
+                  wrap={sec.keepTogether ? false : true}
+                  break={sec.breakBefore}
+                >
                   {/* Başlık ŞEMASIYLA BİRLİKTE taşınır: ikisi ayrı yapraklara
                       düşerse okuyucu resmin hangi bölüme ait olduğunu
                       bilemez. */}
                   <View wrap={false}>
-                    <Text style={s.sumSection}>{trUpper(sec.name)}</Text>
+                    <Text style={s.sumSection}>{`3.${sec.directoryIndex} · ${trUpper(sec.name)}`}</Text>
                     {sec.diagram && (
                       <PdfDiagram
                         diagram={sec.diagram}
                         maxWidth={SUM_DIAGRAM_MAX_W}
-                        maxHeight={SUM_DIAGRAM_MAX_H}
+                        maxHeight={groupedSection ? 160 : SUM_DIAGRAM_MAX_H}
                       />
                     )}
                   </View>
@@ -840,22 +887,46 @@ export function EquipmentDocument({
                     kamber kotları) yaprak sınırında kendi öbeğinden devam
                     eder.
                   */}
-                  {chunk(sec.rows, SUM_ROWS_PER_BLOCK).map((part, bi) => {
-                    const mid = Math.ceil(part.length / 2);
+                  {chunk(sec.rows, groupedSection ? 60 : SUM_ROWS_PER_BLOCK).map((part, bi) => {
+                    const columnCount = groupedSection ? 3 : 2;
+                    const rowsPerColumn = Math.ceil(part.length / columnCount);
+                    const columns = Array.from(
+                      { length: columnCount },
+                      (_, index) => part.slice(index * rowsPerColumn, (index + 1) * rowsPerColumn)
+                    );
                     return (
                       <View key={bi} style={s.sumGrid} wrap={false}>
-                        {[part.slice(0, mid), part.slice(mid)].map((col, ci) => (
+                        {columns.map((col, ci) => (
                           <View key={ci} style={s.sumCol}>
-                            {col.map((r, i) => (
-                              <View key={i} style={s.sumRow}>
+                            {col.map((r, i) => {
+                              const group = r.fieldGroup ? FIELD_GROUPS[r.fieldGroup] : undefined;
+                              const previous = col[i - 1];
+                              const showGroup = Boolean(group && previous?.fieldGroup !== r.fieldGroup);
+                              return (
+                              <View
+                                key={i}
+                                style={[
+                                  s.sumRow,
+                                  groupedSection ? s.sumRowCompact : {},
+                                  group ? { borderLeftWidth: 2, borderLeftColor: group.ink, paddingLeft: 5 } : {},
+                                ]}
+                              >
                                 <View style={s.sLabel}>
-                                  <Text style={s.sLabelText}>{r.label}</Text>
+                                  {showGroup ? (
+                                    <Text style={[
+                                      s.sumGroupTitle,
+                                      groupedSection ? s.sumGroupTitleCompact : {},
+                                      { color: group?.ink },
+                                    ]}>{trUpper(group?.title ?? "")}</Text>
+                                  ) : null}
+                                  <Text style={[s.sLabelText, groupedSection ? s.sLabelTextCompact : {}]}>{r.label}</Text>
                                   {r.note && <Text style={s.sNote}>{r.note}</Text>}
                                 </View>
-                                <Text style={s.sVal}>{summaryRowValue(r)}</Text>
-                                <Text style={s.sUnit}>{toDisplayUnitLabel(r.unit) ?? ""}</Text>
+                                <Text style={[s.sVal, groupedSection ? s.sValCompact : {}]}>{summaryRowValue(r)}</Text>
+                                <Text style={[s.sUnit, groupedSection ? s.sUnitCompact : {}]}>{toDisplayUnitLabel(r.unit) ?? ""}</Text>
                               </View>
-                            ))}
+                              );
+                            })}
                           </View>
                         ))}
                       </View>

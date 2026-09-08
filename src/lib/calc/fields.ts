@@ -1216,6 +1216,12 @@ export const HOIST_INPUT_FIELDS: FieldDef<HoistInputs>[] = [
     options: BALANCE_ROPE_COUNTS as unknown as string[], numeric: true,
     hint: "Loadcell/rulman yükü = halat yükü × bu adet. Standart 2.",
   },
+  {
+    key: "balanceBearingUsage", label: "Denge Rulmanı Kullanımı", type: "select",
+    options: ["bearing", "none"],
+    optionLabels: { bearing: "Rulmanlı", none: "Rulman Yok" },
+    hint: "Standart seçim rulmanlıdır. Rulman Yok seçilirse rulman ekipmanı ve statik yük kontrolü kullanılmaz.",
+  },
   { key: "drumWallThicknessMm", label: "Tambur Yiv Dibi Et Kalınlığı", unit: "mm", type: "number" },
   {
     key: "safetyGrooveCount", label: "Emniyet Sarımı", type: "select",
@@ -1369,7 +1375,14 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   {
     key: "balanceLoadcellBrand", label: "Loadcell Markası", type: "select",
     options: BALANCE_LOADCELL_BRANDS as unknown as string[],
-    hint: "Esit PLC veya Kobastar LPW1. Kapasite, halat yükü × adet'ten otomatik seçilir.",
+    hint: "Esit PL/PLI veya Kobastar LPW1. Kapasite, halat yükü × adet'ten otomatik seçilir.",
+  },
+  {
+    key: "balanceLoadcellSeries", label: "Esit Loadpin Serisi", type: "select",
+    options: ["PL", "PLI"],
+    optionLabels: { PL: "PL · Çelik", PLI: "PLI · Paslanmaz" },
+    visibleWhen: (source) => source.balanceLoadcellBrand !== "Kobastar",
+    hint: "Yeni Esit kodları: PL çelik, PLI paslanmaz. Standart seçim PL'dir.",
   },
   {
     key: "balanceBearingBrand", label: "Denge Rulmanı Markası", type: "multiselect",
@@ -1380,6 +1393,7 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "balanceBearingCode", label: "Denge Rulmanı Kodu", type: "text" },
   { key: "balanceBearingDynCKn", label: "Denge Rulmanı Dinamik Yük C", unit: "kN", type: "number" },
   { key: "balanceBearingStatC0Kn", label: "Denge Rulmanı Statik Yük C0", unit: "kN", type: "number" },
+  { key: "balanceBearingBoreMm", label: "Denge Rulmanı İç Çapı", unit: "mm", type: "number", diameter: true },
   {
     // Denge makarası da KANCA MAKARASIYLA aynı standart seriden seçilir
     // (`DRUM_DIA_SERIES_MM` — tambur ve kanca makarası zaten oradan gelir):

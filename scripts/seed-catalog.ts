@@ -21,6 +21,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+// `tsx` CommonJS kipinde `__dirname` sağlar; Node 24'ün yerleşik TypeScript
+// çalıştırıcısı aynı dosyayı ESM olarak açar. İki çalışma yolu da katalog seed
+// üretimini aynı dizine yazabilsin (özellikle tsx geçici dizin oluşturamıyorsa).
+const SCRIPT_DIR = typeof __dirname === "string"
+  ? __dirname
+  : path.dirname(path.resolve(process.argv[1]));
+
 function argOf(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 ? process.argv[i + 1] : undefined;
@@ -30,7 +37,7 @@ const positional = process.argv[2] && !process.argv[2].startsWith("--")
   ? process.argv[2] : undefined;
 const CATALOG_DIR = positional
   ? path.resolve(positional)
-  : path.resolve(__dirname, "..", "..", "catalog_data");
+  : path.resolve(SCRIPT_DIR, "..", "..", "catalog_data");
 const ONLY_KINDS = argOf("kinds")?.split(",").map((s) => s.trim()).filter(Boolean);
 const ONLY_BRANDS = argOf("brands")?.split(",").map((s) => s.trim()).filter(Boolean);
 /**
@@ -47,7 +54,7 @@ if (APPEND_ONLY && REPLACE_BRANDS) {
 }
 const OUT_NAME = argOf("out") ?? "20260719000005_catalog_seed";
 const OUT_FILE = path.resolve(
-  __dirname, "..", "supabase", "migrations", `${OUT_NAME}.sql`
+  SCRIPT_DIR, "..", "supabase", "migrations", `${OUT_NAME}.sql`
 );
 
 interface CatalogFile {
@@ -658,15 +665,18 @@ function compressionStrokeMm(
     a.series = a.series ?? meta.series;
     const model = String(a.model ?? "");
     delete a.model;
-    push("wedge_socket", brand, model, a);
+    const datasheetUrl = String(a.socket_type) === "Uzun"
+      ? "https://www.greenpin.com/en/product/green-pinr-open-long-wedge-socket-cp"
+      : "https://www.greenpin.com/en/product/green-pinr-open-wedge-socket-cp";
+    push("wedge_socket", brand, model, a, datasheetUrl);
   }
 }
 
 // ------------------------------------------------------- load cells (yük hücresi)
 // Denge traversi/makarasında halat yükünü ölçen pim tipi loadcell. Yük =
 // halat yükü × sabitlenen halat adedi; seçici gerekli yükün üstündeki en
-// küçük kapasiteyi önerir. Markalar: Esit PLC, Kobastar LPW1.
-for (const file of ["load_cells/esit_plc.json", "load_cells/kobastar_lpw1.json"]) {
+// küçük kapasiteyi önerir. Markalar/seriler: Esit PL/PLI, Kobastar LPW1.
+for (const file of ["load_cells/esit_pl_pli.json", "load_cells/kobastar_lpw1.json"]) {
   const { meta, items } = readJson(file);
   const brand = String(meta.brand);
   const metaDatasheet = String(meta.datasheet_url ?? "");

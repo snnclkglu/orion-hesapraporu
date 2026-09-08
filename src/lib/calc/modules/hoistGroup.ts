@@ -608,6 +608,11 @@ export interface HoistInputs {
    * ve rulman yükü = halat yükü × bu adet. Genelde 2 (nadiren 1). Varsayılan 2.
    */
   balanceRopeCount?: number;
+  /**
+   * Halat dengeleme elemanında rulman kullanımı. Eski revizyonlarda alan yoktur;
+   * bu durum standart seçim olan `bearing` olarak yorumlanır.
+   */
+  balanceBearingUsage?: "bearing" | "none";
   hookBlockWeightKg: number;    // kanca bloğu / kepçe ağırlığı
   ropeWeightKg: number;         // askıdaki halatların ağırlığı
   drumWallThicknessMm: number;  // tambur et kalınlığı
@@ -827,12 +832,16 @@ export interface HoistSelections {
   balanceSocketType?: string;
   /** Loadcell markası: "Esit" | "Kobastar" (model/kapasite yükten otomatik). */
   balanceLoadcellBrand?: string;
+  /** Esit yük piminde malzeme ailesi: PL çelik, PLI paslanmaz. */
+  balanceLoadcellSeries?: "PL" | "PLI";
   /** Denge rulmanı (elle) — traversi ve makarada ortak. */
   balanceBearingBrand?: string;
   balanceBearingType?: string;
   balanceBearingCode?: string;
   balanceBearingDynCKn?: number;
   balanceBearingStatC0Kn?: number;
+  /** Seçilen denge rulmanının katalog iç çapı [mm]. */
+  balanceBearingBoreMm?: number;
   /** Denge makarası çapı [mm] (yalnız denge makaralı düzende). */
   balanceSheaveDiaMm?: number;
   drumCouplingBrand: string;
@@ -1768,12 +1777,23 @@ export function computeHoistGroup(
     });
 
     // Loadcell OTOMATİK: markaya göre gerekli yükün üstündeki en küçük kapasite.
-    const loadcell = loadCellForLoad(balanceLoadKg, sel.balanceLoadcellBrand);
+    const loadcell = loadCellForLoad(
+      balanceLoadKg,
+      sel.balanceLoadcellBrand,
+      sel.balanceLoadcellSeries
+    );
     if (loadcell) {
       Object.assign(cells, {
         "balance.loadcellModel": `${loadcell.brand} ${loadcell.model}`,
         "balance.loadcellModelShort": loadcell.model,
         "balance.loadcellCapacity": loadcell.capacityKg,
+        "balance.loadcellProductCode": loadcell.productCode ?? "",
+        "balance.loadcellA": loadcell.aMm,
+        "balance.loadcellB": loadcell.bMm,
+        "balance.loadcellC": loadcell.cMm,
+        "balance.loadcellD": loadcell.dMm,
+        "balance.loadcellE": loadcell.eMm,
+        "balance.loadcellF": loadcell.fMm,
       });
       checks.push({
         id: `${which}.balance.loadcell`,
@@ -1786,7 +1806,12 @@ export function computeHoistGroup(
     }
 
     // Denge rulmanı statik yükü (C0) birleşik yükü karşılamalı [kN] — elle girilir.
-    if (Number.isFinite(sel.balanceBearingStatC0Kn) && (sel.balanceBearingStatC0Kn ?? 0) > 0) {
+    const balanceBearingUsed = inp.balanceBearingUsage !== "none";
+    if (
+      balanceBearingUsed &&
+      Number.isFinite(sel.balanceBearingStatC0Kn) &&
+      (sel.balanceBearingStatC0Kn ?? 0) > 0
+    ) {
       checks.push({
         id: `${which}.balance.bearing`,
         label: "Denge Rulmanı Statik Yük C0",

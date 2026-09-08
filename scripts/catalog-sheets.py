@@ -49,6 +49,8 @@ from collections import defaultdict
 
 try:
     import pymupdf as fitz  # PyMuPDF'nin güncel içe aktarma adı
+    if not hasattr(fitz, "open"):
+        raise ImportError("pymupdf ad alanı eksik")
 except ImportError:  # Eski PyMuPDF sürümleri
     import fitz
 from PIL import Image
@@ -192,6 +194,9 @@ PDFS = {
     "guven_rope": "Diğer kataloglar/Güven Çelik Halat - İnşaat Sektör Kataloğu.pdf",
     "kobastar_lpw1": "Elektrik Katalogları/KOBASTAR - LPW1 Pim Tipi Yuk Hucresi Veri Sayfasi (TR).pdf",
     "esit_plc": "Elektrik Katalogları/ESIT - PLC Yuk Hucresi Resmi Urun Sayfasi.pdf",
+    "esit_pl_pli": "Elektrik Katalogları/ESIT - PL PLI Guncel Kodlar 2025.pdf",
+    "greenpin_sockets": "Diğer kataloglar/Green Pin - Sockets.pdf",
+    "greenpin_metric_2024": "Diğer kataloglar/Green Pin - Product Catalogue Metric 2024.pdf",
 }
 
 KIND_DIR = {
@@ -205,7 +210,30 @@ KIND_DIR = {
     "festoon": "festoons",
     "rope": "ropes",
     "load_cell": "load_cells",
+    "wedge_socket": "wedge_sockets",
 }
+
+# PDF olmayan fakat üreticinin kamuya açık ürün sayfasından kullanıcı
+# tarafından sağlanan teknik tablo görüntüleri. Betik bunları da WebP'ye
+# çevirir; manifest elle yamalanmaz ve yeniden üretimde bağlantılar kaybolmaz.
+STATIC_SHEETS = [
+    {
+        "id": "hook/akyuzlu-din-15401", "kind": "hook", "brand": "Akyüzlü",
+        "series": "DIN 15401", "title": "Akyüzlü DIN 15401 — tek ağızlı vinç kancaları",
+        "source": "https://www.akyuzlu.com.tr/urunler-01-din-15401-tek-agizli-vinc-kancalari.html",
+        "printedPages": "teknik ölçü tablosu", "models": ["DIN 15401"],
+        "input": "Diğer kataloglar/Akyüzlü/DIN 15401 Tek Agizli Kanca.png",
+        "output": "hook/akyuzlu-din-15401.webp",
+    },
+    {
+        "id": "hook/akyuzlu-din-15402", "kind": "hook", "brand": "Akyüzlü",
+        "series": "DIN 15402", "title": "Akyüzlü DIN 15402 — çift ağızlı vinç kancaları",
+        "source": "https://www.akyuzlu.com.tr/urunler-02-din-15402-cift-agizli-vinc-kancalari.html",
+        "printedPages": "teknik ölçü tablosu", "models": ["DIN 15402"],
+        "input": "Diğer kataloglar/Akyüzlü/DIN 15402 Cift Agizli Kanca.png",
+        "output": "hook/akyuzlu-din-15402.webp",
+    },
+]
 
 # ------------------------------------------------------------ ELLE sayfa haritası
 # (kind, brand, series, catalog_data dosyası, kaynak, 0-tabanlı sayfalar,
@@ -311,10 +339,19 @@ MANUAL = [
     ("brake", "SIBRE", "SHI281-282", "sibre_shi_caliper.json", "sibre_shi_281_detail", [0], "ürün s.1 + teknik veri s.1", "SIBRE SHI 281–282 — emniyet freni detay ve teknik veri föyü", {"$model_prefix": ["SHI 281", "SHI 282"]}, [("sibre_shi_technical", 0)]),
     # ---------------------------------------------------------- yük hücreleri
     ("load_cell", "Kobastar", "LPW1", "kobastar_lpw1.json", "kobastar_lpw1", [0, 1], "s.1-2", "Kobastar LPW1 — pim tipi yük hücresi teknik föyü"),
-    # Esit'in kapasite bazlı teknik çizimleri üyelikle indirilir. Erişim
-    # kısıtını aşmadan kamuya açık resmi ürün sayfasının arşivlenen ilk yaprağı
-    # kullanılır; canlı resmi adres ayrıca datasheet_url olarak korunur.
-    ("load_cell", "Esit", "PLC", "esit_plc.json", "esit_plc", [0], "ürün sayfası s.1", "Esit PLC — resmi ürün detay sayfası"),
+    # 28.10.2025 değişiklik föyü: her kapasite çifti kendi ölçü sayfasını,
+    # son yaprak da PL/PLI sipariş kodlarını taşır. Böylece seçilen modelin
+    # açtığı ekte hem ölçü hem yeni ürün kodu görünür.
+    ("load_cell", "Esit", "PL-2-5", "esit_pl_pli.json", "esit_pl_pli", [1, 5], "s.2 + s.6", "Esit PL/PLI 2–5 t — güncel ölçüler ve ürün kodları", {"capacity_kg": [2000, 5000]}),
+    ("load_cell", "Esit", "PL-10-15", "esit_pl_pli.json", "esit_pl_pli", [2, 5], "s.3 + s.6", "Esit PL/PLI 10–15 t — güncel ölçüler ve ürün kodları", {"capacity_kg": [10000, 15000]}),
+    ("load_cell", "Esit", "PL-20-30", "esit_pl_pli.json", "esit_pl_pli", [3, 5], "s.4 + s.6", "Esit PL/PLI 20–30 t — güncel ölçüler ve ürün kodları", {"capacity_kg": [20000, 30000]}),
+    ("load_cell", "Esit", "PL-60", "esit_pl_pli.json", "esit_pl_pli", [4, 5], "s.5 + s.6", "Esit PL/PLI 60 t — güncel ölçüler ve ürün kodları", {"capacity_kg": [60000]}),
+    # Green Pin CP G-6413, resmî soket broşüründeki metrik ölçü tablosu.
+    ("wedge_socket", "Van Beest", "Open Wedge Socket CP", "greenpin.json", "greenpin_sockets", [6], "s.7", "Green Pin G-6413 — açık kamalı halat soketi", {"socket_type": ["Normal"]}),
+    # Uzun kamalı G-6419 ailesi güncel 2024 metrik katalogda ayrı teknik
+    # yapraktır. Normal ve uzun modelleri aynı yakın sayfaya bağlamamak için
+    # socket_type filtresi özellikle korunur.
+    ("wedge_socket", "Van Beest", "Open Long Wedge Socket CP", "greenpin.json", "greenpin_metric_2024", [124], "s.125", "Green Pin G-6419 — uzun açık kamalı halat soketi", {"socket_type": ["Uzun"]}),
     # ---------------------------------------------------------------- TAMPON
     # SIBRE SP kataloğu ürün kodunu satır olarak BASMAZ: seçim, s.18'deki
     # "Impact Force / Damping Capacity" matrisinden yapılır ve ölçüler
@@ -1058,6 +1095,30 @@ def build(verify_only: bool = False, only: set[str] | None = None) -> None:
             render(Source.get(src_key), idx, os.path.join(out, "%s.webp" % slug_hint))
         return rel
 
+    # ---------------------------------------------------- statik teknik tablolar
+    for sheet in STATIC_SHEETS:
+        kind = sheet["kind"]
+        if only and kind not in only:
+            continue
+        source_path = os.path.join(WORKSPACE, sheet["input"])
+        if not os.path.exists(source_path):
+            problems.append("Statik teknik tablo bulunamadı: %s" % source_path)
+            continue
+        if not verify_only:
+            target_path = os.path.join(OUT_DIR, sheet["output"])
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            with Image.open(source_path) as image:
+                rgb = image.convert("RGB")
+                if rgb.width > IMG_WIDTH:
+                    height = round(rgb.height * IMG_WIDTH / rgb.width)
+                    rgb = rgb.resize((IMG_WIDTH, height), Image.Resampling.LANCZOS)
+                rgb.save(target_path, "WEBP", quality=WEBP_QUALITY, method=6)
+        entries.append({
+            key: value for key, value in sheet.items()
+            if key not in ("input", "output")
+        } | {"images": [sheet["output"]]})
+        print("  %-16s %-22s %s" % (kind, sheet["brand"], sheet["series"]))
+
     # ---------------------------------------------------------- elle harita
     for sheet in MANUAL:
         kind, brand, series, _filename, src_key, pages, printed, title = sheet[:8]
@@ -1168,6 +1229,15 @@ def build(verify_only: bool = False, only: set[str] | None = None) -> None:
         print("Harita doğrulandı: %d sayfa kaydı, %d benzersiz görüntü."
               % (len(entries), len(produced)))
         return
+
+    # `--only` geliştirme/yenileme yoludur: yalnız seçilen türlerin pahalı PDF
+    # görüntülerini yeniden üretir, manifestteki diğer doğrulanmış türleri
+    # silmez. Önceki davranış dar üretimde manifesti yalnız o türe indiriyor ve
+    # çalışan bütün katalog bağlantılarını görünmez yapıyordu.
+    if only and os.path.exists(MANIFEST):
+        with open(MANIFEST, "r", encoding="utf-8") as fh:
+            previous = json.load(fh).get("sheets", [])
+        entries = [e for e in previous if e.get("kind") not in only] + entries
 
     os.makedirs(os.path.dirname(MANIFEST), exist_ok=True)
     with open(MANIFEST, "w", encoding="utf-8") as fh:

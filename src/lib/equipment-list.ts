@@ -95,6 +95,7 @@ import {
   ENDCARRIAGE_INPUT_FIELDS,
   GIRDER_INPUT_FIELDS,
 } from "@/lib/calc/presentation/structuralFields";
+import { FIELD_GROUP_ORDER, type FieldGroupKey } from "@/lib/calc/field-groups";
 export interface EquipmentMeta {
   docNo: string;
   projectName: string;
@@ -429,7 +430,7 @@ function balanceRows(
     const socketMbl = numOf("balance.socketMbl");
     rows.push({
       rowKey: rk("balanceSocket"),
-      kind: "other",
+      kind: "wedge_socket",
       component: "Halat soketi (denge traversi)",
       brand: "Van Beest",
       model: textOr(socketModel),
@@ -451,27 +452,38 @@ function balanceRows(
   rows.push({
     rowKey: rk("balanceLoadcell"),
     // Üretici föyü ekipman listesine bağlanabilsin; katalog verisi ayrı
-    // `load_cell` türünde tutulur (Esit PLC / Kobastar LPW1).
+    // `load_cell` türünde tutulur (Esit PL/PLI / Kobastar LPW1).
     kind: "load_cell",
     component: "Yük hücresi (loadcell)",
     brand: textOr(sel.balanceLoadcellBrand, "Esit"),
     model: textOr(strOf("balance.loadcellModelShort") ?? loadcellModel),
-    spec: `kapasite ${fmt(loadcellCap, 0)} kg · denge yükü ${fmt(loadKg, 0)} kg`,
+    spec: [
+      `kapasite ${fmt(loadcellCap, 0)} kg`,
+      `denge yükü ${fmt(loadKg, 0)} kg`,
+      strOf("balance.loadcellProductCode")
+        ? `ürün kodu ${strOf("balance.loadcellProductCode")}`
+        : undefined,
+      Number.isFinite(numOf("balance.loadcellA"))
+        ? `A ${fmt(numOf("balance.loadcellA"), 1)} · B ${fmt(numOf("balance.loadcellB"), 1)} · C ${fmt(numOf("balance.loadcellC"), 1)} · D ${fmt(numOf("balance.loadcellD"), 1)} · E ${fmt(numOf("balance.loadcellE"), 1)} · F ${fmt(numOf("balance.loadcellF"), 1)} mm`
+        : undefined,
+    ].filter(Boolean).join(" · "),
     qty: 1,
   });
   // Rulman ELLE girilir (NA/NNF). Boşken de satır çıkar ama alanlar "—" olur
   // (uydurma değer yok, md. 4); satır mühendise "rulman seçilecek" der.
-  rows.push({
-    rowKey: rk("balanceBearing"),
-    kind: "bearing",
-    component: "Denge rulmanı",
-    brand: textOr(sel.balanceBearingBrand),
-    model: textOr(sel.balanceBearingCode),
-    spec: sel.balanceBearingStatC0Kn
-      ? `${sel.balanceBearingType ? sel.balanceBearingType + " · " : ""}C0 = ${fmt(sel.balanceBearingStatC0Kn, 1)} kN`
-      : `${textOr(sel.balanceBearingType, "NA/NNF tipi")} · seçilecek`,
-    qty: 2,
-  });
+  if (inp.balanceBearingUsage !== "none") {
+    rows.push({
+      rowKey: rk("balanceBearing"),
+      kind: "bearing",
+      component: "Denge rulmanı",
+      brand: textOr(sel.balanceBearingBrand),
+      model: textOr(sel.balanceBearingCode),
+      spec: sel.balanceBearingStatC0Kn
+        ? `${sel.balanceBearingType ? sel.balanceBearingType + " · " : ""}C0 = ${fmt(sel.balanceBearingStatC0Kn, 1)} kN${sel.balanceBearingBoreMm ? ` · iç çap Ø${fmt(sel.balanceBearingBoreMm, 1)} mm` : ""}`
+        : `${textOr(sel.balanceBearingType, "NA/NNF tipi")} · seçilecek`,
+      qty: 2,
+    });
+  }
   return rows;
 }
 
@@ -927,6 +939,7 @@ function hookBlockRows(
           component: "Kanca",
           brand: "-",
           model: textOr(sel.hookDesignation),
+          catalogModel: hookStandardOf(sel.hookStandard),
           spec: hookSpec,
           qty: blockQuantity,
         }]),
@@ -1656,6 +1669,8 @@ export interface SummaryRow {
    * üçünü birden yeniden ölçmeyi gerektirirdi.
    */
   note?: string;
+  /** Ana kiriş kesitinde uygulamayla aynı renkli ölçü öbeği. */
+  fieldGroup?: FieldGroupKey;
 }
 
 /** Teknik ressam özetinin üç çıktısında kullanılan tek değer biçimleyicisi. */
@@ -1685,11 +1700,15 @@ export interface SummarySection {
    * kâğıttaki iki resim bir gün ayrışır ve o fark yanlış kesilmiş bir sactır.
    */
   diagram?: Diagram;
+  /** Bölüm yeni yaprakta başlar; ağır şema + ölçü tablosu aynı yaprakta tutulur. */
+  breakBefore?: boolean;
+  /** Şema ve satırlar birlikte sığıyorsa react-pdf bölümü ayırmaz. */
+  keepTogether?: boolean;
 }
 
 /** GirderInputs / EndCarriageInputs plaka alanlarını etiketleriyle listeler */
 function plateRows<T extends object>(
-  fields: { key: keyof T & string; label: string; unit?: string }[],
+  fields: { key: keyof T & string; label: string; unit?: string; fieldGroup?: FieldGroupKey }[],
   keys: (keyof T & string)[],
   values: T
 ): SummaryRow[] {
@@ -1700,6 +1719,7 @@ function plateRows<T extends object>(
       label: def?.label ?? key,
       value: typeof raw === "number" ? Number(raw.toFixed(2)) : String(raw),
       unit: def?.unit,
+      fieldGroup: def?.fieldGroup,
     };
   });
 }
@@ -1768,9 +1788,19 @@ export function buildSummarySections(
 
   // Yalnız vinçte GERÇEKTEN olan kaldırma grupları listelenir; kapalı bir
   // yardımcı kaldırmanın kapasitesini ilan etmek teknik ressamı yanıltır.
-  const genelRows: SummaryRow[] = [
-    { label: "Açıklık (L)", value: specs.spanM, unit: "m" },
-  ];
+  const genelRows: SummaryRow[] = [];
+  // Kapasiteler belgenin birincil kimliğidir; açıklığın hemen üstünde durur.
+  for (const key of MODULE_ORDER) {
+    if (!isHoistKey(key)) continue;
+    const state = moduleState(input, key);
+    if (!state) continue;
+    const view = hoistSpecView(specs, key);
+    const ad = groupName(key);
+    const arrangement = HOIST_EQUIPMENT_ARRANGEMENT_LABELS[hoistEquipmentArrangement(specs, key)];
+    const reeving = (state.inputs as { reevingLabel?: string }).reevingLabel?.trim();
+    genelRows.push({ label: `${ad} kapasitesi`, value: view.capacityT, unit: "ton" });
+  }
+  genelRows.push({ label: "Açıklık (L)", value: specs.spanM, unit: "m" });
   for (const key of MODULE_ORDER) {
     if (!isHoistKey(key)) continue;
     const state = moduleState(input, key);
@@ -1780,7 +1810,6 @@ export function buildSummarySections(
     const arrangement = HOIST_EQUIPMENT_ARRANGEMENT_LABELS[hoistEquipmentArrangement(specs, key)];
     const reeving = (state.inputs as { reevingLabel?: string }).reevingLabel?.trim();
     genelRows.push(
-      { label: `${ad} kapasitesi`, value: view.capacityT, unit: "ton" },
       { label: `${ad} yüksekliği`, value: view.liftHeightM, unit: "m" },
       { label: `${ad} hızı`, value: view.liftSpeedMpm, unit: "m/dak" },
       {
@@ -1799,6 +1828,30 @@ export function buildSummarySections(
   }
   genelRows.push({ label: "Kanca tipi", value: specs.hookType });
   sections.push({ name: "Genel Ölçüler ve Kapasiteler", rows: genelRows });
+
+  // Ressam vinç yolu rayı ile köprü üzerindeki araba rayını aynı satırdan
+  // çıkarmak zorunda kalmaz; ikisi açık adlarıyla özetin başında yer alır.
+  const railRows: SummaryRow[] = [];
+  for (const key of MODULE_ORDER) {
+    if (!isTravelKey(key)) continue;
+    const state = moduleState(input, key);
+    if (!state) continue;
+    const sel = state.selections as TravelSelections;
+    const cells = moduleResult(result, key)?.cells;
+    const label = key === "bridge"
+      ? "Vinç rayı · köprü yürütme"
+      : key === "trolley"
+        ? "Köprü rayı · ana araba"
+        : key === "auxTrolley"
+          ? "Köprü rayı · yardımcı araba"
+          : `${groupName(key)} rayı`;
+    railRows.push({
+      label,
+      value: textOr(sel.railCode),
+      note: `ray baş genişliği ${fmt(numCell(cells, "rail.headWidth"), 0)} mm`,
+    });
+  }
+  if (railRows.length > 0) sections.push({ name: "Raylar", rows: railRows });
 
   // Kabin / oda / pano ölçüleri artık 11. bölümün girdisidir; teknik ressam
   // özeti de oradan okur (teknik özelliklerde yalnız "var mı" bilgisi kalır).
@@ -1913,10 +1966,6 @@ export function buildSummarySections(
       },
       { label: "Motor gücü", value: sel.motorPowerKw, unit: "kW", note: `${sel.motorCount} adet` },
       { label: "Motor mil çapı", value: sel.motorShaftMm, unit: "mm", diameter: true },
-      { label: "Redüktör", value: textOr(sel.gearboxModel) },
-      { label: "Redüktör oranı", value: sel.gearboxRatio },
-      { label: "Redüktör giriş mili", value: sel.gearboxInputShaftMm ?? "-", unit: "mm", diameter: true },
-      { label: "Redüktör çıkış mili", value: sel.gearboxOutputShaftMm, unit: "mm", diameter: true },
       {
         label: "Fren",
         value: `${textOr(sel.brakeBrand, "")} ${fmt(sel.brakeTorqueNm, 0)} Nm`.trim(),
@@ -1944,7 +1993,26 @@ export function buildSummarySections(
     });
     // Redüktör mil yönleri şeması (5.5) — sipariş için; yalnız mil yönü seçiliyse.
     const gbDir = diagramsForSection(key, "5.5", input, result)[0];
-    if (gbDir) sections.push({ name: `Redüktör Mil Yönleri · ${ad}`, rows: [], diagram: gbDir });
+    if (gbDir) {
+      sections.push({
+        name: `Redüktör Mil Yönleri · ${ad}`,
+        rows: [
+          { label: "Redüktör / sipariş kodu", value: gearboxOrderCode(sel.gearboxModel, sel.gearboxOutputFeature) },
+          { label: "Çevrim oranı i", value: sel.gearboxRatio },
+          { label: "Gerekli çıkış torku", value: fmt(numCell(c, "gearbox.requiredOutputTorque"), 2), unit: "kNm" },
+          { label: "Nominal çıkış torku", value: sel.gearboxOutputTorqueKnm, unit: "kNm" },
+          { label: "Gerçek emniyet", value: fmt(numCell(c, "gearbox.actualSafety"), 2) },
+          { label: "Giriş mili", value: sel.gearboxInputShaftMm ?? sel.gearboxInputShaftText ?? "-", unit: "mm", diameter: Boolean(sel.gearboxInputShaftMm) ? true : undefined },
+          { label: "Çıkış mili", value: sel.gearboxOutputShaftMm, unit: "mm", diameter: true },
+          { label: "Ağırlık", value: sel.gearboxWeightKg ?? "Katalogda yok", unit: sel.gearboxWeightKg ? "kg" : undefined },
+          { label: "Montaj pozisyonu", value: textOr(sel.gearboxMountingPosition) },
+          { label: "Mil yönleri", value: textOr(sel.gearboxShaftDirection) },
+          { label: "Opsiyonlar", value: textOr(sel.gearboxOptions, "Standart") },
+        ],
+        diagram: gbDir,
+        keepTogether: true,
+      });
+    }
   }
 
   // ---------------------------------------------------------------- Tamburlar
@@ -1966,6 +2034,20 @@ export function buildSummarySections(
     const grooveDepthMm = sel.ropeDiaMm > 0 ? sel.ropeDiaMm / 2 : 0;
     const wallMm = inp.drumWallThicknessMm + grooveDepthMm;
     const barrelMm = drumShaftGeometry(inp).barrelCm * 10;
+    const shaftRows: SummaryRow[] = [
+      { label: "Mil ölçüsü A (redüktör tarafı)", value: inp.drumSpanAMm, unit: "mm" },
+      { label: "Mil ölçüsü B", value: inp.drumSpanBMm, unit: "mm" },
+      { label: "Mil ölçüsü C (sol yiv)", value: inp.drumSpanCMm, unit: "mm" },
+      { label: "Mil ölçüsü D (yivsiz orta)", value: inp.drumSpanDMm, unit: "mm" },
+      { label: "Mil ölçüsü E (sağ yiv)", value: inp.drumSpanEMm, unit: "mm" },
+      { label: "Mil ölçüsü F", value: inp.drumSpanFMm, unit: "mm" },
+      { label: "Mil ölçüsü G (yatak tarafı)", value: inp.drumSpanGMm, unit: "mm" },
+      { label: "Mesnet açıklığı", value: fmt(numCell(c, "drumShaft.span") * 10, 0), unit: "mm" },
+      { label: "Mil çapı D1 (yanak dibi)", value: inp.shaftD1Mm, unit: "mm", diameter: true },
+      { label: "Mil çapı D2 (yatak)", value: inp.shaftD2Mm, unit: "mm", diameter: true },
+      { label: "Tambur kaynağı boğaz a", value: inp.drumWeldThicknessMm, unit: "mm" },
+      { label: "Mil kaynağı boğaz a", value: inp.shaftWeldThicknessMm, unit: "mm" },
+    ];
     sections.push({
       name: `Tambur · ${ad}`,
       rows: [
@@ -2001,22 +2083,6 @@ export function buildSummarySections(
           unit: "mm",
           note: "B + C + D + E + F",
         },
-        { label: "Mil ölçüsü A (redüktör tarafı)", value: inp.drumSpanAMm, unit: "mm" },
-        { label: "Mil ölçüsü B", value: inp.drumSpanBMm, unit: "mm" },
-        { label: "Mil ölçüsü C (sol yiv)", value: inp.drumSpanCMm, unit: "mm" },
-        { label: "Mil ölçüsü D (yivsiz orta)", value: inp.drumSpanDMm, unit: "mm" },
-        { label: "Mil ölçüsü E (sağ yiv)", value: inp.drumSpanEMm, unit: "mm" },
-        { label: "Mil ölçüsü F", value: inp.drumSpanFMm, unit: "mm" },
-        { label: "Mil ölçüsü G (yatak tarafı)", value: inp.drumSpanGMm, unit: "mm" },
-        {
-          label: "Mesnet açıklığı",
-          value: fmt(numCell(c, "drumShaft.span") * 10, 0),
-          unit: "mm",
-        },
-        { label: "Mil çapı D1 (yanak dibi)", value: inp.shaftD1Mm, unit: "mm", diameter: true },
-        { label: "Mil çapı D2 (yatak)", value: inp.shaftD2Mm, unit: "mm", diameter: true },
-        { label: "Tambur kaynağı boğaz a", value: inp.drumWeldThicknessMm, unit: "mm" },
-        { label: "Mil kaynağı boğaz a", value: inp.shaftWeldThicknessMm, unit: "mm" },
         { label: "Tambur malzemesi", value: textOr(sel.drumMaterial) },
         { label: "Tambur adedi", value: inp.drumCount, unit: "adet" },
         { label: "Tambur ağırlığı", value: fmt(inp.drumWeightKg, 0), unit: "kg" },
@@ -2032,12 +2098,37 @@ export function buildSummarySections(
     // Tambur mili yükleme şeması ayrı bir çizimdir (A…G zinciri + tepkiler).
     const shaftDiagram = diagramsForSection(key, "2.2.3", input, result)[0];
     if (shaftDiagram) {
-      sections.push({ name: `Tambur Mili · ${ad}`, rows: [], diagram: shaftDiagram });
+      sections.push({
+        name: `Tambur Mili · ${ad}`,
+        rows: shaftRows,
+        diagram: shaftDiagram,
+        breakBefore: true,
+        keepTogether: true,
+      });
     }
     // Redüktör mil yönleri şeması (2.3) — sipariş için; yalnız mil yönü seçiliyse.
     const gbDirDiagram = diagramsForSection(key, "2.3", input, result)[0];
     if (gbDirDiagram) {
-      sections.push({ name: `Redüktör Mil Yönleri · ${ad}`, rows: [], diagram: gbDirDiagram });
+      sections.push({
+        name: `Redüktör Mil Yönleri · ${ad}`,
+        rows: [
+          { label: "Redüktör / sipariş kodu", value: gearboxOrderCode(sel.gearboxModel, sel.gearboxOutputFeature) },
+          { label: "Çevrim oranı i", value: sel.gearboxRatio },
+          { label: "Gerekli tork", value: fmt(numCell(c, "gearbox.requiredTorque"), 2), unit: "kNm" },
+          { label: "Nominal tork", value: sel.gearboxNominalTorqueKnm, unit: "kNm" },
+          { label: "Gerçek emniyet", value: fmt(numCell(c, "gearbox.actualSafety"), 2) },
+          { label: "İzinli radyal yük", value: sel.gearboxAllowedRadialKn, unit: "kN" },
+          { label: "Oluşan radyal yük", value: fmt(numCell(c, "gearbox.radialLoad"), 2), unit: "kN" },
+          { label: "Giriş mili", value: sel.gearboxInputShaftMm, unit: "mm", diameter: true },
+          { label: "Çıkış mili", value: sel.gearboxOutputShaftMm, unit: "mm", diameter: true },
+          { label: "Ağırlık", value: sel.gearboxWeightKg ?? "Katalogda yok", unit: sel.gearboxWeightKg ? "kg" : undefined },
+          { label: "Montaj pozisyonu", value: textOr(sel.gearboxMountingPosition) },
+          { label: "Mil yönleri", value: textOr(sel.gearboxShaftDirection) },
+          { label: "Opsiyonlar", value: textOr(sel.gearboxOptions, "Standart") },
+        ],
+        diagram: gbDirDiagram,
+        keepTogether: true,
+      });
     }
   }
 
@@ -2054,6 +2145,11 @@ export function buildSummarySections(
     if (railTProfile(st.inputs).present) {
       rows.push(...plateRows(GIRDER_INPUT_FIELDS, GIRDER_T_PROFILE_KEYS, st.inputs));
     }
+    rows.sort((a, b) => {
+      const ai = a.fieldGroup ? FIELD_GROUP_ORDER.indexOf(a.fieldGroup) : FIELD_GROUP_ORDER.length;
+      const bi = b.fieldGroup ? FIELD_GROUP_ORDER.indexOf(b.fieldGroup) : FIELD_GROUP_ORDER.length;
+      return ai - bi;
+    });
     rows.push(
       { label: "Perde aralığı l₁", value: st.inputs.diaphragmSpacingMm, unit: "mm" },
       { label: "Perde adedi", value: fmt(numCell(c, "camber.diaphragmCount"), 0), unit: "adet" },
@@ -2091,6 +2187,8 @@ export function buildSummarySections(
       name: `${ad} Kesiti`,
       rows,
       diagram: diagramsForSection(key, "7.1", input, result)[0],
+      breakBefore: true,
+      keepTogether: true,
     });
 
     // TERS SEHİM (KAMBER) KOTLARI — atölyenin ölçtüğü sayılar.

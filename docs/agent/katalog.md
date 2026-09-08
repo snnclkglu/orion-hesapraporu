@@ -122,11 +122,23 @@ revizyonlarda ekipman katmanı yalnız basılı standart sınıflar için çap +
 konstrüksiyon + öz + kg/mm²→MPa ters tablosundan aday kurar ve aday manifestte
 birebir bulunursa kullanır; yakın ürün tahmini yapmaz.
 
-**Resmi PDF indirilemiyorsa üretici sayfası arşivi istisnadır.** Esit PLC'nin
-tekil çizim bağlantıları giriş ekranına bağlı olduğundan erişim aşılmaz;
-üreticinin kamuya açık PLC ürün sayfasının arşivlenmiş ilk yaprağı kullanılır.
-Kobastar LPW1 ise üreticinin resmi iki sayfalık föyüdür. Uydurma teknik belge
-üretilmez.
+**ESİT DENGE LOADPIN'İ PL/PLI'DIR.** 28.10.2025 değişiklik föyü PLC yerine PL
+(çelik) ve PLI (paslanmaz) serilerinin 2/5/10/15/20/30/60 t ölçülerini ve yeni
+sipariş kodlarını verir. Her manifest kaydı kapasite çiftinin ölçü sayfasını ve
+föyün sonundaki kod sayfasını birlikte taşır; ekipman satırı seçilen tek ürünün
+kodunu ve A…F ölçülerini ayrıca basar. Üreticinin güncel PL ve PLI ürün
+sayfaları model bağlantısıdır. Föy ağırlık yayımlamadığı için eski PLC ağırlığı
+devralınmaz. Kobastar LPW1 üreticinin resmî iki sayfalık föyüyle korunur.
+
+**HALAT SOKETİ VE KANCA TEKNİK YAPRAKLARI EKİPMAN KİMLİĞİYLE BAĞLANIR.**
+Van Beest `Green Pin Open Wedge Socket CP` için resmî G-6413, uzun tip için
+güncel 2024 metrik katalogdaki G-6419 tablo yaprağı ayrı `wedge_socket`
+manifest kayıtlarıdır; ekipman satırının `SKGOW…` / `SKGOW…L` modeli ilgili kaydı
+açar, model hücresi ise üreticinin güncel ürün sayfasına gider. DIN 15401 tek
+ağızlı ve DIN 15402 çift ağızlı Akyüzlü ölçü tabloları PDF olmayan statik
+üretici kaynağı istisnası olarak `STATIC_SHEETS`ten WebP üretilir; kanca
+satırındaki `catalogModel` seçilen standardı doğru tabloya bağlar. Yakın model
+veya farklı standart tahmini yapılmaz.
 
 Eşleme SERİ önekiyle değil MODEL koduyla yapılır ("A" serisi ile
 "ABC-V 260" karışırdı); tam eşleşme yoksa tasarım soneki atılmış temel koda

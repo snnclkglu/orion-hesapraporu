@@ -450,8 +450,14 @@ export function headlineItems(
   const headline = section.headline;
   if (!headline || !checks) return [];
   const out: HeadlineItem[] = [];
-  for (const h of headline.checks) {
-    const c = checks.find((x) => x.id === `${checkPrefix}${h.suffix}`);
+  const definitions = new Map(headline.checks.map((h) => [h.suffix, h]));
+  // Sayaç, ayrıntılı kontrol satırları ve uygunluk özeti AYNI sonek listesini
+  // okur. Böylece örneğin fren 3/3 iken şeritte iki kontrol görünmesi mümkün
+  // değildir; yeni bir kontrol eklendiğinde kısa etiketi ayrıca yazılmasa bile
+  // motorun kendi etiketiyle otomatik olarak özete girer.
+  for (const suffix of section.checkSuffixes) {
+    const h = definitions.get(suffix) ?? { suffix };
+    const c = checks.find((x) => x.id === `${checkPrefix}${suffix}`);
     if (!c) continue;
     out.push({
       label: h.label ?? c.label,
@@ -529,6 +535,18 @@ const SAFETY_BAND = {
   computedLabel: "Gerçekleşen",
   limitLabel: "Gereken",
 } as const;
+
+/**
+ * Bölümün bütün kontrollerini kapsayan özet tanımı. Özel tanım yalnız yerleşim
+ * ve kısa etiketleri değiştirir; kapsamı daraltamaz.
+ */
+function completeHeadline(
+  explicit: AdapterHeadline | undefined,
+  suffixes: readonly string[]
+): AdapterHeadline | undefined {
+  if (suffixes.length === 0) return undefined;
+  return explicit ?? { ...CAPACITY_BAND, checks: [] };
+}
 
 /** Kaplin bölümlerinin ortak iki satırı (tork + delik çapı). */
 const COUPLING_CHECKS = (prefix: string): AdapterHeadlineCheck[] => [
@@ -676,7 +694,7 @@ function hoistAdapter(which: HoistKey): ModuleAdapter {
       inputDefs: defs(s.inputKeys, HOIST_INPUT_MAP),
       selectionDefs: defs(s.selectionKeys, HOIST_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
-      headline: HOIST_HEADLINES[s.id],
+      headline: completeHeadline(HOIST_HEADLINES[s.id], s.checkSuffixes),
       checkSuffixes: s.checkSuffixes,
       visible: s.visible
         ? (specs: TechnicalSpecs, inputs?: Record<string, unknown>) => s.visible!(specs, which, inputs)
@@ -787,7 +805,7 @@ function hookBlockAdapter(which: HookBlockKey): ModuleAdapter {
       selectionDefs: defs(s.selectionKeys, HOOKBLOCK_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
       editor: s.editor,
-      headline: HOOKBLOCK_HEADLINES[s.id],
+      headline: completeHeadline(HOOKBLOCK_HEADLINES[s.id], s.checkSuffixes),
       checkSuffixes: s.checkSuffixes,
       visible: s.visible ? (specs: TechnicalSpecs) => s.visible!(specs, which) : undefined,
       rows: s.rows.map((r) => {
@@ -921,7 +939,7 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
       rawId: s.id,
       title: s.editor === "festoon" ? `${FESTOON_TITLES[which]} Feston` : s.title,
       description: s.description,
-      headline: TRAVEL_HEADLINES[s.id],
+      headline: completeHeadline(TRAVEL_HEADLINES[s.id], s.checkSuffixes),
       // YALNIZ TEK VARYANTTA SORULAN GİRDİLER burada elenir: köprünün araba
       // yanaşması arabada hesaba GİRMEZ, bu yüzden arabada kutusu da yoktur
       // (`TRAVEL_INPUT_VARIANT`). Süzgeç `inputDefs` üzerindedir; ekran ve
@@ -1009,7 +1027,7 @@ function wheelLoadAdapter(): ModuleAdapter {
         selectionKeys: s.selectionKeys,
         editor: s.editor,
         confirmation: s.confirmation,
-        headline: WHEELLOAD_HEADLINES[s.id],
+        headline: completeHeadline(WHEELLOAD_HEADLINES[s.id], s.checkSuffixes),
         checkSuffixes: s.checkSuffixes,
         table: t
           ? {
@@ -1100,7 +1118,7 @@ function girderAdapter(key: GirderModuleKey): ModuleAdapter {
         selectionDefs: defs(s.selectionKeys, GIRDER_SELECTION_MAP),
         selectionKeys: s.selectionKeys,
         confirmation: s.confirmation,
-        headline: GIRDER_HEADLINES[s.id],
+        headline: completeHeadline(GIRDER_HEADLINES[s.id], s.checkSuffixes),
         checkSuffixes: s.checkSuffixes,
         table: t
           ? {
@@ -1184,7 +1202,7 @@ function bucklingAdapter(): ModuleAdapter {
       extraInputDefs: s.panel === "side" ? [...BUCKLING_EXTRA_FIELDS] : undefined,
       selectionDefs: [],
       selectionKeys: [],
-      headline: BUCKLING_HEADLINES[s.id],
+      headline: completeHeadline(BUCKLING_HEADLINES[s.id], s.checkSuffixes),
       checkSuffixes: s.checkSuffixes,
       rows: s.rows.map((r) => {
         const sub = r.subst;
@@ -1236,7 +1254,7 @@ function endCarriageAdapter(): ModuleAdapter {
       inputDefs: defs(s.inputKeys, ENDCARRIAGE_INPUT_MAP),
       selectionDefs: defs(s.selectionKeys, ENDCARRIAGE_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
-      headline: ENDCARRIAGE_HEADLINES[s.id],
+      headline: completeHeadline(ENDCARRIAGE_HEADLINES[s.id], s.checkSuffixes),
       checkSuffixes: s.checkSuffixes,
       rows: s.rows.map((r) => {
         const sub = r.subst;
@@ -1280,6 +1298,7 @@ function cabinAdapter(): ModuleAdapter {
         selectionKeys: s.selectionKeys,
         editor: s.editor,
         inputsInfo: s.inputsInfo,
+        headline: completeHeadline(undefined, s.checkSuffixes),
         checkSuffixes: s.checkSuffixes,
         table: table
           ? {
@@ -1326,6 +1345,7 @@ function electricalAdapter(): ModuleAdapter {
       selectionDefs: [],
       selectionKeys: [],
       editor: s.editor,
+      headline: completeHeadline(undefined, s.checkSuffixes),
       checkSuffixes: s.checkSuffixes,
       rows: s.rows.map((row) => ({
         key: row.key,
