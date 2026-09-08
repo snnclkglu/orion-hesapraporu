@@ -8,7 +8,8 @@
 
 import { describe, expect, it } from "vitest";
 import type { ElectricalPart } from "@/lib/electrical/types";
-import { computeSwitchboardLayout } from "../compute";
+import { auditLineup } from "../audit";
+import { computeSwitchboardLayout, resolveSettings } from "../compute";
 
 function parca(over: Partial<ElectricalPart> = {}): ElectricalPart {
   return {
@@ -194,5 +195,73 @@ describe("pano yanı ekipmanı KUYRUĞA DÜŞMEZ, listeye girer (PANO-27)", () =
     const r = coz(yanSatirlar);
     expect(r.room).toHaveLength(0);
     expect(r.excluded.map((e) => e.code)).toContain("LVD0");
+  });
+});
+
+describe("ÇİZİLMEYEN aygıt da denetlenir", () => {
+  // PANO-11 denetçisi sonucu ölçer, algoritmanın iddiasını değil. Ama denetim
+  // yalnız plaka ve kapağı ölçüyordu: gövde gereci (fan, termostat, pano
+  // lambası) ve pano yanı ekipmanı (siren, projektör) `ayir()` içinde bir
+  // daldan düşse HİÇBİR ŞEY haber vermezdi. O aygıtlar çizilmiyor ama SİPARİŞ
+  // EDİLİYOR; sessiz kayıp yanlış yerleşimden tehlikelidir.
+  const parts = [
+    ...Array.from({ length: 3 }, (_, i) =>
+      parca({ device: `F${i + 1}`, deviceTag: `=100T+LVD0-F${i + 1}` })
+    ),
+    parca({
+      device: "M162",
+      deviceTag: "=100T+LVD0-M162",
+      designation: "Panels Ventilation Fan Filter 27W",
+      typeNo: "FULL2500",
+      supplier: "QUICK",
+      partNo: "QCK.FULL2500",
+    }),
+    parca({
+      device: "H166",
+      deviceTag: "=100T+LVD0-H166",
+      designation: "40W 108dB Siren",
+      typeNo: "SNT-SL190-22",
+      supplier: "MC",
+      partNo: "MC.SNT-SL190-22",
+    }),
+  ];
+
+  const sonuc = coz(parts);
+  const beklenen = sonuc.devices.filter((d) => d.panelCode === "LVD0");
+
+  function denetle(panolar: typeof sonuc.room) {
+    return auditLineup(panolar, resolveSettings({}), beklenen)
+      .flatMap((a) => a.result.checks.map((c) => ({ ...c, kod: a.code })))
+      .filter((c) => !c.ok);
+  }
+
+  it("eksiksiz dizide gövde ve yan denetimi GEÇER", () => {
+    const kalanlar = denetle(sonuc.room);
+    expect(kalanlar.map((c) => `${c.kod}/${c.key}`)).toEqual([]);
+  });
+
+  it("gövde gereci ELLE DÜŞÜRÜLÜRSE denetim YAKALAR", () => {
+    // Denetimin bir şey ölçtüğünü kanıtlamanın tek yolu, ölçtüğü şeyi bozmak.
+    const bozuk = sonuc.room.map((p) => ({ ...p, bodyDevices: [] }));
+    const kalanlar = denetle(bozuk);
+    expect(kalanlar.map((c) => c.key)).toContain("govde-eksiksizlik");
+    expect(kalanlar.find((c) => c.key === "govde-eksiksizlik")?.detail).toContain("M162");
+  });
+
+  it("pano yanı ekipmanı ELLE DÜŞÜRÜLÜRSE denetim YAKALAR", () => {
+    const bozuk = sonuc.room.map((p) => ({ ...p, sideDevices: [] }));
+    const kalanlar = denetle(bozuk);
+    expect(kalanlar.map((c) => c.key)).toContain("yan-eksiksizlik");
+    expect(kalanlar.find((c) => c.key === "yan-eksiksizlik")?.detail).toContain("H166");
+  });
+
+  it("denetim GEÇENLERİ de sayar — neyin denetlendiği görünür (PANO-11)", () => {
+    const hepsi = auditLineup(sonuc.room, resolveSettings({}), beklenen).flatMap(
+      (a) => a.result.checks
+    );
+    const govde = hepsi.find((c) => c.key === "govde-eksiksizlik");
+    const yan = hepsi.find((c) => c.key === "yan-eksiksizlik");
+    expect(govde?.detail).toBe("1 gereç");
+    expect(yan?.detail).toBe("1 ekipman");
   });
 });

@@ -199,6 +199,27 @@ export function auditLineup(
   const yerlesenKapak = new Set(panels.flatMap((p) => p.doorPlacements.map((y) => y.deviceKey)));
   const eksikKapak = [...beklenenKapak].filter((k) => !yerlesenKapak.has(k));
 
+  // ÇİZİLMEYEN AYGIT DA SAYILIR. Gövde gereci (fan, termostat, pano lambası)
+  // ve pano yanı ekipmanı (siren, projektör) montaj plakasına girmez ve
+  // yerleşimi çizilmez — ama SİPARİŞ EDİLİR. Denetim yalnız plaka ve kapağı
+  // ölçseydi, bu iki aile `ayir()` içinde bir daldan düşse hiçbir şey haber
+  // vermezdi; sessiz kayıp, yanlış yerleşimden tehlikelidir (PANO-10).
+  const sayimi = (
+    tip: "govde" | "yan",
+    listeden: (p: PanelLayout) => DeviceBox[]
+  ): { beklenen: number; eksik: string[] } => {
+    const beklenenler = new Set(
+      expected.filter((d) => d.mountType === tip).map((d) => d.key)
+    );
+    const listelenen = new Set(panels.flatMap((p) => listeden(p).map((d) => d.key)));
+    return {
+      beklenen: beklenenler.size,
+      eksik: [...beklenenler].filter((k) => !listelenen.has(k)),
+    };
+  };
+  const govde = sayimi("govde", (p) => p.bodyDevices);
+  const yan = sayimi("yan", (p) => p.sideDevices);
+
   const checks: AuditCheck[] = [
     {
       key: "eksiksizlik",
@@ -217,6 +238,24 @@ export function auditLineup(
         eksikKapak.length === 0
           ? `${beklenenKapak.size} aygıt`
           : `eksik ${eksikKapak.length} (${eksikKapak.slice(0, 5).join(", ")})`,
+    },
+    {
+      key: "govde-eksiksizlik",
+      label: "Gövde gereçlerinin hepsi listelendi",
+      ok: govde.eksik.length === 0,
+      detail:
+        govde.eksik.length === 0
+          ? `${govde.beklenen} gereç`
+          : `eksik ${govde.eksik.length} (${govde.eksik.slice(0, 5).join(", ")})`,
+    },
+    {
+      key: "yan-eksiksizlik",
+      label: "Pano yanı ekipmanının hepsi listelendi",
+      ok: yan.eksik.length === 0,
+      detail:
+        yan.eksik.length === 0
+          ? `${yan.beklenen} ekipman`
+          : `eksik ${yan.eksik.length} (${yan.eksik.slice(0, 5).join(", ")})`,
     },
   ];
 
