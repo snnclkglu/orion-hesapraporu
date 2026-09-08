@@ -181,7 +181,17 @@ export function auditPanel(
 export function auditLineup(
   panels: PanelLayout[],
   s: LayoutSettings,
-  expected?: DeviceBox[]
+  expected?: DeviceBox[],
+  /**
+   * Dizinin adı — "Oda" ya da "Saha".
+   *
+   * Ölçüldü (08.09.2026): iki dizi de satırını "Dizi geneli" diye
+   * adlandırıyordu. İki sonuç yan yana basıldığında React aynı anahtarı iki kez
+   * gördü ve satırlardan birini DÜŞÜREBİLİRDİ — imalatçının kâğıdından bir
+   * denetim eksilirdi. Ayrıca okuyan, başarısız bir denetimin hangi diziye ait
+   * olduğunu göremiyordu.
+   */
+  diziAdi = "Dizi"
 ): { code: string; result: AuditResult }[] {
   const satirlar = panels.map((p) => ({ code: p.code, result: auditPanel(p, s) }));
   if (!expected || panels.length === 0) return satirlar;
@@ -260,7 +270,7 @@ export function auditLineup(
   ];
 
   satirlar.push({
-    code: "Dizi geneli",
+    code: `${diziAdi} geneli`,
     result: { checks, ok: checks.every((c) => c.ok) },
   });
   return satirlar;

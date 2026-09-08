@@ -265,3 +265,30 @@ describe("ÇİZİLMEYEN aygıt da denetlenir", () => {
     expect(yan?.detail).toBe("1 ekipman");
   });
 });
+
+describe("her dizinin denetim satırının KENDİ ADI vardır", () => {
+  it("oda ve saha satırları ayrı adlandırılır", () => {
+    // Ölçüldü (08.09.2026): iki dizi de satırını "Dizi geneli" diye
+    // adlandırıyordu. @react-pdf aynı anahtarı iki kez görünce satırlardan
+    // birini DÜŞÜREBİLİR — imalatçının kâğıdından bir denetim eksilirdi.
+    // Ayrıca okuyan, başarısız bir denetimin hangi diziye ait olduğunu
+    // göremiyordu.
+    const r = coz([
+      ...Array.from({ length: 3 }, (_, i) =>
+        parca({ device: `F${i + 1}`, deviceTag: `=100T+LVD0-F${i + 1}` })
+      ),
+      ...Array.from({ length: 3 }, (_, i) =>
+        parca({
+          location: "TB1",
+          device: `F${i + 1}`,
+          deviceTag: `=100T+TB1-F${i + 1}`,
+        })
+      ),
+    ]);
+    const kodlar = r.audits.map((a) => a.code);
+    expect(kodlar).toContain("Oda dizisi geneli");
+    expect(kodlar).toContain("Saha dizisi geneli");
+    // Hiçbir denetim satırı aynı adı taşımaz.
+    expect(new Set(kodlar).size).toBe(kodlar.length);
+  });
+});

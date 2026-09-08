@@ -622,7 +622,7 @@ describe("bölme ve harfleme (PANO-10)", () => {
     const eksik = sonuc.unplaced.filter((u) => u.reason === "sigmadi");
     expect(eksik).toHaveLength(0);
     // Dizi geneli eksiksizlik denetimi geçmeli (PANO-11).
-    const dizi = sonuc.audits.find((a) => a.code === "Dizi geneli");
+    const dizi = sonuc.audits.find((a) => a.code === "Oda dizisi geneli");
     expect(dizi?.result.ok).toBe(true);
   });
 
@@ -795,24 +795,26 @@ describe("denetçi GERÇEKTEN hata yakalıyor mu (PANO-11)", () => {
     ) as never[];
 
     // Sağlam: dizi geneli geçer.
-    const iyi = auditLineup(temel.room, ayar, beklenen);
-    const dizi = iyi.find((a) => a.code === "Dizi geneli");
+    const iyi = auditLineup(temel.room, ayar, beklenen, "Oda dizisi");
+    const dizi = iyi.find((a) => a.code === "Oda dizisi geneli");
     expect(dizi).toBeDefined();
     expect(dizi!.result.ok).toBe(true);
 
     // Bir aygıt sessizce düşerse yakalanır.
-    const eksikli = auditLineup(temel.room, ayar, [
-      ...beklenen,
-      { key: "HAYALET|AYGIT", mountType: "din" } as never,
-    ]);
-    const dizi2 = eksikli.find((a) => a.code === "Dizi geneli");
+    const eksikli = auditLineup(
+      temel.room,
+      ayar,
+      [...beklenen, { key: "HAYALET|AYGIT", mountType: "din" } as never],
+      "Oda dizisi"
+    );
+    const dizi2 = eksikli.find((a) => a.code === "Oda dizisi geneli");
     expect(dizi2!.result.ok).toBe(false);
     expect(dizi2!.result.checks.find((c) => c.key === "eksiksizlik")!.detail).toContain("eksik 1");
   });
 
   it("beklenen verilmezse DİZİ GENELİ satırı EKLENMEZ", () => {
     const d = auditLineup(temel.room, ayar);
-    expect(d.some((a) => a.code === "Dizi geneli")).toBe(false);
+    expect(d.some((a) => a.code === "Oda dizisi geneli")).toBe(false);
   });
 });
 

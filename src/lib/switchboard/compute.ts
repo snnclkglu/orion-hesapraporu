@@ -238,8 +238,8 @@ export function computeSwitchboardLayout(input: ComputeInput): ComputeResult {
     // BEKLENEN AYGIT KÜMESİ GEÇİRİLİR: bir cihazın sessizce düşmesini
     // yakalayan tek denetim budur (PANO-11) ve dizi düzeyinde sınanır.
     audits: [
-      ...auditLineup(oda.layouts, settings, odaGirdi.flatMap((g) => g.devices)),
-      ...auditLineup(saha.layouts, settings, sahaGirdi.flatMap((g) => g.devices)),
+      ...auditLineup(oda.layouts, settings, odaGirdi.flatMap((g) => g.devices), "Oda dizisi"),
+      ...auditLineup(saha.layouts, settings, sahaGirdi.flatMap((g) => g.devices), "Saha dizisi"),
     ],
   };
 }
