@@ -16,6 +16,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readElectricalPdf } from "@/lib/electrical/read-pdf";
+import { readPartsDump } from "./switchboard-parts-dump";
 import { computeSwitchboardLayout } from "@/lib/switchboard/compute";
 import type { DeviceModel } from "@/lib/switchboard/types";
 import { auditPanel } from "@/lib/switchboard/audit";
@@ -33,13 +34,36 @@ function mm(v: number): string {
 async function main() {
   const yol = process.argv[2];
   if (!yol) {
-    console.error("Kullanım: npx tsx scripts/test-switchboard-layout.ts <pdf yolu>");
+    console.error(
+      "Kullanım: npx tsx scripts/test-switchboard-layout.ts <pdf|parts.json> [--is 0026-01]"
+    );
     process.exit(1);
   }
 
-  const bytes = new Uint8Array(readFileSync(yol));
-  const okuma = await readElectricalPdf(bytes);
-  console.log(`Kaynak: ${okuma.pageCount} sayfa · ${okuma.parts.length} aygıt satırı`);
+  // İKİ KAYNAK: EPLAN PDF'i ya da `electrical_parts` dökümü.
+  //
+  // Ölçüldü (08.09.2026): 0026-01'in PDF'i yerelde YOK — yalnız Supabase
+  // kovasında. Betik yalnız PDF okuduğu için o iş hiç duman testinden
+  // geçirilemiyordu, oysa kullanıcının önceliği tam olarak oydu. Ortak temiz
+  // okuyucu (`switchboard-parts-dump.ts`) zaten iki kardeş betikte kullanılıyor.
+  const isIdx = process.argv.indexOf("--is");
+  const isNo = isIdx > 0 ? process.argv[isIdx + 1] : undefined;
+
+  let parts;
+  if (yol.toLowerCase().endsWith(".json")) {
+    const dokum = readPartsDump(yol, isNo);
+    parts = dokum.parts;
+    console.log(
+      `Kaynak: ${yol} · ${parts.length} aygıt satırı` +
+        (isNo ? ` (${isNo})` : ` · projeler: ${dokum.projects.join(", ")}`) +
+        ` · antet temizlenen ${dokum.cleaned} · düşen ${dokum.dropped}`
+    );
+  } else {
+    const bytes = new Uint8Array(readFileSync(yol));
+    const okuma = await readElectricalPdf(bytes);
+    parts = okuma.parts;
+    console.log(`Kaynak: ${okuma.pageCount} sayfa · ${parts.length} aygıt satırı`);
+  }
 
   const t0 = Date.now();
   // ÖLÇÜ DEFTERİ OKUNUR: defter olmadan bütün ölçüler tahmindir ve pano
@@ -73,7 +97,7 @@ async function main() {
     console.log(`Ölçü defteri: ${models.length} ürün okundu.`);
   }
 
-  const sonuc = computeSwitchboardLayout({ parts: okuma.parts, models });
+  const sonuc = computeSwitchboardLayout({ parts, models });
   const sure = Date.now() - t0;
 
   // HER DİZİ KENDİ ÖLÇÜSÜNÜ BASAR (PANO-2).
@@ -174,7 +198,7 @@ SVG yazıldı: ${dizin} (${1 + sonuc.room.length + sonuc.field.length} dosya)`);
   }
 
   // DETERMİNİZM: aynı girdi iki kez yerleştirilince aynı plan çıkmalı.
-  const ikinci = computeSwitchboardLayout({ parts: okuma.parts, models });
+  const ikinci = computeSwitchboardLayout({ parts, models });
   const ayni = JSON.stringify(sonuc.room) === JSON.stringify(ikinci.room);
   console.log(`\nDeterminizm: ${ayni ? "aynı plan" : "PLAN DEĞİŞTİ — HATA"}`);
 }

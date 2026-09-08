@@ -803,3 +803,49 @@ doğru davranış — ve gerçek eksik o yığının içinde kayboluyordu.
 bu bir hata değil, malzeme listesindeki bir BOŞLUKTUR. Ölçüldü (0026-01):
 `-Y64`…`-Y75` fren bobinleri redüktörle geliyor ve elektrik projesinde malzeme
 satırı açılmamış; altı satır "Sınıflanmamış" kuyruğunu kirletiyordu.
+
+## ÖLÇÜM — gerçek iki iş (08.09.2026)
+
+Modülün var oluş sebebi iki işte birden ölçüldü. Sayılar
+`npx tsx scripts/test-switchboard-layout.ts .tmp/electrical-parts-all.json --is <no> --defter .tmp/device-models.json`
+çıktısındandır.
+
+### 0026-01 — 100 T tavan vinci · 144 malzeme satırı · 54 benzersiz ürün
+
+| | Sözlük ve defter ÖNCESİ | SONRASI |
+|---|---|---|
+| Oda dizisi | 1 göz · **500 × 1600 × 300** mm | 4 göz · toplam **2.500** mm · **1800 × 400** |
+| Saha dizisi | 1 göz · 400 × 1400 × 200 | değişmedi (artık AYRI çözülüyor) |
+| Sınıflanmamış ürün | 22 / 54 (%41) | **0** |
+| Kuyruk | 50 | **28** (21 saha · 6 ürünsüz · 1 gerçek eksik) |
+| Ölçüsü doğrulanmamış aygıt | 38 | **2** |
+| Pano denetimi | 1 / 4 başarısız | pano denetimleri geçiyor |
+
+Derinliği belirleyen kalem 90 kW'lık `ATV930D90N4`: **325,5 mm** derinlik +
+40 mm arka pay + 20 mm kapak payı = 385,5 mm, yani 300 mm gövde YETMİYOR.
+Eni belirleyen üç kalem: aynı sürücünün 290 mm eni (400 mm gövdeye sığmaz),
+`LC1G185KUEN` TeSys Giga kontaktörünün **107,7 mm**'si (tahmin 45 mm diyordu)
+ve 23 adet RXG2 röle takımının **15,8 mm**'si (tahmin 6,2 mm diyordu — tek
+başına 220 mm ray farkı).
+
+**Eski sayılarla sipariş edilseydi 500 mm'lik bir gövde alınacaktı; iş 2.500
+mm istiyor.**
+
+Kalan tek gerçek eksik `BC1-1403-7420` prizinin yüksekliği: BEMIS'in tek
+ürünlük föyünde o kot ÇİZİLMEMİŞ ve genel katalogda fiş/priz için ölçü resmi
+bölümü yok. Uydurulmadı (değişmez md. 4).
+
+### 0019-00 — 185/40 T şarj vinci · 1.107 malzeme satırı · 184 benzersiz ürün
+
+| | Değer |
+|---|---|
+| Oda dizisi | 22 göz · **2000 × 600** mm |
+| Saha dizisi | 5 göz · **1400 × 250** mm (artık odadan BAĞIMSIZ) |
+| Sınıflanmamış ürün | 1 (yalnız ürünsüz satırlar) |
+| Kuyruk | 512 — **494'ü gerçekten saha** (motor, kablo, enkoder, PT100) |
+
+0019 bu turda bir GERİLEME KORUMASI olarak kullanıldı: sözlük 0026 için
+genişletilirken 0019'un dağılımı satır satır karşılaştırıldı ve değişmedi. Tek
+denenen ve GERİ ALINAN ek `STAY PUT` oldu — 0019'un `XB4BD21` kapak seçici
+şalteri de "2-position stay put" diyor ve o terim mandallı/yaylı ayrımıdır,
+sınır şalteri işareti değil (PANO-25).

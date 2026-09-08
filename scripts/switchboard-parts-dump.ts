@@ -47,9 +47,17 @@ function satirdan(r: Record<string, unknown>): ElectricalPart {
   };
 }
 
-/** Ham SQL dökümünü UYGULAMANIN GÖRDÜĞÜ hâle getirir. */
-export function readPartsDump(yol: string): PartsDump {
-  const ham = JSON.parse(readFileSync(yol, "utf8")) as Record<string, unknown>[];
+/**
+ * Ham SQL dökümünü UYGULAMANIN GÖRDÜĞÜ hâle getirir.
+ *
+ * `is` verilirse yalnız o doküman numarasıyla başlayan satırlar okunur. Döküm
+ * bütün projeleri birden taşıyor ve iki işi birlikte çözmek anlamsız bir
+ * dizilim üretir — 0019'un yirmi iki panosu ile 0026'nın dördü aynı elektrik
+ * odasında değil.
+ */
+export function readPartsDump(yol: string, is?: string): PartsDump {
+  const tumu = JSON.parse(readFileSync(yol, "utf8")) as Record<string, unknown>[];
+  const ham = is ? tumu.filter((r) => String(r.doc_no ?? "").startsWith(is)) : tumu;
   const parts: ElectricalPart[] = [];
   let cleaned = 0;
   let dropped = 0;
