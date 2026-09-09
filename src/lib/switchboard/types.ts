@@ -9,13 +9,34 @@
 // edilen ölçü ayrı bir alanla (`dimSource`) işaretlenir; ekran onu taralı
 // çizer ve sipariş edilebilirlik sayacına katmaz (PANO-12).
 
-/** Aygıt panoda nereye takılır. */
+/**
+ * Aygıt panoda nereye takılır.
+ *
+ * `zemin` KENDİ BAŞINA BİR TİPTİR (kullanıcı kararı, 09.09.2026): trafo panonun
+ * İÇİNDEDİR ama montaj plakasında değil, gövdenin tabanındadır. `govde`
+ * ("gövde gereci": lamba, fan, etiket) ile aynı kovaya atmak, 4 kVA'lık bir
+ * trafoyu bir aksesuar gibi gösterirdi.
+ */
 export type MountType =
   /** Montaj plakasındaki DIN rayına oturur. */
   | "din"
-  /** Doğrudan montaj plakasına vidalanır (sürücü, trafo, reaktör). */
+  /** Doğrudan montaj plakasına vidalanır (sürücü, reaktör, filtre). */
   | "plaka"
-  /** Kapak üstü kesiti (buton, lamba, HMI). */
+  /**
+   * PANO ZEMİNİNE oturur — trafo (kullanıcı kararı, 09.09.2026).
+   *
+   * Panonun İÇİNDEDİR ve sipariş listesindedir, ama montaj plakasında yer
+   * kaplamaz: yerleşim şemasına girmez, cihaz listesinde durur.
+   */
+  | "zemin"
+  /**
+   * Kapak üstü kesiti (buton, lamba, priz, HMI).
+   *
+   * YERLEŞİMİ ÇİZİLMEZ (kullanıcı kararı, 09.09.2026): "kapak üzerinde veya
+   * pano içerisinde priz, aydınlatma, buton vs ekipmanlar yerleşimde olmaz."
+   * Sınıflandırma korunur çünkü cihazın kapağa takıldığı DOĞRU bir bilgidir ve
+   * listede görünür; yalnız plakada/kapakta bir kutu çizilmez.
+   */
   | "kapak"
   /** Gövde/kapak gereci (fan, klima, pano lambası). */
   | "govde"

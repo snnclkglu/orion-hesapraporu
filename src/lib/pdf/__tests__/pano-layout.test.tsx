@@ -162,14 +162,16 @@ describe("pano yerleşimi belgesi", () => {
         supplier: "QUICK",
         partNo: "QCK.FULL2500",
       }),
+      // PANO YANI ARTIK FREN DİRENCİDİR (PANO-37): siren ve projektör sahaya
+      // taşındı, panonun yanında duran tek aile direnç kafesidir.
       parca({
         location: "P1",
-        device: "H9",
-        deviceTag: "=T1+P1-H9",
-        designation: "40W 108dB Siren",
-        typeNo: "SNT-SL190-22",
-        supplier: "MC",
-        partNo: "MC.SNT-SL190-22",
+        device: "R9",
+        deviceTag: "=T1+P1-R9",
+        designation: "Braking Resistor 11kW, 25 Ohm",
+        typeNo: "BRSD-836SW-1125",
+        supplier: "RESSA",
+        partNo: "RES.BRSD-836SW-1125",
       }),
     ]);
     // Aygıtlar gerçekten ÇİZİLMEYEN listelerde.

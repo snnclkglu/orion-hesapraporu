@@ -121,15 +121,20 @@ export function auditPanel(
         : kanalsiz.map((r) => `Ray ${r.index}`).join(", "),
   });
 
-  // 6 — Kapak cihazı plakaya, plaka cihazı kapağa düşmemiş.
-  const yanlisYuz =
-    panel.placements.filter((p) => p.mountType === "kapak").length +
-    panel.doorPlacements.filter((p) => p.mountType !== "kapak").length;
+  // 6 — Plakada YALNIZ plakaya ait cihaz var.
+  //
+  // Kapak yerleşimi kaldırıldıktan sonra (PANO-37) sorunun yönü değişti:
+  // artık "kapak cihazı kapakta mı" diye sorulmuyor, "kapak/zemin cihazı
+  // plakaya SIZDI mı" diye soruluyor. Sızarsa şemada olmayan bir yere kutu
+  // çizilir ve pano yanlış boyutlanır.
+  const yanlisYuz = panel.placements.filter(
+    (p) => p.mountType !== "din" && p.mountType !== "plaka"
+  ).length;
   checks.push({
     key: "yuz-ayrimi",
-    label: "Kapak cihazı yalnız kapakta, plaka cihazı yalnız plakada",
+    label: "Plakada yalnız raya/plakaya ait cihaz var",
     ok: yanlisYuz === 0,
-    detail: yanlisYuz === 0 ? `${panel.doorPlacements.length} kapak cihazı` : `${yanlisYuz} hatalı`,
+    detail: yanlisYuz === 0 ? `${panel.placements.length} cihaz` : `${yanlisYuz} hatalı`,
   });
 
   // 7 — Derinlik: hiçbir cihaz gövdeden derin değil.
@@ -203,11 +208,6 @@ export function auditLineup(
   const eksik = [...beklenen].filter((k) => !yerlesen.has(k));
   const fazla = [...yerlesen].filter((k) => !beklenen.has(k));
 
-  const beklenenKapak = new Set(
-    expected.filter((d) => d.mountType === "kapak").map((d) => d.key)
-  );
-  const yerlesenKapak = new Set(panels.flatMap((p) => p.doorPlacements.map((y) => y.deviceKey)));
-  const eksikKapak = [...beklenenKapak].filter((k) => !yerlesenKapak.has(k));
 
   // ÇİZİLMEYEN AYGIT DA SAYILIR. Gövde gereci (fan, termostat, pano lambası)
   // ve pano yanı ekipmanı (siren, projektör) montaj plakasına girmez ve
@@ -215,7 +215,7 @@ export function auditLineup(
   // ölçseydi, bu iki aile `ayir()` içinde bir daldan düşse hiçbir şey haber
   // vermezdi; sessiz kayıp, yanlış yerleşimden tehlikelidir (PANO-10).
   const sayimi = (
-    tip: "govde" | "yan",
+    tip: "govde" | "yan" | "kapak" | "zemin",
     listeden: (p: PanelLayout) => DeviceBox[]
   ): { beklenen: number; eksik: string[] } => {
     const beklenenler = new Set(
@@ -229,6 +229,10 @@ export function auditLineup(
   };
   const govde = sayimi("govde", (p) => p.bodyDevices);
   const yan = sayimi("yan", (p) => p.sideDevices);
+  // Kapak ve zemin de `bodyDevices` listesindedir (PANO-37): üçü de "panoda
+  // ama çizilmiyor" kovasıdır ve montaj tipleriyle ayrışırlar.
+  const kapakListe = sayimi("kapak", (p) => p.bodyDevices);
+  const zeminListe = sayimi("zemin", (p) => p.bodyDevices);
 
   const checks: AuditCheck[] = [
     {
@@ -241,13 +245,25 @@ export function auditLineup(
           : `eksik ${eksik.length}${eksik.length ? ` (${eksik.slice(0, 5).join(", ")})` : ""}, fazla ${fazla.length}`,
     },
     {
+      // KAPAK CİHAZI ARTIK YERLEŞMİYOR (PANO-37) ama LİSTELENMEK ZORUNDA.
+      // Denetim yön değiştirdi: "kapağa yerleşti mi" değil, "listede duruyor
+      // mu". Bir aygıtın sessizce kaybolmaması bu modülün ilk kuralıdır.
       key: "kapak-eksiksizlik",
-      label: "Kapağa giren her aygıt yerleşti",
-      ok: eksikKapak.length === 0,
+      label: "Kapak cihazlarının hepsi listelendi",
+      ok: kapakListe.eksik.length === 0,
       detail:
-        eksikKapak.length === 0
-          ? `${beklenenKapak.size} aygıt`
-          : `eksik ${eksikKapak.length} (${eksikKapak.slice(0, 5).join(", ")})`,
+        kapakListe.eksik.length === 0
+          ? `${kapakListe.beklenen} aygıt`
+          : `eksik ${kapakListe.eksik.length} (${kapakListe.eksik.slice(0, 5).join(", ")})`,
+    },
+    {
+      key: "zemin-eksiksizlik",
+      label: "Pano zeminine oturan aygıtların hepsi listelendi",
+      ok: zeminListe.eksik.length === 0,
+      detail:
+        zeminListe.eksik.length === 0
+          ? `${zeminListe.beklenen} aygıt`
+          : `eksik ${zeminListe.eksik.length} (${zeminListe.eksik.slice(0, 5).join(", ")})`,
     },
     {
       key: "govde-eksiksizlik",

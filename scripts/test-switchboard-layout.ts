@@ -24,7 +24,6 @@ import { diagramsToSvg } from "@/lib/diagrams/svg";
 import {
   panoDizilimDiagram,
   panoIcYerlesimDiagram,
-  panoKapakDiagram,
 } from "@/lib/diagrams/panoLayout";
 
 function mm(v: number): string {
@@ -121,7 +120,7 @@ async function main() {
       console.log(
         `  ${p.code.padEnd(10)} ${mm(p.widthMm)}x${mm(p.heightMm)}x${mm(p.depthMm)} +${p.baseMm} ` +
           `${p.doorConfig.padEnd(5)} ray=${String(p.rails.length).padStart(2)} ` +
-          `parça=${String(p.placements.length).padStart(3)} kapak=${String(p.doorPlacements.length).padStart(2)} ` +
+          `parça=${String(p.placements.length).padStart(3)} ` +
           `gövde=${String(p.bodyDevices.length).padStart(2)} doluluk=%${String(Math.round(p.fillRatio * 100)).padStart(3)} ` +
           `tahmin=${String(tahmin).padStart(3)}`
       );
@@ -170,9 +169,21 @@ async function main() {
     mkdirSync(dizin, { recursive: true });
 
     const dizilim = [
-      panoDizilimDiagram({ panels: sonuc.room, baslik: "Elektrik odası pano dizilimi" }),
+      panoDizilimDiagram({
+        panels: sonuc.room,
+        baslik: "Pano dizilimi",
+        // YAN ŞERİT DE ÇİZİLİR: uygulama onu geçiriyor ve betik geçirmezse
+        // gözle bakılan dosya ekrandakinden EKSİK olur (PANO-37).
+        yanCihazlar: sonuc.roomSideDevices,
+      }),
       ...(sonuc.field.length
-        ? [panoDizilimDiagram({ panels: sonuc.field, baslik: "Saha panoları" })]
+        ? [
+            panoDizilimDiagram({
+              panels: sonuc.field,
+              baslik: "Saha panoları",
+              yanCihazlar: sonuc.fieldSideDevices,
+            }),
+          ]
         : []),
     ];
     writeFileSync(
@@ -182,11 +193,7 @@ async function main() {
     );
 
     for (const p of [...sonuc.room, ...sonuc.field]) {
-      const kapak = panoKapakDiagram({ panel: p, settings: sonuc.settings });
-      const cizimler = [
-        panoIcYerlesimDiagram({ panel: p, settings: sonuc.settings }),
-        ...(kapak ? [kapak] : []),
-      ];
+      const cizimler = [panoIcYerlesimDiagram({ panel: p, settings: sonuc.settings })];
       writeFileSync(
         join(dizin, `${p.code.replace(/[^A-Za-z0-9._-]/g, "_")}.svg`),
         diagramsToSvg(cizimler, { baslik: `${p.code} pano yerleşimi` }),

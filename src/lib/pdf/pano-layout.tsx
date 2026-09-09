@@ -19,7 +19,6 @@ import { PdfDiagram } from "./diagram";
 import {
   panoDizilimDiagram,
   panoIcYerlesimDiagram,
-  panoKapakDiagram,
   panoNumaralari,
 } from "@/lib/diagrams/panoLayout";
 import { COLOR_GROUP_LABEL, MOUNT_LABEL, ZONE_LABEL } from "@/lib/switchboard/mount";
@@ -200,7 +199,7 @@ function SiparisTablosu({ panolar, baslik }: { panolar: PanelLayout[]; baslik: s
           <Text style={[S.hucre, { width: 46 }]}>{p.doorConfig === "cift" ? "Çift" : "Tek"}</Text>
           <Text style={[S.hucre, S.mono, { width: 40, textAlign: "right" }]}>{p.rails.length}</Text>
           <Text style={[S.hucre, S.mono, { width: 46, textAlign: "right" }]}>
-            {p.placements.length + p.doorPlacements.length}
+            {p.placements.length}
           </Text>
           <Text style={[S.hucre, { width: 90 }]}>
             {p.splitOf ? `${p.splitOf} gözü` : p.warnings.length > 0 ? "uyarı var" : ""}
@@ -231,7 +230,6 @@ function PanoSayfasi({ panel, sonuc }: { panel: PanelLayout; sonuc: ComputeResul
     olcek: PDF_OLCEK,
     olcekYazisi: false,
   });
-  const kapak = panoKapakDiagram({ panel, settings: sonuc.settings, olcek: PDF_OLCEK });
   const gerecler = [...panel.bodyDevices, ...panel.sideDevices];
   const sirali = [...panel.placements].sort(
     (a, b) => a.railIndex - b.railIndex || a.xMm - b.xMm
@@ -275,12 +273,6 @@ function PanoSayfasi({ panel, sonuc }: { panel: PanelLayout; sonuc: ComputeResul
       <View style={S.cizimKutusu}>
         <PdfDiagram diagram={ic} maxWidth={ICERIK_EN} maxHeight={ICERIK_BOY - 90} />
       </View>
-
-      {kapak && (
-        <View style={S.cizimKutusu} break>
-          <PdfDiagram diagram={kapak} maxWidth={ICERIK_EN} maxHeight={ICERIK_BOY - 40} />
-        </View>
-      )}
 
       <Text style={S.bolumBaslik}>{panel.code} — CİHAZ LİSTESİ</Text>
       <View style={S.baslikSatir}>
@@ -450,7 +442,7 @@ export function PanoLayoutDocument({ sonuc, meta, company }: PanoLayoutProps) {
             <PdfDiagram
               diagram={panoDizilimDiagram({
                 panels: sonuc.room,
-                baslik: "Elektrik odası pano dizilimi",
+                baslik: "Pano dizilimi",
                 not: `${sonuc.room.length} göz · ön görünüş · panolar bitişik`,
                 yanCihazlar: sonuc.roomSideDevices,
               })}

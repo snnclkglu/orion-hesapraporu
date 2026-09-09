@@ -41,7 +41,7 @@ interface OnayliSatir {
   refutes?: number;
 }
 
-const MOUNT_TIPLERI = ["din", "plaka", "kapak", "govde", "yan", "saha"];
+const MOUNT_TIPLERI = ["din", "plaka", "zemin", "kapak", "govde", "yan", "saha"];
 
 function sql(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;

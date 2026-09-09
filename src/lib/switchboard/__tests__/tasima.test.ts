@@ -243,17 +243,28 @@ describe("BÖLGE SINIRINI aşan taşıma", () => {
     }),
   ];
 
-  it("kumanda rölesi giriş bandına taşınabilir ve KENDİ RAYINI açar", () => {
+  it("kumanda rölesi giriş bandına taşınabilir ve SIRA korunur", () => {
     const sonuc = computeSwitchboardLayout({
       parts: karisik,
       placementOverrides: [duzeltme("T1|P1|K1", 1)],
     });
     const p = sonuc.room[0];
     expect(p.placements.map((x) => x.label)).toEqual(["F1", "K1", "F2", "F3"]);
-    // Üç ray: giriş · kumanda · giriş. Karışık bir rayda hangi kablonun nereye
-    // gittiği panonun kapağını açan kişiye görünmez.
-    expect(p.rails).toHaveLength(3);
-    expect(p.rails.map((r) => r.zone)).toEqual(["giris", "kumanda", "giris"]);
+
+    // BÖLGE ARTIK RAY AÇMIYOR (PANO-37, kullanıcı kararı 09.09.2026):
+    // "gruplandırmaya gerek yok, yan yana koyulabilir." Eski kural bu taşımada
+    // ÜÇ ray açıyordu (giriş · kumanda · giriş) ve iki rayın sağı boş
+    // kalıyordu. Dördü de aynı raya sığıyor.
+    expect(p.rails).toHaveLength(1);
+    const oRayin = p.placements.filter((x) => x.railIndex === 0);
+    expect(oRayin).toHaveLength(4);
+    // Sabitlenen sıra RAY İÇİNDE de korunur: K1, F1 ile F2'nin arasındadır.
+    expect([...oRayin].sort((a, b) => a.xMm - b.xMm).map((x) => x.label)).toEqual([
+      "F1",
+      "K1",
+      "F2",
+      "F3",
+    ]);
   });
 
   it("bölge aşan taşıma denetimi BOZMAZ", () => {

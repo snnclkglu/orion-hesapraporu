@@ -24,7 +24,6 @@ import {
   panoDizilimDiagram,
   panoIcYerlesim,
   panoIcYerlesimDiagram,
-  panoKapakDiagram,
   panoNumaralari,
 } from "../panoLayout";
 
@@ -107,12 +106,12 @@ describe("ölçek metni DEĞERDEN üretilir", () => {
     expect(yazilar(d)).not.toContain("ölçek");
   });
 
-  it("KAPAK çizimi ölçek İDDİA ETMEZ", () => {
-    // Kapak yerleşimi sabit ızgaraya diziliyor ve semboller taban ölçülerle
-    // çiziliyor; orada bir oran yazmak ölçülemeyen bir sayıyı iddia etmektir.
-    const d = panoKapakDiagram({ panel: pano, settings: ayar });
-    expect(d).not.toBeNull();
-    expect(yazilar(d as Diagram)).not.toContain("ölçek");
+  it("KAPAK YERLEŞİMİ ÜRETİLMEZ (PANO-37)", () => {
+    // Kullanıcı kararı (09.09.2026): priz, aydınlatma ve buton yerleşime
+    // girmez, kapakta da çizilmez. Cihazlar listede kalır — kaybolmazlar.
+    for (const p of [...sonuc.room, ...sonuc.field]) {
+      expect(p.doorPlacements).toHaveLength(0);
+    }
   });
 });
 

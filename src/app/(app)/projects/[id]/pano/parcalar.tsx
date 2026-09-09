@@ -44,7 +44,6 @@ import { DiagramSvg } from "@/components/diagrams/diagram-svg";
 import {
   panoDizilimDiagram,
   panoIcYerlesimDiagram,
-  panoKapakDiagram,
   panoNumaralari,
 } from "@/lib/diagrams/panoLayout";
 import { COLOR_GROUP_LABEL, MOUNT_LABEL, ZONE_LABEL } from "@/lib/switchboard/mount";
@@ -159,22 +158,6 @@ export function SemaKabi({ children }: { children: React.ReactNode }) {
     <div className="oc-diagram-theme oc-scrollx overflow-x-auto rounded-lg border bg-[var(--oc-diagram-canvas)] p-4">
       {children}
     </div>
-  );
-}
-
-export function KapakSemasi({
-  panel,
-  settings,
-}: {
-  panel: PanelLayout;
-  settings: ComputeResult["settings"];
-}) {
-  const d = panoKapakDiagram({ panel, settings });
-  if (!d) return null;
-  return (
-    <SemaKabi>
-      <DiagramSvg diagram={d} themeAware />
-    </SemaKabi>
   );
 }
 

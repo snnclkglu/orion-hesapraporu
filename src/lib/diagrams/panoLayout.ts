@@ -41,7 +41,11 @@ import type {
 } from "@/lib/switchboard/types";
 import { COLOR_GROUP_LABEL, ZONE_LABEL } from "@/lib/switchboard/mount";
 import { naturalCompare } from "@/lib/switchboard/panels";
-import { plateHeightMm, plateWidthMm, sideDuctCount } from "@/lib/switchboard/sizes";
+import {
+  plateCapacityHeightMm,
+  plateHeightMm,
+  plateWidthMm,
+} from "@/lib/switchboard/sizes";
 
 // ═══════════════════════════════════════════════════ KATEGORİ PALETİ
 //
@@ -704,8 +708,14 @@ export function panoIcYerlesim(g: IcYerlesimGirdisi): IcYerlesimCizimi {
   const plakaH = plateHeightMm(p.heightMm, s) * k;
   const plakaX = sol + s.plateSideMm * k;
   const plakaY = ust + s.plateTopMm * k;
-  const kanalSayisi = sideDuctCount(p.widthMm, s);
   const rayX = plakaX + (s.sideDuctMm + s.edgeGapMm) * k;
+  // PLAKANIN RAY KAPASİTESİ — ray yığını bunu aşarsa cihazlar plakanın DIŞINA
+  // taşar ve bu GÖRÜNMEK ZORUNDADIR (PANO-37). Kullanıcının cümlesi
+  // (09.09.2026): "bazı şeyler dışarda duruyor ama panoya sığmış gibi
+  // görünüyor." Önceki sürüm taşan rayı sessizce plakanın altına çiziyordu.
+  const kapasiteH = plateCapacityHeightMm(p.heightMm, s);
+  const rayYigini = p.rails.reduce((t, r) => t + r.heightMm, 0);
+  const tasti = rayYigini > kapasiteH;
 
   caption(
     els,
@@ -726,22 +736,39 @@ export function panoIcYerlesim(g: IcYerlesimGirdisi): IcYerlesimCizimi {
     strokeWidth: 0.8,
   });
 
-  // Dikey kablo kanalı — dar gövdede TEK yandan (PANO-3).
+  // Dikey kablo kanalı — TEK ve HEP SOLDA (PANO-37, kullanıcı kararı).
   const dikeyW = s.sideDuctMm * k;
   kanalCiz(els, plakaX, plakaY, dikeyW, plakaH);
-  if (kanalSayisi === 2) kanalCiz(els, plakaX + plakaW - dikeyW, plakaY, dikeyW, plakaH);
 
   const numaralar = panoNumaralari(p);
   const efsane: { grup: ColorGroup; sayi: number }[] = [];
+
+  // PLAKA KAPASİTE SINIRI — taşma varsa çizilir ve etiketlenir.
+  if (tasti) {
+    const ySinir = plakaY + (s.edgeGapMm + kapasiteH) * k;
+    els.push(ln(plakaX - 6, ySinir, plakaX + plakaW + 6, ySinir, DCOL.accent, 1.1, "6 4"));
+    els.push(
+      txt(plakaX + plakaW + 8, ySinir + 3, "plaka sınırı", 6.5, {
+        fill: DCOL.accent,
+        fixed: true,
+        bold: true,
+      })
+    );
+  }
 
   for (const ray of p.rails) {
     const yRay = plakaY + ray.yMm * k;
     const hRay = ray.heightMm * k;
     const hKanal = ray.ductMm * k;
+    // Bu ray plakanın ray kapasitesini aşıyor mu? (Sınırı KESEN ray de sayılır.)
+    const rayTasti = ray.yMm + ray.heightMm > s.edgeGapMm + kapasiteH;
 
     // BÖLGE ADI BİR KEZ YAZILIR. Aynı bölge kapasite dolduğu için birden çok
     // raya taşabilir; her rayın yanına "Kumanda" yazmak beş kez aynı sözcüğü
     // basar ve bölge sınırının nerede olduğunu gizlerdi.
+    //
+    // BÖLGE ARTIK RAY AÇMIYOR (PANO-37): bir rayda birkaç bölge olabilir, o
+    // yüzden yazılan ad rayın BASKIN bölgesidir ve yalnız değiştiğinde çıkar.
     const bolgeBasi = ray.index === 0 || p.rails[ray.index - 1]?.zone !== ray.zone;
     els.push(
       ln(plakaX, yRay, plakaX + plakaW, yRay, bolgeBasi ? DCOL.muted : DCOL.line, bolgeBasi ? 0.7 : 0.4, bolgeBasi ? undefined : "2 3")
@@ -760,6 +787,22 @@ export function panoIcYerlesim(g: IcYerlesimGirdisi): IcYerlesimCizimi {
       rayCiz(els, rayX, yRay + hRay - hKanal - 2.2, ray.capacityMm * k);
     }
     kanalCiz(els, rayX, yRay + hRay - hKanal, ray.capacityMm * k, Math.max(2, hKanal - 1));
+
+    // TAŞAN RAY UYARI RENGİNDE ÇERÇEVELENİR: plakanın dışında duran bir cihaz,
+    // sığmış gibi görünmemelidir.
+    if (rayTasti) {
+      els.push({
+        kind: "rect",
+        x: rayX - 3,
+        y: yRay,
+        w: ray.capacityMm * k + 6,
+        h: hRay,
+        fill: "none",
+        stroke: DCOL.accent,
+        strokeWidth: 0.9,
+        rx: 1,
+      });
+    }
   }
 
   for (const y of p.placements) {
@@ -831,67 +874,26 @@ export function panoIcYerlesim(g: IcYerlesimGirdisi): IcYerlesimCizimi {
       })
     );
   }
+  if (tasti) {
+    els.push(
+      txt(
+        sol,
+        ey + (yazisiz > 0 ? 30 : 18),
+        `Ray yığını ${fmtN(rayYigini, 0)} mm; plakada ${fmtN(kapasiteH, 0)} mm var — sınırın altındaki raylar BU GÖVDEYE SIĞMIYOR.`,
+        7,
+        { fill: DCOL.accent, fixed: true, bold: true }
+      )
+    );
+  }
 
   return {
-    diagram: fitDiagram(els, Math.max(520, sol + gW + 190), ey + (yazisiz > 0 ? 46 : 30)),
+    diagram: fitDiagram(
+      els,
+      Math.max(520, sol + gW + 190),
+      ey + 30 + (yazisiz > 0 ? 16 : 0) + (tasti ? 16 : 0)
+    ),
     kutular,
     yazisiz,
   };
 }
 
-// ═══════════════════════════════════════════════════════ KAPAK GÖRÜNÜŞÜ
-
-/** Kapak üstü cihaz yoksa çizim ÜRETİLMEZ — boş bir kapak resmi bilgi taşımaz. */
-export function panoKapakDiagram(g: IcYerlesimGirdisi): Diagram | null {
-  const { panel: p } = g;
-  if (p.doorPlacements.length === 0) return null;
-
-  const els: DiagramEl[] = [];
-  const k = 1 / (g.olcek ?? IC_OLCEK_ONTANIM);
-  const sol = 60;
-  const ust = 58;
-  const gW = p.widthMm * k;
-  const gH = p.heightMm * k;
-
-  // ÖLÇEK İDDİASI YOK — ve bu bilinçli. Kapak yerleşimi `kapagaDiz` içinde
-  // sabit 90 mm'lik bir ızgaraya diziliyor (gerçek kesim yerleri değil), ayrıca
-  // küçük semboller görünür kalsın diye taban ölçülerle çiziliyor
-  // (`Math.max(20, …)`, `r = Math.max(4.5, …)`). Bu çizim bir yerleşim
-  // KROKİSİDİR; ölçek yazmak, ölçülemeyen bir sayıyı iddia etmek olurdu.
-  caption(
-    els,
-    `${p.code} — kapak görünüşü`,
-    `${p.doorPlacements.length} kapak elemanı · şematik yerleşim, kesim ölçüsü değildir`
-  );
-
-  els.push({ kind: "rect", x: sol, y: ust, w: gW, h: gH, fill: TUVAL_SOFT, stroke: DCOL.ink, strokeWidth: 1.2 });
-  if (p.doorConfig === "cift") {
-    els.push(ln(sol + gW / 2, ust, sol + gW / 2, ust + gH, DCOL.faint, 0.8, "4 3"));
-  }
-
-  for (const y of p.doorPlacements) {
-    const cx = sol + (y.xMm + y.widthMm / 2) * k;
-    const cy = ust + (y.yMm + y.heightMm / 2) * k;
-    const fill = PANO_RENK[y.colorGroup];
-
-    if (y.colorGroup === "otomasyon") {
-      // HMI: ekran çerçevesi.
-      const w = Math.max(20, y.widthMm * k);
-      const h = Math.max(14, y.heightMm * k);
-      els.push({ kind: "rect", x: cx - w / 2, y: cy - h / 2, w, h, fill, stroke: DCOL.ink, strokeWidth: 0.8, rx: 1 });
-      els.push({ kind: "rect", x: cx - w / 2 + 2, y: cy - h / 2 + 2, w: w - 4, h: h - 4, fill: DCOL.paper, stroke: DCOL.muted, strokeWidth: 0.4 });
-    } else {
-      // Buton / sinyal lambası: 22 mm delik.
-      const r = Math.max(4.5, (y.widthMm * k) / 2);
-      els.push({ kind: "circle", cx, cy, r, fill, stroke: DCOL.ink, strokeWidth: 0.8 });
-      els.push({ kind: "circle", cx, cy, r: r * 0.55, fill: DCOL.paper, stroke: DCOL.muted, strokeWidth: 0.4 });
-    }
-    if (y.dimSource === "tahmin") tarama(els, cx - 5, cy - 5, 10, 10);
-    els.push(txt(cx, cy + 16, y.label, 6.5, { anchor: "middle", fixed: true }));
-  }
-
-  dimH(els, sol, sol + gW, ust + gH + 18, `${fmtN(p.widthMm, 0)}`, { size: 8 });
-  dimV(els, sol - 24, ust, ust + gH, `${fmtN(p.heightMm, 0)}`, { size: 8, labelSide: "left" });
-
-  return fitDiagram(els, Math.max(420, sol + gW + 80), ust + gH + 50);
-}

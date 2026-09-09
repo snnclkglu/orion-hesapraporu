@@ -1089,6 +1089,144 @@ Bir de dürüstlük notu: **bütün pay değerleri uygulamanın kendi seçimidir
 gelmiyorlar; `sizes.ts` bunu söylüyor ama defter söylemiyordu. Hepsinin
 ekrandan görülebilir ve düzeltilebilir olmasının sebebi budur.
 
+## PANO-37 — DOKUZ MADDELİK YERLEŞİM TURU (kullanıcı, 09.09.2026)
+
+Kullanıcı uygulamadan bir pano şemasına baktı ve dokuz madde yazdı. Hepsi
+ölçülebilir birer kusura denk düşüyordu; hepsinin gerekçesi burada.
+
+### 1 · Trafo pano ZEMİNİNE oturur, yerleşime girmez
+
+*"Trafo pano içerisinde yere konuyor, bundan dolayı pano yerleşiminde
+gösterilmesin."* Yeni bir montaj tipi açıldı: **`zemin`**. `govde` kovasına
+atılmadı çünkü o kova "gövde gereci"dir (pano lambası, fan, etiket) — 4 kVA'lık
+bir kontrol trafosunu aksesuar gibi listelemek panoyu kuran kişiye yanlış bir
+şey söylerdi. **Reaktör, şok bobini ve şebeke filtresi `plaka` olarak KALIR**;
+zemine konan yalnız trafodur.
+
+### 2 · Klemensler görünmüyordu — çünkü PLAKANIN DIŞINA taşmışlardı
+
+Klemensler her zaman yerleştiriliyordu (0019'un `LVD10`unda 220 adet), ama ray
+yığını montaj plakasının kapasitesini aşınca çizim onları plakanın ALTINA
+basıyordu. Sebep 5. maddedir; giderilmesi de oradadır.
+
+### 3 · Sürücüler EN ÜSTTE
+
+`ZONE_ORDER` `giris`ten değil `guc`tan başlar. PANO-7'nin ilk gerekçesi "kalın
+besleme iletkeni kısalsın"dı; kullanıcının gerekçesi de fizikseldir: sürücü
+panonun en derin, en ağır ve en çok ısıtan cihazıdır — üstte durunca soğutma
+havası üstünden çıkar ve altındaki bütün motor/kumanda bandına kablosu kısa
+yoldan iner.
+
+### 4 · Telsiz kumanda panonun DIŞINDA
+
+*"Radio Control Receiver-Transmitter pano dışında olur, içerisine
+yerleştirme."* Ölçüldü: 0026'nın `LVD0`sunda `ELFATEK ESX_MID 602`
+(170 × 320 × 120 mm) montaj plakasında yer kaplıyordu. Alıcı direğe ya da
+kabine, verici operatörün eline gider.
+
+**İŞARET DAR TUTULUR** (PANO-25): çıplak `REMOTE` ya da `RECEIVER` yazılamaz —
+0019'daki "REMOTE SWITCH 1S AC230V 16A" (`5TT4101-0`) bir darbe akım rölesidir
+ve panoda kalmalıdır.
+
+### 5 · BÖLGE ARTIK RAY AÇMAZ — mümkün olduğunca sıkı
+
+*"Gruplandırmaya gerek yok, yan yana koyulabilir; mümkün olduğunca sığdırmaya
+çalışacağız."*
+
+İlk sürüm bölge değişince yeni ray açıyordu ("bir ray tek işleve aittir"). Beş
+bölge beş ray demekti ve her rayın sağında metrelerce boşluk kalıyordu; bir
+bölgede tek cihaz varsa o cihaz 1010 mm'lik bir rayı tek başına işgal ediyordu.
+Yığın plakayı aşınca da klemensler dışarı taşıyordu (2. madde).
+
+Bugün:
+
+- **Bölge sırası KORUNUR** — cihazlar hâlâ güç → giriş → motor → kumanda →
+  klemens sırasında dizilir; o sıra bir RAY SINIRI değildir.
+- **DIN ile PLAKA ayrı kalır.** Bu bir gruplama değil FİZİKTİR: raya oturan
+  cihaz 35 mm'lik profilin üstündedir, plakaya vidalanan cihaz plakanın
+  kendisindedir.
+- **İLK SIĞAN RAY (first-fit).** Cihaz o anki rayın sonuna sığmıyorsa ÖNCEKİ
+  raylara bakılır. Koşul dardır: cihaz ancak o rayın MEVCUT yüksekliğini
+  büyütmüyorsa oraya konur — büyütseydi altındaki bütün rayların yeri kayardı
+  ve kullanıcının gördüğü sıra her yerleştirmede zıplardı.
+- **İKİ GEÇİŞ.** Önce cihazlar raylara dağıtılır, sonra ray yükseklikleri ve y
+  konumları hesaplanır. Tek geçişte yapılamaz: bir raya sonradan cihaz
+  eklenebildiği için rayın yüksekliği ancak dağıtım bittiğinde kesinleşir.
+
+**ÖLÇÜLDÜ (09.09.2026):**
+
+| | Önce | Sonra |
+|---|---|---|
+| 0026 `LVD0` | 4 göz · **2.600 mm** | 2 göz · **1.700 mm** |
+| 0019 oda dizisi | 22 göz · **12.000 mm** | 19 göz · **11.100 mm** |
+| Plakadan taşan pano | vardı | **yok** |
+
+`LVD1.1`, `LVD1.2` ve `LVD2` artık bölünmüyor.
+
+### 6 · Kapak yerleşimi ÇİZİLMEZ
+
+*"Kapak görünüşü olmasına gerek yok; kapak üzerinde veya pano içerisinde priz,
+aydınlatma, buton vs ekipmanlar yerleşimde olmaz ve kapakta da görünmesine
+gerek yok."*
+
+`kapagaDiz` ve `panoKapakDiagram` KALDIRILDI; `doorPlacements` her zaman boştur
+(alan tipte duruyor, bir gün geri istenirse bütün tüketiciler boş listeyi zaten
+doğru karşılıyor). `doorGapMm` ayarı da yerinde: kapak derinliği artık gövde
+derinliğine girmiyor ve bu 0019'un saha kutularını 250 → 200 mm'ye indirdi.
+
+**SINIFLANDIRMA KORUNUR.** `kapak` montaj tipi hâlâ atanıyor çünkü cihazın
+kapağa takıldığı DOĞRU bir bilgidir; cihaz `bodyDevices` listesinde "Kapak
+(çizilmez)" etiketiyle görünür. Denetim de yön değiştirdi: "kapağa yerleşti mi"
+değil, **"listede duruyor mu"** (PANO-10 — bir aygıt sessizce kaybolamaz).
+
+### 7 · Dizilim başlığı ve pano yanı
+
+Başlık *"Elektrik odası pano dizilimi"* → **"Pano dizilimi"**.
+
+*"Pano yanı ekipmanlarından sadece direnç gösterilsin; aydınlatma ve diğer saha
+ekipmanlara gerek yok."* 08.09.2026'daki karar tersine döndü:
+
+| | 08.09 | 09.09 |
+|---|---|---|
+| Fren direnci | `saha` | **`yan`** |
+| Siren · korna · ikaz kolonu · projektör | `yan` | **`saha`** |
+
+Gerekçe somut: 75 kW'lık bir direnç kafesi elektrik odasında panonun bitişiğinde
+gerçekten yer kaplar ve yerleşimi planlayan kişi onu görmelidir; siren ve
+projektör ise vincin üstündedir. Ölçüldü: yan şerit bir siren, dört projektör
+ve üç ikaz kolonuyla doluyor ve asıl bakılacak şeyi — dizinin kendisini —
+bastırıyordu. **Kaybolmazlar:** `saha` kuyruğunda sebebiyle görünürler.
+
+### 8 · Taşma GÖRÜNÜR OLDU
+
+*"Bazı şeyler dışarda duruyor ama panoya sığmış gibi görünüyor."* Kök sebep 5.
+maddeydi ve giderildi; ama çizim de artık susmuyor: ray yığını plakanın
+kapasitesini aşarsa **plaka sınırı** kesikli bir çizgiyle basılır, taşan raylar
+uyarı renginde çerçevelenir ve altyazı *"sınırın altındaki raylar bu gövdeye
+sığmıyor"* der.
+
+### 9 · Dikey kanal TEK ve HEP SOLDA
+
+*"Kablo geçişlerinde dikey olanlar ya sağda ya solda olur; tek tarafta olsun,
+seçime gerek yok, hep solda olsun."* `sideDuctCount` kaldırıldı, yerine sabit
+`SIDE_DUCT_COUNT = 1`. Eski kural plaka eni 500 mm'yi aşınca İKİ kanal açıyordu
+ve geniş gövdede raydan 40 mm'yi sessizce yiyordu.
+
+### DEFTERDEKİ MONTAJ TİPİ KURALI EZER — ve bu bir tuzaktır
+
+Montaj tipi iki kaynaktan gelebilir ve sıra şudur (`panels.ts`):
+
+```
+override?.mountType ?? model?.mountType ?? kural.mountType
+```
+
+Defter kuralı EZER ve bu bilinçlidir: defter, o ürün için ÖLÇÜLMÜŞ bir beyandır.
+Ama sonucu şudur — **sınıflandırma kuralı değiştiğinde defterdeki eski satır
+sessizce kazanır.** 09.09.2026'da tam bu oldu: kural değişti, ekranda hiçbir şey
+değişmedi. Beş ikaz/aydınlatma ürünü, trafo ve telsiz kumanda bir migration ile
+düzeltildi (`20260909000011`). **Bir sınıflandırma kuralını değiştiren herkes
+`electrical_device_models.mount_type` sütununa da bakmak zorundadır.**
+
 ## ÖLÇÜM — gerçek iki iş (08.09.2026)
 
 Modülün var oluş sebebi iki işte birden ölçüldü. Sayılar

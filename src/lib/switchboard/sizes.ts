@@ -185,17 +185,21 @@ export const DEFAULT_SETTINGS: LayoutSettings = {
 };
 
 /**
- * DAR PANODA DİKEY KANAL BİR TANEDİR.
+ * DİKEY KANAL BİR TANEDİR VE HEP SOLDADIR (PANO-37).
  *
- * Ölçüldü: 400 mm gövdede plaka 340 mm; iki yanda 60 mm kanal ve iki kenar payı
- * düşülünce raya 170 mm kalıyordu — panonun yarısı. Gerçek panolarda dikey
- * kanal dar gövdede TEK yandan çekilir; iki yanlı kanal, kablonun iki
- * doğrultuda dolaştığı geniş gövdenin çözümüdür. Sınır plaka enidir, gövde
- * eni değil: pay modelinin tamamı plakadan hesaplanır.
+ * Kullanıcı kararı (09.09.2026): *"kablo geçişlerinde dikey olanlar ya sağda ya
+ * solda olur; tek tarafta olsun, seçime gerek yok, hep solda olsun."*
+ *
+ * İlk sürüm plaka enine bakıp 500 mm'nin üstünde İKİ kanal açıyordu. Bu bir
+ * seçimdi ve seçim olmaması gerekiyordu: pano imalatçısı kanalı bir yandan
+ * çeker, iki yanlı kanal hem plakadan iki kat yer yer ki hem de kablonun hangi
+ * yandan gideceğini belirsiz bırakır. Sabit kural, ray kapasitesini geniş
+ * gövdede 40 mm ARTIRIR.
+ *
+ * Sayı bir sabit olarak durur (işlev değil): ray kapasitesi ve çizim aynı
+ * gerçeği iki yerde hesaplamasın (değişmez md. 8).
  */
-export function sideDuctCount(panelWidthMm: number, s: LayoutSettings): 1 | 2 {
-  return panelWidthMm - 2 * s.plateSideMm < 500 ? 1 : 2;
-}
+export const SIDE_DUCT_COUNT = 1;
 
 /** Montaj plakasının eni [mm] — gövdeden kenar payı kadar küçüktür. */
 export function plateWidthMm(panelWidthMm: number, s: LayoutSettings): number {
@@ -210,16 +214,12 @@ export function plateHeightMm(panelHeightMm: number, s: LayoutSettings): number 
 /**
  * Bir ray satırında kullanılabilir genişlik [mm].
  *
- * Dikey kablo kanalları iki yanda yer kaplar; cihaz onların arasına girer.
- * Kenar payı `nesting.ts` modelindeki gibi İKİ YÖNDE düşülür — yalnız cihazı
- * büyütmek kenar payını sessizce sıfır bırakırdı (PANO-8).
+ * Dikey kablo kanalı SOLDA yer kaplar; cihaz onun sağında başlar. Kenar payı
+ * `nesting.ts` modelindeki gibi İKİ YÖNDE düşülür — yalnız cihazı büyütmek
+ * kenar payını sessizce sıfır bırakırdı (PANO-8).
  */
 export function railCapacityMm(panelWidthMm: number, s: LayoutSettings): number {
-  return (
-    plateWidthMm(panelWidthMm, s) -
-    sideDuctCount(panelWidthMm, s) * s.sideDuctMm -
-    2 * s.edgeGapMm
-  );
+  return plateWidthMm(panelWidthMm, s) - SIDE_DUCT_COUNT * s.sideDuctMm - 2 * s.edgeGapMm;
 }
 
 /** Ray satırlarının toplam kullanabileceği yükseklik [mm]. */

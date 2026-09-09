@@ -87,19 +87,38 @@ describe("0026-01 kelime dağarcığı — montaj yeri", () => {
     expect(coz("ATV930 - 90kW - 400/480V", "ATV930D90N4").mountType).toBe("plaka");
   });
 
-  it("FREN DİRENCİ sürücü ailesindedir ama PANOYA GİRMEZ", () => {
-    // Kullanıcı kararı (08.09.2026): 75 kW'lık direnç kendi havalandırmalı
-    // kafesinde, panonun dışında durur.
+  it("FREN DİRENCİ panonun YANINDA durur, içinde değil", () => {
+    // Kullanıcı düzeltmesi (09.09.2026): 08.09'da "tamamen saha" denmişti,
+    // şimdi dizilim şemasında panonun yanında GÖRÜNMESİ isteniyor —
+    // 75 kW'lık bir direnç kafesi elektrik odasında panonun bitişiğinde
+    // gerçekten yer kaplar. Panonun İÇİNE girmez.
     const k = coz("Braking Resistor 75kW, 3 Ohm", "BRSD-836SW-7503", "RESSA");
     expect(k.category).toBe("Sürücüler ve Güç Elektroniği");
-    expect(k.mountType).toBe("saha");
+    expect(k.mountType).toBe("yan");
   });
 
-  it("kVA ile anılan cihaz TRAFODUR ve raya oturmaz", () => {
+  it("kVA ile anılan cihaz TRAFODUR ve pano ZEMİNİNE oturur", () => {
     // MATIS 4000'in tanımında ne "trafo" ne "transformer" geçiyor.
+    // Kullanıcı kararı (09.09.2026): "trafo pano içerisinde yere konuyor,
+    // bundan dolayı pano yerleşiminde gösterilmesin."
     const k = coz("400-230V , 4kVA", "MATIS 4000", "ETA");
     expect(k.category).toBe("Güç Kaynakları ve Trafolar");
-    expect(k.mountType).toBe("plaka");
+    expect(k.mountType).toBe("zemin");
+  });
+
+  it("TELSİZ KUMANDA panoya girmez", () => {
+    // Kullanıcı kararı (09.09.2026): "Radio Control Receiver-Transmitter pano
+    // dışında olur, içerisine yerleştirme." Ölçüldü: 0026'nın `LVD0`sunda
+    // 170 x 320 x 120 mm'lik bu takım montaj plakasında yer kaplıyordu.
+    expect(coz("Radio Control Receiver-Transmitter", "ESX_MID 602", "ELFA").mountType).toBe(
+      "saha"
+    );
+  });
+
+  it("DARBE AKIM RÖLESİ telsizle karışmaz ve panoda KALIR", () => {
+    // 0019'da geçen "REMOTE SWITCH 1S AC230V 16A" bir röledir; çıplak
+    // `REMOTE` işareti onu da sahaya atardı (PANO-25).
+    expect(coz("REMOTE SWITCH 1S AC230V 16A", "5TT4101-0", "Siemens").mountType).toBe("din");
   });
 
   it("anahtarlamalı güç kaynağı RAYDA KALIR", () => {
@@ -113,8 +132,14 @@ describe("0026-01 kelime dağarcığı — montaj yeri", () => {
   });
 });
 
-describe("PANO YANI ekipmanı (PANO-27)", () => {
-  const yanlar: [string, string][] = [
+describe("İKAZ VE AYDINLATMA SAHADADIR (PANO-37)", () => {
+  // Kullanıcı düzeltmesi (09.09.2026): "pano yanı ekipmanlarından sadece
+  // direnç gösterilsin; aydınlatma ve diğer saha ekipmanlara gerek yok."
+  //
+  // 08.09.2026'da bunlar `yan` yapılmıştı ve dizilim şeridi bir sirenle, dört
+  // projektörle ve üç ikaz kolonuyla doluyordu. Hepsi vincin üstünde; `saha`
+  // kuyruğunda sebebiyle görünürler, yani KAYBOLMAZLAR (PANO-10).
+  const sahadakiler: [string, string][] = [
     ["40W 108dB Siren", "SNT-SL190-22"],
     ["1 Layer Pipe Horns 12-30VAC/DC-RED", "SNT-B710-1"],
     ["3 Floor Light Columns 24VDC", "SNT-7024-S3"],
@@ -122,9 +147,9 @@ describe("PANO YANI ekipmanı (PANO-27)", () => {
     ["160W 5000K 230VAC LED Floodlight", "N1000-P-2/160W.5000K"],
   ];
 
-  for (const [tanim, tip] of yanlar) {
-    it(`${tip} pano yanına asılır`, () => {
-      expect(coz(tanim, tip, "MC").mountType).toBe("yan");
+  for (const [tanim, tip] of sahadakiler) {
+    it(`${tip} sahadadır, pano yanında değil`, () => {
+      expect(coz(tanim, tip, "MC").mountType).toBe("saha");
     });
   }
 

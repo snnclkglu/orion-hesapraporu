@@ -128,13 +128,56 @@ function olculuMu(d: DeviceBox): boolean {
 }
 
 /**
- * Bir panonun ray satırlarını kurar.
+ * Bir panonun ray satırlarını kurar — MÜMKÜN OLDUĞUNCA SIKI (PANO-37).
  *
- * BÖLGE DEĞİŞİNCE YENİ RAY AÇILIR. Bu bir yerden tasarruf değil bir okunurluk
- * ve kablolama kuralıdır: gerçek panoda bir ray tek işleve aittir ve kanal
- * ondan çıkar. Karışık bir rayda hangi kablonun nereye gittiği ancak şemadan
- * bulunur — panonun kapağını açan kişi onu okuyamaz.
+ * ═══════════════════════════════════════════ BÖLGE ARTIK RAY AÇMAZ
+ *
+ * İlk sürüm bölge değişince yeni ray açıyordu ("bir ray tek işleve aittir").
+ * Ölçüldü ve kullanıcı gördü (09.09.2026): beş bölge beş ray demekti ve her
+ * rayın sağında metrelerce boşluk kalıyordu — bir bölgede tek cihaz varsa o
+ * cihaz 1010 mm'lik bir rayı tek başına işgal ediyordu. Kullanıcının cümlesi:
+ * *"gruplandırmaya gerek yok, yan yana koyulabilir; mümkün olduğunca
+ * sığdırmaya çalışacağız."*
+ *
+ * Bölge sırası KORUNUR (`sirala`) — cihazlar hâlâ giriş → güç → motor →
+ * kumanda → klemens sırasında dizilir; yalnız o sıra bir RAY SINIRI değildir.
+ *
+ * ═══════════════════════════════════════════ DIN ile PLAKA AYRI KALIR
+ *
+ * Bu bir gruplama değil FİZİKTİR: DIN rayına oturan cihaz 35 mm'lik profilin
+ * üstündedir, plakaya vidalanan cihaz plakanın kendisindedir. İkisini aynı
+ * satıra koymak, kontaktörü sürücünün üstüne asmak olurdu.
+ *
+ * ═══════════════════════════════════════════ İLK SIĞAN RAY (first-fit)
+ *
+ * Bir cihaz o anki rayın sonuna sığmıyorsa ÖNCEKİ raylara bakılır. Koşul
+ * dardır ve bilinçlidir: cihaz ancak o rayın MEVCUT yüksekliğini büyütmüyorsa
+ * oraya konur. Büyütseydi altındaki bütün rayların yeri kayardı ve
+ * kullanıcının şemada gördüğü sıra her yerleştirmede zıplardı.
+ *
+ * ═══════════════════════════════════════════ İKİ GEÇİŞ
+ *
+ * Önce cihazlar raylara DAĞITILIR, sonra ray yükseklikleri ve y konumları
+ * hesaplanır. Tek geçişte yapılamaz: bir raya sonradan cihaz eklenebildiği
+ * için rayın yüksekliği ancak dağıtım bittiğinde kesinleşir.
  */
+interface RayTaslagi {
+  index: number;
+  zone: Zone;
+  kind: "din" | "plaka";
+  x: number;
+  /** Bu raydaki en yüksek ısı payı dâhil yükseklik ihtiyacı [mm]. */
+  yukseklik: number;
+  /** Rayın son cihazının renk grubu — aile payı için. */
+  sonGrup: string | null;
+  yerlesimler: {
+    d: DeviceBox;
+    dilim: number;
+    xMm: number;
+    adet: number;
+  }[];
+}
+
 function paketle(
   devices: DeviceBox[],
   panelWidthMm: number,
@@ -142,188 +185,182 @@ function paketle(
   s: LayoutSettings
 ): PackResult {
   const kapasite = railCapacityMm(panelWidthMm, s);
-  const rails: Rail[] = [];
-  const placements: Placement[] = [];
   const unplaced: Unplaced[] = [];
+  const raylar: RayTaslagi[] = [];
 
-  let y = s.edgeGapMm;
-  let aktif: Rail | null = null;
-  let aktifX = 0;
-  let aktifBolge: Zone | null = null;
-  let aktifTur: "din" | "plaka" | null = null;
-  let aktifYukseklik = 0;
-  let sonGrup: string | null = null;
-
-  const rayiKapat = () => {
-    if (!aktif) return;
-    aktif.heightMm = aktifYukseklik + aktif.ductMm;
-    aktif.usedMm = aktifX;
-    y += aktif.heightMm;
-    aktif = null;
-    aktifX = 0;
-    aktifYukseklik = 0;
-    sonGrup = null;
-  };
-
-  const rayiAc = (zone: Zone, tur: "din" | "plaka"): Rail => {
-    rayiKapat();
-    const yeni: Rail = {
-      index: rails.length,
+  const rayAc = (zone: Zone, kind: "din" | "plaka"): RayTaslagi => {
+    const yeni: RayTaslagi = {
+      index: raylar.length,
       zone,
-      kind: tur,
-      yMm: y,
-      heightMm: 0,
-      usedMm: 0,
-      capacityMm: kapasite,
-      ductMm: s.railDuctMm,
+      kind,
+      x: 0,
+      yukseklik: 0,
+      sonGrup: null,
+      yerlesimler: [],
     };
-    rails.push(yeni);
-    aktif = yeni;
-    aktifBolge = zone;
-    aktifTur = tur;
+    raylar.push(yeni);
     return yeni;
   };
 
+  /** Bu rayda, aile payı düşülmüş, kaç birim daha yer var? */
+  const bosluk = (r: RayTaslagi, d: DeviceBox): number => {
+    const pay = r.x > 0 && r.sonGrup !== null && r.sonGrup !== d.colorGroup ? s.familyGapMm : 0;
+    return kapasite - r.x - pay;
+  };
+
+  const koy = (r: RayTaslagi, d: DeviceBox, dilim: number, adet: number, birimEn: number) => {
+    const pay = r.x > 0 && r.sonGrup !== null && r.sonGrup !== d.colorGroup ? s.familyGapMm : 0;
+    r.yerlesimler.push({ d, dilim, xMm: r.x + pay, adet });
+    r.x += pay + birimEn * adet;
+    r.sonGrup = d.colorGroup;
+    r.yukseklik = Math.max(r.yukseklik, (d.heightMm ?? 0) + d.clearanceTopMm + d.clearanceBottomMm);
+  };
+
+  // ── 1. GEÇİŞ: cihazları raylara dağıt ──────────────────────────────────
   for (const d of sirala(devices)) {
     const zone = (d.zone ?? "kumanda") as Zone;
-    const tur: "din" | "plaka" = d.mountType === "plaka" ? "plaka" : "din";
+    const kind: "din" | "plaka" = d.mountType === "plaka" ? "plaka" : "din";
     const birimEn = d.widthMm ?? 0;
-    const boy = d.heightMm ?? 0;
-    // Isı payı ray satırının yüksekliğine girer — bölge sırasının değil
-    // ÜRETİCİ ÖLÇÜSÜNÜN dayattığı bir kısıttır (PANO-7).
-    const yukseklikIhtiyaci = boy + d.clearanceTopMm + d.clearanceBottomMm;
+    // Isı payı ray satırının yüksekliğine girer (PANO-7).
+    const yukseklikIhtiyaci = (d.heightMm ?? 0) + d.clearanceTopMm + d.clearanceBottomMm;
 
     let kalan = Math.min(d.unitCount, MAX_UNITS);
     let dilim = 0;
+    let guvenlik = 0;
 
     while (kalan > 0) {
-      const ray: Rail =
-        aktif === null || aktifBolge !== zone || aktifTur !== tur
-          ? rayiAc(zone, tur)
-          : aktif;
+      if (++guvenlik > MAX_UNITS + raylar.length + 8) break;
 
-      // Farklı aileden iki cihaz arasında pay bırakılır; aynı ailenin modüler
-      // cihazları yan yana YAPIŞIR (PANO-8).
-      const pay = aktifX > 0 && sonGrup !== null && sonGrup !== d.colorGroup ? s.familyGapMm : 0;
-      const bosluk = ray.capacityMm - aktifX - pay;
+      // AYNI TÜRDEN son ray etkin raydır; yoksa yeni açılır.
+      let hedef: RayTaslagi | null = null;
+      for (let i = raylar.length - 1; i >= 0; i--) {
+        if (raylar[i].kind === kind) {
+          hedef = raylar[i];
+          break;
+        }
+      }
+      if (!hedef) hedef = rayAc(zone, kind);
 
-      const sigan = birimEn > 0 ? Math.floor(bosluk / birimEn) : 0;
-      const konacak = d.splittable ? Math.min(kalan, sigan) : sigan >= kalan ? kalan : 0;
+      let sigan = birimEn > 0 ? Math.floor(bosluk(hedef, d) / birimEn) : 0;
+      let konacak = d.splittable ? Math.min(kalan, sigan) : sigan >= kalan ? kalan : 0;
+
+      // ÖNCEKİ RAYLARDAKİ BOŞLUKLAR — yalnız rayı BÜYÜTMEYEN cihaz girer.
+      if (konacak <= 0) {
+        for (const r of raylar) {
+          if (r === hedef || r.kind !== kind) continue;
+          if (yukseklikIhtiyaci > r.yukseklik) continue;
+          const n = birimEn > 0 ? Math.floor(bosluk(r, d) / birimEn) : 0;
+          const k = d.splittable ? Math.min(kalan, n) : n >= kalan ? kalan : 0;
+          if (k > 0) {
+            hedef = r;
+            sigan = n;
+            konacak = k;
+            break;
+          }
+        }
+      }
 
       if (konacak <= 0) {
-        if (aktifX === 0) {
-          // Boş rayda bile sığmıyor: bu gövde bu ene yetmiyor.
+        // Hiçbir rayda yer yok. Etkin ray BOŞSA cihaz bu gövdeye hiç sığmıyor
+        // demektir; doluysa yeni bir ray açılır.
+        if (hedef.x === 0) {
           unplaced.push({
             device: d,
             reason: "sigmadi",
-            note: `${Math.round(birimEn * (d.splittable ? 1 : kalan))} mm, ray kapasitesi ${Math.round(ray.capacityMm)} mm`,
+            note: `${Math.round(birimEn * (d.splittable ? 1 : kalan))} mm, ray kapasitesi ${Math.round(kapasite)} mm`,
           });
-          kalan = 0;
           break;
         }
-        rayiAc(zone, tur);
+        rayAc(zone, kind);
         continue;
       }
 
-      const x = aktifX + pay;
+      koy(hedef, d, dilim, konacak, birimEn);
+      kalan -= konacak;
+      dilim++;
+    }
+  }
+
+  // ── 2. GEÇİŞ: ray yükseklikleri, y konumları, yerleşimler ──────────────
+  const rails: Rail[] = [];
+  const placements: Placement[] = [];
+  let y = s.edgeGapMm;
+
+  for (const r of raylar) {
+    const ray: Rail = {
+      index: r.index,
+      zone: r.zone,
+      kind: r.kind,
+      yMm: y,
+      heightMm: r.yukseklik + s.railDuctMm,
+      usedMm: r.x,
+      capacityMm: kapasite,
+      ductMm: s.railDuctMm,
+    };
+    rails.push(ray);
+
+    for (const { d, dilim, xMm, adet } of r.yerlesimler) {
       placements.push({
         deviceKey: d.key,
         label: dilim === 0 ? d.label : `${d.label}/${dilim + 1}`,
         panelCode: d.panelCode,
         colorGroup: d.colorGroup,
         mountType: d.mountType === "plaka" ? "plaka" : "din",
-        zone,
+        zone: (d.zone ?? "kumanda") as Zone,
         railIndex: ray.index,
-        xMm: x,
+        xMm,
         yMm: ray.yMm + d.clearanceTopMm,
-        widthMm: birimEn * konacak,
-        heightMm: boy,
+        widthMm: (d.widthMm ?? 0) * adet,
+        heightMm: d.heightMm ?? 0,
         depthMm: d.depthMm ?? 0,
-        unitCount: konacak,
+        unitCount: adet,
         dimSource: d.dimSource ?? "tahmin",
         pinned: d.pinned,
       });
-
-      aktifX = x + birimEn * konacak;
-      aktifYukseklik = Math.max(aktifYukseklik, yukseklikIhtiyaci);
-      sonGrup = d.colorGroup;
-      kalan -= konacak;
-      dilim++;
     }
+    y += ray.heightMm;
   }
-  rayiKapat();
 
-  const usedMm = rails.reduce((t, r) => t + r.usedMm, 0);
-  const capacityMm = rails.reduce((t, r) => t + r.capacityMm, 0);
+  // BOŞ RAY KALMAZ: `rayAc` sonrası cihaz konamadığı durumda boş bir taslak
+  // kalabilir ve o ray şemada boş bir şerit olarak çizilirdi.
+  const doluIndeks = new Map<number, number>();
+  const doluRaylar: Rail[] = [];
+  let yy = s.edgeGapMm;
+  for (const ray of rails) {
+    if (ray.usedMm <= 0) continue;
+    doluIndeks.set(ray.index, doluRaylar.length);
+    doluRaylar.push({ ...ray, index: doluRaylar.length, yMm: yy });
+    yy += ray.heightMm;
+  }
+  const kaymis = placements.map((y2) => {
+    const yeniIndeks = doluIndeks.get(y2.railIndex);
+    if (yeniIndeks === undefined) return y2;
+    const eski = rails[y2.railIndex];
+    const yeni = doluRaylar[yeniIndeks];
+    return { ...y2, railIndex: yeniIndeks, yMm: y2.yMm - eski.yMm + yeni.yMm };
+  });
+
+  const usedMm = doluRaylar.reduce((t, r) => t + r.usedMm, 0);
+  const capacityMm = doluRaylar.reduce((t, r) => t + r.capacityMm, 0);
   return {
-    rails,
-    placements,
+    rails: doluRaylar,
+    placements: kaymis,
     unplaced,
-    totalHeightMm: y + s.edgeGapMm,
+    totalHeightMm: yy + s.edgeGapMm,
     usedMm,
     capacityMm,
   };
 }
 
-/**
- * Kapak üstü aygıtları ızgaraya dizer (ayrı görünüş).
- *
- * SIĞMAYAN AYGIT SESSİZCE DÜŞMEZ (PANO-10). Önceki sürüm son satırı taşan
- * cihazda `break` ediyordu: aygıt ne kapak resminde ne kuyrukta ne uyarıda
- * görünüyordu — bir aygıtın hiçbir yerde görünmemesi bu modülün en çok
- * kaçındığı sonuçtur. Artık taşan aygıtlar geri verilir ve `solvePanel`
- * onları `sigmadi` kuyruğuna koyar.
- *
- * Izgara hâlâ bir KROKİDİR (90 mm kare adım); gerçek kesim koordinatı
- * değildir ve çizim bunu kendi altyazısında söyler (PANO-22).
- */
-function kapagaDiz(
-  devices: DeviceBox[],
-  panelWidthMm: number,
-  panelHeightMm: number,
-  s: LayoutSettings
-): { placements: Placement[]; sigmayan: DeviceBox[] } {
-  const out: Placement[] = [];
-  const sigmayan: DeviceBox[] = [];
-  const kenar = 60;
-  const adim = 90;
-  const kapasite = panelWidthMm - 2 * kenar;
-  const sutun = Math.max(1, Math.floor(kapasite / adim));
-  let i = 0;
-  for (const d of sirala(devices)) {
-    if (!olculuMu(d)) continue;
-    const satir = Math.floor(i / sutun);
-    const kolon = i % sutun;
-    const y = kenar + satir * adim;
-    if (y + adim > panelHeightMm - kenar) {
-      sigmayan.push(d);
-      continue;
-    }
-    out.push({
-      deviceKey: d.key,
-      label: d.label,
-      panelCode: d.panelCode,
-      colorGroup: d.colorGroup,
-      mountType: "kapak",
-      zone: (d.zone ?? "kumanda") as Zone,
-      railIndex: satir,
-      xMm: kenar + kolon * adim,
-      yMm: y,
-      widthMm: d.widthMm ?? 0,
-      heightMm: d.heightMm ?? 0,
-      depthMm: d.depthMm ?? 0,
-      unitCount: 1,
-      dimSource: d.dimSource ?? "tahmin",
-      pinned: false,
-    });
-    i++;
-  }
-  return { placements: out, sigmayan };
-}
-
 interface Ayirma {
   plaka: DeviceBox[];
-  kapak: DeviceBox[];
+  /**
+   * ÇİZİLMEYEN AMA PANODA OLAN aygıtlar: gövde gereci, kapak üstü, zemin.
+   *
+   * Üçü de `PanelLayout.bodyDevices` listesine girer ve montaj tipleri
+   * korunur — cihaz listesi "Kapak (çizilmez)" ile "Pano zemini"ni ayrı
+   * gösterir (PANO-37).
+   */
   govde: DeviceBox[];
   /** Pano YANINA asılanlar — yerleşmez ama çizilir. */
   yan: DeviceBox[];
@@ -332,7 +369,7 @@ interface Ayirma {
 
 /** Aygıtları montaj tipine göre ayırır; yerleşemeyeni SEBEBİYLE kaydeder. */
 function ayir(devices: DeviceBox[]): Ayirma {
-  const out: Ayirma = { plaka: [], kapak: [], govde: [], yan: [], disari: [] };
+  const out: Ayirma = { plaka: [], govde: [], yan: [], disari: [] };
   for (const d of devices) {
     // ÜRÜNSÜZ SATIR SINIFLANMAMIŞ DEĞİLDİR. Sınıflandırıcıya kızmanın anlamı
     // yok: ortada sınıflanacak bir ürün yok. Ayrı bir kova, gerçek eksiklerin
@@ -357,7 +394,14 @@ function ayir(devices: DeviceBox[]): Ayirma {
       out.disari.push({ device: d, reason: "saha", note: "Pano dışı ekipman" });
       continue;
     }
-    if (d.mountType === "govde") {
+    // ÇİZİLMEYENLER TEK KOVADA (PANO-37): gövde gereci, kapak üstü ve zemine
+    // oturan trafo. Montaj tipleri korunur, yalnız plakada yer kaplamazlar.
+    //
+    // Kapak: kullanıcı kararı 09.09.2026 — "kapak üzerinde veya pano içerisinde
+    // priz, aydınlatma, buton vs ekipmanlar yerleşimde olmaz ve kapakta da
+    // görünmesine gerek yok."
+    // Zemin: trafo panonun tabanındadır, montaj plakasında değil.
+    if (d.mountType === "govde" || d.mountType === "kapak" || d.mountType === "zemin") {
       out.govde.push(d);
       continue;
     }
@@ -376,23 +420,22 @@ function ayir(devices: DeviceBox[]): Ayirma {
       });
       continue;
     }
-    if (d.mountType === "kapak") out.kapak.push(d);
-    else out.plaka.push(d);
+    out.plaka.push(d);
   }
   return out;
 }
 
-/** Panonun gerektirdiği derinlik [mm] — ızgaraya yuvarlanmadan önce. */
-function derinlikIhtiyaci(
-  plaka: Placement[],
-  kapak: Placement[],
-  s: LayoutSettings
-): number {
+/**
+ * Panonun gerektirdiği derinlik [mm] — ızgaraya yuvarlanmadan önce.
+ *
+ * KAPAK KATKISI KALKTI (PANO-37): kapak cihazları artık yerleştirilmiyor, o
+ * yüzden kapağın iç yüzeyinden içeri giren bir derinlik de hesaplanmıyor.
+ * `doorGapMm` ayarı yerinde duruyor — kapak yerleşimi bir gün geri gelirse
+ * kullanılacak olan odur.
+ */
+function derinlikIhtiyaci(plaka: Placement[], s: LayoutSettings): number {
   const enDerin = plaka.reduce((m, p) => Math.max(m, p.depthMm), 0);
-  const kapakDerin = kapak.reduce((m, p) => Math.max(m, p.depthMm), 0);
-  // Kapak cihazı kapağın İÇ yüzeyinden içeri girer; plakadaki cihazla aynı
-  // hacmi paylaşmaz, ikisi ARDIŞIK durur.
-  return enDerin + s.backGapMm + (kapakDerin > 0 ? kapakDerin + s.doorGapMm : 0);
+  return enDerin + s.backGapMm;
 }
 
 export interface PanelSolve {
@@ -423,7 +466,7 @@ export function solvePanel(
   prefs: LineupPrefs,
   izgara: LineupGrid = ROOM_GRID
 ): PanelSolve {
-  const { plaka, kapak, govde, yan, disari } = ayir(input.devices);
+  const { plaka, govde, yan, disari } = ayir(input.devices);
   const yukseklikKapasitesi = plateCapacityHeightMm(heightMm, s);
 
   const kilitliEn = input.override?.widthLocked ? input.override.widthMm : null;
@@ -450,28 +493,13 @@ export function solvePanel(
 
   const enTaban = izgara.widths[0];
   const secilen = enIyi ?? { en: enTaban, paket: paketle(plaka, enTaban, heightMm, s) };
-  const kapakYerlesim = kapagaDiz(kapak, secilen.en, heightMm, s);
-  const gerekliDerinlik = derinlikIhtiyaci(
-    secilen.paket.placements,
-    kapakYerlesim.placements,
-    s
-  );
-  const kapaktanTasan: Unplaced[] = kapakYerlesim.sigmayan.map((d) => ({
-    device: d,
-    reason: "sigmadi",
-    note: "Kapak yüzeyinde yer kalmadı",
-  }));
+  const gerekliDerinlik = derinlikIhtiyaci(secilen.paket.placements, s);
 
   const warnings: string[] = [];
   const tasti = secilen.paket.totalHeightMm > yukseklikKapasitesi;
   if (tasti) {
     warnings.push(
       `Ray yüksekliği ${Math.round(secilen.paket.totalHeightMm)} mm; plakada ${Math.round(yukseklikKapasitesi)} mm var.`
-    );
-  }
-  if (kapaktanTasan.length > 0) {
-    warnings.push(
-      `${kapaktanTasan.length} kapak aygıtı kapak yüzeyine sığmadı; aygıt kuyruğuna alındı.`
     );
   }
   if (kilitliEn && (tasti || secilen.paket.unplaced.length > 0)) {
@@ -501,7 +529,10 @@ export function solvePanel(
     depthLocked: Boolean(input.override?.depthLocked),
     rails: secilen.paket.rails,
     placements: secilen.paket.placements,
-    doorPlacements: kapakYerlesim.placements,
+    // KAPAK YERLEŞİMİ ÇİZİLMEZ (PANO-37, kullanıcı kararı 09.09.2026).
+    // Alan tipte kalır: bir gün istenirse `ayir` kapak cihazlarını yine
+    // ayırabilir ve bütün tüketiciler zaten boş listeyi doğru karşılıyor.
+    doorPlacements: [],
     bodyDevices: govde,
     sideDevices: yan,
     requiredDepthMm: gerekliDerinlik,
@@ -512,9 +543,8 @@ export function solvePanel(
 
   return {
     layout,
-    unplaced: [...disari, ...secilen.paket.unplaced, ...kapaktanTasan],
-    // KAPAK TAŞMASI DA "SIĞMADI"DIR: pano bölünsün ki aygıt bir yere düşsün.
-    fits: !tasti && secilen.paket.unplaced.length === 0 && kapaktanTasan.length === 0,
+    unplaced: [...disari, ...secilen.paket.unplaced],
+    fits: !tasti && secilen.paket.unplaced.length === 0,
     heightFill:
       yukseklikKapasitesi > 0 ? secilen.paket.totalHeightMm / yukseklikKapasitesi : 0,
   };

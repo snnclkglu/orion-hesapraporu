@@ -7,8 +7,9 @@ import { describe, expect, it } from "vitest";
 import type { ElectricalPart } from "@/lib/electrical/types";
 import { auditLineup, auditPanel } from "../audit";
 import { computeSwitchboardLayout, resolveSettings } from "../compute";
+import { ZONE_ORDER } from "../mount";
 import { deviceKeyOf, naturalCompare } from "../panels";
-import { plateWidthMm, railCapacityMm, sideDuctCount } from "../sizes";
+import { SIDE_DUCT_COUNT, plateWidthMm, railCapacityMm } from "../sizes";
 
 function parca(over: Partial<ElectricalPart> = {}): ElectricalPart {
   return {
@@ -60,17 +61,19 @@ describe("doğal sıralama", () => {
 describe("pay modeli", () => {
   it("kenar payı İKİ YÖNDE düşülür", () => {
     const s = resolveSettings();
-    // 800 gövde → plaka 740 → iki dikey kanal (2×40) → kenar payı 2×25
+    // 800 gövde → plaka 740 → TEK dikey kanal (40) → kenar payı 2×25
     expect(plateWidthMm(800, s)).toBe(740);
-    expect(sideDuctCount(800, s)).toBe(2);
-    expect(railCapacityMm(800, s)).toBe(740 - 2 * 40 - 2 * 25);
+    expect(railCapacityMm(800, s)).toBe(740 - 40 - 2 * 25);
   });
 
-  it("dar gövdede dikey kanal TEK tanedir", () => {
-    // 400 gövdede iki kanal raya 170 mm bırakıyordu — panonun yarısı.
+  it("DİKEY KANAL BİR TANEDİR ve gövde eni bunu değiştirmez (PANO-37)", () => {
+    // Kullanıcı kararı (09.09.2026): "tek tarafta olsun, hep solda olsun."
+    // Eski kural plaka 500 mm'yi aşınca İKİ kanal açıyordu ve geniş gövdede
+    // raydan 40 mm'yi sessizce yiyordu.
     const s = resolveSettings();
-    expect(sideDuctCount(400, s)).toBe(1);
+    expect(SIDE_DUCT_COUNT).toBe(1);
     expect(railCapacityMm(400, s)).toBe(340 - 40 - 2 * 25);
+    expect(railCapacityMm(1200, s)).toBe(1140 - 40 - 2 * 25);
   });
 
   it("hiçbir cihaz ray kapasitesini aşmaz", () => {
@@ -542,28 +545,86 @@ describe("bölge sırası çıktıda korunur (PANO-7)", () => {
   });
   const pano = sonuc.room[0];
 
-  it("raylar bölge sırasına göre YUKARIDAN AŞAĞIYA dizilir", () => {
-    const sira = ["giris", "guc", "motor", "kumanda", "klemens"];
+  it("SÜRÜCÜ EN ÜSTTE, klemens en altta (PANO-37)", () => {
+    // Kullanıcı kararı (09.09.2026): "pano yerleşiminde sürücüler üstte
+    // olsun." `guc` bandı `giris`in önüne geçti.
+    expect([...ZONE_ORDER]).toEqual(["guc", "giris", "motor", "kumanda", "klemens"]);
     const gorulen = pano.rails.map((r) => r.zone);
-    // Aynı bölgenin ardışık rayları teke indirilir.
     const benzersiz = gorulen.filter((z, i) => i === 0 || gorulen[i - 1] !== z);
-    const beklenenSira = benzersiz.map((z) => sira.indexOf(z));
+    const beklenenSira = benzersiz.map((z) => ZONE_ORDER.indexOf(z));
     expect(beklenenSira).toEqual([...beklenenSira].sort((a, b) => a - b));
-    // Şalter giriş bandında, klemens en altta.
-    expect(benzersiz[0]).toBe("giris");
-    expect(benzersiz[benzersiz.length - 1]).toBe("klemens");
+    // SON RAYIN BÖLGESİ ARTIK "KLEMENS" OLMAK ZORUNDA DEĞİLDİR: klemensler
+    // sıkı paketlemede önceki rayların boşluklarına giriyor ve kendi rayını
+    // açmayabiliyor. Aranan şey RAY BÖLGESİ değil, cihazın SIRASIDIR — onu
+    // aşağıdaki "y koordinatı bölge sırasıyla ARTAR" testi ölçer.
   });
 
-  it("bölge değişince YENİ RAY açılır — iki bölge aynı raya karışmaz", () => {
+  it("SÜRÜCÜ giriş şalterinin ÜSTÜNDE durur", () => {
+    // Kullanıcı kararı (09.09.2026): "pano yerleşiminde sürücüler üstte
+    // olsun." Sürücü panonun en derin, en ağır ve en çok ısıtan cihazıdır.
+    const r = computeSwitchboardLayout({
+      parts: [
+        aygit("P2", "Q1", {
+          designation: "CIRCUIT BREAKER 400V 6KA, 3POLE, C, 10A",
+          typeNo: "5SL6310-7",
+          supplier: "Siemens",
+          partNo: "SIE.5SL6310-7",
+        }),
+        aygit("P2", "U1", {
+          designation: "ATV930 - 15kW - 400/480V",
+          typeNo: "ATV930D15N4",
+          supplier: "Schneider Electric",
+          partNo: "SE.ATV930D15N4",
+        }),
+      ],
+      // Sürücünün ölçüsü DEFTERDEN gelir; ölçüsüz cihaz yerleşmez (PANO-12).
+      models: [
+        {
+          lookupKey: "SCHNEIDERELECTRIC|ATV930D15N4",
+          supplier: "Schneider Electric",
+          typeNo: "ATV930D15N4",
+          widthMm: 155,
+          heightMm: 330,
+          depthMm: 232,
+          moduleUnits: null,
+          mountType: "plaka",
+          zone: "guc",
+          clearanceTopMm: 100,
+          clearanceBottomMm: 100,
+          heatW: null,
+          source: "elle",
+          note: "",
+        },
+      ],
+    });
+    const p = r.room[0];
+    const y = (kod: string) => p.placements.find((x) => x.label === kod)?.yMm ?? -1;
+    expect(y("U1")).toBeGreaterThanOrEqual(0);
+    expect(y("Q1")).toBeGreaterThan(y("U1"));
+  });
+
+  it("BÖLGE ARTIK RAY AÇMAZ — cihazlar yan yana sıkışır (PANO-37)", () => {
+    // Kullanıcının cümlesi: "gruplandırmaya gerek yok, yan yana koyulabilir;
+    // mümkün olduğunca sığdırmaya çalışacağız." Eski kural her bölgeye ayrı
+    // ray açıyordu ve her rayın sağında metrelerce boşluk kalıyordu.
+    //
+    // İDDİA TERSİNE ÇEVRİLDİ: en az bir rayda birden çok bölge OLMALI, yoksa
+    // bölge sınırı gizliden gizliye geri gelmiş demektir.
+    const karisikRay = pano.rails.some((ray) => {
+      const oRayin = pano.placements.filter((y) => y.railIndex === ray.index);
+      return new Set(oRayin.map((y) => y.zone)).size > 1;
+    });
+    expect(karisikRay).toBe(true);
+
+    // Ama DIN ile PLAKA asla karışmaz — bu bir gruplama değil FİZİKTİR.
     for (const ray of pano.rails) {
       const oRayin = pano.placements.filter((y) => y.railIndex === ray.index);
-      const bolgeler = new Set(oRayin.map((y) => y.zone));
-      expect(bolgeler.size).toBeLessThanOrEqual(1);
+      expect(new Set(oRayin.map((y) => y.mountType)).size).toBeLessThanOrEqual(1);
     }
   });
 
   it("y koordinatı bölge sırasıyla ARTAR", () => {
-    const sira = ["giris", "guc", "motor", "kumanda", "klemens"];
+    const sira: string[] = [...ZONE_ORDER];
     const enUst = new Map<string, number>();
     for (const y of pano.placements) {
       const m = enUst.get(y.zone);
@@ -960,9 +1021,13 @@ describe("boş göz sipariş edilmez", () => {
       panelOverrides: [],
       settings: resolveSettings({}),
     });
+    // KAPAK YERLEŞİMİ ÇİZİLMEZ (PANO-37) ama cihaz LİSTEDEDİR: plakası boş
+    // olsa da bu bir panodur ve gövdesi sipariş edilir.
     expect(sonuc.room).toHaveLength(1);
     expect(sonuc.room[0].placements).toHaveLength(0);
-    expect(sonuc.room[0].doorPlacements.length).toBeGreaterThan(0);
+    expect(sonuc.room[0].doorPlacements).toHaveLength(0);
+    expect(sonuc.room[0].bodyDevices.map((d) => d.label)).toEqual(["S1"]);
+    expect(sonuc.room[0].bodyDevices[0].mountType).toBe("kapak");
   });
 
   it("bölünen dizide boş göz KALMAZ", () => {

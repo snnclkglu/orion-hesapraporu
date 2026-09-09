@@ -37,7 +37,6 @@ import {
   AygitFormu,
   Baslik,
   CihazListesi,
-  KapakSemasi,
   OlcuDiyalogu,
   SemaKabi,
   sayi,
@@ -446,7 +445,6 @@ export function IcYerlesimView({
         )}
       </div>
 
-      <KapakSemasi panel={aktif} settings={sonuc.settings} />
 
       {govdeGerec.length > 0 && <GovdeGerecleri
         projectId={projectId}

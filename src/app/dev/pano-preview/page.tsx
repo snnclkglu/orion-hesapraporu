@@ -20,7 +20,6 @@ import { buildBook } from "@/lib/switchboard/book";
 import {
   panoDizilimDiagram,
   panoIcYerlesimDiagram,
-  panoKapakDiagram,
 } from "@/lib/diagrams/panoLayout";
 import { computeSwitchboardLayout } from "@/lib/switchboard/compute";
 import type { ElectricalPart } from "@/lib/electrical/types";
@@ -240,7 +239,6 @@ export default async function PanoPreviewPage() {
 
       {varyantlar.map((v) => {
         const sonuc = computeSwitchboardLayout({ parts: v.parts });
-        const kapak = sonuc.room.find((x) => x.doorPlacements.length > 0);
         // EN KALABALIK pano gösterilir: ilk pano çoğu zaman yalnız kapak
         // elemanı taşıyan bir kumanda kutusudur ve iç yerleşimi boş çıkar.
         const ic = [...sonuc.room].sort((a, b) => b.placements.length - a.placements.length)[0];
@@ -259,7 +257,7 @@ export default async function PanoPreviewPage() {
               <DiagramSvg
                 diagram={panoDizilimDiagram({
                   panels: sonuc.room,
-                  baslik: "Elektrik odası pano dizilimi",
+                  baslik: "Pano dizilimi",
                   not: `${sonuc.room.length} göz · ön görünüş`,
                 })}
                 themeAware
@@ -299,15 +297,6 @@ export default async function PanoPreviewPage() {
               </div>
             )}
 
-            {kapak &&
-              (() => {
-                const d = panoKapakDiagram({ panel: kapak, settings: sonuc.settings });
-                return d ? (
-                  <div className="oc-diagram-theme oc-scrollx overflow-x-auto rounded-lg border bg-[var(--oc-diagram-canvas)] p-4">
-                    <DiagramSvg diagram={d} themeAware />
-                  </div>
-                ) : null;
-              })()}
           </section>
         );
       })}

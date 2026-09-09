@@ -13,7 +13,6 @@ import { diagramsToSvg } from "@/lib/diagrams/svg";
 import {
   panoDizilimDiagram,
   panoIcYerlesimDiagram,
-  panoKapakDiagram,
 } from "@/lib/diagrams/panoLayout";
 import { downloadFileName } from "@/lib/pdf/doc-naming";
 import { loadPanoVerisi } from "../pano-data";
@@ -45,14 +44,12 @@ export async function GET(
     const p = panolar.find((x) => x.code === tekPano);
     if (!p) return new NextResponse("Pano bulunamadı.", { status: 404 });
     cizimler.push(panoIcYerlesimDiagram({ panel: p, settings: sonuc.settings }));
-    const kapak = panoKapakDiagram({ panel: p, settings: sonuc.settings });
-    if (kapak) cizimler.push(kapak);
   } else {
     if (sonuc.room.length > 0) {
       cizimler.push(
         panoDizilimDiagram({
           panels: sonuc.room,
-          baslik: "Elektrik odası pano dizilimi",
+          baslik: "Pano dizilimi",
           not: `${sonuc.room.length} göz · ön görünüş`,
           yanCihazlar: sonuc.roomSideDevices,
         })
@@ -70,8 +67,6 @@ export async function GET(
     }
     for (const p of panolar) {
       cizimler.push(panoIcYerlesimDiagram({ panel: p, settings: sonuc.settings }));
-      const kapak = panoKapakDiagram({ panel: p, settings: sonuc.settings });
-      if (kapak) cizimler.push(kapak);
     }
   }
 

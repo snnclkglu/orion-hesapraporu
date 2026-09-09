@@ -42,14 +42,26 @@ describe("kategori sözlüğü", () => {
 });
 
 describe("özgül kural genelden önce gelir", () => {
-  it("trafo ve reaktör raya değil PLAKAYA gider", () => {
+  it("reaktör raya değil PLAKAYA, TRAFO ise ZEMİNE gider", () => {
+    // TRAFO PANONUN ZEMİNİNE OTURUR (kullanıcı kararı, 09.09.2026) ve montaj
+    // plakasında yer kaplamaz; bölgesi de yoktur çünkü bir ray bandına ait
+    // değildir. Panonun İÇİNDEDİR ve cihaz listesinde durur.
     const trafo = mountRuleFor({
       category: "Güç Kaynakları ve Trafolar",
       designation: "CONTROL TRANSFORMER 400/230V 1000VA",
       typeNo: "4AM5742",
     });
-    expect(trafo.mountType).toBe("plaka");
-    expect(trafo.zone).toBe("guc");
+    expect(trafo.mountType).toBe("zemin");
+    expect(trafo.zone).toBeNull();
+
+    // Reaktör aynı ailededir ama PLAKADA kalır — zemine konan yalnız trafodur.
+    const reaktor = mountRuleFor({
+      category: "Güç Kaynakları ve Trafolar",
+      designation: "LINE REACTOR 3PH 400V 0.5MH",
+      typeNo: "DX-LN3-034",
+    });
+    expect(reaktor.mountType).toBe("plaka");
+    expect(reaktor.zone).toBe("guc");
   });
 
   it("anahtarlamalı güç kaynağı raya kalır", () => {

@@ -65,16 +65,16 @@ describe("pano şema katalogu", () => {
     expect(anahtarlar).not.toContain("pano:saha");
   });
 
-  it("KAPAK ELEMANI OLMAYAN panonun kapak görünüşü listeye GİRMEZ", () => {
-    // `panoKapakDiagram` zaten `null` döner; boş bir kapak resmi bilgi
-    // taşımaz ve seçilebilir görünmemeli.
-    const kapaksiz = computeSwitchboardLayout({ parts: salterler(4, "LVD1") });
-    expect(panoSemaKatalogu(kapaksiz).map((x) => x.kayit.key)).not.toContain(
+  it("KAPAK GÖRÜNÜŞÜ HİÇ ÜRETİLMEZ (PANO-37)", () => {
+    // Kullanıcı kararı (09.09.2026): "kapak görünüşü olmasına gerek yok;
+    // priz, aydınlatma, buton vs ekipmanlar yerleşimde olmaz ve kapakta da
+    // görünmesine gerek yok." Cihaz panonun CİHAZ LİSTESİNDE kalır.
+    const kapakli = computeSwitchboardLayout({ parts: [...salterler(4, "LVD1"), KAPAKLI] });
+    expect(panoSemaKatalogu(kapakli).map((x) => x.kayit.key)).not.toContain(
       "pano:kapak:LVD1"
     );
-
-    const kapakli = computeSwitchboardLayout({ parts: [...salterler(4, "LVD1"), KAPAKLI] });
-    expect(panoSemaKatalogu(kapakli).map((x) => x.kayit.key)).toContain("pano:kapak:LVD1");
+    const listede = kapakli.room.flatMap((p) => p.bodyDevices).map((d) => d.mountType);
+    expect(listede).toContain("kapak");
   });
 
   it("her pano için bir iç yerleşim şeması vardır", () => {

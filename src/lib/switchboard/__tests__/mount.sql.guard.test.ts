@@ -17,9 +17,22 @@ import { MOUNT_LABEL } from "../mount";
 /** Depo kökü — çalışma dizininde boşluk var, `process.cwd()` ile alınır. */
 const KOK = process.cwd();
 
+/**
+ * Kısıtı EN SON genişleten migration'ın metni.
+ *
+ * Ada göre aranmaz: montaj tipi bir kez daha genişlerse (09.09.2026'da `zemin`
+ * eklendi) ada bağlı bir arama ESKİ dosyayı okur ve test yeni tipi eksik
+ * sanarak düşer. Damga sırası en yeni olan, kısıtı yazan son dosyadır.
+ */
 function migrationMetni(): string {
   const dizin = join(KOK, "supabase", "migrations");
-  const dosya = readdirSync(dizin).find((f) => f.includes("switchboard_side_mount"));
+  const dosyalar = readdirSync(dizin)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .reverse();
+  const dosya = dosyalar.find((f) =>
+    readFileSync(join(dizin, f), "utf8").includes("_mount_type_check")
+  );
   expect(dosya, "montaj tipi migration'ı bulunamadı").toBeTruthy();
   return readFileSync(join(dizin, dosya as string), "utf8");
 }

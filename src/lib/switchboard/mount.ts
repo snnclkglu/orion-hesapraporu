@@ -20,13 +20,22 @@ export interface MountRule {
 }
 
 /**
- * BÖLGE SIRASI — yukarıdan aşağı. Sıralamanın gerekçesi PANO-7'dedir:
- * kalın besleme iletkeni kısalır, ince kumanda kablosu uzar.
+ * BÖLGE SIRASI — yukarıdan aşağı.
+ *
+ * SÜRÜCÜLER EN ÜSTTEDİR (kullanıcı kararı, 09.09.2026): "pano yerleşiminde
+ * sürücüler üstte olsun." İlk sürümde `giris` başta duruyordu (PANO-7: kalın
+ * besleme iletkeni kısalsın); kullanıcı sürücüyü üste istedi ve gerekçesi
+ * fizikseldir — sürücü panonun en derin, en ağır ve en çok ısıtan cihazıdır,
+ * üstte durunca hem soğutma havası üstünden çıkar hem de altındaki bütün
+ * motor/kumanda bandına kablosu kısa yoldan iner.
  *
  * `giris` bandında yalnız ana şalter değil DAĞITIM ŞALTER BANKASI da vardır —
  * gerçek panoda ana şalterin hemen altındaki sıra budur.
+ *
+ * SIRA ARTIK BİR RAY SINIRI DEĞİLDİR (PANO-37): raylar bölge değişince
+ * kapanmaz, yalnız cihazların diziliş sırasını belirler.
  */
-export const ZONE_ORDER: readonly Zone[] = ["giris", "guc", "motor", "kumanda", "klemens"];
+export const ZONE_ORDER: readonly Zone[] = ["guc", "giris", "motor", "kumanda", "klemens"];
 
 export const ZONE_LABEL: Record<Zone, string> = {
   giris: "Giriş ve Dağıtım",
@@ -39,7 +48,8 @@ export const ZONE_LABEL: Record<Zone, string> = {
 export const MOUNT_LABEL: Record<MountType, string> = {
   din: "Ray",
   plaka: "Montaj plakası",
-  kapak: "Kapak",
+  zemin: "Pano zemini",
+  kapak: "Kapak (çizilmez)",
   govde: "Gövde gereci",
   yan: "Pano yanı",
   saha: "Pano dışı (saha)",
@@ -128,8 +138,9 @@ export interface MountSource {
  *
  *  · TRAFO VE REAKTÖR RAYA OTURMAZ. "Güç Kaynakları ve Trafolar" ailesinin
  *    anahtarlamalı güç kaynağı (SITOP, S8VK) DIN rayındadır; aynı ailedeki
- *    kontrol trafosu ve şebeke reaktörü onlarca kilo gelir ve doğrudan
- *    plakaya vidalanır. İkisini aynı raya koymak rayı koparır.
+ *    kontrol trafosu ve şebeke reaktörü onlarca kilo gelir. Reaktör ve filtre
+ *    doğrudan plakaya vidalanır; TRAFO ise panonun ZEMİNİNE oturur ve
+ *    yerleşim şemasına hiç girmez (kullanıcı kararı, 09.09.2026).
  *  · YÜK AYIRICI VE ANA ŞALTER GİRİŞTEDİR. "Şalterler" ailesi zaten `giris`
  *    bandındadır, ama kapak kolu ile kumanda edilen ayırıcı (SIRCO, OS,
  *    "rotary handle") bandın EN BAŞINDA durmalıdır; bu, sıralamada öne alınır.
@@ -138,8 +149,24 @@ export function mountRuleFor(item: MountSource): MountRule {
   const temel = KATEGORI_KURALI[item.category] ?? BILINMEYEN;
   const metin = trKatla(`${item.designation} | ${item.typeNo}`);
 
+  // TRAFO PANONUN ZEMİNİNE OTURUR (kullanıcı kararı, 09.09.2026): "trafo pano
+  // içerisinde yere konuyor, bundan dolayı pano yerleşiminde gösterilmesin."
+  // Panonun İÇİNDEDİR ve sipariş listesindedir; montaj plakasında yer
+  // kaplamaz. Reaktör ve filtre plakada KALIR — onlar zemine konmaz.
+  if (temel.colorGroup === "besleme" && trafoMu(metin)) {
+    return { mountType: "zemin", zone: null, colorGroup: "besleme" };
+  }
   if (temel.colorGroup === "besleme" && agirBeslemeMi(metin)) {
     return { mountType: "plaka", zone: "guc", colorGroup: "besleme" };
+  }
+
+  // TELSİZ KUMANDA PANONUN DIŞINDADIR (kullanıcı kararı, 09.09.2026).
+  // Ölçüldü (0026 `LVD0`): "Radio Control Receiver-Transmitter" (ELFA
+  // `ESX_MID 602`) panoya yerleşiyordu; alıcı direğe/kabine, verici operatörün
+  // eline gider. İşaret DAR tutulur — 0019'daki "REMOTE SWITCH 1S AC230V 16A"
+  // bir darbe akım rölesidir ve panoda KALMALIDIR.
+  if (telsizKumandaMi(metin)) {
+    return { mountType: "saha", zone: null, colorGroup: "diger" };
   }
 
   // ÖLÇÜM AİLESİ İKİYE AYRILIR ve bu ölçülmüş bir hatadır (06.09.2026):
@@ -155,24 +182,28 @@ export function mountRuleFor(item: MountSource): MountRule {
     }
   }
 
-  // İKAZ VE AYDINLATMA AİLESİ DE İKİYE AYRILIR (kullanıcı kararı, 08.09.2026).
-  // Ölçüldü (0026): 108 dB'lik bir siren, boru korna, üç katlı ikaz kolonu ve
-  // 160 W'lık dört projektör pano KAPAĞINA 30 x 30 mm delik olarak çiziliyordu
-  // — hiçbiri panonun kapağında değil, vincin üstünde ya da panonun yanında.
-  // Projektörler ise `govde` sayıldığı için çizimde de listede de kuyrukta da
-  // GÖRÜNMÜYORDU; bir aygıtın sessizce yok olması en kötü sonuçtur (PANO-10).
+  // İKAZ VE AYDINLATMA PANO YANINDA DEĞİL SAHADADIR (kullanıcı düzeltmesi,
+  // 09.09.2026): "pano yanı ekipmanlarından sadece direnç gösterilsin,
+  // aydınlatma ve diğer saha ekipmanlara gerek yok."
+  //
+  // 08.09.2026'da bunlar `yan` yapılmıştı; ölçüldüğünde dizilim şeridi bir
+  // sirenle, dört projektörle ve üç ikaz kolonuyla doluyor ve asıl bakılacak
+  // şeyi — dizinin kendisini — bastırıyordu. Hepsi zaten vincin üstünde;
+  // `saha` kuyruğunda sebebiyle görünürler, yani KAYBOLMAZLAR (PANO-10).
   if (item.category === "Sinyal ve İkaz Elemanları" || item.category === "Aydınlatma") {
     if (panoYaniMi(metin)) {
-      return { mountType: "yan", zone: null, colorGroup: "kumanda" };
+      return { mountType: "saha", zone: null, colorGroup: "diger" };
     }
   }
 
-  // FREN DİRENCİ SÜRÜCÜ AİLESİNDEDİR AMA PANOYA GİRMEZ (kullanıcı kararı,
-  // 08.09.2026). 0026'da 75 kW'lık bir direnç var; kendi havalandırmalı
-  // kafesinde, panonun dışında durur. Aile doğru, montaj ayrı — PT100
-  // ayrımının aynı deseni.
+  // FREN DİRENCİ PANONUN YANINDADIR (kullanıcı düzeltmesi, 09.09.2026).
+  //
+  // 08.09.2026'da "tamamen saha" denmişti; şimdi dizilim şemasında panonun
+  // yanında GÖRÜNMESİ isteniyor ve gerekçesi somut: 75 kW'lık bir direnç
+  // kafesi elektrik odasında gerçekten panonun bitişiğinde durur, yer kaplar
+  // ve yerleşimi planlayan kişi onu görmelidir. Panonun İÇİNE girmez.
   if (item.category === "Sürücüler ve Güç Elektroniği" && frenDirenciMi(metin)) {
-    return { mountType: "saha", zone: null, colorGroup: "diger" };
+    return { mountType: "yan", zone: null, colorGroup: "surucu" };
   }
 
   // MAKİNE PRİZİ RAYA OTURMAZ. Eğik makine prizi pano sacına/kapağına gömülür;
@@ -242,9 +273,40 @@ function panoYaniMi(metin: string): boolean {
   ].some((isaret) => metin.includes(isaret));
 }
 
-/** Sürücü ailesindeki fren direnci mi (pano dışı)? */
+/** Sürücü ailesindeki fren direnci mi (panonun yanında durur)? */
 function frenDirenciMi(metin: string): boolean {
   return ["BRAKING RESISTOR", "BRAKE RESISTOR", "FREN DIRENC"].some((i) => metin.includes(i));
+}
+
+/**
+ * Vincin telsiz kumandası mı (pano dışı)?
+ *
+ * İŞARET DAR TUTULUR. Çıplak `REMOTE` ya da `RECEIVER` yazılamaz: 0019'da
+ * "REMOTE SWITCH 1S AC230V 16A" (Siemens `5TT4101-0`) bir darbe akım rölesidir
+ * ve DIN rayında kalmalıdır. Aranan şey telsiz kumanda TAKIMIDIR.
+ */
+function telsizKumandaMi(metin: string): boolean {
+  return [
+    "RADIO CONTROL",
+    "RADIO REMOTE",
+    "RADIO TRANSMITTER",
+    "RADIO RECEIVER",
+    "TELSIZ KUMANDA",
+    "RADYO KUMANDA",
+    "UZAKTAN KUMANDA VERICI",
+  ].some((i) => metin.includes(i));
+}
+
+/**
+ * Zemine oturan TRAFO mu?
+ *
+ * `agirBeslemeMi`nin ALT KÜMESİDİR ve ondan önce sorulur: reaktör, şok bobini
+ * ve şebeke filtresi montaj plakasında kalır — zemine konan yalnız trafodur.
+ * `KVA` işareti burada da geçerlidir; ölçüldü (0026): `MATIS 4000`ün tanımı
+ * yalnız "400-230V , 4kVA" diyor, ne "trafo" ne "transformer" geçiyor.
+ */
+function trafoMu(metin: string): boolean {
+  return ["TRANSFORMER", "TRAFO", "KVA"].some((i) => metin.includes(i));
 }
 
 /** Pano sacına gömülen makine prizi mi (klemens değil)? */
@@ -288,7 +350,10 @@ function sahaElemaniMi(metin: string): boolean {
 }
 
 /**
- * Trafo · reaktör · filtre: raya değil plakaya.
+ * Reaktör · filtre · ağır besleme: raya değil plakaya.
+ *
+ * TRAFO BUNUN İÇİNDE DEĞİLDİR — `trafoMu` daha önce sorulur ve onu zemine
+ * gönderir. Bu yüklem geriye kalan ağır besleme cihazlarını yakalar.
  *
  * `KVA` BİR İŞARETTİR: yalnız trafo ve UPS kVA ile anılır, anahtarlamalı güç
  * kaynağı W ile. Ölçüldü (0026): `MATIS 4000`ün tanımı yalnız "400-230V ,

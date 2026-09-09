@@ -132,27 +132,31 @@ describe("ürünsüz satır SINIFLANMAMIŞ değildir", () => {
   });
 });
 
-describe("pano yanı ekipmanı KUYRUĞA DÜŞMEZ, listeye girer (PANO-27)", () => {
+describe("pano yanı ekipmanı KUYRUĞA DÜŞMEZ, listeye girer (PANO-27 · PANO-37)", () => {
+  // PANO YANINDA ARTIK YALNIZ FREN DİRENCİ VAR (kullanıcı düzeltmesi,
+  // 09.09.2026): siren, korna, ikaz kolonu ve projektör sahaya taşındı.
+  // Fikstür de onunla birlikte değişti — bu describe'ın konusu "çizilmeyen
+  // ama panonun yanında duran ekipman"dır, hangi aile olduğu değil.
   const yanSatirlar = [
     parca({
-      device: "H166",
-      deviceTag: "=100T+LVD0-H166",
-      designation: "40W 108dB Siren",
-      typeNo: "SNT-SL190-22",
-      supplier: "MC",
-      partNo: "MC.SNT-SL190-22",
+      device: "R24",
+      deviceTag: "=100T+LVD0-R24",
+      designation: "Braking Resistor 75kW, 3 Ohm",
+      typeNo: "BRSD-836SW-7503",
+      supplier: "RESSA",
+      partNo: "RES.BRSD-836SW-7503",
     }),
     parca({
-      device: "E151",
-      deviceTag: "=100T+LVD0-E151",
-      designation: "160W 5000K 230VAC LED Floodlight",
-      typeNo: "N1000-P-2/160W.5000K",
-      supplier: "NIKI",
-      partNo: "NIKI.N1000",
+      device: "R34",
+      deviceTag: "=100T+LVD0-R34",
+      designation: "Braking Resistor 11kW, 25 Ohm",
+      typeNo: "BRSD-836SW-1125",
+      supplier: "RESSA",
+      partNo: "RES.BRSD-836SW-1125",
     }),
   ];
 
-  it("siren ve projektör panonun yan listesindedir", () => {
+  it("fren dirençleri panonun yan listesindedir", () => {
     const r = coz([
       ...Array.from({ length: 3 }, (_, i) =>
         parca({ device: `F${i + 1}`, deviceTag: `=100T+LVD0-F${i + 1}` })
@@ -160,7 +164,35 @@ describe("pano yanı ekipmanı KUYRUĞA DÜŞMEZ, listeye girer (PANO-27)", () =
       ...yanSatirlar,
     ]);
     const yan = r.room.flatMap((p) => p.sideDevices).map((d) => d.label);
-    expect(yan.sort()).toEqual(["E151", "H166"]);
+    expect(yan.sort()).toEqual(["R24", "R34"]);
+  });
+
+  it("İKAZ VE AYDINLATMA yan listede DEĞİL, sahadadır (PANO-37)", () => {
+    const r = coz([
+      ...Array.from({ length: 3 }, (_, i) =>
+        parca({ device: `F${i + 1}`, deviceTag: `=100T+LVD0-F${i + 1}` })
+      ),
+      parca({
+        device: "H166",
+        deviceTag: "=100T+LVD0-H166",
+        designation: "40W 108dB Siren",
+        typeNo: "SNT-SL190-22",
+        supplier: "MC",
+        partNo: "MC.SNT-SL190-22",
+      }),
+      parca({
+        device: "E151",
+        deviceTag: "=100T+LVD0-E151",
+        designation: "160W 5000K 230VAC LED Floodlight",
+        typeNo: "N1000-P-2/160W.5000K",
+        supplier: "NIKI",
+        partNo: "NIKI.N1000",
+      }),
+    ]);
+    expect(r.room.flatMap((p) => p.sideDevices)).toHaveLength(0);
+    // KAYBOLMAZLAR: `saha` kuyruğunda sebebiyle görünürler (PANO-10).
+    const saha = r.unplaced.filter((u) => u.reason === "saha").map((u) => u.device.label);
+    expect(saha.sort()).toEqual(["E151", "H166"]);
   });
 
   it("kuyrukta GÖRÜNMEZ ve SİPARİŞ KAPISINI kapatmaz", () => {
@@ -201,7 +233,7 @@ describe("pano yanı ekipmanı KUYRUĞA DÜŞMEZ, listeye girer (PANO-27)", () =
 describe("ÇİZİLMEYEN aygıt da denetlenir", () => {
   // PANO-11 denetçisi sonucu ölçer, algoritmanın iddiasını değil. Ama denetim
   // yalnız plaka ve kapağı ölçüyordu: gövde gereci (fan, termostat, pano
-  // lambası) ve pano yanı ekipmanı (siren, projektör) `ayir()` içinde bir
+  // lambası) ve pano yanı ekipmanı (fren direnci) `ayir()` içinde bir
   // daldan düşse HİÇBİR ŞEY haber vermezdi. O aygıtlar çizilmiyor ama SİPARİŞ
   // EDİLİYOR; sessiz kayıp yanlış yerleşimden tehlikelidir.
   const parts = [
@@ -217,12 +249,12 @@ describe("ÇİZİLMEYEN aygıt da denetlenir", () => {
       partNo: "QCK.FULL2500",
     }),
     parca({
-      device: "H166",
-      deviceTag: "=100T+LVD0-H166",
-      designation: "40W 108dB Siren",
-      typeNo: "SNT-SL190-22",
-      supplier: "MC",
-      partNo: "MC.SNT-SL190-22",
+      device: "R24",
+      deviceTag: "=100T+LVD0-R24",
+      designation: "Braking Resistor 75kW, 3 Ohm",
+      typeNo: "BRSD-836SW-7503",
+      supplier: "RESSA",
+      partNo: "RES.BRSD-836SW-7503",
     }),
   ];
 
@@ -252,7 +284,7 @@ describe("ÇİZİLMEYEN aygıt da denetlenir", () => {
     const bozuk = sonuc.room.map((p) => ({ ...p, sideDevices: [] }));
     const kalanlar = denetle(bozuk);
     expect(kalanlar.map((c) => c.key)).toContain("yan-eksiksizlik");
-    expect(kalanlar.find((c) => c.key === "yan-eksiksizlik")?.detail).toContain("H166");
+    expect(kalanlar.find((c) => c.key === "yan-eksiksizlik")?.detail).toContain("R24");
   });
 
   it("denetim GEÇENLERİ de sayar — neyin denetlendiği görünür (PANO-11)", () => {

@@ -370,7 +370,7 @@ export function PanoView({
           <DiagramSvg
             diagram={panoDizilimDiagram({
               panels: sonuc.room,
-              baslik: "Elektrik odası pano dizilimi",
+              baslik: "Pano dizilimi",
               not: `${sonuc.room.length} göz · ön görünüş · panolar bitişik`,
               yanCihazlar: sonuc.roomSideDevices,
             })}

@@ -17,7 +17,6 @@ import type { Diagram } from "./model";
 import {
   panoDizilimDiagram,
   panoIcYerlesimDiagram,
-  panoKapakDiagram,
   type IcOlcek,
 } from "./panoLayout";
 
@@ -53,14 +52,14 @@ export function panoSemaKatalogu(sonuc: LayoutResult): PanoSemaGirdisi[] {
     out.push({
       kayit: {
         key: "pano:oda",
-        baslik: "Elektrik odası pano dizilimi",
+        baslik: "Pano dizilimi",
         modul: "Pano Yerleşimi",
         bolum: `${sonuc.room.length} göz · ön görünüş`,
       },
       ciz: () =>
         panoDizilimDiagram({
           panels: sonuc.room,
-          baslik: "Elektrik odası pano dizilimi",
+          baslik: "Pano dizilimi",
           not: `${sonuc.room.length} göz · ön görünüş · panolar bitişik`,
           yanCihazlar: sonuc.roomSideDevices,
         }),
@@ -102,20 +101,10 @@ export function panoSemaKatalogu(sonuc: LayoutResult): PanoSemaGirdisi[] {
           }),
       });
     }
-    // BOŞ KAPAK ÇİZİLMEZ: `panoKapakDiagram` zaten `null` döner ve boş bir
-    // kapak resmi bilgi taşımaz; listeye de girmemeli.
-    if (p.doorPlacements.length > 0) {
-      out.push({
-        kayit: {
-          key: `pano:kapak:${p.code}`,
-          baslik: `${p.code} kapak görünüşü`,
-          modul: "Pano Yerleşimi",
-          bolum: `${p.doorPlacements.length} kapak elemanı`,
-        },
-        ciz: () =>
-          panoKapakDiagram({ panel: p, settings: sonuc.settings, olcek: KITAP_OLCEGI }),
-      });
-    }
+    // KAPAK GÖRÜNÜŞÜ ARTIK ÜRETİLMİYOR (PANO-37, kullanıcı kararı 09.09.2026):
+    // priz, aydınlatma ve buton yerleşime girmiyor, kapakta da çizilmiyor.
+    // Bu cihazlar panonun CİHAZ LİSTESİNDE montaj tipiyle ("Kapak (çizilmez)")
+    // görünmeye devam eder — kaybolmazlar (PANO-10).
   }
 
   return out;
