@@ -19,11 +19,9 @@
 // hiçbir yerde rastgelelik yoktur.
 
 import {
-  AUTO_HEIGHTS_MM,
   DEFAULT_SETTINGS,
-  PREFERRED_HEIGHT_MM,
-  PANEL_DEPTHS_MM,
-  PANEL_WIDTHS_MM,
+  ROOM_GRID,
+  type LineupGrid,
   ceilToGrid,
   doorConfigFor,
   plateCapacityHeightMm,
@@ -267,14 +265,26 @@ function paketle(
   };
 }
 
-/** Kapak üstü aygıtları ızgaraya dizer (ayrı görünüş). */
+/**
+ * Kapak üstü aygıtları ızgaraya dizer (ayrı görünüş).
+ *
+ * SIĞMAYAN AYGIT SESSİZCE DÜŞMEZ (PANO-10). Önceki sürüm son satırı taşan
+ * cihazda `break` ediyordu: aygıt ne kapak resminde ne kuyrukta ne uyarıda
+ * görünüyordu — bir aygıtın hiçbir yerde görünmemesi bu modülün en çok
+ * kaçındığı sonuçtur. Artık taşan aygıtlar geri verilir ve `solvePanel`
+ * onları `sigmadi` kuyruğuna koyar.
+ *
+ * Izgara hâlâ bir KROKİDİR (90 mm kare adım); gerçek kesim koordinatı
+ * değildir ve çizim bunu kendi altyazısında söyler (PANO-22).
+ */
 function kapagaDiz(
   devices: DeviceBox[],
   panelWidthMm: number,
   panelHeightMm: number,
   s: LayoutSettings
-): Placement[] {
+): { placements: Placement[]; sigmayan: DeviceBox[] } {
   const out: Placement[] = [];
+  const sigmayan: DeviceBox[] = [];
   const kenar = 60;
   const adim = 90;
   const kapasite = panelWidthMm - 2 * kenar;
@@ -285,7 +295,10 @@ function kapagaDiz(
     const satir = Math.floor(i / sutun);
     const kolon = i % sutun;
     const y = kenar + satir * adim;
-    if (y + adim > panelHeightMm - kenar) break;
+    if (y + adim > panelHeightMm - kenar) {
+      sigmayan.push(d);
+      continue;
+    }
     out.push({
       deviceKey: d.key,
       label: d.label,
@@ -305,7 +318,7 @@ function kapagaDiz(
     });
     i++;
   }
-  return out;
+  return { placements: out, sigmayan };
 }
 
 interface Ayirma {
@@ -407,13 +420,14 @@ export function solvePanel(
   input: PanelInput,
   heightMm: number,
   s: LayoutSettings,
-  prefs: LineupPrefs
+  prefs: LineupPrefs,
+  izgara: LineupGrid = ROOM_GRID
 ): PanelSolve {
   const { plaka, kapak, govde, yan, disari } = ayir(input.devices);
   const yukseklikKapasitesi = plateCapacityHeightMm(heightMm, s);
 
   const kilitliEn = input.override?.widthLocked ? input.override.widthMm : null;
-  const adaylar = kilitliEn ? [kilitliEn] : [...PANEL_WIDTHS_MM];
+  const adaylar = kilitliEn ? [kilitliEn] : [...izgara.widths];
 
   let enIyi: { en: number; paket: PackResult } | null = null;
 
@@ -434,15 +448,30 @@ export function solvePanel(
     }
   }
 
-  const secilen = enIyi ?? { en: PANEL_WIDTHS_MM[0], paket: paketle(plaka, PANEL_WIDTHS_MM[0], heightMm, s) };
+  const enTaban = izgara.widths[0];
+  const secilen = enIyi ?? { en: enTaban, paket: paketle(plaka, enTaban, heightMm, s) };
   const kapakYerlesim = kapagaDiz(kapak, secilen.en, heightMm, s);
-  const gerekliDerinlik = derinlikIhtiyaci(secilen.paket.placements, kapakYerlesim, s);
+  const gerekliDerinlik = derinlikIhtiyaci(
+    secilen.paket.placements,
+    kapakYerlesim.placements,
+    s
+  );
+  const kapaktanTasan: Unplaced[] = kapakYerlesim.sigmayan.map((d) => ({
+    device: d,
+    reason: "sigmadi",
+    note: "Kapak yüzeyinde yer kalmadı",
+  }));
 
   const warnings: string[] = [];
   const tasti = secilen.paket.totalHeightMm > yukseklikKapasitesi;
   if (tasti) {
     warnings.push(
       `Ray yüksekliği ${Math.round(secilen.paket.totalHeightMm)} mm; plakada ${Math.round(yukseklikKapasitesi)} mm var.`
+    );
+  }
+  if (kapaktanTasan.length > 0) {
+    warnings.push(
+      `${kapaktanTasan.length} kapak aygıtı kapak yüzeyine sığmadı; aygıt kuyruğuna alındı.`
     );
   }
   if (kilitliEn && (tasti || secilen.paket.unplaced.length > 0)) {
@@ -472,7 +501,7 @@ export function solvePanel(
     depthLocked: Boolean(input.override?.depthLocked),
     rails: secilen.paket.rails,
     placements: secilen.paket.placements,
-    doorPlacements: kapakYerlesim,
+    doorPlacements: kapakYerlesim.placements,
     bodyDevices: govde,
     sideDevices: yan,
     requiredDepthMm: gerekliDerinlik,
@@ -483,8 +512,9 @@ export function solvePanel(
 
   return {
     layout,
-    unplaced: [...disari, ...secilen.paket.unplaced],
-    fits: !tasti && secilen.paket.unplaced.length === 0,
+    unplaced: [...disari, ...secilen.paket.unplaced, ...kapaktanTasan],
+    // KAPAK TAŞMASI DA "SIĞMADI"DIR: pano bölünsün ki aygıt bir yere düşsün.
+    fits: !tasti && secilen.paket.unplaced.length === 0 && kapaktanTasan.length === 0,
     heightFill:
       yukseklikKapasitesi > 0 ? secilen.paket.totalHeightMm / yukseklikKapasitesi : 0,
   };
@@ -549,10 +579,11 @@ function bolerekCoz(
   panels: PanelInput[],
   heightMm: number,
   s: LayoutSettings,
-  prefs: LineupPrefs
+  prefs: LineupPrefs,
+  izgara: LineupGrid
 ): { girdiler: PanelInput[]; cozumler: PanelSolve[] } {
   let girdiler = panels;
-  let cozumler = girdiler.map((p) => solvePanel(p, heightMm, s, prefs));
+  let cozumler = girdiler.map((p) => solvePanel(p, heightMm, s, prefs, izgara));
 
   for (let tur = 0; tur < MAX_SPLIT; tur++) {
     if (cozumler.every((c) => c.fits)) break;
@@ -571,7 +602,7 @@ function bolerekCoz(
     }
     if (!degisti) break;
     girdiler = yeni;
-    cozumler = girdiler.map((p) => solvePanel(p, heightMm, s, prefs));
+    cozumler = girdiler.map((p) => solvePanel(p, heightMm, s, prefs, izgara));
   }
 
   return { girdiler, cozumler };
@@ -588,49 +619,119 @@ export interface SolveAllInput {
    * ayrı yerde cevaplanır ve bir gün ayrışırdı.
    */
   prefs: LineupPrefs;
+  /**
+   * BU DİZİNİN gövde ızgarası (`ROOM_GRID` ya da `FIELD_GRID`, PANO-33).
+   *
+   * `prefs` ile aynı gerekçeyle çağıran verir: çözücü oda mı saha mı çözdüğünü
+   * bilmez. Verilmezse oda ızgarası kullanılır — mevcut çağıranlar ve testler
+   * bozulmasın diye.
+   */
+  izgara?: LineupGrid;
 }
 
 export interface SolveAllResult {
   layouts: PanelLayout[];
   unplaced: Unplaced[];
+  /**
+   * Dizinin ortak yüksekliği; ORTAK DEĞİLSE en yüksek gövdeninki.
+   *
+   * `sharedHeight` false iken bu sayı tek başına bir sipariş kararı DEĞİLDİR —
+   * ekran ve çıktı "kutu başına" yazar. Tek bir sayı basmak, alınmamış bir
+   * ortak kararı bildirmek olurdu.
+   */
   heightMm: number;
   depthMm: number;
+  /** Gözler ortak yükseklik paylaşıyor mu (`LineupGrid.sharedHeight`)? */
+  sharedHeight: boolean;
 }
 
 /**
- * BİR DİZİYİ çözer: ortak yükseklik ve ortak derinlik burada belirlenir.
+ * VERİLEN PANO KÜMESİ İÇİN ORTAK BİR BOY SEÇER ve sığmayanları böler.
  *
- * Yükseklik adayları KÜÇÜKTEN BÜYÜĞE denenir ama 1800'ün altı bir eşiğe
- * bağlıdır (kullanıcı kararı, 06.09.2026) — ayrıntı aşağıdaki blokta.
- *
- * PANO BAŞINA KİLİTLİ ÖLÇÜ DİZİNİN TAMAMINI BAĞLAR: dizide ortak yükseklik ve
- * ortak derinlik zorunludur (PANO-2), dolayısıyla bir panonun kilitlediği
- * değer dizinin TABANIDIR. Kullanıcı bir panoyu 600 mm derin istediyse
- * dizideki hiçbir pano ondan sığ olamaz.
+ * Ortak yükseklik isteyen dizide (oda) bütün panolarla BİR KEZ, kutu başına
+ * ölçü isteyen dizide (saha) her pano için AYRI çağrılır — ikinci durumda
+ * "küme" tek elemanlıdır ve dolayısıyla "ortak boy" o kutunun kendi boyudur.
  */
-export function solveLineup(input: SolveAllInput): SolveAllResult {
-  const s = input.settings;
-  const tercih = input.prefs;
-  if (input.panels.length === 0) {
-    return {
-      layouts: [],
-      unplaced: [],
-      heightMm: tercih.heightMm ?? AUTO_HEIGHTS_MM[0],
-      depthMm: tercih.depthMm ?? PANEL_DEPTHS_MM[0],
-    };
-  }
-
+function yukseklikSec(
+  panels: PanelInput[],
+  s: LayoutSettings,
+  tercih: LineupPrefs,
+  izgara: LineupGrid
+): { h: number; girdiler: PanelInput[]; cozumler: PanelSolve[] } {
   // PANO BAŞINA KİLİTLİ YÜKSEKLİK DİZİYİ BAĞLAR (PANO-2): ortak yükseklik
   // zorunlu olduğu için kilitli en büyük değer dizinin tabanıdır. Bunu yok
   // saymak, ekranda "kilitledim" diyen bir seçimi sessizce ezerdi.
-  const kilitliYukseklikler = input.panels
+  //
+  // ORTAK YÜKSEKLİK YOKSA (saha) bu işlev pano BAŞINA çağrılır ve "dizi"
+  // tek gözdür; kilit yalnız kendi kutusunu bağlar.
+  const kilitliYukseklikler = panels
     .map((p) => (p.override?.heightLocked ? p.override.heightMm : null))
     .filter((v): v is number => typeof v === "number" && v > 0);
   const yukseklikTabani = kilitliYukseklikler.length ? Math.max(...kilitliYukseklikler) : 0;
 
+  // ORTAK BOY VARKEN KİLİT BİR TABANDIR, TEK KUTUDA İSE KİLİTTİR.
+  //
+  // Dizide bütün gözler aynı boyu paylaşmak zorunda olduğu için bir panonun
+  // kilidi ancak "bundan alçak olamaz" diyebilir. Ortak boy yokken böyle bir
+  // zorunluluk yoktur: kullanıcı o kutuyu 600 mm istediyse 600 mm alır, arama
+  // onu 1400'e çıkarmaz — ekranda "kilitledim" diyen bir seçimi ezmek, bu
+  // modülün baştan beri kaçındığı şeydir.
   const yukseklikAdaylari = tercih.heightMm
     ? [tercih.heightMm]
-    : [...AUTO_HEIGHTS_MM].filter((h) => h >= yukseklikTabani);
+    : !izgara.sharedHeight && yukseklikTabani > 0
+      ? [yukseklikTabani]
+      : [...izgara.heights].filter((h) => h >= yukseklikTabani);
+
+  // ═══════════════════════════════════════ TEK KUTU: EN KÜÇÜK ÖN YÜZ
+  //
+  // Ortak boy YOKSA (saha) kutu bir DİZİNİN GÖZÜ değil, tek başına sipariş
+  // edilen bir üründür; o yüzden ölçüt de değişir. Diziyi çözerken önce boy
+  // küçültülür çünkü boy bütün gözlerde ortaktır; tek kutuda böyle bir
+  // ortaklık yoktur ve "önce en alçağı" ölçütü ölçüldüğü gibi ters teper:
+  // 0019'un `TB3`ü 500 mm boy uğruna 800 mm'ye genişliyordu (0,40 m²), oysa
+  // 400 x 600 (0,24 m²) aynı üç cihazı alıyor ve duvara asılan bir kutuda
+  // asıl sıkıntı olan GENİŞLİK yarıya iniyor.
+  //
+  // Bu yüzden burada bütün boylar denenir ve ÖN YÜZ ALANI en küçük olan
+  // seçilir; eşitlikte alçak olan kazanır. "Rahat" şartı (bölünmemiş + doluluk
+  // payı korunmuş) hâlâ önceliklidir — hiçbir aday rahat değilse sığanların
+  // en küçüğü alınır.
+  if (!izgara.sharedHeight) {
+    type Aday = {
+      h: number;
+      girdiler: PanelInput[];
+      cozumler: PanelSolve[];
+      sigmayan: number;
+      rahat: boolean;
+      alan: number;
+    };
+    const adaylar: Aday[] = [];
+    for (const h of yukseklikAdaylari) {
+      const deneme = bolerekCoz(panels, h, s, tercih, izgara);
+      const sigmayan = deneme.cozumler.filter((c) => !c.fits).length;
+      const bolundu = deneme.girdiler.length > panels.length;
+      const enDoluOran = deneme.cozumler.reduce((m, c) => Math.max(m, c.heightFill), 0);
+      adaylar.push({
+        h,
+        girdiler: deneme.girdiler,
+        cozumler: deneme.cozumler,
+        sigmayan,
+        rahat: !bolundu && enDoluOran <= s.fillWarnRatio,
+        alan: deneme.cozumler.reduce((t, c) => t + c.layout.widthMm * h, 0),
+      });
+    }
+
+    const kucukten = (a: Aday, b: Aday) => a.alan - b.alan || a.h - b.h;
+    const sigan = adaylar.filter((a) => a.sigmayan === 0);
+    const en =
+      [...sigan.filter((a) => a.rahat)].sort(kucukten)[0] ??
+      [...sigan].sort(kucukten)[0] ??
+      // Hiçbir boy sığdıramıyorsa en az pano bırakan seçilir ki ekran yine de
+      // bir şey gösterebilsin (`enIyiPlakaSecimi` ile aynı ilke).
+      [...adaylar].sort((a, b) => a.sigmayan - b.sigmayan || kucukten(a, b))[0];
+
+    return { h: en.h, girdiler: en.girdiler, cozumler: en.cozumler };
+  }
 
   // ═══════════════════════════════════════════ YÜKSEKLİK NASIL SEÇİLİR
   //
@@ -650,16 +751,19 @@ export function solveLineup(input: SolveAllInput): SolveAllResult {
   let secilen: { h: number; girdiler: PanelInput[]; cozumler: PanelSolve[] } | null = null;
 
   for (const h of yukseklikAdaylari) {
-    const deneme = bolerekCoz(input.panels, h, s, tercih);
+    const deneme = bolerekCoz(panels, h, s, tercih, izgara);
     const sigmayan = deneme.cozumler.filter((c) => !c.fits).length;
 
     if (sigmayan === 0) {
-      const bolundu = deneme.girdiler.length > input.panels.length;
+      const bolundu = deneme.girdiler.length > panels.length;
       const enDoluOran = deneme.cozumler.reduce((m, c) => Math.max(m, c.heightFill), 0);
       const rahat = !bolundu && enDoluOran <= s.fillWarnRatio;
 
-      // Kullanıcı bir yükseklik verdiyse aday tektir ve eşik aranmaz.
-      if (h >= PREFERRED_HEIGHT_MM || rahat || yukseklikAdaylari.length === 1) {
+      // Eşik ızgaradan gelir; `null` ise yalnız "rahat" sorulur. Kullanıcı bir
+      // yükseklik verdiyse aday tektir ve eşik aranmaz.
+      const esikGecildi =
+        izgara.preferredHeightMm !== null && h >= izgara.preferredHeightMm;
+      if (esikGecildi || rahat || yukseklikAdaylari.length === 1) {
         secilen = { h, girdiler: deneme.girdiler, cozumler: deneme.cozumler };
         break;
       }
@@ -679,11 +783,51 @@ export function solveLineup(input: SolveAllInput): SolveAllResult {
     }
   }
 
-  const { h: secilenYukseklik, girdiler: tumGirdiler, cozumler: tumCozumler } = secilen as {
-    h: number;
-    girdiler: PanelInput[];
-    cozumler: PanelSolve[];
-  };
+  return secilen as { h: number; girdiler: PanelInput[]; cozumler: PanelSolve[] };
+}
+
+/**
+ * BİR DİZİYİ çözer: ortak derinlik ve (ızgara istiyorsa) ortak yükseklik
+ * burada belirlenir.
+ *
+ * Yükseklik adayları KÜÇÜKTEN BÜYÜĞE denenir ama 1800'ün altı bir eşiğe
+ * bağlıdır (kullanıcı kararı, 06.09.2026) — ayrıntı `yukseklikSec` içinde.
+ *
+ * ORTAK YÜKSEKLİK IZGARAYA BAĞLIDIR (PANO-33). Odada gövdeler yan yana dizilir
+ * ve üstleri hizalıdır; sahada her kutu ayrı bir duvara asılır ve ortak boy
+ * dayatmak, ölçüldüğü gibi, 220 mm ray taşıyan bir kutuyu 1400 mm yaptırıyordu.
+ *
+ * ORTAK DERİNLİK HER İKİ DİZİDE DE KORUNUR (PANO-2): kullanıcıya sorulan
+ * yalnız yükseklikti.
+ *
+ * PANO BAŞINA KİLİTLİ ÖLÇÜ, ORTAK OLAN NEYSE ONU BAĞLAR: kullanıcı bir panoyu
+ * 600 mm derin istediyse dizideki hiçbir pano ondan sığ olamaz.
+ */
+export function solveLineup(input: SolveAllInput): SolveAllResult {
+  const s = input.settings;
+  const tercih = input.prefs;
+  const izgara = input.izgara ?? ROOM_GRID;
+  if (input.panels.length === 0) {
+    return {
+      layouts: [],
+      unplaced: [],
+      heightMm: tercih.heightMm ?? izgara.heights[0],
+      depthMm: tercih.depthMm ?? izgara.depths[0],
+      sharedHeight: izgara.sharedHeight,
+    };
+  }
+
+  // HER KUTU KENDİ ÖLÇÜSÜNDE (kullanıcı kararı, 09.09.2026): ortak yükseklik
+  // istenmiyorsa her pano TEK GÖZLÜ BİR DİZİ olarak çözülür ve sonuçlar
+  // birleştirilir. Bölme, harfleme, boş göz düşürme ve ortak derinlik aşağıda
+  // olduğu gibi çalışmaya devam eder — ayrı bir arama kodu YAZILMAZ.
+  const secimler = izgara.sharedHeight
+    ? [yukseklikSec(input.panels, s, tercih, izgara)]
+    : input.panels.map((pano) => yukseklikSec([pano], s, tercih, izgara));
+
+  const secilenYukseklik = Math.max(...secimler.map((x) => x.h));
+  const tumGirdiler = secimler.flatMap((x) => x.girdiler);
+  const tumCozumler = secimler.flatMap((x) => x.cozumler);
 
   // BOŞ GÖZ SİPARİŞ EDİLMEZ.
   //
@@ -751,8 +895,8 @@ export function solveLineup(input: SolveAllInput): SolveAllResult {
   );
   const ortakDerinlik =
     tercih.depthMm ??
-    ceilToGrid(gerekli, PANEL_DEPTHS_MM) ??
-    PANEL_DEPTHS_MM[PANEL_DEPTHS_MM.length - 1];
+    ceilToGrid(gerekli, izgara.depths) ??
+    izgara.depths[izgara.depths.length - 1];
 
   const layouts = cozumler.map((c) => {
     const kod = sonKod.get(c.layout.code) ?? c.layout.code;
@@ -783,7 +927,13 @@ export function solveLineup(input: SolveAllInput): SolveAllResult {
   // KUYRUK BÜTÜN ÇÖZÜMLERDEN TOPLANIR, yalnız tutulanlardan değil: boş göz
   // düşürülse de içindeki saha aygıtları kullanıcıya görünmeye devam eder.
   const unplaced = tumCozumler.flatMap((c) => c.unplaced);
-  return { layouts, unplaced, heightMm: secilenYukseklik, depthMm: ortakDerinlik };
+  return {
+    layouts,
+    unplaced,
+    heightMm: secilenYukseklik,
+    depthMm: ortakDerinlik,
+    sharedHeight: izgara.sharedHeight,
+  };
 }
 
 export { DEFAULT_SETTINGS };

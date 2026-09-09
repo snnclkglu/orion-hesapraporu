@@ -345,6 +345,12 @@ const YAN_VARSAYILAN_MM = 200;
  * PANOLAR ARASINDA BOŞLUK YOKTUR: yan levhalar ortaktır ve dizinin toplam eni
  * gözlerin toplamıdır. Araya pay koyan bir çizim, imalatçıya yanlış bir toplam
  * en verirdi.
+ *
+ * GÖZLERİN BOYU AYNI OLMAK ZORUNDA DEĞİLDİR (PANO-33). Saha kutuları ortak boy
+ * paylaşmaz (kullanıcı kararı, 09.09.2026); hepsi ORTAK ZEMİNE — bazanın üstüne
+ * — oturur ve üst hizaları serbest kalır. Önceki sürüm `panels[0].heightMm`
+ * okuyordu: beş kutunun beşi de birincinin boyunda çiziliyor, çizim ile sipariş
+ * tablosu ayrışıyordu.
  */
 export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
   const els: DiagramEl[] = [];
@@ -358,13 +364,16 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
   const sol = 90;
   const ust = 58;
   const toplamEn = g.panels.reduce((t, p) => t + p.widthMm, 0);
-  const boy = g.panels[0].heightMm;
-  const baza = g.panels[0].baseMm;
+  const boy = Math.max(...g.panels.map((p) => p.heightMm));
+  const esitBoy = g.panels.every((p) => p.heightMm === boy);
+  const baza = Math.max(...g.panels.map((p) => p.baseMm));
 
   const gW = toplamEn * k;
   const gH = boy * k;
   const bH = baza * k;
   const yUst = ust;
+  // ZEMİN HATTI: bazanın üstü. Bütün gözler buraya oturur; `yUst` yalnız EN
+  // YÜKSEK gözün tepesidir, ötekiler aşağıdan başlar.
   const yAlt = yUst + gH;
   const yBazaAlt = yAlt + bH;
 
@@ -389,12 +398,15 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
   let x = sol;
   for (const p of g.panels) {
     const w = p.widthMm * k;
+    const pH = p.heightMm * k;
+    // Göz ZEMİNDEN yukarı çizilir; kısa gövdenin tepesi aşağıda kalır.
+    const pUst = yAlt - pH;
     els.push({
       kind: "rect",
       x,
-      y: yUst,
+      y: pUst,
       w,
-      h: gH,
+      h: pH,
       fill: TUVAL_SOFT,
       stroke: DCOL.ink,
       strokeWidth: 1,
@@ -408,9 +420,9 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
       els.push({
         kind: "rect",
         x: kx + 2,
-        y: yUst + 3,
+        y: pUst + 3,
         w: kw - 4,
-        h: gH - 6,
+        h: pH - 6,
         fill: "none",
         stroke: DCOL.faint,
         strokeWidth: 0.6,
@@ -420,9 +432,9 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
       els.push({
         kind: "rect",
         x: kulpX,
-        y: yUst + gH * 0.46,
+        y: pUst + pH * 0.46,
         w: 3,
-        h: gH * 0.08,
+        h: pH * 0.08,
         fill: DCOL.muted,
         rx: 0.6,
       });
@@ -432,7 +444,7 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
     const adBoyu = 7.5;
     if (w >= p.code.length * adBoyu * 0.58) {
       els.push(
-        txt(x + w / 2, yUst - 8, p.code, adBoyu, {
+        txt(x + w / 2, pUst - 8, p.code, adBoyu, {
           anchor: "middle",
           fixed: true,
           bold: true,
@@ -443,21 +455,51 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
     // Pano eni ölçüsü.
     dimH(els, x, x + w, yBazaAlt + 16, `${fmtN(p.widthMm, 0)}`, { size: 7.5, clearLabel: true });
 
+    // BOYLAR AYRIYSA HER GÖZ KENDİ BOYUNU TAŞIR. Tek bir dikey ölçü zinciri
+    // yalnız en yükseği anlatır; kısa kutunun boyu okunmadan sipariş edilemez.
+    if (!esitBoy) {
+      els.push(
+        txt(x + w / 2, yBazaAlt + 27, `h ${fmtN(p.heightMm, 0)}`, 6.5, {
+          anchor: "middle",
+          fill: DCOL.muted,
+          fixed: true,
+        })
+      );
+    }
+
     x += w;
   }
 
-  // Toplam en ve gövde yüksekliği.
-  dimH(els, sol, sol + gW, yBazaAlt + 38, `Toplam ${fmtN(toplamEn, 0)} mm`, { size: 9 });
-  dimV(els, sol - 22, yUst, yAlt, `${fmtN(boy, 0)}`, { size: 8, labelSide: "left" });
+  // Toplam en ve gövde yüksekliği. Boylar ayrıysa dikey zincir EN YÜKSEK gözü
+  // ölçer ve etiketi bunu söyler.
+  dimH(els, sol, sol + gW, yBazaAlt + (esitBoy ? 38 : 46), `Toplam ${fmtN(toplamEn, 0)} mm`, {
+    size: 9,
+  });
+  dimV(els, sol - 22, yUst, yAlt, esitBoy ? `${fmtN(boy, 0)}` : `en yüksek ${fmtN(boy, 0)}`, {
+    size: 8,
+    labelSide: "left",
+  });
   dimV(els, sol - 22, yAlt, yBazaAlt, `${fmtN(baza, 0)}`, { size: 8, labelSide: "left" });
   dimV(els, sol - 46, yUst, yBazaAlt, `Toplam ${fmtN(boy + baza, 0)}`, { size: 8, labelSide: "left" });
 
+  const altSatirY = yBazaAlt + (esitBoy ? 58 : 66);
   els.push(
-    txt(sol, yBazaAlt + 58, `Derinlik ${fmtN(g.panels[0].depthMm, 0)} mm (bütün gözlerde ortak)`, 8.5, {
+    txt(sol, altSatirY, `Derinlik ${fmtN(g.panels[0].depthMm, 0)} mm (bütün gözlerde ortak)`, 8.5, {
       fill: DCOL.muted,
       fixed: true,
     })
   );
+  if (!esitBoy) {
+    els.push(
+      txt(
+        sol,
+        altSatirY + 12,
+        "Yükseklik KUTU BAŞINADIR; gözler ortak zemine oturur, üst hizaları serbesttir.",
+        8.5,
+        { fill: DCOL.muted, fixed: true }
+      )
+    );
+  }
 
   // ═══════════════════════════════════════════ PANO YANI EKİPMANLARI
   //
@@ -529,7 +571,7 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
     yanSagKenar = yx;
   }
 
-  return fitDiagram(els, Math.max(460, yanSagKenar + 110), yBazaAlt + 80);
+  return fitDiagram(els, Math.max(460, yanSagKenar + 110), yBazaAlt + (esitBoy ? 80 : 100));
 }
 
 // ═══════════════════════════════════════════════════════ İÇ YERLEŞİM

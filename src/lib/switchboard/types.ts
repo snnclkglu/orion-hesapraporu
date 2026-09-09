@@ -345,9 +345,17 @@ export interface LayoutSettings {
  * basıyordu — hiç var olmayan bir panonun ölçüsünü.
  */
 export interface LineupSize {
+  /**
+   * Ortak yükseklik; ortak DEĞİLSE en yüksek gövdeninki (PANO-33).
+   *
+   * `sharedHeight` false iken bu sayıyı tek başına "dizinin yüksekliği" diye
+   * yazmak yanlıştır — ekran ve çıktı "kutu başına" der.
+   */
   heightMm: number | null;
   depthMm: number | null;
   panelCount: number;
+  /** Gözler ortak yükseklik paylaşıyor mu? Sahada HAYIR. */
+  sharedHeight: boolean;
 }
 
 export interface LayoutResult {

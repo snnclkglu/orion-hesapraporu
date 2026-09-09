@@ -23,6 +23,7 @@ import {
   LayoutGrid,
   Lock,
   RefreshCw,
+  Save,
   ShieldCheck,
   TriangleAlert,
   Unlock,
@@ -43,6 +44,7 @@ import type { SwitchboardApproval } from "@/lib/switchboard-data";
 import {
   approveLayout,
   resetPlacements,
+  saveLayoutSettings,
   savePanel,
   unlockPanel,
   withdrawApproval,
@@ -176,6 +178,11 @@ export function PanoView({
           denetim: hataliDenetim.length,
           kuyruk: sonuc.unplaced.length,
         }}
+        icHref={
+          panolar.length
+            ? `/projects/${projectId}/pano/ic?${icSorgusu(panolar[0].code)}`
+            : null
+        }
       />
 
       {bolum === "ozet" && (
@@ -239,6 +246,29 @@ export function PanoView({
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
+          {/* ÖLÇÜ SEÇİMİ ONAYDAN BAĞIMSIZ KAYDEDİLİR (PANO-34).
+              Düğme HER ZAMAN durur: ekrandaki ölçü ne ise o kaydedilir. Yalnız
+              adreste deneme varken göstermek, bir seçimi "Otomatik"e geri
+              çevirip kaydetmeyi imkânsız kılardı — geri alma da bir karardır. */}
+          {canEdit && (
+            <Button
+              size="sm"
+              disabled={bekle}
+              onClick={() =>
+                void calistir(
+                  () =>
+                    saveLayoutSettings(projectId, {
+                      room: sonuc.settings.room,
+                      field: sonuc.settings.field,
+                    }),
+                  "Ölçü tercihleri kaydedildi. Onay varsa parmak izi değiştiği için eskir."
+                )
+              }
+              title="Yükseklik / derinlik / baza seçimini projeye kaydeder. Onaylamaz."
+            >
+              <Save className="size-3.5" /> Ölçüleri Kaydet
+            </Button>
+          )}
           {canEdit && (
             <Button
               size="sm"
@@ -400,9 +430,15 @@ export function PanoView({
                           değişince sessizce geri alınırdı. */}
                       <Link
                         href={`/projects/${projectId}/pano/ic?${icSorgusu(p.code)}`}
-                        className="oc-tap font-mono font-semibold underline-offset-2 hover:underline"
+                        className="oc-tap font-mono font-semibold underline decoration-dotted underline-offset-4 hover:decoration-solid"
                       >
                         {p.code}
+                        {/* ALT ÇİZGİ KALICIDIR. Yalnız `hover:underline` iken
+                            dokunmatikte hiçbir işaret yoktu ve kullanıcı iç
+                            yerleşim sayfasını bulamadı (09.09.2026). */}
+                        <span aria-hidden className="ml-1 text-xs font-sans">
+                          →
+                        </span>
                       </Link>
                       {p.splitOf && (
                         <span className="ml-1 text-xs text-muted-foreground">({p.splitOf})</span>
@@ -554,10 +590,17 @@ export function PanoView({
               {sayi(sonuc.settings.room.baseMm)} mm.{" "}
             </>
           )}
+          {/* SAHADA ORTAK YÜKSEKLİK YOKTUR (PANO-33). "Ortak yükseklik 800 mm"
+              yazmak, alınmamış bir kararı bildirmek olurdu: kutuların boyu
+              300'den 1400'e kadar ayrı ayrı seçilir, ortak olan yalnız
+              derinliktir. */}
           {sonuc.fieldSize.panelCount > 0 && (
             <>
-              Saha dizisi: ortak yükseklik {sayi(sonuc.fieldSize.heightMm ?? 0)} mm · ortak
-              derinlik {sayi(sonuc.fieldSize.depthMm ?? 0)} mm · baza{" "}
+              Saha dizisi:{" "}
+              {sonuc.fieldSize.sharedHeight
+                ? `ortak yükseklik ${sayi(sonuc.fieldSize.heightMm ?? 0)} mm`
+                : `yükseklik kutu başına (en yüksek ${sayi(sonuc.fieldSize.heightMm ?? 0)} mm)`}{" "}
+              · ortak derinlik {sayi(sonuc.fieldSize.depthMm ?? 0)} mm · baza{" "}
               {sayi(sonuc.settings.field.baseMm)} mm.{" "}
             </>
           )}

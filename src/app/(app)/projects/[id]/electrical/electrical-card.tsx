@@ -56,6 +56,7 @@ import {
 } from "@/lib/electrical/filter";
 import type { ElectricalPart, ElectricalSheet } from "@/lib/electrical/types";
 import type { ElectricalCatalogReference } from "@/lib/electrical/catalogs";
+import type { PanoOzeti } from "./pano-ozeti";
 import { BosSonuc, MaterialTable, PartTable } from "./electrical-table";
 import {
   deleteElectricalDoc,
@@ -78,6 +79,7 @@ export function ElectricalCard({
   parts,
   catalogReferences,
   canEdit,
+  panoOzeti,
 }: {
   projectId: string;
   docs: ElectricalDoc[];
@@ -85,6 +87,8 @@ export function ElectricalCard({
   parts: ElectricalPart[];
   catalogReferences: ElectricalCatalogReference[];
   canEdit: boolean;
+  /** Belge okunduktan sonra çıkan pano özeti; hesaplanamadıysa `null`. */
+  panoOzeti?: PanoOzeti | null;
 }) {
   const girdi = useRef<HTMLInputElement>(null);
   const [yukleniyor, setYukleniyor] = useState(false);
@@ -301,6 +305,44 @@ export function ElectricalCard({
                 <Kunye etiket="Dosya" deger={`${current.fileName} · ${boyut(current.sizeBytes)}`} />
               </dl>
             )}
+
+            {/* ═══════════════════════════════════ PANO ÖZETİ (PANO-35)
+                Belge okunur okunmaz ne çıktığı burada görünür. SORUN VARSA
+                SATIR KEHRİBAR OLUR ve doğrudan pano sayfasına bağlanır:
+                bugüne kadar ölçüsü bilinmeyen bir sürücü ancak pano sayfası
+                açılıp sekme değiştirilince görülüyordu. */}
+            {panoOzeti && (
+              <a
+                href={`/projects/${projectId}/pano`}
+                className={`oc-tap mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border px-3 py-2 text-xs ${
+                  panoOzeti.tahminSayisi > 0 ||
+                  panoOzeti.eksikSayisi > 0 ||
+                  panoOzeti.hataliDenetim > 0
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300"
+                    : "bg-muted/40 text-muted-foreground"
+                }`}
+              >
+                <LayoutGrid className="size-3.5 shrink-0" />
+                <span className="font-medium">
+                  {panoOzeti.odaSayisi} oda + {panoOzeti.sahaSayisi} saha panosu
+                </span>
+                {panoOzeti.odaEniMm > 0 && (
+                  <span>· oda dizisi {panoOzeti.odaEniMm.toLocaleString("tr-TR")} mm</span>
+                )}
+                {panoOzeti.tahminSayisi > 0 && (
+                  <span>· {panoOzeti.tahminSayisi} aygıtın ölçüsü DOĞRULANMAMIŞ</span>
+                )}
+                {panoOzeti.eksikSayisi > 0 && (
+                  <span>· {panoOzeti.eksikSayisi} aygıt yerleşemedi</span>
+                )}
+                {panoOzeti.hataliDenetim > 0 && (
+                  <span>· {panoOzeti.hataliDenetim} denetim düştü</span>
+                )}
+                {panoOzeti.tahminSayisi === 0 &&
+                  panoOzeti.eksikSayisi === 0 &&
+                  panoOzeti.hataliDenetim === 0 && <span>· denetim temiz</span>}
+              </a>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {current && (
@@ -316,6 +358,11 @@ export function ElectricalCard({
               <Button size="sm" variant="outline" asChild>
                 <a href={`/projects/${projectId}/pano`}>
                   <LayoutGrid className="size-3.5" /> Pano Yerleşimi
+                  {panoOzeti && panoOzeti.odaSayisi + panoOzeti.sahaSayisi > 0 && (
+                    <span className="ml-1 rounded bg-muted px-1 font-mono text-[10px]">
+                      {panoOzeti.odaSayisi + panoOzeti.sahaSayisi}
+                    </span>
+                  )}
                 </a>
               </Button>
             )}

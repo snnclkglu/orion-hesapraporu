@@ -157,6 +157,30 @@ export async function loadPlacementOverrides(
   return out;
 }
 
+// ═════════════════════════════════════════════════ KAYDEDİLMİŞ AYARLAR
+
+/**
+ * Projenin KAYDEDİLMİŞ sipariş tercihleri — onaydan bağımsız (PANO-34).
+ *
+ * Onay tablosundaki `settings` bir SNAPSHOT'tır: "onaylandığı anda ayar buydu"
+ * der. Burası ise bugünkü karardır ve onay olmadan da yaşar. Kullanıcı bir
+ * yükseklik seçip sayfayı yenilediğinde seçiminin kaybolmasının sebebi, tek
+ * kalıcı yerin onay satırı olmasıydı.
+ */
+export async function loadSavedSettings(
+  supabase: SupabaseClient,
+  projectId: string
+): Promise<unknown> {
+  // TABLO YOKSA UYGULAMA ÇÖKMEZ: migration uygulanmamış bir ortamda okuma
+  // sessizce boş döner ve ekran öntanım ayarlarla çalışır.
+  const { data } = await supabase
+    .from("switchboard_settings")
+    .select("settings")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  return (data as { settings?: unknown } | null)?.settings ?? null;
+}
+
 // ═══════════════════════════════════════════════════════════════ ONAY
 
 export interface SwitchboardApproval {

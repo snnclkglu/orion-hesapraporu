@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadCurrentElectricalDoc, loadElectricalParts } from "@/lib/electrical/data";
 import {
   loadApproval,
+  loadSavedSettings,
   loadDeviceModels,
   loadPanelOverrides,
   loadPlacementOverrides,
@@ -19,9 +20,8 @@ import {
 import { computeSwitchboardLayout, type ComputeResult } from "@/lib/switchboard/compute";
 import { normalizeSettings } from "@/lib/switchboard/settings";
 import {
-  PANEL_BASE_HEIGHTS_MM,
-  PANEL_DEPTHS_MM,
-  PANEL_HEIGHTS_MM,
+  FIELD_GRID,
+  ROOM_GRID,
 } from "@/lib/switchboard/sizes";
 import type { LineupPrefs, PanelOverride } from "@/lib/switchboard/types";
 
@@ -70,26 +70,32 @@ export async function loadPanoVerisi(
   const belge = await loadCurrentElectricalDoc(supabase, projectId);
   const parcalar = belge ? await loadElectricalParts(supabase, belge.id) : [];
 
-  const [modeller, panoKararlari, yerlesimKararlari, onay] = await Promise.all([
+  const [modeller, panoKararlari, yerlesimKararlari, onay, kayitliAyar] = await Promise.all([
     loadDeviceModels(supabase),
     loadPanelOverrides(supabase, projectId),
     loadPlacementOverrides(supabase, projectId),
     loadApproval(supabase, projectId),
+    loadSavedSettings(supabase, projectId),
   ]);
 
   // İKİ DİZİ, İKİ AYRI ANAHTAR TAKIMI. Eski tekil anahtarlar (`yukseklik`,
   // `derinlik`, `baza`) ODANIN yedeği olarak kabul edilir: paylaşılmış eski bir
   // bağlantı çalışmayı sürdürsün. İkisine birden yazmak, kaldırılan bağlılığı
   // adres üzerinden geri getirirdi.
-  const eskiY = izgaradan(sorgu.yukseklik, PANEL_HEIGHTS_MM);
-  const eskiD = izgaradan(sorgu.derinlik, PANEL_DEPTHS_MM);
-  const eskiB = izgaradan(sorgu.baza, PANEL_BASE_HEIGHTS_MM);
+  //
+  // IZGARA DA DİZİYE GÖRE DEĞİŞİR (PANO-33): adresteki `sahaYukseklik=1600`
+  // odanın ızgarasında geçerli ama sahanınkinde YOKTUR ve sessizce yok
+  // sayılmalıdır — sipariş edilemeyecek bir ölçü bir bağlantıdan gelemez.
+  const eskiY = izgaradan(sorgu.yukseklik, ROOM_GRID.heights);
+  const eskiD = izgaradan(sorgu.derinlik, ROOM_GRID.depths);
+  const eskiB = izgaradan(sorgu.baza, ROOM_GRID.bases);
 
   const dizi = (onek: "oda" | "saha"): Partial<LineupPrefs> => {
     const oda = onek === "oda";
-    const y = izgaradan(sorgu[`${onek}Yukseklik`], PANEL_HEIGHTS_MM) ?? (oda ? eskiY : null);
-    const d = izgaradan(sorgu[`${onek}Derinlik`], PANEL_DEPTHS_MM) ?? (oda ? eskiD : null);
-    const b = izgaradan(sorgu[`${onek}Baza`], PANEL_BASE_HEIGHTS_MM) ?? (oda ? eskiB : null);
+    const izgara = oda ? ROOM_GRID : FIELD_GRID;
+    const y = izgaradan(sorgu[`${onek}Yukseklik`], izgara.heights) ?? (oda ? eskiY : null);
+    const d = izgaradan(sorgu[`${onek}Derinlik`], izgara.depths) ?? (oda ? eskiD : null);
+    const b = izgaradan(sorgu[`${onek}Baza`], izgara.bases) ?? (oda ? eskiB : null);
     return {
       ...(y !== null ? { heightMm: y } : {}),
       ...(d !== null ? { depthMm: d } : {}),
@@ -97,7 +103,12 @@ export async function loadPanoVerisi(
     };
   };
 
-  const kayitli = normalizeSettings(onay?.settings);
+  // AYAR ÜÇ KATMANDIR (PANO-34), en güçlüsü üstte:
+  //   1. Adresteki DENEME — kaydedilmemiş, paylaşılabilir, yenilemede kaybolur.
+  //   2. Kaydedilmiş ayar — onaydan bağımsız yaşar.
+  //   3. Onay anındaki ayar — yalnız ESKİ projeler için yedek; onay tablosu
+  //      08.09.2026 öncesinde tek kalıcı yerdi ve o satırlar kaybolmamalı.
+  const kayitli = normalizeSettings(kayitliAyar ?? onay?.settings);
 
   const sonuc = computeSwitchboardLayout({
     parts: parcalar,

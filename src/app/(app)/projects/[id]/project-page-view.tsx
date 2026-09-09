@@ -25,6 +25,7 @@ import { loadCurrentSpec } from "@/lib/project-specs";
 import { loadManual, loadManualRevisions } from "@/lib/manual/data";
 import { DeleteRevisionButton } from "./delete-revision-button";
 import { ElectricalCard } from "./electrical/electrical-card";
+import { panoOzetiCikar } from "./electrical/pano-ozeti";
 import { ManualCard, type ManualSourceStatus } from "./manual/manual-card";
 import { ProductPortalSection } from "./product-portal/product-portal-section";
 import { ProjectDetailHeader } from "./project-header";
@@ -167,6 +168,18 @@ export async function ProjectPageView({
     supabase,
     elektrikParcalar
   );
+
+  // ═══════════════════════════════════ YÜKLEMEDEN SONRA PANO ÖZETİ
+  //
+  // Brief "her elektrik projesi yüklemesinden sonra yerleşimi çalıştır" diyor.
+  // Plan SAKLANMADIĞI için (PANO-14) "çalıştırmak" kalıcı bir şey üretmez;
+  // kullanıcının gerçekten istediği HABERDAR OLMAKTIR — bugüne kadar bir
+  // sorun olduğunu ancak pano sayfasını açıp sekme değiştirerek öğreniyordu.
+  //
+  // ÖZET GERÇEK ÖLÇÜ DEFTERİYLE HESAPLANIR. Defter olmadan hesaplanan bir
+  // özet "ölçüsüz 0 aygıt" derdi ve bu, olmayan bir güveni bildirmek olurdu
+  // (değişmez md. 4).
+  const panoOzeti = await panoOzetiCikar(supabase, id, elektrikParcalar);
   const elKitabiRevizyonlari = elKitabi
     ? await loadManualRevisions(supabase, elKitabi.id)
     : [];
@@ -481,6 +494,7 @@ export async function ProjectPageView({
             parts={elektrikParcalar}
             catalogReferences={elektrikKataloglari}
             canEdit={canWriteReports}
+            panoOzeti={panoOzeti}
           />
         </TabsContent>}
 

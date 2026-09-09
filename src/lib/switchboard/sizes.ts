@@ -55,6 +55,81 @@ export const AUTO_HEIGHTS_MM = [1400, 1600, 1800, 2000] as const;
 
 export const DEFAULT_BASE_MM = 200;
 
+/**
+ * SAHA KUTUSU ODANIN IZGARASINI KULLANMAZ (kullanıcı kararı, 09.09.2026).
+ *
+ * Kullanıcının verdiği saha ızgarası: yükseklik 300…1400, en 400…800,
+ * derinlik 200…400. Ölçüldü — bugün ODANIN ızgarası dayatıldığı için her saha
+ * kutusu en küçük oda boyunu, 1400 mm'yi alıyordu ve %18…%53 doluydu:
+ * 0019'un `TBW` kutusunda 1250 mm'lik plakada 220 mm ray var.
+ *
+ * Duvara asılan bir klemens kutusu için 1400 mm ne gereklidir ne alışıldıktır;
+ * gerçek karşılığı 400 mm'dir.
+ */
+export const FIELD_HEIGHTS_MM = [
+  300, 400, 500, 600, 700, 800, 900, 1000, 1200, 1400,
+] as const;
+
+/** Saha kutusu enleri [mm]. */
+export const FIELD_WIDTHS_MM = [400, 500, 600, 700, 800] as const;
+
+/** Saha kutusu derinlikleri [mm] — 350 ODA ızgarasında YOKTUR. */
+export const FIELD_DEPTHS_MM = [200, 250, 300, 350, 400] as const;
+
+/**
+ * BİR DİZİNİN sipariş edilebilir gövde ızgarası (PANO-33).
+ *
+ * İki dizi iki ayrı ızgara kullanır ve bu ayrım ÇÖZÜCÜYE GİRDİDİR: `solveLineup`
+ * hangi diziyi çözdüğünü bilmez, çağıran ızgarayı da tercihi de birlikte verir
+ * (`SolveAllInput.prefs` ile aynı gerekçe).
+ */
+export interface LineupGrid {
+  widths: readonly number[];
+  heights: readonly number[];
+  depths: readonly number[];
+  bases: readonly number[];
+  /**
+   * Bunun ALTINDAKİ boy ancak RAHATÇA sığıyorsa seçilir (PANO-9);
+   * `null` = eşik yok, her zaman sığan EN KÜÇÜK gövde alınır.
+   */
+  preferredHeightMm: number | null;
+  /**
+   * Dizideki bütün gözler ORTAK yükseklik paylaşır mı?
+   *
+   * Odada EVET (PANO-2): yan yana dizilen gövdelerin üstü hizalı olmak
+   * zorundadır. Sahada HAYIR (kullanıcı kararı, 09.09.2026) — saha kutuları
+   * dizi değildir, her biri ayrı bir duvara/ayağa asılır.
+   */
+  sharedHeight: boolean;
+}
+
+/** Elektrik odası dizisinin ızgarası — kanonik `PANEL_*` sabitleri. */
+export const ROOM_GRID: LineupGrid = {
+  widths: PANEL_WIDTHS_MM,
+  heights: AUTO_HEIGHTS_MM,
+  depths: PANEL_DEPTHS_MM,
+  bases: PANEL_BASE_HEIGHTS_MM,
+  preferredHeightMm: PREFERRED_HEIGHT_MM,
+  sharedHeight: true,
+};
+
+/**
+ * Saha kutularının ızgarası.
+ *
+ * `preferredHeightMm` NULL'DUR ve bu bilinçlidir: 1800 eşiği "küçük iş küçük
+ * gövde alsın ama sıkışan iş tıkıştırılmasın" kuralıydı (PANO-9) ve 300 mm'lik
+ * bir klemens kutusunda karşılığı yoktur. Saha kutusu her zaman sığan EN KÜÇÜK
+ * boyu alır.
+ */
+export const FIELD_GRID: LineupGrid = {
+  widths: FIELD_WIDTHS_MM,
+  heights: FIELD_HEIGHTS_MM,
+  depths: FIELD_DEPTHS_MM,
+  bases: PANEL_BASE_HEIGHTS_MM,
+  preferredHeightMm: null,
+  sharedHeight: false,
+};
+
 /** Bu enden büyük panoda çift kapak SEÇİLEBİLİR; küçüğünde tek kapak zorunlu. */
 export const DOUBLE_DOOR_MIN_WIDTH_MM = 600;
 

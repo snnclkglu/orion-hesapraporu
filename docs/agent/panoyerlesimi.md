@@ -956,6 +956,139 @@ gerçek yerleşim ölçücüsünü (`blokOlcusu`) kullanan bir testle çivilenmi
 altyazı ve görsel payı da yüksekliğe girer ve ikinci bir formül yazmak ikisini
 ayrıştırırdı.
 
+## PANO-33 — Saha kutusu KENDİ ızgarasını ve KENDİ ölçüsünü alır.
+
+Kullanıcının verdiği saha ızgarası (09.09.2026): yükseklik **300 · 400 · 500 ·
+600 · 700 · 800 · 900 · 1000 · 1200 · 1400**, en **400 · 500 · 600 · 700 ·
+800**, derinlik **200 · 250 · 300 · 350 · 400**. Odanınkiyle ortak yalnız en
+tarafıdır; 350 mm derinlik yalnız sahada, 1600/1800/2000 yalnız odada vardır.
+
+`LineupGrid` bunu taşır (`sizes.ts`) ve `solveLineup`a GİRDİDİR — çözücü hangi
+diziyi çözdüğünü bilmez, çağıran ızgarayı da tercihi de birlikte verir
+(`SolveAllInput.prefs` ile aynı gerekçe).
+
+**ORTAK YÜKSEKLİK YALNIZ ODADADIR.** PANO-2 dizideki gözlerin ortak boy ve
+ortak derinlik paylaşmasını istiyordu; gerekçesi yan yana dizilen gövdelerin
+üst hizasıdır. Saha kutuları dizi DEĞİLDİR: her biri ayrı bir duvara, ayağa ya
+da makinenin üstüne asılır ve hizalanacak bir komşusu yoktur. Ölçüldü
+(09.09.2026): ortak boy dayatıldığı için bütün saha kutuları odanın EN KÜÇÜK
+boyunu, 1400 mm'yi alıyordu ve %18…%53 doluydu — 0019'un `TBW`sinde 1250 mm'lik
+plakada 220 mm ray vardı. `sharedHeight: false` iken her pano TEK GÖZLÜ BİR
+DİZİ olarak çözülür ve sonuçlar birleştirilir; ayrı bir arama kodu yazılmaz,
+bölme/harfleme/kilit/denetim olduğu gibi çalışır.
+
+**ORTAK DERİNLİK HER İKİ DİZİDE DE KORUNUR.** Kullanıcıya sorulan yalnız
+yükseklikti; derinlik kablo kanalı ve montaj plakası siparişini bağlar.
+
+**1800 EŞİĞİ YALNIZ ODANINDIR** (`preferredHeightMm`). O eşik "küçük iş küçük
+gövde alsın ama sıkışan iş tıkıştırılmasın" kuralıydı (PANO-9) ve 300 mm'lik
+bir klemens kutusunda karşılığı yoktur.
+
+**TEK KUTUDA ÖLÇÜT ALANDIR, BOY DEĞİL.** Diziyi çözerken önce boy küçültülür,
+çünkü boy bütün gözlerde ortaktır ve her göz ondan pay alır. Tek kutuda böyle
+bir ortaklık yoktur ve "önce en alçağı" ölçütü ölçüldüğü gibi ters teper:
+0019'un `TB3`ü 500 mm boy uğruna 800 mm'ye genişliyordu (0,40 m²), oysa
+400 × 600 (0,24 m²) aynı üç cihazı alıyor ve duvara asılan bir kutuda asıl
+sıkıntı olan GENİŞLİK yarıya iniyor. Bu yüzden ortak boy yokken bütün boylar
+denenir ve ÖN YÜZ ALANI en küçük olan seçilir; eşitlikte alçak olan kazanır.
+
+**TEK KUTUDA KİLİT TABAN DEĞİL KİLİTTİR.** Dizide bir panonun kilitlediği boy
+ancak "bundan alçak olamaz" diyebilir, çünkü gözler aynı boyu paylaşmak
+zorundadır. Ortak boy yokken böyle bir zorunluluk yoktur: kullanıcı o kutuyu
+600 mm istediyse 600 mm alır.
+
+**ÇİZİM DE BUNU BİLİR.** Dizilim şeması `panels[0].heightMm` okuyordu ve beş
+kutunun beşini de birincinin boyunda çiziyordu. Gözler artık ORTAK ZEMİNE —
+bazanın üstüne — oturur, üst hizaları serbesttir; her gözün kendi boyu en
+ölçüsünün altına yazılır ve dikey ölçü zinciri "en yüksek" der. Baza kullanıcı
+kararıyla sahada da vardır ("oda gibi baza olsun", 09.09.2026).
+
+**EKRAN VE PDF "KUTU BAŞINA" YAZAR.** `LineupSize.sharedHeight` false iken
+`heightMm` en yüksek gözünkidir ve tek başına bir sipariş kararı DEĞİLDİR;
+"ortak yükseklik 800 mm" yazmak, alınmamış bir kararı bildirmek olurdu.
+
+**AYAR EKRANINDAKİ SEÇENEK LİSTESİ DE DİZİYE GÖREDİR.** Odanın ızgarasını saha
+kutusuna göstermek, sipariş edilemeyecek bir ölçüyü seçtirirdi. Adresten gelen
+ızgara dışı değer sessizce yok sayılır; `savePanel` ise İKİ IZGARANIN
+BİRLEŞİMİNE bakar, çünkü o eylem panonun oda mı saha mı olduğunu bilmez ve işi
+yalnız hiçbir imalatçının kesmediği bir ara ölçüyü reddetmektir.
+
+## PANO-34 — Ayar ONAYDAN BAĞIMSIZ saklanır; onay yine parmak izine bağlıdır.
+
+Yükseklik/derinlik/baza seçimi 09.09.2026'ya kadar yalnız İKİ yerde yaşıyordu:
+adres çubuğunda (deneme) ve `switchboard_approvals.settings` içinde. Yani "2000
+mm istiyorum ama henüz onaylamıyorum" demek mümkün değildi — kullanıcı bir ölçü
+seçip sayfayı yeniliyor ve seçimi sessizce kayboluyordu.
+
+`switchboard_settings` bu boşluğu kapatır. **Ayarı kaydetmek ONAYLAMAK
+DEĞİLDİR.** Ayar girdinin parçası olduğu için kaydedilen ayar parmak izini
+değiştirir ve varsa onay kendiliğinden eskir (PANO-14) — istenen davranış
+budur: gövde ölçüsü değişmiş bir planı eski onayla imalata göndermek, bu modülün
+baştan beri engellediği şeydir.
+
+**AYAR ÜÇ KATMANDIR**, en güçlüsü üstte:
+
+1. **Adresteki deneme** — kaydedilmemiş, paylaşılabilir, yenilemede kaybolur.
+2. **Kaydedilmiş ayar** (`switchboard_settings`) — onaydan bağımsız yaşar.
+3. **Onay anındaki ayar** — yalnız ESKİ projeler için yedek; onay tablosu
+   08.09.2026 öncesinde tek kalıcı yerdi ve o satırlar kaybolmamalı.
+
+Kaydet düğmesi HER ZAMAN durur, yalnız adreste deneme varken değil: bir seçimi
+"Otomatik"e geri çevirip kaydetmek de bir karardır.
+
+**PLAN YİNE SAKLANMAZ.** Burada duran şey plan değil, kullanıcının SİPARİŞ
+TERCİHİDİR — girdi sınıfındandır, çıktı değil.
+
+## PANO-35 — Kart, belge okunur okunmaz PANO ÖZETİNİ gösterir.
+
+Brief "sistem her elektrik projesi yüklemesinden sonra yerleşimi çalıştırsın"
+diyor. Plan SAKLANMADIĞI için (PANO-14) "çalıştırmak" kalıcı bir şey üretmez;
+kullanıcının gerçekten istediği HABERDAR OLMAKTIR. Elektrik Projesi kartı tek
+satırlık bir özet basar: kaç oda + kaç saha panosu, oda dizisinin toplam eni,
+ölçüsü doğrulanmamış aygıt sayısı, yerleşemeyen aygıt sayısı, düşen denetim
+sayısı. Sorun varsa satır kehribar olur ve pano sayfasına bağlanır.
+
+**ÖZET AYNI SAF ÇEKİRDEKTEN GELİR** (`computeSwitchboardLayout`) ve GERÇEK ölçü
+defteriyle hesaplanır. İkinci bir "hızlı hesap" yazmak kartla sayfanın
+ayrışmasının en kısa yoludur (değişmez md. 8); defter olmadan hesaplamak ise
+"ölçüsüz 0 aygıt" derdi ve olmayan bir güveni bildirirdi (değişmez md. 4).
+
+**"EKSİK" DAR TANIMLIDIR:** `olcusuz` + `sigmadi` + `siniflanmamis`. `saha` bir
+eksik değil bir KARARDIR (pano dışı ekipman), `urunsuz` ise malzeme listesinin
+boşluğudur; ikisini de kırmızı saymak gerçek eksiği gölgelerdi (PANO-10).
+
+## PANO-36 — MODELLENMEYENLER: bu modülün HESAPLAMADIĞI şeyler.
+
+Bir kural defterinin en tehlikeli boşluğu, yokluğu YAZILMAMIŞ olandır. Bu
+modülü okuyan biri bugüne kadar panonun ağırlığının hesaplanmadığını hiçbir
+yerden öğrenemiyordu. Aşağıdakiler BİLEREK kapsam dışıdır ve bir gün
+isteniyorsa AYRI birer iştir:
+
+- **Ağırlık** — ne gövde sacı, ne cihazlar, ne toplam. Kaldırma ve taşıma
+  hesabı yapılamaz.
+- **Bara ve bara hücresi** — ana bara kesiti, mesnet aralığı, kısa devre
+  kuvveti, bara hücresi ayrımı. Bugün ana şalter yalnız bir kutudur.
+- **IP koruma sınıfı** — oda panosu ile duvara asılan saha kutusunun IP'si
+  gerçekte farklıdır; hiçbiri seçilmiyor.
+- **Klemens numaralandırma ve klemens planı** — klemensler yerleşiyor ama
+  numaralanmıyor; imalatçıya giden bir klemens planı yok.
+- **Kablo giriş detayı** — rakor tipi/çapı/adedi, giriş sacı, bükülme yarıçapı.
+  Baza yalnız "kablo girişi buradandır" diye çiziliyor.
+- **Topraklama** — topraklama barası, kapak topraklama örgüsü, PE kesiti.
+- **Havalandırma ve ısı yükü** — cihazların kaybı, fan/filtre seçimi, iç
+  sıcaklık. `defaultClearanceMm` bir ısı hesabı DEĞİLDİR.
+- **Kaldırma kulakları · pano birleştirme donanımı · etiket/gravür listesi.**
+- **Kapak kesim koordinatları** — kapak yerleşimi 90 mm'lik bir KROKİ
+  ızgarasıdır (PANO-22) ve çizim bunu kendi altyazısında söyler. Sığmayan aygıt
+  ARTIK SESSİZCE DÜŞMÜYOR: `sigmadi` kuyruğuna girer ve panonun kendi uyarısına
+  yazılır (PANO-10).
+
+Bir de dürüstlük notu: **bütün pay değerleri uygulamanın kendi seçimidir**
+(`railDuctMm 60`, `defaultClearanceMm 100`, `backGapMm 40`, `plateSideMm 30`,
+`edgeGapMm 25`, `familyGapMm 10`, `fillWarnRatio 0,8` …). Bir standarttan
+gelmiyorlar; `sizes.ts` bunu söylüyor ama defter söylemiyordu. Hepsinin
+ekrandan görülebilir ve düzeltilebilir olmasının sebebi budur.
+
 ## ÖLÇÜM — gerçek iki iş (08.09.2026)
 
 Modülün var oluş sebebi iki işte birden ölçüldü. Sayılar

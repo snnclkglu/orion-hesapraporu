@@ -19,7 +19,7 @@ import {
   naturalCompare,
   panelKindFor,
 } from "./panels";
-import { DEFAULT_SETTINGS } from "./sizes";
+import { DEFAULT_SETTINGS, FIELD_GRID, ROOM_GRID } from "./sizes";
 import type {
   DeviceBox,
   DeviceModel,
@@ -156,8 +156,11 @@ export function computeSwitchboardLayout(input: ComputeInput): ComputeResult {
   // HER DİZİ KENDİ TERCİHİYLE ÇÖZÜLÜR (PANO-2). Tek bir yükseklik/derinlik
   // ayarı ikisine birden dayatıldığında, duvara asılan bir saha kutusu
   // elektrik odasındaki 2000 mm'lik gövdenin ölçüsünü alıyordu.
-  const oda = solveLineup({ panels: odaGirdi, settings, prefs: settings.room });
-  const saha = solveLineup({ panels: sahaGirdi, settings, prefs: settings.field });
+  //
+  // IZGARA DA AYRIDIR (PANO-33, kullanıcı kararı 09.09.2026): saha kutusunun
+  // boy ızgarası 300'den başlar ve gözler ortak boy paylaşmaz.
+  const oda = solveLineup({ panels: odaGirdi, settings, prefs: settings.room, izgara: ROOM_GRID });
+  const saha = solveLineup({ panels: sahaGirdi, settings, prefs: settings.field, izgara: FIELD_GRID });
 
   const unplaced: Unplaced[] = [...oda.unplaced, ...saha.unplaced];
 
@@ -217,6 +220,7 @@ export function computeSwitchboardLayout(input: ComputeInput): ComputeResult {
       heightMm: oda.layouts.length ? oda.heightMm : null,
       depthMm: oda.layouts.length ? oda.depthMm : null,
       panelCount: oda.layouts.length,
+      sharedHeight: oda.sharedHeight,
     },
     // Bütün aygıtlar — hangi kuyruğa düştüğünden bağımsız.
     devices: [...byPanel.values()].flat().sort((a, b) => naturalCompare(a.label, b.label)),
@@ -232,6 +236,7 @@ export function computeSwitchboardLayout(input: ComputeInput): ComputeResult {
       heightMm: saha.layouts.length ? saha.heightMm : null,
       depthMm: saha.layouts.length ? saha.depthMm : null,
       panelCount: saha.layouts.length,
+      sharedHeight: saha.sharedHeight,
     },
     estimatedCount: tahminAnahtarlari.size,
     fingerprint,

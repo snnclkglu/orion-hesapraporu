@@ -71,6 +71,13 @@ describe("ölçüm ailesi ikiye ayrılır", () => {
     { designation: "Precision resistance thermometer PT100", typeNo: "ELC.PT100 Series" },
     { designation: "Load cell pin type", typeNo: "LPW1-65MM" },
     { designation: "Pressure transmitter 0-10 bar", typeNo: "PTX-1000" },
+    // YÜK PİMİ HALATIN/KANCANIN ÜSTÜNDEDİR. Ölçüldü (09.09.2026): 0026'nın
+    // `TBM` panosundaki `LPW1` "Crane Loadpin" 96 x 96 mm'lik bir PANO
+    // GÖSTERGESİ sayılıp panoya giriyordu — `LOAD CELL` biliniyordu ama aynı
+    // ailenin pim biçimi bilinmiyordu.
+    { designation: "Crane Loadpin", typeNo: "LPW1" },
+    { designation: "Load Pin with amplifier", typeNo: "KOB.LPW1" },
+    { designation: "Yuk pimi 5 ton", typeNo: "YP-5T" },
   ];
 
   for (const ornek of sahaOrnekleri) {

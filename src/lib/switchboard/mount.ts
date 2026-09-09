@@ -272,6 +272,13 @@ function sahaElemaniMi(metin: string): boolean {
     "REZISTANS TERMOMETRE",
     "LOAD CELL",
     "YUK HUCRESI",
+    // YÜK PİMİ HALATIN/KANCANIN ÜSTÜNDEDİR. Ölçüldü: 0026'nın `TBM` panosunda
+    // `LPW1` ("Crane Loadpin"), 0019'da `LPW1-65MM` — ikisi de 96 x 96 mm'lik
+    // pano göstergesi sayılıp panoya giriyordu. `LOAD CELL` biliniyordu ama
+    // aynı ailenin pim biçimi bilinmiyordu.
+    "LOADPIN",
+    "LOAD PIN",
+    "YUK PIMI",
     "TRANSMITTER",
     "TRANSDUCER",
     "NPT",

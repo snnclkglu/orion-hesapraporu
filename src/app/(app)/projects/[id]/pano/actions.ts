@@ -16,10 +16,8 @@ import { createClient } from "@/lib/supabase/server";
 import { canEditReports } from "@/lib/roles";
 import { electricalCatalogLookupKey } from "@/lib/electrical/catalogs";
 import {
-  PANEL_BASE_HEIGHTS_MM,
-  PANEL_DEPTHS_MM,
-  PANEL_HEIGHTS_MM,
-  PANEL_WIDTHS_MM,
+  FIELD_GRID,
+  ROOM_GRID,
 } from "@/lib/switchboard/sizes";
 
 type Sonuc = { ok: true } | { error: string };
@@ -44,21 +42,36 @@ async function yetkiliMi(): Promise<
 }
 
 /** Izgara dışı bir ölçü kabul edilmez: pano imalatçısı ara ölçü kesmez. */
-const izgarada = (izgara: readonly number[]) =>
+const izgarada = (...izgaralar: readonly (readonly number[])[]) =>
   z
     .number()
-    .refine((v) => izgara.includes(v), { message: "Ölçü listede yok." })
+    .refine((v) => izgaralar.some((g) => g.includes(v)), { message: "Ölçü listede yok." })
     .nullable();
+
+/**
+ * İKİ IZGARANIN BİRLEŞİMİ (PANO-33).
+ *
+ * Bu eylem panonun oda mı saha mı olduğunu BİLMEZ — `kind` gönderilmemiş de
+ * olabilir ve gönderilse bile hangi ızgaranın geçerli olduğunu çözücü
+ * uygular. Doğrulamanın işi, hiçbir imalatçının kesmediği bir ara ölçüyü
+ * (mesela 1500 mm) reddetmektir; iki ızgaradan birinde varsa geçerlidir.
+ */
+const HER_IKI = {
+  widths: [ROOM_GRID.widths, FIELD_GRID.widths],
+  heights: [ROOM_GRID.heights, FIELD_GRID.heights],
+  depths: [ROOM_GRID.depths, FIELD_GRID.depths],
+  bases: [ROOM_GRID.bases, FIELD_GRID.bases],
+} as const;
 
 const PanoSemasi = z.object({
   projectId: z.string().uuid(),
   code: z.string().min(1).max(64),
   name: z.string().max(160).default(""),
   kind: z.enum(["oda", "saha", "haric"]).nullable().default(null),
-  widthMm: izgarada(PANEL_WIDTHS_MM).default(null),
-  heightMm: izgarada(PANEL_HEIGHTS_MM).default(null),
-  depthMm: izgarada(PANEL_DEPTHS_MM).default(null),
-  baseMm: izgarada(PANEL_BASE_HEIGHTS_MM).default(null),
+  widthMm: izgarada(...HER_IKI.widths).default(null),
+  heightMm: izgarada(...HER_IKI.heights).default(null),
+  depthMm: izgarada(...HER_IKI.depths).default(null),
+  baseMm: izgarada(...HER_IKI.bases).default(null),
   doorConfig: z.enum(["tek", "cift"]).nullable().default(null),
   orderIndex: z.number().int().nullable().default(null),
   note: z.string().max(500).default(""),
@@ -331,6 +344,57 @@ export async function saveDeviceModel(girdi: z.input<typeof OlcuSemasi>): Promis
   if (error) return { error: error.message };
 
   revalidatePath(`/projects/${v.projectId}/pano`);
+  return { ok: true };
+}
+
+/**
+ * Dizi ölçü tercihlerini KAYDEDER — onaylamadan (PANO-34).
+ *
+ * Bugüne kadar tek kalıcı yer onay satırıydı: kullanıcı bir yükseklik seçip
+ * sayfayı yenilediğinde seçimi sessizce kayboluyordu, çünkü seçim yalnız adres
+ * çubuğunda yaşıyordu. Ayarı kaydetmek ONAYLAMAK DEĞİLDİR; ayar girdinin
+ * parçası olduğu için parmak izi değişir ve varsa onay kendiliğinden eskir.
+ *
+ * IZGARA BURADA DA DENETLENİR: ara ölçü hiçbir imalatçının kesmediği bir
+ * gövdedir ve bir adres parametresinden gelmiş olabilir.
+ */
+const DiziAyariSemasi = z.object({
+  heightMm: izgarada(...HER_IKI.heights).optional(),
+  depthMm: izgarada(...HER_IKI.depths).optional(),
+  baseMm: z
+    .number()
+    .refine((v) => HER_IKI.bases.some((g) => g.includes(v)), { message: "Baza listede yok." })
+    .optional(),
+});
+
+const AyarSemasi = z.object({
+  room: DiziAyariSemasi.default({}),
+  field: DiziAyariSemasi.default({}),
+});
+
+export async function saveLayoutSettings(
+  projectId: string,
+  ayar: z.input<typeof AyarSemasi>
+): Promise<Sonuc> {
+  const kapi = await yetkiliMi();
+  if ("error" in kapi) return kapi;
+  if (!z.string().uuid().safeParse(projectId).success) return { error: "Geçersiz proje." };
+
+  const g = AyarSemasi.safeParse(ayar);
+  if (!g.success) return { error: g.error.issues[0]?.message ?? "Ayar okunamadı." };
+
+  const { error } = await kapi.supabase.from("switchboard_settings").upsert(
+    {
+      project_id: projectId,
+      settings: g.data as unknown as Record<string, unknown>,
+      updated_by: kapi.userId,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "project_id" }
+  );
+  if (error) return { error: error.message };
+
+  revalidatePath(`/projects/${projectId}/pano`);
   return { ok: true };
 }
 

@@ -399,8 +399,13 @@ export function PanoLayoutDocument({ sonuc, meta, company }: PanoLayoutProps) {
           )}
           {sonuc.fieldSize.panelCount > 0 && (
             <>
+              {/* SAHADA ORTAK YÜKSEKLİK YOKTUR (PANO-33): kutu başına
+                  seçilir. Tek bir sayıyı "SAHA YÜKSEKLİK" diye basmak,
+                  imalatçıya beş kutunun beşini de o boyda kestirirdi. */}
               <View style={S.kutu}>
-                <Text style={S.kutuBaslik}>SAHA YÜKSEKLİK</Text>
+                <Text style={S.kutuBaslik}>
+                  {sonuc.fieldSize.sharedHeight ? "SAHA YÜKSEKLİK" : "SAHA EN YÜKSEK"}
+                </Text>
                 <Text style={S.kutuDeger}>{say(sonuc.fieldSize.heightMm)}</Text>
               </View>
               <View style={S.kutu}>

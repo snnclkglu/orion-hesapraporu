@@ -49,10 +49,9 @@ import {
 } from "@/lib/diagrams/panoLayout";
 import { COLOR_GROUP_LABEL, MOUNT_LABEL, ZONE_LABEL } from "@/lib/switchboard/mount";
 import {
-  PANEL_BASE_HEIGHTS_MM,
-  PANEL_DEPTHS_MM,
-  PANEL_HEIGHTS_MM,
+  FIELD_GRID,
   PANEL_WIDTHS_MM,
+  ROOM_GRID,
 } from "@/lib/switchboard/sizes";
 import type { ComputeResult } from "@/lib/switchboard/compute";
 import type {
@@ -185,6 +184,10 @@ export function KapakSemasi({
  * Adres anahtarları önekle ayrılır (`odaYukseklik`, `sahaYukseklik`): tek bir
  * `yukseklik` anahtarı iki diziye birden yazıyordu ve kullanıcı odayı 2000'e
  * çektiğinde duvara asılan saha kutusu da 2000 oluyordu.
+ *
+ * SEÇENEK LİSTESİ DE DİZİYE GÖRE DEĞİŞİR (PANO-33): odada 1400…2000, sahada
+ * 300…1400 ve derinlikte 350 yalnız sahada vardır. Odanın ızgarasını saha
+ * kutusuna göstermek, sipariş edilemeyecek bir ölçüyü seçtirirdi.
  */
 export function OlcuGrubu({
   baslik,
@@ -199,6 +202,7 @@ export function OlcuGrubu({
   cozulen: LineupSize;
   onChange: (anahtar: string, deger: string) => void;
 }) {
+  const izgara = onek === "saha" ? FIELD_GRID : ROOM_GRID;
   return (
     <div className="grid gap-1.5">
       <span className="oc-kicker text-[10px] text-muted-foreground">{baslik}</span>
@@ -207,20 +211,21 @@ export function OlcuGrubu({
           etiket="Yükseklik"
           deger={tercih.heightMm}
           cozulen={cozulen.heightMm}
-          secenekler={PANEL_HEIGHTS_MM}
+          otomatikNotu={cozulen.sharedHeight ? undefined : "kutu başına"}
+          secenekler={izgara.heights}
           onChange={(v) => onChange(`${onek}Yukseklik`, v)}
         />
         <OlcuSecici
           etiket="Derinlik"
           deger={tercih.depthMm}
           cozulen={cozulen.depthMm}
-          secenekler={PANEL_DEPTHS_MM}
+          secenekler={izgara.depths}
           onChange={(v) => onChange(`${onek}Derinlik`, v)}
         />
         <OlcuSecici
           etiket="Baza"
           deger={tercih.baseMm}
-          secenekler={PANEL_BASE_HEIGHTS_MM}
+          secenekler={izgara.bases}
           onChange={(v) => onChange(`${onek}Baza`, v)}
           zorunlu
         />
@@ -236,6 +241,7 @@ export function OlcuSecici({
   onChange,
   zorunlu,
   cozulen,
+  otomatikNotu,
 }: {
   etiket: string;
   deger: number | null;
@@ -244,6 +250,13 @@ export function OlcuSecici({
   zorunlu?: boolean;
   /** Kullanıcı seçmediyse aramanın bulduğu ölçü — yalnız gösterim. */
   cozulen?: number | null;
+  /**
+   * "Otomatik (N mm)" yanına eklenen açıklama.
+   *
+   * Sahada yükseklik KUTU BAŞINA seçilir; parantezdeki sayı dizinin ortak
+   * kararı değil, en yüksek kutununkidir (PANO-33).
+   */
+  otomatikNotu?: string;
 }) {
   return (
     <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -257,7 +270,13 @@ export function OlcuSecici({
         {/* KARAR ≠ OLGU: kutu kullanıcının SEÇİMİNİ gösterir, sistemin
             bulduğunu değil. İkisi ayrışmasın diye bulunan ölçü "Otomatik"in
             yanında parantez içinde durur. */}
-        {!zorunlu && <option value="">{cozulen ? `Otomatik (${sayi(cozulen)} mm)` : "Otomatik"}</option>}
+        {!zorunlu && (
+          <option value="">
+            {cozulen
+              ? `Otomatik (${otomatikNotu ? `${otomatikNotu}, ` : ""}${sayi(cozulen)} mm)`
+              : "Otomatik"}
+          </option>
+        )}
         {secenekler.map((v) => (
           <option key={v} value={v}>
             {sayi(v)} mm
