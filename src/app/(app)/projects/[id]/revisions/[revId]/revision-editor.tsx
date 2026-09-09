@@ -1,4 +1,6 @@
 "use client";
+import { AutoSelectionReview } from "@/components/auto-selection-review";
+import { AutoSelectionDecisions } from "@/components/auto-selection-decisions";
 
 // Revizyon editörü — bölüm bölüm ilerleyen sihirbaz yapısı.
 // Adım sırası: 01 Teknik Özellikler → 02 Ana Kaldırma → 03 Yrd Kaldırma →
@@ -12,6 +14,9 @@
 //
 // Modüllerin sunum farkları module-adapters.ts'te tek tipe indirgenmiştir.
 
+import { AutoSelectionDialog } from "@/components/auto-selection-dialog";
+import { contentHash, selectionSourceHash, type SelectionTrace, type EquipmentRow } from "@/lib/auto-selection/types";
+import { undoSelection } from "@/lib/auto-selection/undo";
 import {
   useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition,
 } from "react";
@@ -1396,10 +1401,14 @@ function StatusSlot({ children }: { children: React.ReactNode }) {
 
 export function RevisionEditor({
   projectId, revisionId, readOnly, initial, initialAlts, initialSectionNotes, initialDisabled,
-  initialHidden, initialHiddenDiagrams, initialWeightBreakdown, craneType,
+  initialHidden, initialHiddenDiagrams, initialWeightBreakdown, craneType, initialAutoSelection, initialSourceWarnings, initialUpdatedAt, previewCatalog,
 }: {
   projectId: string;
   revisionId: string;
+  initialAutoSelection?: SelectionTrace;
+  initialSourceWarnings?: string[];
+  initialUpdatedAt?: string;
+  previewCatalog?: EquipmentRow[];
   readOnly: boolean;
   /** Tüm bölümlerin verisi (kapalılar dâhil) — kapalı bölüm tekrar açılabilsin */
   initial: CalcInput;
@@ -1430,6 +1439,9 @@ export function RevisionEditor({
    */
   craneType?: string;
 }) {
+  const [autoSelection, setAutoSelection] = useState<SelectionTrace | undefined>(initialAutoSelection);
+  const [savedAt, setSavedAt] = useState(initialUpdatedAt);
+  const [selectionUndo, setSelectionUndo] = useState<{ before: ModulesState; after: ModulesState; specsBefore: TechnicalSpecs; specsAfter: TechnicalSpecs; enabledBefore: Record<ModuleKey, boolean>; enabledAfter: Record<ModuleKey, boolean>; trace?: SelectionTrace } | null>(null);
   const [specs, setSpecs] = useState(initial.specs);
   const [mods, setMods] = useState<ModulesState>(() => initModules(initial));
   const [alts, setAlts] = useState<AltsMap>(initialAlts ?? {});
@@ -1501,7 +1513,7 @@ export function RevisionEditor({
       return;
     }
     setDirty(true);
-  }, [specs, mods, alts, sectionNotes, enabled, hiddenSections, hiddenDiagrams]);
+  }, [specs, mods, alts, sectionNotes, enabled, hiddenSections, hiddenDiagrams, autoSelection, agirlikDurum.overrides, agirlikDurum.notes, agirlikDurum.serbest, agirlikDurum.ayakYuksekligiM]);
 
   // Kayıp koruması: tarayıcı kapanışı/yenileme için beforeunload, uygulama içi
   // gezinme (Link tıklaması) için capture fazında confirm.
@@ -2015,7 +2027,12 @@ export function RevisionEditor({
     setAlts({ ...alts, [altKey]: { active: 0, options } });
   }
 
+  const editorFingerprint = contentHash({ specs, mods, alts, sectionNotes, enabled, hiddenSections: [...hiddenSections], hiddenDiagrams: [...hiddenDiagrams], agirlikDurum, autoSelection });
+  const currentFingerprint = useRef(editorFingerprint);
+  useEffect(() => { currentFingerprint.current = editorFingerprint; }, [editorFingerprint]);
+  useEffect(() => { window.dispatchEvent(new CustomEvent("orion:revision-dirty", { detail: { revisionId, dirty } })); }, [revisionId, dirty]);
   function handleSave() {
+    const savingFingerprint = editorFingerprint;
     startTransition(async () => {
       const res = await saveRevision(
         projectId,
@@ -2035,11 +2052,14 @@ export function RevisionEditor({
           notes: agirlikDurum.notes,
           serbest: agirlikDurum.serbest,
           ayakYuksekligiM: agirlikDurum.ayakYuksekligiM,
-        }
+        },
+        autoSelection ?? null,
+        savedAt
       );
       if (res.error) toast.error(res.error);
       else {
-        setDirty(false);
+        if (currentFingerprint.current === savingFingerprint) setDirty(false);
+        if (res.updatedAt) setSavedAt(res.updatedAt);
         toast.success("Revizyon kaydedildi.");
       }
     });
@@ -2226,12 +2246,43 @@ export function RevisionEditor({
     return (
       <Card className={cardSpacing}>
         <CardHeader className="border-b pb-2 sm:pb-4">
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
             <span className="inline-flex h-6 items-center bg-primary/10 px-2 font-mono text-xs font-semibold tabular-nums text-primary">
               01
             </span>
             <span className="tracking-tight">Teknik Özellikler</span>
+            {!readOnly && <AutoSelectionDialog revisionId={revisionId} previewRows={previewCatalog}
+              request={{ specs, modules: mods, active: MODULE_ORDER.filter(key => activeSet.has(key)), craneType, weightBreakdown: agirlikDurum }}
+              onApply={proposal => {
+                if (readOnly || selectionSourceHash(specs, mods, MODULE_ORDER.filter(key => activeSet.has(key))) !== proposal.trace.sourceHash) return "Rapor seçim sürerken değişti. Yeni değerleri korumak için sonuç uygulanmadı; yeniden başlatın.";
+                if (contentHash(agirlikDurum) !== proposal.trace.weightSourceHash) return "Ağırlık dökümü seçim sırasında değişti. Güncel ağırlıklarla yeniden başlatın.";
+                const nextEnabled = { ...enabled, ...Object.fromEntries((proposal.active ?? []).map(key => [key, true])) };
+                setSelectionUndo({ before: mods, after: proposal.modules, specsBefore: specs, specsAfter: proposal.specs, enabledBefore: enabled, enabledAfter: nextEnabled, trace: autoSelection });
+                setEnabled(nextEnabled);
+                setMods(proposal.modules); setSpecs(proposal.specs); setAutoSelection(proposal.trace); setDirty(true);
+                return undefined;
+              }} />}
+
           </CardTitle>
+          {initialSourceWarnings?.length ? <details className="rounded-md border bg-muted/30 p-3 text-sm"><summary className="oc-tap cursor-pointer">Tekliften alınan teknik özelliklerin kontrol notları ({initialSourceWarnings.length})</summary><ul className="list-disc space-y-1 pl-5">{initialSourceWarnings.map((message, index) => <li key={index}>{message}</li>)}</ul></details> : null}
+          {autoSelection && <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+            <p>{autoSelection.decisions.length} hızlı ekipman seçimi · {autoSelection.status === "incomplete" ? "Tamamlanacak kontroller var" : "İnceleme bekliyor"}
+              {selectionSourceHash(specs, mods, MODULE_ORDER.filter(key => activeSet.has(key))) !== autoSelection.resultHash ? " · Seçimden sonra rapor değişti" : ""}</p>
+            <AutoSelectionDecisions decisions={autoSelection.decisions} />
+            <details><summary className="oc-tap cursor-pointer">Kalan kontroller</summary><ul className="max-h-52 space-y-2 overflow-y-auto pt-2">{autoSelection.issues.map(issue => <li key={issue.code}>{issue.message}</li>)}</ul></details>
+            <AutoSelectionReview key={autoSelection.createdAt} trace={autoSelection} input={calcInput} readOnly={readOnly} onChange={setAutoSelection} />
+            {selectionUndo && !readOnly && <Button type="button" variant="outline" size="sm" className="oc-tap" onClick={() => {
+              const undone = undoSelection(mods, selectionUndo.before, selectionUndo.after);
+              setMods(undone.modules);
+              const restoredSpecs = { ...specs };
+              for (const name of Object.keys(selectionUndo.specsAfter) as (keyof TechnicalSpecs)[]) {
+                if (specs[name] === selectionUndo.specsAfter[name] && selectionUndo.specsBefore[name] !== selectionUndo.specsAfter[name]) Object.assign(restoredSpecs, { [name]: selectionUndo.specsBefore[name] });
+              }
+              setEnabled(previous => Object.fromEntries(MODULE_ORDER.map(key => [key, previous[key] === selectionUndo.enabledAfter[key] ? selectionUndo.enabledBefore[key] : previous[key]])) as Record<ModuleKey, boolean>);
+              setSpecs(restoredSpecs); setAutoSelection(selectionUndo.trace); setSelectionUndo(null); setDirty(true);
+              toast.success(undone.preserved ? `Hızlı seçim geri alındı; sonraki ${undone.preserved} düzenleme korundu.` : "Hızlı seçim geri alındı.");
+            }}>Son hızlı seçimi geri al</Button>}
+          </div>}
           {serit.length > 0 ? (
             /* `relative`: kart `overflow-hidden` taşır ama `position` vermez;
                mutlak konumlu `sr-only` çocuğu en yakın konumlu ataya göre

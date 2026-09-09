@@ -23,6 +23,7 @@ import { defaultFreeItemTitle, defaultItemTitle } from "./title";
 import type { OfferItem, OfferPayload, OfferPriceLine, OfferRow } from "./types";
 
 export interface OfferCopyOptions {
+  sourceRevisionId?: string;
   /** Yeni müşterinin adı — hitap ve künye ondan kurulur. */
   customerName: string;
   /** Teklifi hazırlayan (kopyalayan) kişinin künyesi; verilmezse korunur. */
@@ -52,7 +53,9 @@ export function copyPayloadForCustomer(
     return {
       ...item,
       id,
-      groups: item.groups.map((g) => ({ ...g, id: newOfferId(), rows: g.rows.map((r) => ({ ...r })) })),
+      calculationSource: item.calculationSource ? structuredClone(item.calculationSource) : undefined,
+      calculationOrigin: { itemId: item.id, offerRevisionId: options.sourceRevisionId },
+      groups: item.groups.map((g) => ({ ...g, id: newOfferId(), rows: g.rows.map(copyOfferRow) })),
     };
   });
   for (const line of payload.pricing.lines) priceLineIdMap.set(line.id, newOfferId());
@@ -172,6 +175,8 @@ export function copyOfferItem(item: OfferItem, title: string): OfferItem {
   return {
     ...item,
     id: newOfferId(),
+    calculationSource: item.calculationSource ? structuredClone(item.calculationSource) : undefined,
+    calculationOrigin: { itemId: item.id },
     title,
     titleManual: serbest,
     groups: item.groups.map((g) => ({

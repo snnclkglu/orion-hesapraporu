@@ -1,3 +1,4 @@
+import type { SelectionTrace } from "@/lib/auto-selection/types";
 // Revizyon snapshot'ından (inputs/selections jsonb) CalcInput kurar.
 // Boş alanlar yeni iş şablonuyla doldurulur — editör, PDF ve Excel çıktıları
 // aynı yükleyiciyi kullanır.
@@ -50,6 +51,8 @@ import {
 } from "@/lib/weights/types";
 
 export interface RevisionInputsJson {
+  autoSelection?: SelectionTrace | null;
+  offerTechnicalSource?: { offerRevisionId: string; itemId: string; warnings: string[]; fingerprint?: string; craneType?: string; values?: Record<string, string | number | null> };
   specs?: TechnicalSpecs;
   mainHoist?: HoistInputs | null;
   auxHoist?: HoistInputs | null;

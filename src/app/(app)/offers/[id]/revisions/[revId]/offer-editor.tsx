@@ -682,6 +682,8 @@ export function OfferEditor({
           {payload.items.map((item, i) =>
             aktif === `item:${item.id}` ? (
               <ItemEditor
+                offerRevisionId={readOnly ? undefined : revisionId}
+                beforeCalculation={kaydet}
                 key={item.id}
                 item={item}
                 book={book}

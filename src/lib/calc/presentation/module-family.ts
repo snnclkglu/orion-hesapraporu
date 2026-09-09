@@ -252,3 +252,26 @@ export const MAIN_TROLLEY_WEIGHT_READER_KEYS: readonly ModuleKey[] = [
   "girder2",
   "endCarriage",
 ];
+
+export const MODULE_LABELS: Record<ModuleKey, string> = {
+  main: "Ana Kaldırma",
+  hookBlock: "Ana Kanca Bloğu",
+  aux: "Yardımcı Kaldırma",
+  auxHookBlock: "Yardımcı Kanca Bloğu",
+  trolley: "Ana Araba Yürütme",
+  auxTrolley: "Yardımcı Araba Yürütme",
+  mono1: "Monoray 1 Kaldırma",
+  mono1HookBlock: "Monoray 1 Kanca Bloğu",
+  mono1Trolley: "Monoray 1 Araba Yürütme",
+  mono2: "Monoray 2 Kaldırma",
+  mono2HookBlock: "Monoray 2 Kanca Bloğu",
+  mono2Trolley: "Monoray 2 Araba Yürütme",
+  bridge: "Köprü Yürütme",
+  wheelLoads: "Teker Yükleri",
+  girder: "Ana Kiriş",
+  girder2: "Ana Kiriş - 2",
+  buckling: "Buruşma",
+  endCarriage: "Başkiriş",
+  cabin: "Kabin ve Elektrik Odası",
+  electrical: "Elektrik Hesap Raporu",
+};

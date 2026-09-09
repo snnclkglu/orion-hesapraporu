@@ -1,5 +1,7 @@
 "use server";
 
+import { readSelectionTrace, selectionReviewComplete, selectionNumericallyComplete } from "@/lib/auto-selection/trace";
+import type { SelectionTrace } from "@/lib/auto-selection/types";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { runCalc, type CalcInput } from "@/lib/calc/engine";
@@ -26,7 +28,7 @@ import {
   reportContextOf,
 } from "@/lib/report-context";
 
-export type SaveResult = { error?: string; ok?: boolean };
+export type SaveResult = { error?: string; ok?: boolean; updatedAt?: string };
 
 /**
  * Taslak revizyonu yayınlar (issue): durum 'issued' olur, DB trigger'ı
@@ -45,9 +47,24 @@ export async function issueRevision(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı" };
 
+  const [{ data: current }, { data: publishingProject }, { data: publishingProfile }] = await Promise.all([
+    supabase.from("revisions").select("inputs,selections,updated_at").eq("id", revisionId).eq("project_id", projectId).eq("status", "draft").maybeSingle(),
+    supabase.from("projects").select("report_context").eq("id", projectId).maybeSingle(),
+    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+  ]);
+  if (!current || !publishingProject || !publishingProfile || !(reportContextOf(publishingProject.report_context) === ENGINEERING_REPORT_CONTEXT ? canEditReports(publishingProfile.role) : canEditOffers(publishingProfile.role))) return { error: "Yayımlanabilir revizyon veya yetki bulunamadı." };
+  if ((current.inputs as RevisionInputsJson).autoSelection) {
+    const savedInput = calcInputFromRevision(current.inputs as RevisionInputsJson, current.selections as RevisionSelectionsJson);
+    const trace = readSelectionTrace((current.inputs as RevisionInputsJson).autoSelection);
+    if (!trace || !selectionReviewComplete(trace, savedInput)) return { error: "Hızlı seçimde eksik üretici veya imalat kontrolleri var. Teknik özelliklerdeki kontrol notlarını güncel hesapla ilişkilendirip kaydedin." };
+    const verified = runCalc(savedInput);
+    if (!selectionNumericallyComplete(verified)) return { error: "Hızlı seçimli raporda engelleyici kontroller var. Önce rapordaki eksik seçimleri ve ölçü teyitlerini tamamlayın." };
+  }
   const { data: revision, error } = await supabase
     .from("revisions")
     .update({ status: "issued", label: label.trim() || undefined })
+    .eq("project_id", projectId)
+    .eq("updated_at", current.updated_at)
     .eq("id", revisionId)
     .eq("status", "draft")
     .select("rev_no, label, inputs, selections, issued_at, updated_at")
@@ -317,7 +334,9 @@ export async function saveRevision(
    * yazıldı" izi). Dökümün KENDİSİ yazılmaz — her açılışta yeniden türetilir
    * (HESAP-35); burada saklanan şey yalnız türetilemeyen kısımdır.
    */
-  weightBreakdown?: RevisionWeightBreakdown
+  weightBreakdown?: RevisionWeightBreakdown,
+  autoSelection?: SelectionTrace | null,
+  expectedUpdatedAt?: string
 ): Promise<SaveResult> {
   const supabase = await createClient();
   const {
@@ -325,6 +344,13 @@ export async function saveRevision(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı" };
 
+  const [{ data: profile }, { data: project }] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    supabase.from("projects").select("report_context").eq("id", projectId).maybeSingle(),
+  ]);
+  if (!profile || !project || !(reportContextOf(project.report_context) === ENGINEERING_REPORT_CONTEXT ? canEditReports(profile.role) : canEditOffers(profile.role))) return { error: "Bu raporu düzenleme yetkiniz yok." };
+  if (autoSelection && !readSelectionTrace(autoSelection)) return { error: "Seçim kayıt bilgisi geçersiz." };
+  if (autoSelection) { autoSelection = readSelectionTrace(autoSelection)!; if (autoSelection.review) autoSelection.review.reviewedBy = user.id; }
   const result = runCalc(calcInput);
   const store = fullInput ?? calcInput;
 
@@ -335,11 +361,13 @@ export async function saveRevision(
   // snapshot'tan okunur.
   const { data: currentRevision } = await supabase
     .from("revisions")
-    .select("inputs")
+    .select("inputs, updated_at, status")
     .eq("id", revisionId)
     .eq("project_id", projectId)
     .maybeSingle();
-  const currentInputs = currentRevision?.inputs;
+  if (!currentRevision || currentRevision.status !== "draft") return { error: "Düzenlenebilir revizyon bulunamadı." };
+  if (expectedUpdatedAt && currentRevision.updated_at !== expectedUpdatedAt) return { error: "Rapor başka bir sekmede veya kullanıcı tarafından değiştirildi. Değişiklikleriniz yazılmadı; güncel revizyonu yeniden açın." };
+  const currentInputs = currentRevision.inputs;
   const fileImport =
     currentInputs &&
     typeof currentInputs === "object" &&
@@ -373,6 +401,8 @@ export async function saveRevision(
           ? { weightBreakdown: temizWeightBreakdown }
           : {}),
         ...(fileImport ? { fileImport } : {}),
+        ...((currentInputs as RevisionInputsJson).offerTechnicalSource ? { offerTechnicalSource: (currentInputs as RevisionInputsJson).offerTechnicalSource } : {}),
+        ...(autoSelection === undefined ? ((currentInputs as RevisionInputsJson)?.autoSelection ? { autoSelection: (currentInputs as RevisionInputsJson).autoSelection } : {}) : autoSelection ? { autoSelection } : {}),
       },
       selections: {
         ...moduleJson(store, "selections"),
@@ -383,8 +413,10 @@ export async function saveRevision(
       engine_version: result.engineVersion,
     })
     .eq("id", revisionId)
+    .eq("project_id", projectId)
+    .eq("updated_at", currentRevision.updated_at)
     .eq("status", "draft")
-    .select("id");
+    .select("id, updated_at");
 
   if (error) {
     return {
@@ -394,7 +426,7 @@ export async function saveRevision(
     };
   }
   if (!updated || updated.length === 0) {
-    return { error: "Bu revizyon yayınlanmış; düzenlenemez. Yeni revizyon oluşturun." };
+    return { error: "Revizyon kaydetme sırasında değişti veya yayınlandı; değişiklikleriniz yazılmadı." };
   }
 
   await supabase.from("audit_log").insert({
@@ -407,5 +439,5 @@ export async function saveRevision(
 
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}`);
   revalidatePath(`/offers/hesap-raporlari/${projectId}/revisions/${revisionId}`);
-  return { ok: true };
+  return { ok: true, updatedAt: updated[0].updated_at };
 }

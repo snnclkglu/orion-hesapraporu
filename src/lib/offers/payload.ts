@@ -1,3 +1,4 @@
+import { readOfferCalculationSource, readOfferCalculationOrigin } from "@/lib/auto-selection/offer-source";
 // TEKLİF BELGESİNİN KURULMASI, TAŞINMASI VE SÜZÜLMESİ.
 //
 // Üç iş bir arada durur çünkü üçü de aynı soruyu farklı yönlerden sorar:
@@ -679,6 +680,8 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
       }
       return {
       id: metin(it.id) || newOfferId(),
+      calculationSource: readOfferCalculationSource(it.calculationSource),
+      calculationOrigin: readOfferCalculationOrigin(it.calculationOrigin),
       title: metin(it.title),
       // EMEKLİ SATIRIN DEĞERİ KÜNYEYE TAŞINIR: eski kayıtlarda vinç tipi
       // `GENEL ÖZELLİKLER > Vinç Tipi` satırında da yazılıydı ve künye alanı

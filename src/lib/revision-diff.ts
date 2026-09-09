@@ -1,3 +1,5 @@
+import { contentHash } from "./auto-selection/types";
+import { readOfferTechnicalSource, readSelectionTrace } from "./auto-selection/trace";
 // Revizyon karşılaştırma: iki revizyon snapshot'ı (inputs/selections/results)
 // arasındaki farkları modül bazında çıkarır. Saf fonksiyon — testlidir.
 
@@ -107,8 +109,18 @@ export function diffRevisions(a: Snapshot, b: Snapshot): RevisionDiff {
     // MODÜL nesnesi sayıp bir seviye açar ve `overrides.bridge.girder` gibi HAM
     // anahtarlar basardı — `MODULE_LABELS`ta karşılığı olmayan sahte bir bölüm
     // (MALIYET-18'in "tanımsız anahtar ham basılır" tuzağı).
-    if (mk === "weightBreakdown") continue;
+    if (mk === "weightBreakdown" || mk === "autoSelection" || mk === "offerTechnicalSource") continue;
     diffModuleObjects(mk, "input", aInputs[mk], bInputs[mk], fields);
+  }
+
+  const selectionSummary = (value: unknown) => {
+    const trace = readSelectionTrace(value);
+    return trace ? `${trace.decisions.length} seçim · v${trace.version} · ${trace.resultHash} · ${trace.issues.length} kontrol${trace.review ? ` · üretici kontrolü: ${contentHash({ notes: trace.review.notes, evidence: trace.review.evidence })}` : ""}` : "—";
+  };
+  const offerSummary = (value: unknown) => { const source = readOfferTechnicalSource(value); return source ? `${source.itemId} · ${source.warnings.length} teknik kontrol notu` : "—"; };
+  for (const [field, label, summary] of [["autoSelection", "autoSelectionSummary", selectionSummary], ["offerTechnicalSource", "offerTechnicalSourceSummary", offerSummary]] as const) {
+    const before = summary(aInputs[field]), after = summary(bInputs[field]);
+    if (before !== after) fields.push({ module: "specs", kind: "input", key: label, a: before, b: after });
   }
 
   // Açık/kapalı hesap bölümü değişimi ayrı bir fark satırı olarak görünür;

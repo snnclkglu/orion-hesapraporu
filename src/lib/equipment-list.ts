@@ -502,6 +502,11 @@ const ROPE_GRADE_MPA_BY_KGMM2: Readonly<Record<number, number>> = {
   241: 2360,
 };
 
+/** Teklifte birim belirsizliği olmadan kullanılacak, yayımlanmış halat tel sınıfı. */
+export function ropeWireGradeMpa(kgmm2: number): number | undefined {
+  return ROPE_GRADE_MPA_BY_KGMM2[Math.round(kgmm2)];
+}
+
 /** Türkçe seçim etiketini kataloğun kısa öz koduna çevirir. */
 function ropeCatalogCoreCode(value: string): string {
   const trimmed = value.trim();
@@ -540,7 +545,7 @@ export function ropeCatalogModelOf(sel: HoistSelections): string | undefined {
   const core = ropeCatalogCoreCode(sel.ropeCore ?? "");
   if (Number.isFinite(diameter) && diameter > 0 && construction && core) {
     const base = `Ø${fmt(diameter)} ${construction} ${core}`;
-    const grade = ROPE_GRADE_MPA_BY_KGMM2[Math.round(Number(sel.ropeWireStrength))];
+    const grade = ropeWireGradeMpa(Number(sel.ropeWireStrength));
     if (grade) add(`${base} ${grade} MPa`);
     add(base);
   }

@@ -227,7 +227,8 @@ function part(
   rowKey: string,
   partKey: string
 ): string {
-  return rowOf(item, groupKey, rowKey)?.parts?.[partKey]?.trim() ?? "";
+  const row = rowOf(item, groupKey, rowKey);
+  return row && !row.manual ? row.parts?.[partKey]?.trim() ?? "" : "";
 }
 
 function factCollector(item: OfferItem): {
@@ -352,8 +353,8 @@ function factCollector(item: OfferItem): {
   }
 
   const environment = rowOf(item, "general", "environment");
-  const tempMin = singleNumber(environment?.parts?.tempMin);
-  const tempMax = singleNumber(environment?.parts?.tempMax);
+  const tempMin = singleNumber(environment?.manual ? undefined : environment?.parts?.tempMin);
+  const tempMax = singleNumber(environment?.manual ? undefined : environment?.parts?.tempMax);
   setNumber(
     "ambientTempMinC",
     tempMin,
@@ -366,7 +367,7 @@ function factCollector(item: OfferItem): {
     "groups.general.environment.parts.tempMax",
     false
   );
-  const place = environment?.parts?.place?.trim() ?? "";
+  const place = environment?.manual ? "" : environment?.parts?.place?.trim() ?? "";
   if (/açık/i.test(place)) {
     facts.installationEnvironment = "outdoor";
     mapped.push("groups.general.environment.parts.place");

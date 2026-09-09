@@ -1,3 +1,4 @@
+import { readOfferTechnicalSource, readSelectionTrace } from "@/lib/auto-selection/trace";
 // Teklif hesap raporu ↔ yapay zekâ aracı dosyası.
 //
 // Dosya bir hesap SONUCU taşımaz. Proje künyesini (müşteri, rapor firması,
@@ -751,7 +752,7 @@ export function transferAcceptedKeys(): {
   }
   return {
     specs: keysOf(baseline.inputs.specs),
-    inputs: [...Object.keys(baseline.inputs), "weightBreakdown"],
+    inputs: [...Object.keys(baseline.inputs), "weightBreakdown", "autoSelection", "offerTechnicalSource"],
     selections: Object.keys(baseline.selections),
     modules,
   };
@@ -981,6 +982,10 @@ function canonicalizeRevision(
   const weightBreakdown = weightBreakdownFromRevision(rawInputs as RevisionInputsJson);
   delete weightBreakdown.applied;
   if (Object.keys(weightBreakdown).length > 0) inputs.weightBreakdown = weightBreakdown;
+  const offerSource = readOfferTechnicalSource(rawInputs.offerTechnicalSource);
+  if (offerSource) inputs.offerTechnicalSource = offerSource;
+  const trace = readSelectionTrace(rawInputs.autoSelection);
+  if (trace) { delete trace.review; inputs.autoSelection = trace; }
   selections.alts = sanitizeAlternatives(rawSelections.alts, baseline.selections);
   selections.sectionNotes = sanitizeSectionNotes(rawSelections.sectionNotes);
 
@@ -1446,6 +1451,10 @@ export function buildOfferReportTransferFile(args: {
     loaded.full,
     args.revision.selections
   );
+  const offerSource = readOfferTechnicalSource(args.revision.inputs?.offerTechnicalSource);
+  if (offerSource) inputs.offerTechnicalSource = offerSource;
+  const trace = readSelectionTrace(args.revision.inputs?.autoSelection);
+  if (trace) { delete trace.review; inputs.autoSelection = trace; }
 
   return {
     format: OFFER_REPORT_TRANSFER_FORMAT,

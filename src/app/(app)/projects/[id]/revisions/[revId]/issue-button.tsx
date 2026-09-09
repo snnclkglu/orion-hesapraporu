@@ -3,7 +3,7 @@
 // Revizyon yayınlama butonu: onay dialogu + başarısız kontrol uyarısı.
 // Yayınlanan revizyon kilitlenir; değişiklik yeni revizyon gerektirir.
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { issueRevision } from "./actions";
@@ -27,10 +27,17 @@ export function IssueRevisionButton({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => {
+    const changed = (event: Event) => { const detail = (event as CustomEvent<{ revisionId: string; dirty: boolean }>).detail; if (detail?.revisionId === revisionId) setDirty(detail.dirty); };
+    window.addEventListener("orion:revision-dirty", changed);
+    return () => window.removeEventListener("orion:revision-dirty", changed);
+  }, [revisionId]);
   const [pending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (dirty) { toast.error("Yayımlamadan önce raporu kaydedin."); return; }
     const label = String(new FormData(e.currentTarget).get("label") ?? "");
     startTransition(async () => {
       const res = await issueRevision(projectId, revisionId, label);
@@ -47,7 +54,7 @@ export function IssueRevisionButton({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="default" size="sm" className={cn(className)}>Yayınla</Button>
+        <Button variant="default" size="sm" disabled={dirty} title={dirty ? "Önce raporu kaydedin" : undefined} className={cn(className)}>Yayınla</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -70,7 +77,7 @@ export function IssueRevisionButton({
             <Input id="label" name="label" defaultValue={defaultLabel} placeholder="Etiket" />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending || dirty}>
               {pending ? "Yayınlanıyor..." : `V${revNo}'ı Yayınla ve Kilitle`}
             </Button>
           </DialogFooter>

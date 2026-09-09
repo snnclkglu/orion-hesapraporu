@@ -133,7 +133,7 @@ export async function copyOfferToCustomer(input: CopyOfferInput): Promise<OfferA
   // hâlidir, ilk hâli değil.
   const { data: revision } = await supabase
     .from("offer_revisions")
-    .select("payload")
+    .select("id, payload")
     .eq("offer_id", kaynak.id)
     .order("rev_no", { ascending: false })
     .limit(1)
@@ -154,6 +154,7 @@ export async function copyOfferToCustomer(input: CopyOfferInput): Promise<OfferA
     withDefaults(revision?.payload, kaynak.currency as string),
     {
       customerName: customer.name as string,
+      sourceRevisionId: revision?.id as string | undefined,
       from: await loadOfferAuthor(supabase, user.id),
     }
   );

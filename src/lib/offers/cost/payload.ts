@@ -1,3 +1,4 @@
+import { withReportCostSource } from "./report-source";
 // MALİYET BELGESİNİN KURULMASI, TAŞINMASI VE TEKLİFTEN TÜRETİLMESİ.
 //
 // Teklifin `payload.ts`i ile aynı üç işi yapar (kurma · taşıma · süzme) ve bir
@@ -342,7 +343,7 @@ export function costItemFromOfferItem(
 ): CostItem {
   const inputs = inputsFromOfferItem(item);
   const skeleton = costTemplateFor(templates, item.craneType);
-  return {
+  return withReportCostSource({
     id: newCostId(),
     offerItemId: item.id,
     title: item.title || `KALEM - ${sira}`,
@@ -356,7 +357,7 @@ export function costItemFromOfferItem(
     groups: costGroupKeysForOfferItem(item.groups.map((g) => g.key), skeleton).map((k) =>
       costGroupFromKey(k, undefined, skeleton)
     ),
-  };
+  }, item);
 }
 
 /** Serbest maliyet kalemi — teklifte karşılığı olmayan bir iş. */
@@ -491,12 +492,12 @@ export function withOfferSync(
       yetim += 1;
       return { ...maliyet, offerItemId: null };
     }
-    return {
+    return withReportCostSource({
       ...maliyet,
       title: teklif.title || maliyet.title,
       craneType: teklif.craneType ?? maliyet.craneType,
       inputs: inputsFromOfferItem(teklif, maliyet.inputs),
-    };
+    }, teklif);
   });
 
   const bagli = new Set(guncel.map((i) => i.offerItemId).filter(Boolean) as string[]);
@@ -759,6 +760,7 @@ export function withCostDefaults(raw: unknown, currency = "EUR"): CostPayload {
       qty: sayiVeyaNull(it.qty),
       inputs: inputsFromRaw(it.inputs),
       overrides: sayilar(it.overrides),
+      reportSource: it.reportSource && typeof it.reportSource === "object" ? { hash: metin((it.reportSource as Record<string, unknown>).hash), revisionId: metin((it.reportSource as Record<string, unknown>).revisionId), values: sayilar((it.reportSource as Record<string, unknown>).values) } : undefined,
       groups: dizi(it.groups).map(groupFromRaw),
     })).map(withFabricationGroup),
     // ÇIKARILAN KALEM LİSTESİ TAŞINIR: eski belgede yoksa boştur.

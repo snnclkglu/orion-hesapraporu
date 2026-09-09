@@ -1,3 +1,4 @@
+import type { OfferCalculationSource } from "@/lib/auto-selection/offer-source";
 // TEKLİF BELGESİNİN MODELİ — saf tipler, DB/HTTP/React yok (değişmez md. 7).
 //
 // Belgenin TAMAMI tek bir `OfferPayload` nesnesidir ve revizyonun `payload`
@@ -90,6 +91,9 @@ export interface OfferGroup {
  * görüldü. Bağ bir kimliktir, bir benzerlik değil.
  */
 export interface OfferItem {
+  calculationSource?: OfferCalculationSource;
+  /** İlk hesap açılışında bağımsız kopya için kaynak; canlı bağlantı değildir. */
+  calculationOrigin?: { itemId: string; offerRevisionId?: string };
   id: string;
   /** "20T ÇİFT KİRİŞ GEZER KÖPRÜLÜ VİNÇ" — belgede bölüm başlığı olur. */
   title: string;

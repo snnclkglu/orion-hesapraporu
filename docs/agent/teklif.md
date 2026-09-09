@@ -2095,3 +2095,35 @@ alanları agent gövdesinden kabul etmez; mevcut sunucu değerlerini geri takıp
 sonra ortak kaydetme çekirdeğine girer. İmza yükleme scope'u açılmadığı için ham
 payload üzerinden imza silmek ya da başka bir özel depo yolu enjekte etmek de
 mümkün değildir.
+
+## TEKLIF-89 — Kalemin hızlı ön hesabı ortak hesap motorunda ve kimlikli bağlantıda yaşar.
+
+`offer_item_calculations`, teklif revizyonu + kalem kimliği başına tek hesap
+bağlar. `open_offer_item_calculation_v2` RPC'si `SECURITY INVOKER` çalışır;
+rol, erişilebilir taslak teklif ve kayıtlı kalem denetimi RLS ile birlikte
+korunur. Aynı düğmeye iki kez basmak iki hesap oluşturmaz. Yeni hesap için
+teklifin kaydı tamamlanır; kaydedilmemiş kalemden bağlantı açılmaz.
+
+`OfferCalculation` ortak `RevisionEditor`ü açar; ayrı hesap veya seçim motoru
+yoktur. Teknik tabloya aktarım yalnız kaydedilmiş rapordan gelir. Birim motor
+gücü ve BOM'daki fiziksel adet ayrı taşınır; ikiz donanım iki kez çarpılmaz.
+Başarısız/eksik yeni seçim yerine şablon ürününün teknik değerleri aktarılmaz.
+Manuel ve müşteri kapsamındaki satırlar korunur ve kullanıcıya bildirilir.
+
+Kalemdeki `calculationSource` kaynak revizyonun dondurulmuş teknik snapshot'ıdır.
+Maliyet kaynak alanları buradan tek yönlü beslenir; ticari ezmeler korunur,
+maliyet tahmini mühendislik hesabına geri yazılmaz. Ayrıntı ve doğrulama:
+`docs/plans/HIZLI_OTOMATIK_SECIM_UYGULAMA.md`.
+
+Tek talep sözleşmesi `auto-selection/offer-demand.ts` içindedir. Yeni boş
+kritik girdiler null kalır. Talep snapshot'ı ve parmak izi saklanır; teklif
+değiştiyse kaynak raporun teknik değerleri karşılaştırılmadan aktarım yapılmaz.
+Sonradan silinen talep temizlenir; baştan boş olup raporda girilen alan korunur.
+SQL hem teklif kalemini hem kaynak hesap `updated_at` değerini doğrular.
+
+`calculationOrigin` kopyanın düzenlenebilir hesabını ilk açılışta bağımsız
+kurmak içindir; `calculationSource` tarihsel aktarım bilgisidir. Yeni teklif
+revizyonunun ortak INSERT yolu, hesapları DB tetikleyicisinde atomik kopyalar.
+Eski inceleme onayı taşınmaz. Bağlantıdaki belirli revizyon okunur; yayımlanmış
+kaynağı değiştirmek yerine yeni taslak açılır. Son doğrulamalar ve sınırlar:
+`docs/plans/HIZLI_OTOMATIK_SECIM_TAMAMLAMA_DURUMU.md`.

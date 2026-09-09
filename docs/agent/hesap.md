@@ -1769,3 +1769,46 @@ Motor, rapor formülü ve regresyon testi artık işaretli çarpımı birebir ku
 Yeni `railHeightAuto`, `wheelContactHAuto` ve `t7Auto` bayrakları
 `revision-load.ts/AUTO_FLAGS` listesindedir. Yeni işler otomatik açılır; bayrağı
 taşımayan eski snapshot'lar elle girilmiş kabul edilip otomatik kapalı yüklenir.
+
+## HESAP-43 — Hızlı seçim kullanıcı düğmesiyle bir kez çalışır; ortak hesabı çağırır.
+
+`lib/auto-selection/orchestrator.ts` mühendislik ve teklif için TEK yürütücüdür.
+Manuel editörün saf türetmeleri `lib/calc/state.ts` içindedir; seçici aynı
+fonksiyonları ve `runCalc`ı çağırır. Seçiciye ikinci bir fizik formülü yazılmaz.
+Teknik özellikler yanındaki düğme marka/kilit tercihlerini alır; Web Worker
+sonucu tek taslak değişikliğiyle uygular. İptal veya değişmiş kaynak durumunda
+sonuç uygulanmaz; sonradan elle değiştirilen alanlar geri almada korunur.
+
+Ürün varyantı tam katalog özellikleriyle tanımlanır. Yeni ürünün eksik alanı
+eski ürünün kapasitesiyle doldurulmaz; bilinmeyen `null` kalır. Katalog sayfalama
+ve sürüm kontrolü tamamlanmadan seçim başlamaz. Katalog önbelleği her çalışmada
+yetki ve sürüm bakımından tekrar doğrulanır.
+
+HESAP-35'in kütle doğrulaması kullanıcı onayı olmadan sürekli geri beslenmez.
+Yeni düğmedeki açık ölçü önerisi seçeneği içinde, yalnız TAM kütle bantları
+en fazla dört turda hesaba alınabilir. Eksik bantta girilmiş kütle korunur ve
+eksik yazılır. Fiziksel adetler ve insanın ölçü teyitleri otomatik üretilmez.
+
+`inputs.autoSelection` seçim izidir. Güncel sayısal kontroller yayımlamada
+sunucuda yeniden hesaplanır; NaN/Infinity başarı sayılmaz. Üretici/kapsam
+eksiklerinin kaynak notları hesap hash'ine bağlıdır; hesap değişince yeniden
+ilişkilendirme gerekir. Notlar başarısız sayısal kontrolü geçerli yapmaz.
+JSON dışa/içe aktarım eski not ONAYINI taşımaz. Kayıt `updated_at` ile çakışma
+denetler; arka plandaki başka kullanıcının kaydını ezmez.
+
+Arama sınırlıdır; küresel optimum veya bütün vinç aileleri için tam tasarım
+onayı değildir. Destek sınırları, ölçümler ve bakım komutları
+`docs/plans/HIZLI_OTOMATIK_SECIM_UYGULAMA.md` içindedir.
+
+1.1.0: Kanca standardı teknik talepten gelir; kilitli çelişki aramayı durdurur.
+Motor/redüktör/kaplin ve mil/rulman/yatak bağlılığı beam daraltılmadan önce
+ortak motorla sınanır. Kasnaklı frenin kaplin kasnağı katalog çapıyla eşleşir.
+Ölçü aday serisi sürümlüdür; firma imalat onayı olduğu ileri sürülmez.
+Ağırlık defteri ezmeleri döngüye girer ve kaynak hash'i değişirse sonuç uygulanmaz.
+
+Marka penceresi küçük aile özetini, çalıştırma gerekli tür/marka/uygulama
+satırlarını indirir. `catalog-scope.ts` ile SQL tür listesi kaynak testiyle eşleşir.
+Yeni dış kontrol kaydı belge, referans/revizyon, yöntem ve sonuç ister;
+termik güç/devir sınırı doğru birimde ve güncel hesap talebinin üzerinde olmalıdır.
+Özel tiplerin kapsam eksiği ekipman seçildi diye kapanmaz. Son durum:
+`docs/plans/HIZLI_OTOMATIK_SECIM_TAMAMLAMA_DURUMU.md`.

@@ -13,6 +13,7 @@
 // bir kelepçe değil: firmanın gerçek tekliflerinde tek gruplu bir kaldırma
 // kirişi de, on dört kalemli bir filo teklifi de var.
 
+import { OfferCalculation } from "@/components/offer-calculation";
 import { Fragment } from "react";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Copy, Eye, EyeOff, Plus, Trash2, Wand2 } from "lucide-react";
@@ -53,8 +54,12 @@ export function ItemEditor({
   onChange,
   onCopy,
   onRemove,
+  offerRevisionId,
+  beforeCalculation,
 }: {
   item: OfferItem;
+  offerRevisionId?: string;
+  beforeCalculation?: () => Promise<boolean>;
   book: OptionBook;
   craneTypes: readonly string[];
   onChange: (next: OfferItem) => void;
@@ -134,6 +139,7 @@ export function ItemEditor({
 
   return (
     <div className={cn("grid gap-4", item.hidden && "opacity-60")}>
+      {offerRevisionId && beforeCalculation && <OfferCalculation item={item} offerRevisionId={offerRevisionId} beforeOpen={beforeCalculation} onChange={onChange} />}
       {/* ————————————————————————————————————————————— künye */}
       {/*
         KÜNYE YALNIZ BAŞLIK VE VİNÇ TİPİDİR.

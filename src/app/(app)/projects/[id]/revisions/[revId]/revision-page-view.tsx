@@ -1,3 +1,4 @@
+import { readSelectionTrace } from "@/lib/auto-selection/trace";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle, FileSpreadsheet, Files } from "lucide-react";
@@ -42,7 +43,7 @@ export async function RevisionPageView({
 
   const { data: revision } = await supabase
     .from("revisions")
-    .select("id, project_id, rev_no, label, status, inputs, selections, results, engine_version, is_template")
+    .select("id, project_id, rev_no, label, status, inputs, selections, results, engine_version, is_template, updated_at")
     .eq("id", revId)
     .eq("project_id", id)
     .single();
@@ -245,7 +246,10 @@ export async function RevisionPageView({
       <RevisionEditor
         projectId={id}
         revisionId={revision.id}
-        readOnly={revision.status === "issued"}
+        readOnly={revision.status === "issued" || !canWithdraw}
+        initialUpdatedAt={revision.updated_at}
+        initialAutoSelection={readSelectionTrace(inputs.autoSelection)}
+        initialSourceWarnings={inputs.offerTechnicalSource?.warnings}
         initial={loaded.full}
         initialAlts={selections?.alts}
         initialSectionNotes={sectionNotesFromRevision(selections)}

@@ -98,6 +98,8 @@ const EXTRA_LABELS: Record<string, FieldLabel> = {
   hiddenDiagrams: { label: "Şeması Gizlenen Bölümler" },
   // AĞIRLIK DÖKÜMÜ bir hesap değil bir doğrulamadır (HESAP-35); ezme ise bir
   // mühendislik kararıdır ve iki revizyon karşılaştırılırken görünmelidir.
+  autoSelectionSummary: { label: "Hızlı Seçim Kaydı" },
+  offerTechnicalSourceSummary: { label: "Teklif Teknik Kaynağı" },
   weightBreakdownOverrides: { label: "Ağırlık Dökümü — Elle Verilen Kalemler" },
   weightBreakdownSerbest: { label: "Ağırlık Dökümü — Elle Açılan Satırlar" },
   weightBreakdownAyakYuksekligi: { label: "Ağırlık Dökümü — Portal Ayak Yüksekliği" },

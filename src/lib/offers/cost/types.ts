@@ -275,6 +275,7 @@ export interface CostItem {
   inputs: CostInputs;
   /** Modelin ürettiği sayıların ELLE EZİLMİŞ olanları (`w.*` / `c.*`). */
   overrides: Record<string, number>;
+  reportSource?: { hash: string; revisionId: string; values: Record<string, number> };
   /** PROJE MALİYETİ alt grupları. */
   groups: CostGroup[];
 }

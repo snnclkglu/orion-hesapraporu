@@ -1,0 +1,846 @@
+{
+  "date": "2026-09-09",
+  "selectionVersion": "1.1.0",
+  "engineVersion": "0.8.0",
+  "catalogRows": 71539,
+  "independentEngineeringApproval": false,
+  "performanceIncludesNetwork": false,
+  "cases": [
+    {
+      "scenario": "25t-M7",
+      "ms": 6253,
+      "evaluations": 7105,
+      "selectionCount": 29,
+      "blocking": [
+        {
+          "id": "wheelLoads.measurements.confirmed",
+          "label": "Vinç Verileri ve Teker Düzeni Ölçü Onayı"
+        },
+        {
+          "id": "girder.loads.measurements.confirmed",
+          "label": "Yükler Bölümü Ölçü Onayı"
+        }
+      ],
+      "issueCodes": [
+        {
+          "code": "wheelLoads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.section.spanToWidthRatio",
+          "state": "review"
+        },
+        {
+          "code": "girder.loads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.deflection",
+          "state": "review"
+        },
+        {
+          "code": "duty.main",
+          "state": "missing"
+        },
+        {
+          "code": "braking.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "speed.main.2.7",
+          "state": "missing"
+        },
+        {
+          "code": "duty.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "thermal.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "duty.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "layout",
+          "state": "review"
+        },
+        {
+          "code": "scope.validation",
+          "state": "review"
+        },
+        {
+          "code": "mass.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mass.trolley",
+          "state": "missing"
+        }
+      ]
+    },
+    {
+      "scenario": "3t-M4",
+      "ms": 5562,
+      "evaluations": 4237,
+      "selectionCount": 29,
+      "blocking": [
+        {
+          "id": "wheelLoads.measurements.confirmed",
+          "label": "Vinç Verileri ve Teker Düzeni Ölçü Onayı"
+        },
+        {
+          "id": "girder.loads.measurements.confirmed",
+          "label": "Yükler Bölümü Ölçü Onayı"
+        }
+      ],
+      "issueCodes": [
+        {
+          "code": "wheelLoads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.loads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "duty.main",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "braking.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "speed.main.2.7",
+          "state": "missing"
+        },
+        {
+          "code": "duty.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "thermal.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "speed.trolley.5.6",
+          "state": "missing"
+        },
+        {
+          "code": "duty.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "thermal.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "speed.bridge.5.6",
+          "state": "missing"
+        },
+        {
+          "code": "speed.bridge.5.7",
+          "state": "missing"
+        },
+        {
+          "code": "layout",
+          "state": "review"
+        },
+        {
+          "code": "scope.validation",
+          "state": "review"
+        },
+        {
+          "code": "mass.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mass.trolley",
+          "state": "missing"
+        }
+      ]
+    },
+    {
+      "scenario": "50t-M8",
+      "ms": 7551,
+      "evaluations": 12958,
+      "selectionCount": 25,
+      "blocking": [
+        {
+          "id": "main.gearbox.torque",
+          "label": "Redüktör Tork Kapasitesi"
+        },
+        {
+          "id": "main.gearbox.radial",
+          "label": "Redüktör Radyal Yük"
+        },
+        {
+          "id": "main.motor.power",
+          "label": "Motor Gücü"
+        },
+        {
+          "id": "main.drumCoupling.torque",
+          "label": "Tambur Kaplini Tork Kapasitesi"
+        },
+        {
+          "id": "main.drumCoupling.radial",
+          "label": "Tambur Kaplini Radyal Yük"
+        },
+        {
+          "id": "hookBlock.hook.capacity",
+          "label": "Kanca Taşıma Kapasitesi"
+        },
+        {
+          "id": "wheelLoads.measurements.confirmed",
+          "label": "Vinç Verileri ve Teker Düzeni Ölçü Onayı"
+        },
+        {
+          "id": "girder.loads.measurements.confirmed",
+          "label": "Yükler Bölümü Ölçü Onayı"
+        }
+      ],
+      "issueCodes": [
+        {
+          "code": "selection.main.drive",
+          "state": "missing"
+        },
+        {
+          "code": "search.dependencies.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "selection.main.2.7",
+          "state": "missing"
+        },
+        {
+          "code": "selection.hookBlock.4.1",
+          "state": "missing"
+        },
+        {
+          "code": "main.gearbox.torque",
+          "state": "failed"
+        },
+        {
+          "code": "main.gearbox.ratio",
+          "state": "review"
+        },
+        {
+          "code": "main.gearbox.radial",
+          "state": "failed"
+        },
+        {
+          "code": "main.motor.power",
+          "state": "failed"
+        },
+        {
+          "code": "main.drumCoupling.torque",
+          "state": "failed"
+        },
+        {
+          "code": "main.drumCoupling.radial",
+          "state": "failed"
+        },
+        {
+          "code": "hookBlock.hook.capacity",
+          "state": "failed"
+        },
+        {
+          "code": "wheelLoads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.section.spanToWidthRatio",
+          "state": "review"
+        },
+        {
+          "code": "girder.loads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.deflection",
+          "state": "review"
+        },
+        {
+          "code": "braking.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "duty.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "duty.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "layout",
+          "state": "review"
+        },
+        {
+          "code": "scope.validation",
+          "state": "review"
+        },
+        {
+          "code": "mass.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mass.trolley",
+          "state": "missing"
+        }
+      ]
+    },
+    {
+      "scenario": "acik-portal",
+      "ms": 4515,
+      "evaluations": 5224,
+      "selectionCount": 29,
+      "blocking": [
+        {
+          "id": "wheelLoads.measurements.confirmed",
+          "label": "Vinç Verileri ve Teker Düzeni Ölçü Onayı"
+        },
+        {
+          "id": "girder.loads.measurements.confirmed",
+          "label": "Yükler Bölümü Ölçü Onayı"
+        }
+      ],
+      "issueCodes": [
+        {
+          "code": "scope.gantry",
+          "state": "unsupported"
+        },
+        {
+          "code": "scope.wind",
+          "state": "unsupported"
+        },
+        {
+          "code": "wheelLoads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.section.spanToDepthRatio",
+          "state": "review"
+        },
+        {
+          "code": "girder.loads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.deflection",
+          "state": "review"
+        },
+        {
+          "code": "duty.main",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "braking.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "speed.main.2.7",
+          "state": "missing"
+        },
+        {
+          "code": "duty.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "thermal.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "speed.trolley.5.6",
+          "state": "missing"
+        },
+        {
+          "code": "duty.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "layout",
+          "state": "review"
+        },
+        {
+          "code": "scope.validation",
+          "state": "review"
+        },
+        {
+          "code": "mass.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mass.trolley",
+          "state": "missing"
+        }
+      ]
+    },
+    {
+      "scenario": "ikiz",
+      "ms": 4600,
+      "evaluations": 5224,
+      "selectionCount": 29,
+      "blocking": [
+        {
+          "id": "wheelLoads.measurements.confirmed",
+          "label": "Vinç Verileri ve Teker Düzeni Ölçü Onayı"
+        },
+        {
+          "id": "girder.loads.measurements.confirmed",
+          "label": "Yükler Bölümü Ölçü Onayı"
+        }
+      ],
+      "issueCodes": [
+        {
+          "code": "scope.topology.main",
+          "state": "missing"
+        },
+        {
+          "code": "wheelLoads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.section.spanToDepthRatio",
+          "state": "review"
+        },
+        {
+          "code": "girder.loads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.deflection",
+          "state": "review"
+        },
+        {
+          "code": "duty.main",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "braking.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "speed.main.2.7",
+          "state": "missing"
+        },
+        {
+          "code": "duty.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "thermal.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "speed.trolley.5.6",
+          "state": "missing"
+        },
+        {
+          "code": "duty.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "layout",
+          "state": "review"
+        },
+        {
+          "code": "scope.validation",
+          "state": "review"
+        },
+        {
+          "code": "mass.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mass.trolley",
+          "state": "missing"
+        }
+      ]
+    },
+    {
+      "scenario": "marka-GAMAK",
+      "ms": 4116,
+      "evaluations": 3244,
+      "selectionCount": 29,
+      "blocking": [
+        {
+          "id": "wheelLoads.measurements.confirmed",
+          "label": "Vinç Verileri ve Teker Düzeni Ölçü Onayı"
+        },
+        {
+          "id": "girder.loads.measurements.confirmed",
+          "label": "Yükler Bölümü Ölçü Onayı"
+        }
+      ],
+      "issueCodes": [
+        {
+          "code": "wheelLoads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.section.spanToDepthRatio",
+          "state": "review"
+        },
+        {
+          "code": "girder.loads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.deflection",
+          "state": "review"
+        },
+        {
+          "code": "duty.main",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "braking.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "speed.main.2.7",
+          "state": "missing"
+        },
+        {
+          "code": "duty.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "thermal.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "speed.trolley.5.6",
+          "state": "missing"
+        },
+        {
+          "code": "duty.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "layout",
+          "state": "review"
+        },
+        {
+          "code": "scope.validation",
+          "state": "review"
+        },
+        {
+          "code": "mass.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mass.trolley",
+          "state": "missing"
+        }
+      ]
+    },
+    {
+      "scenario": "default",
+      "ms": 5706,
+      "evaluations": 5224,
+      "selectionCount": 29,
+      "blocking": [
+        {
+          "id": "wheelLoads.measurements.confirmed",
+          "label": "Vinç Verileri ve Teker Düzeni Ölçü Onayı"
+        },
+        {
+          "id": "girder.loads.measurements.confirmed",
+          "label": "Yükler Bölümü Ölçü Onayı"
+        }
+      ],
+      "issueCodes": [
+        {
+          "code": "wheelLoads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.section.spanToDepthRatio",
+          "state": "review"
+        },
+        {
+          "code": "girder.loads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.deflection",
+          "state": "review"
+        },
+        {
+          "code": "duty.main",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "braking.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "speed.main.2.7",
+          "state": "missing"
+        },
+        {
+          "code": "duty.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "thermal.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "speed.trolley.5.6",
+          "state": "missing"
+        },
+        {
+          "code": "duty.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "layout",
+          "state": "review"
+        },
+        {
+          "code": "scope.validation",
+          "state": "review"
+        },
+        {
+          "code": "mass.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mass.trolley",
+          "state": "missing"
+        }
+      ]
+    },
+    {
+      "scenario": "eldro",
+      "ms": 5611,
+      "evaluations": 5240,
+      "selectionCount": 29,
+      "blocking": [
+        {
+          "id": "wheelLoads.measurements.confirmed",
+          "label": "Vinç Verileri ve Teker Düzeni Ölçü Onayı"
+        },
+        {
+          "id": "girder.loads.measurements.confirmed",
+          "label": "Yükler Bölümü Ölçü Onayı"
+        }
+      ],
+      "issueCodes": [
+        {
+          "code": "wheelLoads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.section.spanToDepthRatio",
+          "state": "review"
+        },
+        {
+          "code": "girder.loads.measurements.confirmed",
+          "state": "review"
+        },
+        {
+          "code": "girder.deflection",
+          "state": "review"
+        },
+        {
+          "code": "duty.main",
+          "state": "missing"
+        },
+        {
+          "code": "braking.main.2.5",
+          "state": "missing"
+        },
+        {
+          "code": "speed.main.2.7",
+          "state": "missing"
+        },
+        {
+          "code": "duty.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "thermal.trolley",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.trolley.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "speed.trolley.5.6",
+          "state": "missing"
+        },
+        {
+          "code": "duty.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mounting.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "braking.bridge.5.5b",
+          "state": "missing"
+        },
+        {
+          "code": "layout",
+          "state": "review"
+        },
+        {
+          "code": "scope.validation",
+          "state": "review"
+        },
+        {
+          "code": "mass.bridge",
+          "state": "missing"
+        },
+        {
+          "code": "mass.trolley",
+          "state": "missing"
+        }
+      ]
+    }
+  ]
+}
