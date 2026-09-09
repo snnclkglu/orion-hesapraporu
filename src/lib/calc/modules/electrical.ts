@@ -16,6 +16,13 @@ import {
 } from "../electrical-catalog";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "../types";
 import { kimlikBuyuk } from "@/lib/tr-text";
+import {
+  VDE_SECTIONS_MM2,
+  ambientCorrectionFactor,
+  ampacityTrace,
+  type AmpacityTrace,
+  type CableInstallationMode,
+} from "../electrical-ampacity";
 
 export type ElectricalCircuitKey =
   | "main"
@@ -33,6 +40,11 @@ export interface ElectricalMotorSource {
   label: string;
   motorPowerKw: number;
   motorCount: number;
+  /** Seçili motor katalog satırındaki gerçek anma değerleri. */
+  ratedCurrentA?: number;
+  efficiencyPct?: number;
+  powerFactor?: number;
+  catalogSource?: string;
 }
 
 export interface ElectricalDeps {
@@ -69,6 +81,12 @@ export interface ElectricalCircuitInput {
   driveAuto?: boolean;
   /** true/yok: kesit ve paralel koşuyu katalogdan otomatik boyutlandır. */
   cableAuto?: boolean;
+  installationMode?: CableInstallationMode;
+  installationModeAuto?: boolean;
+  loadedConductors?: number;
+  groupingFactor?: number;
+  /** Yalnız kullanıcı açıkça girerse kesintili çalışma artışı uygulanır. */
+  dutyCyclePct?: number;
 }
 
 export interface ElectricalExtraCable {
@@ -212,6 +230,11 @@ export interface ElectricalInputs {
   mainCableLengthM: number;
   mainCableLengthAuto: boolean;
   mainCableAuto: boolean;
+  mainInstallationMode: CableInstallationMode;
+  mainInstallationModeAuto: boolean;
+  mainLoadedConductors: number;
+  mainGroupingFactor: number;
+  mainDutyCyclePct?: number;
   circuits: Partial<Record<ElectricalCircuitKey, ElectricalCircuitInput>>;
   festoonCircuitKeys: ElectricalCircuitKey[];
   festoonCircuitKeysAuto: boolean;
@@ -249,13 +272,20 @@ export const DEFAULT_ELECTRICAL_INPUTS: ElectricalInputs = {
   voltageDropLimitPct: 3,
   voltageDropLimitAuto: true,
   currentDeratingFactor: 1,
-  mainDemandFactor: 0.75,
+  // Otomatik ana besleme hesabı, aynı anda çalışabilecek bütün seçili
+  // motorların akımlarını toplar. M sınıfından türetilmiş gizli azaltma yoktur.
+  mainDemandFactor: 1,
   mainDemandFactorAuto: true,
   defaultMotorCableLengthM: 30,
   defaultMotorCableLengthAuto: true,
   mainCableLengthM: 50,
   mainCableLengthAuto: true,
   mainCableAuto: true,
+  mainInstallationMode: "singleOnGround",
+  mainInstallationModeAuto: true,
+  mainLoadedConductors: 3,
+  mainGroupingFactor: 1,
+  mainDutyCyclePct: undefined,
   circuits: {},
   // Ana/yardımcı kaldırma ile ana araba, aynı araba üzerindeki en sık demettir.
   // Hesapta olmayan anahtarlar otomatik süzülür; kullanıcı her birini kaldırabilir.
@@ -296,17 +326,23 @@ export interface ElectricalDriveResult {
   drive?: ElectricalDriveModel;
   automatic: boolean;
   ratedCurrentAutomatic: boolean;
+  currentSource: "manualNameplate" | "catalogNameplate" | "catalogFormula" | "projectFallbackFormula";
+  resolvedPowerFactor: number;
+  resolvedEfficiencyPct: number;
+  sourceNote: string;
 }
 
 export interface ElectricalCableResult {
   circuit: ElectricalMotorSource;
   designCurrentA: number;
+  resolvedPowerFactor: number;
   lengthM: number;
   requiredSectionMm2: number;
   recommendedRuns: number;
   selectedCable?: ElectricalCableModel;
   selectedRuns: number;
   ampacityA: number;
+  ampacityTrace: AmpacityTrace;
   voltageDropPct: number;
   automatic: boolean;
   ratedCurrentAutomatic: boolean;
@@ -322,6 +358,7 @@ export interface MainCableResult {
   selectedCable?: ElectricalCableModel;
   selectedRuns: number;
   ampacityA: number;
+  ampacityTrace: AmpacityTrace;
   voltageDropPct: number;
   automatic: boolean;
 }
@@ -385,6 +422,7 @@ export interface ElectricalResolvedSettings {
   voltageDropLimitPct: number;
   currentDeratingFactor: number;
   mainDemandFactor: number;
+  mainDemandMode: "simultaneousScenario" | "manualFactor";
   defaultMotorCableLengthM: number;
   mainCableLengthM: number;
 }
@@ -397,15 +435,7 @@ export interface ElectricalValues {
   festoon: FestoonLayoutResult;
 }
 
-// ORION ön boyutlandırma tablosu: Cu/PVC çok damarlı kablo için ihtiyatlı
-// serbest hava başlangıç değerleri. Kesin seçim döşeme biçimi, ortam,
-// demetleme ve harmoniklere göre elektrik projesinde doğrulanır.
-const AMPACITY_A: Readonly<Record<number, number>> = {
-  1.5: 18, 2.5: 25, 4: 34, 6: 44, 10: 60, 16: 80,
-  25: 105, 35: 130, 50: 160, 70: 200, 95: 240, 120: 280, 150: 315,
-};
-
-const SECTIONS = Object.keys(AMPACITY_A).map(Number).sort((a, b) => a - b);
+const SECTIONS = [...VDE_SECTIONS_MM2];
 const RHO_CU = 0.0225; // Ω·mm²/m, işletme sıcaklığında ihtiyatlı bakır özdirenci
 
 function sanePositive(value: number | undefined, fallback: number): number {
@@ -427,16 +457,6 @@ function automaticUnlessOverridden(flag: boolean | undefined, manualValuePresent
   return flag ?? !manualValuePresent;
 }
 
-function ambientFactor(maxTempC: number): number {
-  if (maxTempC <= 30) return 1;
-  if (maxTempC <= 35) return 0.94;
-  if (maxTempC <= 40) return 0.87;
-  if (maxTempC <= 45) return 0.79;
-  if (maxTempC <= 50) return 0.71;
-  if (maxTempC <= 55) return 0.61;
-  return 0.5;
-}
-
 function voltageDropPct(
   currentA: number,
   lengthM: number,
@@ -455,6 +475,7 @@ interface RequiredCable {
   runs: number;
   ampacityA: number;
   voltageDropPct: number;
+  ampacityTrace: AmpacityTrace;
 }
 
 function requiredCable(
@@ -462,16 +483,17 @@ function requiredCable(
   lengthM: number,
   voltageV: number,
   pf: number,
-  derating: number,
-  maxDropPct: number
+  maxDropPct: number,
+  ampacity: Omit<Parameters<typeof ampacityTrace>[0], "sectionMm2" | "parallelRuns">
 ): RequiredCable {
   const candidates: RequiredCable[] = [];
   for (let runs = 1; runs <= 4; runs++) {
     for (const sectionMm2 of SECTIONS) {
-      const ampacityA = AMPACITY_A[sectionMm2] * derating * runs;
+      const trace = ampacityTrace({ ...ampacity, sectionMm2, parallelRuns: runs });
+      const ampacityA = trace.correctedAmpacityA;
       const drop = voltageDropPct(currentA, lengthM, sectionMm2, runs, voltageV, pf);
       if (ampacityA >= currentA && drop <= maxDropPct) {
-        candidates.push({ sectionMm2, runs, ampacityA, voltageDropPct: drop });
+        candidates.push({ sectionMm2, runs, ampacityA, voltageDropPct: drop, ampacityTrace: trace });
       }
     }
   }
@@ -482,8 +504,9 @@ function requiredCable(
   candidates.sort((a, b) => a.runs - b.runs || a.sectionMm2 - b.sectionMm2);
   return candidates[0] ?? {
     sectionMm2: SECTIONS[SECTIONS.length - 1], runs: 4,
-    ampacityA: AMPACITY_A[SECTIONS[SECTIONS.length - 1]] * derating * 4,
+    ampacityA: ampacityTrace({ ...ampacity, sectionMm2: SECTIONS[SECTIONS.length - 1], parallelRuns: 4 }).correctedAmpacityA,
     voltageDropPct: voltageDropPct(currentA, lengthM, SECTIONS[SECTIONS.length - 1], 4, voltageV, pf),
+    ampacityTrace: ampacityTrace({ ...ampacity, sectionMm2: SECTIONS[SECTIONS.length - 1], parallelRuns: 4 }),
   };
 }
 
@@ -829,10 +852,11 @@ export function computeElectrical(
     voltageDropLimitPct: inputs.voltageDropLimitAuto
       ? DEFAULT_ELECTRICAL_INPUTS.voltageDropLimitPct
       : sanePositive(inputs.voltageDropLimitPct, DEFAULT_ELECTRICAL_INPUTS.voltageDropLimitPct),
-    currentDeratingFactor: sanePositive(inputs.currentDeratingFactor, 1),
+    currentDeratingFactor: Math.min(1, sanePositive(inputs.currentDeratingFactor, 1)),
     mainDemandFactor: inputs.mainDemandFactorAuto
       ? DEFAULT_ELECTRICAL_INPUTS.mainDemandFactor
       : Math.min(1, Math.max(0.1, sanePositive(inputs.mainDemandFactor, DEFAULT_ELECTRICAL_INPUTS.mainDemandFactor))),
+    mainDemandMode: inputs.mainDemandFactorAuto ? "simultaneousScenario" : "manualFactor",
     defaultMotorCableLengthM: inputs.defaultMotorCableLengthAuto
       ? DEFAULT_ELECTRICAL_INPUTS.defaultMotorCableLengthM
       : sanePositive(inputs.defaultMotorCableLengthM, DEFAULT_ELECTRICAL_INPUTS.defaultMotorCableLengthM),
@@ -862,9 +886,7 @@ export function computeElectrical(
   };
   const voltage = settings.lineVoltageV;
   const pf = settings.powerFactor;
-  const efficiency = settings.motorEfficiencyPct;
   const maxDrop = settings.voltageDropLimitPct;
-  const derating = Math.max(0.1, ambientFactor(specs.ambientTempMaxC) * settings.currentDeratingFactor);
   const checks: AnyCheck[] = [];
 
   const drives: ElectricalDriveResult[] = [];
@@ -875,10 +897,24 @@ export function computeElectrical(
       override?.ratedCurrentAuto,
       override?.ratedCurrentA !== undefined
     );
-    const calculatedCurrentA = motorCurrent(source.motorPowerKw, voltage, pf, efficiency);
+    const sourcePf = source.powerFactor && source.powerFactor > 0 && source.powerFactor <= 1
+      ? source.powerFactor
+      : pf;
+    const sourceEfficiency = source.efficiencyPct && source.efficiencyPct > 0 && source.efficiencyPct <= 100
+      ? source.efficiencyPct
+      : settings.motorEfficiencyPct;
+    const calculatedCurrentA = motorCurrent(source.motorPowerKw, voltage, sourcePf, sourceEfficiency);
+    const hasCatalogCurrent = Number.isFinite(source.ratedCurrentA) && (source.ratedCurrentA ?? 0) > 0;
     const designCurrentA = ratedCurrentAutomatic
-      ? calculatedCurrentA
+      ? (hasCatalogCurrent ? source.ratedCurrentA as number : calculatedCurrentA)
       : sanePositive(override?.ratedCurrentA, calculatedCurrentA);
+    const currentSource: ElectricalDriveResult["currentSource"] = !ratedCurrentAutomatic
+      ? "manualNameplate"
+      : hasCatalogCurrent
+        ? "catalogNameplate"
+        : source.powerFactor && source.efficiencyPct
+          ? "catalogFormula"
+          : "projectFallbackFormula";
     const drivePick = selections.drives[source.key];
     const driveAutomatic = automaticUnlessOverridden(override?.driveAuto, Boolean(drivePick?.model));
     const resolvedDrive = resolveDrive(source, driveAutomatic ? undefined : drivePick, designCurrentA);
@@ -888,6 +924,16 @@ export function computeElectrical(
       drive: resolvedDrive.drive,
       automatic: driveAutomatic,
       ratedCurrentAutomatic,
+      currentSource,
+      resolvedPowerFactor: sourcePf,
+      resolvedEfficiencyPct: sourceEfficiency,
+      sourceNote: currentSource === "manualNameplate"
+        ? "Kullanıcının girdiği motor etiket akımı"
+        : currentSource === "catalogNameplate"
+          ? `${source.catalogSource ?? "Seçili motor kataloğu"} · katalog anma akımı`
+          : currentSource === "catalogFormula"
+            ? `${source.catalogSource ?? "Seçili motor kataloğu"} · katalog cosφ ve η ile formül`
+            : "Motor kataloğunda elektriksel veri yok; proje geneli cosφ ve η ile formül",
     });
     checks.push(check(
       `electrical.drive.${source.key}.power`, `${source.label} sürücü gücü`, source.motorPowerKw,
@@ -905,7 +951,20 @@ export function computeElectrical(
     const lengthM = lengthAutomatic
       ? settings.defaultMotorCableLengthM
       : sanePositive(override?.cableLengthM, settings.defaultMotorCableLengthM);
-    const required = requiredCable(designCurrentA, lengthM, voltage, pf, derating, maxDrop);
+    const installationMode = override?.installationModeAuto === false && override.installationMode
+      ? override.installationMode
+      : effectiveInputs.festoonCircuitKeys.includes(source.key)
+        ? "festoonFreeAir"
+        : "singleOnGround";
+    const ampacitySettings = {
+      installationMode,
+      ambientTemperatureC: specs.ambientTempMaxC,
+      loadedConductors: sanePositive(override?.loadedConductors, 3),
+      groupingFactor: sanePositive(override?.groupingFactor, 1),
+      projectFactor: settings.currentDeratingFactor,
+      dutyCyclePct: override?.dutyCyclePct,
+    };
+    const required = requiredCable(designCurrentA, lengthM, voltage, sourcePf, maxDrop, ampacitySettings);
     const pick = selections.motorCables[source.key];
     const cableAutomatic = automaticUnlessOverridden(
       override?.cableAuto,
@@ -920,12 +979,13 @@ export function computeElectrical(
       ? required.runs
       : Math.max(1, Math.round(sanePositive(pick?.parallelRuns, required.runs)));
     const section = selectedCable?.sectionMm2 ?? 0;
-    const ampacityA = (AMPACITY_A[section] ?? 0) * derating * selectedRuns;
-    const drop = voltageDropPct(designCurrentA, lengthM, section, selectedRuns, voltage, pf);
+    const selectedAmpacityTrace = ampacityTrace({ ...ampacitySettings, sectionMm2: section, parallelRuns: selectedRuns });
+    const ampacityA = selectedAmpacityTrace.correctedAmpacityA;
+    const drop = voltageDropPct(designCurrentA, lengthM, section, selectedRuns, voltage, sourcePf);
     motorCables.push({
-      circuit: source, designCurrentA, lengthM,
+      circuit: source, designCurrentA, resolvedPowerFactor: sourcePf, lengthM,
       requiredSectionMm2: required.sectionMm2, recommendedRuns: required.runs,
-      selectedCable, selectedRuns, ampacityA, voltageDropPct: drop,
+      selectedCable, selectedRuns, ampacityA, ampacityTrace: selectedAmpacityTrace, voltageDropPct: drop,
       automatic: cableAutomatic,
       ratedCurrentAutomatic,
       lengthAutomatic,
@@ -946,7 +1006,15 @@ export function computeElectrical(
     0
   ) * settings.mainDemandFactor;
   const mainLength = settings.mainCableLengthM;
-  const mainRequired = requiredCable(mainDesignCurrentA, mainLength, voltage, pf, derating, maxDrop);
+  const mainAmpacitySettings = {
+    installationMode: inputs.mainInstallationModeAuto ? "singleOnGround" as const : inputs.mainInstallationMode,
+    ambientTemperatureC: specs.ambientTempMaxC,
+    loadedConductors: sanePositive(inputs.mainLoadedConductors, 3),
+    groupingFactor: sanePositive(inputs.mainGroupingFactor, 1),
+    projectFactor: settings.currentDeratingFactor,
+    dutyCyclePct: inputs.mainDutyCyclePct,
+  };
+  const mainRequired = requiredCable(mainDesignCurrentA, mainLength, voltage, pf, maxDrop, mainAmpacitySettings);
   const mainAutomatic = inputs.mainCableAuto;
   const mainPicked = !mainAutomatic && selections.mainCable.articleNo
     ? cableByArticle(selections.mainCable.articleNo)
@@ -956,7 +1024,8 @@ export function computeElectrical(
     ? mainRequired.runs
     : Math.max(1, Math.round(sanePositive(selections.mainCable.parallelRuns, mainRequired.runs)));
   const mainSection = mainSelected?.sectionMm2 ?? 0;
-  const mainAmpacity = (AMPACITY_A[mainSection] ?? 0) * derating * mainRuns;
+  const mainAmpacityTrace = ampacityTrace({ ...mainAmpacitySettings, sectionMm2: mainSection, parallelRuns: mainRuns });
+  const mainAmpacity = mainAmpacityTrace.correctedAmpacityA;
   const mainDrop = voltageDropPct(mainDesignCurrentA, mainLength, mainSection, mainRuns, voltage, pf);
   const mainCable: MainCableResult = {
     designCurrentA: mainDesignCurrentA,
@@ -967,6 +1036,7 @@ export function computeElectrical(
     selectedCable: mainSelected,
     selectedRuns: mainRuns,
     ampacityA: mainAmpacity,
+    ampacityTrace: mainAmpacityTrace,
     voltageDropPct: mainDrop,
     automatic: mainAutomatic,
   };
@@ -987,17 +1057,21 @@ export function computeElectrical(
   const cells: Record<string, number | string> = {
     "system.voltage": voltage,
     "system.powerFactor": pf,
-    "system.motorEfficiency": efficiency,
+    "system.motorEfficiency": settings.motorEfficiencyPct,
     "system.ambientTemperature": specs.ambientTempMaxC,
-    "system.ambientFactor": ambientFactor(specs.ambientTempMaxC),
+    "system.ambientFactor": ambientCorrectionFactor(specs.ambientTempMaxC).factor,
     "system.extraDerating": settings.currentDeratingFactor,
-    "system.totalDerating": derating,
+    "system.totalDerating": ambientCorrectionFactor(specs.ambientTempMaxC).factor * settings.currentDeratingFactor,
     "system.voltageDropLimit": maxDrop,
     "system.demandFactor": settings.mainDemandFactor,
+    "system.demandMode": settings.mainDemandMode === "simultaneousScenario"
+      ? "En olumsuz eşzamanlı çalışma senaryosu · tüm seçili motorlar"
+      : "Manuel eşzamanlılık katsayısı",
     "system.installedPower": installedPowerKw,
     "system.mainCurrent": mainDesignCurrentA,
     "mainCable.length": mainLength,
     "mainCable.ampacity": mainAmpacity,
+    "mainCable.rawAmpacity": mainAmpacityTrace.rawAmpacityA,
     "mainCable.requiredSection": mainRequired.sectionMm2,
     "mainCable.selected": mainSelected
       ? `${mainRuns} × ${mainSelected.family} ${mainSelected.construction} (${mainSelected.articleNo})`

@@ -115,7 +115,7 @@ import {
  * 0.6.0: İsteğe bağlı elektrik hesap raporu — sürücü ve kablo ön seçimi,
  *        ana besleme hesabı ve ağırlık merkezli feston yerleşimi.
  */
-export const ENGINE_VERSION = "0.8.1";
+export const ENGINE_VERSION = "0.9.0";
 
 export interface HoistModuleInput {
   inputs: HoistInputs;
@@ -541,6 +541,12 @@ export function electricalDepsFrom(input: CalcInput): ElectricalDeps {
       label: ELECTRICAL_MOTOR_LABELS[key],
       motorPowerKw,
       motorCount: Number.isFinite(count) && count > 0 ? Math.max(1, Math.round(count)) : 1,
+      ratedCurrentA: Number(selections.motorRatedCurrentA) || undefined,
+      efficiencyPct: Number(selections.motorEfficiencyPct) || undefined,
+      powerFactor: Number(selections.motorPowerFactor) || undefined,
+      catalogSource: selections.motorBrand && selections.motorModel
+        ? `${String(selections.motorBrand)} ${String(selections.motorModel)}`
+        : undefined,
     });
   }
   const trolleyInputs = input.trolley?.inputs as Record<string, unknown> | undefined;

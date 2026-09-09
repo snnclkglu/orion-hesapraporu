@@ -61,9 +61,9 @@ export const ELECTRICAL_SECTIONS: readonly ElectricalSectionDef[] = [
     rows: [
       { key: "system.voltage", label: "Hesap Hat Gerilimi", unit: "V", digits: 0 },
       { key: "system.powerFactor", label: "Hesap Güç Katsayısı cosφ", digits: 2 },
-      { key: "system.motorEfficiency", label: "Hesap Motor Verimi η", unit: "%", digits: 1 },
+      { key: "system.motorEfficiency", label: "Yalnız Katalog Verisi Yoksa Motor Verimi η", unit: "%", digits: 1 },
       { key: "system.installedPower", label: "Toplam Kurulu Motor Gücü", formula: "Σ(P_motor × adet)", unit: "kW", digits: 2 },
-      { key: "system.mainCurrent", label: "Ana Besleme Tasarım Akımı", formula: "Σ I_motor × eşzamanlılık", unit: "A", digits: 2 },
+      { key: "system.mainCurrent", label: "Ana Besleme Tasarım Akımı", formula: "maks. çalışma senaryosu Σ(I_motor × adet)", unit: "A", digits: 2 },
     ],
     table: {
       title: "Mekanizma Bazında Akım Hesabı ve Sürücü Seçimleri",
@@ -71,9 +71,11 @@ export const ELECTRICAL_SECTIONS: readonly ElectricalSectionDef[] = [
       build: (ctx) => ctx.v.drives.map((row) => [
         row.circuit.label,
         `${n(row.circuit.motorPowerKw)} kW × ${row.circuit.motorCount}`,
-        row.ratedCurrentAutomatic
-          ? `${n(row.circuit.motorPowerKw)}·1000 / (√3·${n(ctx.v.settings.lineVoltageV, 0)}·${n(ctx.v.settings.powerFactor)}·${n(ctx.v.settings.motorEfficiencyPct / 100, 3)})`
-          : "Motor etiket akımı · manuel",
+        row.currentSource === "catalogNameplate"
+          ? `${row.sourceNote}: ${n(row.designCurrentA)} A`
+          : row.currentSource === "manualNameplate"
+            ? `${row.sourceNote}: ${n(row.designCurrentA)} A`
+            : `${n(row.circuit.motorPowerKw)}·1000 / (√3·${n(ctx.v.settings.lineVoltageV, 0)}·${n(row.resolvedPowerFactor)}·${n(row.resolvedEfficiencyPct / 100, 3)}) · ${row.sourceNote}`,
         `${n(row.designCurrentA)} A`,
         row.drive
           ? `${row.drive.brand} ${row.drive.series} · ${row.drive.model}${row.drive.projectReference ? ` · Ref. ${row.drive.projectReference}` : ""}`
@@ -81,7 +83,7 @@ export const ELECTRICAL_SECTIONS: readonly ElectricalSectionDef[] = [
         row.drive ? `${n(row.drive.motorPowerKw - row.circuit.motorPowerKw)} kW (${n(row.drive.motorPowerKw)} ≥ ${n(row.circuit.motorPowerKw)})` : "—",
         row.drive ? `${n(row.drive.outputCurrentA - row.designCurrentA)} A (${n(row.drive.outputCurrentA)} ≥ ${n(row.designCurrentA)})` : "—",
       ]),
-      note: "Sürücü seçimi ön boyutlandırmadır; motor etiket akımı, frenleme çevrimi, rejeneratif çalışma ve üretici uygulama notları nihai projede doğrulanır.",
+      note: "Akım kaynağı önceliği: manuel etiket akımı → seçili motor katalog anma akımı → katalog cosφ ve η ile formül → yalnız katalog verisi yoksa proje geneli varsayım. IEC verim sınıfı, tek başına gerçek η değeri yerine kullanılmaz. Sürücü seçimi ön boyutlandırmadır; frenleme çevrimi, rejeneratif çalışma ve üretici uygulama notları nihai projede doğrulanır.",
     },
     checkSuffixes: driveChecks,
   },
@@ -97,43 +99,57 @@ export const ELECTRICAL_SECTIONS: readonly ElectricalSectionDef[] = [
       { key: "system.extraDerating", label: "Ek Akım Düzeltme Katsayısı", digits: 2 },
       { key: "system.totalDerating", label: "Toplam Akım Düzeltme Katsayısı", formula: "k_toplam = k_ortam × k_ek", digits: 3 },
       { key: "system.voltageDropLimit", label: "İzinli Gerilim Düşümü", unit: "%", digits: 2 },
-      { key: "system.demandFactor", label: "Ana Besleme Eşzamanlılık Katsayısı", digits: 2 },
+      { key: "system.demandMode", label: "Ana Besleme Yük Birleştirme Yöntemi" },
+      { key: "system.demandFactor", label: "Ana Besleme Yük Katsayısı", digits: 2 },
       { key: "mainCable.length", label: "Ana Besleme Tek Yön Boyu", unit: "m", digits: 1 },
       { key: "mainCable.requiredSection", label: "Ana Besleme Gereken Kesiti", unit: "mm²", digits: 1 },
       { key: "mainCable.selected", label: "Ana Besleme Seçimi" },
-      { key: "mainCable.ampacity", label: "Ana Besleme Düzeltilmiş Kapasitesi", formula: "I_z,tablo × k_toplam × paralel", unit: "A", digits: 2 },
+      { key: "mainCable.rawAmpacity", label: "Ana Besleme Ham Tablo Kapasitesi", unit: "A", digits: 2 },
+      { key: "mainCable.ampacity", label: "Ana Besleme Düzeltilmiş Kapasitesi", formula: "I_z,ham × k_sıcaklık × k_damar × k_demet × k_proje × k_görev × paralel", unit: "A", digits: 2 },
       { key: "mainCable.voltageDrop", label: "Ana Besleme Gerilim Düşümü", formula: "√3·I·L·ρ·cosφ/(A·n·U)", unit: "%", digits: 2 },
     ],
     table: {
       title: "Kablo Boyutlandırma, Fiziksel Veri ve Elektriksel Kontrol",
-      headers: ["Devre / Boy", "Marka · Ürün", "Biçim / Dış Ölçü", "Ağırlık", "Gereken / Seçilen", "Akım / Düzeltilmiş Kapasite", "Gerilim Düşümü Hesabı"],
+      headers: ["Fiziksel Kablo / Boy", "Marka · Ürün", "Dış Ölçü / Ağırlık", "Yerleşim / Kaynak", "Akım", "Ham Iz", "Düzeltme Çarpımı", "Düzeltilmiş Iz", "Gerilim Düşümü"],
       build: (ctx) => {
-        const rows = ctx.v.motorCables.map((row) => {
+        const rows = ctx.v.motorCables.flatMap((row) => {
           const cable = row.selectedCable;
-          return [
-            `${row.circuit.label} · ${n(row.lengthM, 1)} m`,
-            cable ? `${cable.brand} · ${cable.family} ${cable.construction} · ${cable.articleNo}` : "Kablo bulunamadı",
-            cable ? `${cable.shape === "round" ? "Yuvarlak" : "Yassı"} · ${cable.shape === "round" ? `Ø${n(cable.widthMm, 1)} mm` : `${n(cable.widthMm, 1)} × ${n(cable.heightMm, 1)} mm`}${cable.shielded ? " · ekranlı" : ""}` : "—",
-            cable ? `${n(cable.weightKgPerM, 3)} kg/m` : "—",
-            `${row.recommendedRuns}×${n(row.requiredSectionMm2, 1)} / ${row.selectedRuns}×${n(cable?.sectionMm2 ?? 0, 1)} mm²`,
-            `${n(row.designCurrentA)} / ${n(row.ampacityA)} A`,
-            `√3·${n(row.designCurrentA)}·${n(row.lengthM, 1)}·0,0225·${n(ctx.v.settings.powerFactor)} / (${n(cable?.sectionMm2 ?? 0, 1)}·${row.selectedRuns}·${n(ctx.v.settings.lineVoltageV, 0)}) = ${n(row.voltageDropPct)} %`,
-          ];
+          return Array.from({ length: row.circuit.motorCount * row.selectedRuns }, (_, physicalIndex) => {
+            const motorNo = Math.floor(physicalIndex / row.selectedRuns) + 1;
+            const runNo = physicalIndex % row.selectedRuns + 1;
+            const t = row.ampacityTrace;
+            return [
+              `${row.circuit.label}${row.circuit.motorCount > 1 ? ` · Motor ${motorNo}` : ""}${row.selectedRuns > 1 ? ` · Paralel ${runNo}` : ""} · ${n(row.lengthM, 1)} m`,
+              cable ? `${cable.brand} · ${cable.family} ${cable.construction} · ${cable.articleNo} · ${n(cable.sectionMm2 ?? 0, 1)} mm²` : "Kablo bulunamadı",
+              cable ? `${cable.shape === "round" ? `Ø${n(cable.widthMm, 1)}` : `${n(cable.widthMm, 1)}×${n(cable.heightMm, 1)}`} mm · ${n(cable.weightKgPerM, 3)} kg/m${cable.shielded ? " · ekranlı" : ""}` : "—",
+              `${t.installationLabel} · ${t.source}`,
+              `${n(row.designCurrentA / row.selectedRuns)} A / kablo`,
+              `${n(t.rawAmpacityA)} A`,
+              `${n(t.ambientFactor, 3)} × ${n(t.loadedConductorFactor, 3)} × ${n(t.groupingFactor, 3)} × ${n(t.projectFactor, 3)} × ${n(t.intermittentFactor, 3)}`,
+              `${n(t.correctedAmpacityA / t.parallelRuns)} A / kablo · toplam ${n(t.correctedAmpacityA)} A`,
+              `√3·${n(row.designCurrentA)}·${n(row.lengthM, 1)}·0,0225·${n(row.resolvedPowerFactor ?? ctx.v.settings.powerFactor)} / (${n(cable?.sectionMm2 ?? 0, 1)}·${row.selectedRuns}·${n(ctx.v.settings.lineVoltageV, 0)}) = ${n(row.voltageDropPct)} %`,
+            ];
+          });
         });
         const main = ctx.v.mainCable;
         const cable = main.selectedCable;
-        rows.push([
-          `Ana Besleme · ${n(main.lengthM, 1)} m`,
-          cable ? `${cable.brand} · ${cable.family} ${cable.construction} · ${cable.articleNo}` : "Kablo bulunamadı",
-          cable ? `${cable.shape === "round" ? "Yuvarlak" : "Yassı"} · ${cable.shape === "round" ? `Ø${n(cable.widthMm, 1)} mm` : `${n(cable.widthMm, 1)} × ${n(cable.heightMm, 1)} mm`}${cable.shielded ? " · ekranlı" : ""}` : "—",
-          cable ? `${n(cable.weightKgPerM, 3)} kg/m` : "—",
-          `${main.recommendedRuns}×${n(main.requiredSectionMm2, 1)} / ${main.selectedRuns}×${n(cable?.sectionMm2 ?? 0, 1)} mm²`,
-          `${n(main.designCurrentA)} / ${n(main.ampacityA)} A`,
-          `√3·${n(main.designCurrentA)}·${n(main.lengthM, 1)}·0,0225·${n(ctx.v.settings.powerFactor)} / (${n(cable?.sectionMm2 ?? 0, 1)}·${main.selectedRuns}·${n(ctx.v.settings.lineVoltageV, 0)}) = ${n(main.voltageDropPct)} %`,
-        ]);
+        for (let runNo = 1; runNo <= main.selectedRuns; runNo++) {
+          const t = main.ampacityTrace;
+          rows.push([
+            `Ana Besleme${main.selectedRuns > 1 ? ` · Paralel ${runNo}` : ""} · ${n(main.lengthM, 1)} m`,
+            cable ? `${cable.brand} · ${cable.family} ${cable.construction} · ${cable.articleNo} · ${n(cable.sectionMm2 ?? 0, 1)} mm²` : "Kablo bulunamadı",
+            cable ? `${cable.shape === "round" ? `Ø${n(cable.widthMm, 1)}` : `${n(cable.widthMm, 1)}×${n(cable.heightMm, 1)}`} mm · ${n(cable.weightKgPerM, 3)} kg/m${cable.shielded ? " · ekranlı" : ""}` : "—",
+            `${t.installationLabel} · ${t.source}`,
+            `${n(main.designCurrentA / main.selectedRuns)} A / kablo`,
+            `${n(t.rawAmpacityA)} A`,
+            `${n(t.ambientFactor, 3)} × ${n(t.loadedConductorFactor, 3)} × ${n(t.groupingFactor, 3)} × ${n(t.projectFactor, 3)} × ${n(t.intermittentFactor, 3)}`,
+            `${n(t.correctedAmpacityA / t.parallelRuns)} A / kablo · toplam ${n(t.correctedAmpacityA)} A`,
+            `√3·${n(main.designCurrentA)}·${n(main.lengthM, 1)}·0,0225·${n(ctx.v.settings.powerFactor)} / (${n(cable?.sectionMm2 ?? 0, 1)}·${main.selectedRuns}·${n(ctx.v.settings.lineVoltageV, 0)}) = ${n(main.voltageDropPct)} %`,
+          ]);
+        }
         return rows;
       },
-      note: "Akım taşıma değerleri ORION ön boyutlandırma kabulüdür. Döşeme biçimi, demetleme, ortam düzeltmesi, harmonikler, kısa devre dayanımı ve koruma koordinasyonu elektrik projesinde ayrıca doğrulanır.",
+      note: "Ham akım taşıma ve düzeltme değerleri kullanıcı ekindeki VDE 0298 Part 4 özet tablosundandır (baskı tarihi belirtilmemiştir; 30 °C, 3 yüklü damar + PE, sürekli çalışma). Kesintili çalışma artışı yalnız görev çevrimi açıkça girilirse uygulanır. M5–M8 sınıfı eşzamanlılık veya kapasite katsayısına otomatik çevrilmez. Ana besleme otomatikte aynı anda çalışabilecek bütün seçili motorların en olumsuz toplamıyla hesaplanır; manuel katsayı kullanılırsa raporda açıkça gösterilir. Harmonikler, kısa devre dayanımı, koruma koordinasyonu ve güncel standart baskısı nihai elektrik projesinde doğrulanır.",
     },
     checkSuffixes: [...cableChecks, "cable.main.ampacity", "cable.main.voltageDrop"],
   },

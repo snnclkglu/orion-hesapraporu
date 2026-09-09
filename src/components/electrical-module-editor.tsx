@@ -22,6 +22,10 @@ import {
 } from "@/lib/calc/modules/electrical";
 import { cn } from "@/lib/utils";
 import { kimlikBuyuk } from "@/lib/tr-text";
+import {
+  CABLE_INSTALLATION_LABELS,
+  type CableInstallationMode,
+} from "@/lib/calc/electrical-ampacity";
 
 type Mode = "drives" | "cables" | "festoon";
 
@@ -97,8 +101,8 @@ function FieldLabel(props: {
   auto?: { on: boolean; onToggle: (next: boolean) => void; disabled?: boolean; title?: string };
 }) {
   return (
-    <span className="flex min-h-5 items-start gap-1.5 text-[11px] font-medium text-muted-foreground">
-      <span className="min-w-0">{props.children}</span>
+    <span className="flex min-h-5 w-full flex-wrap items-start gap-1.5 text-[11px] font-medium text-muted-foreground">
+      <span className="min-w-0 flex-1">{props.children}</span>
       {props.info && <InfoButton title={typeof props.children === "string" ? props.children : "Alan"}>{props.info}</InfoButton>}
       {props.auto && <AutoToggle {...props.auto} />}
     </span>
@@ -196,7 +200,8 @@ function DrivesEditor(props: ElectricalModuleEditorProps) {
                       }}
                       className="w-28"
                     />
-                    <div className="mt-1 text-[10px] text-muted-foreground">{row.ratedCurrentAutomatic ? "Motor gücü ve sistem kabullerinden hesaplandı." : "Manuel motor etiket akımı."}</div>
+                    <div className="mt-1 max-w-64 text-[10px] leading-relaxed text-muted-foreground">{row.sourceNote}</div>
+                    <div className="mt-1 font-mono text-[10px] text-muted-foreground">η %{fmt(row.resolvedEfficiencyPct, 1)} · cosφ {fmt(row.resolvedPowerFactor, 3)}</div>
                   </td>
                   <td className="px-3 py-3">
                     <div className="mb-1 flex justify-end">
@@ -351,7 +356,7 @@ function CableSelect(props: {
     })[0];
   };
   return (
-    <div className="grid min-w-[24rem] gap-1.5">
+    <div className="grid min-w-0 gap-1.5">
       <div className="grid grid-cols-2 gap-1.5">
         <select
           aria-label="Kablo markası"
@@ -418,10 +423,10 @@ function CablesEditor(props: ElectricalModuleEditorProps) {
   }> = [
     { label: "Hat gerilimi", key: "lineVoltageV", effective: values.settings.lineVoltageV, suffix: "V", step: "1", autoKey: "lineVoltageAuto", info: "Otomatikte Teknik Özellikler > Besleme Gerilimi metnindeki 380/400/415… V değeri okunur. Bu değer motor akımı ve gerilim düşümü hesabının paydasındadır." },
     { label: "Güç katsayısı", key: "powerFactor", effective: values.settings.powerFactor, step: "0.01", autoKey: "powerFactorAuto", info: "Motor etiket cosφ değeri bilinmiyorsa ön boyutlandırma için 0,85 kullanılır. Motor akımı hesabında düşük cosφ daha yüksek akım üretir." },
-    { label: "Motor verimi", key: "motorEfficiencyPct", effective: values.settings.motorEfficiencyPct, suffix: "%", step: "0.1", autoKey: "motorEfficiencyAuto", info: "Şebekeden çekilen elektrik gücünü mil gücüne bağlar. Otomatik ön kabul %90'dır; katalog/etiket verimi varsa otomatiği kapatıp girin." },
+    { label: "Katalog verisi yoksa motor verimi", key: "motorEfficiencyPct", effective: values.settings.motorEfficiencyPct, suffix: "%", step: "0.1", autoKey: "motorEfficiencyAuto", info: "Bu %90 değeri yalnız seçilmiş motor katalog satırında anma akımı veya gerçek η/cosφ bulunmuyorsa geri dönüş kabulüdür. Normal durumda elektrik hesabı motor seçimi ekranındaki katalog anma akımını, ardından katalog η ve cosφ değerini kullanır; IEC verim sınıfı gerçek η yerine geçmez." },
     { label: "İzinli gerilim düşümü", key: "voltageDropLimitPct", effective: values.settings.voltageDropLimitPct, suffix: "%", step: "0.1", autoKey: "voltageDropLimitAuto", info: "Seçilen kabloda hesaplanan üç faz gerilim düşümünün üst sınırıdır. Otomatik ön kabul %3'tür; müşteri şartnamesi daha düşük bir sınır isteyebilir." },
     { label: "Ek akım düzeltme katsayısı", key: "currentDeratingFactor", effective: values.settings.currentDeratingFactor, step: "0.01", info: "Ortam sıcaklığı düzeltmesine ek olarak demetleme, döşeme veya şirket tasarım payını uygular. 1,00 ek azaltma yoktur; örneğin 0,85 kapasiteyi %15 azaltır." },
-    { label: "Ana besleme eşzamanlılık", key: "mainDemandFactor", effective: values.settings.mainDemandFactor, step: "0.01", autoKey: "mainDemandFactorAuto", info: "Bütün motorların aynı anda tam yükte çalışmadığı kabulünü ana giriş akımına uygular. Otomatik ön kabul 0,75'tir; çalışma senaryosu gerektiriyorsa elle değiştirin." },
+    { label: "Ana besleme yük katsayısı", key: "mainDemandFactor", effective: values.settings.mainDemandFactor, step: "0.01", autoKey: "mainDemandFactorAuto", info: "Otomatikte katsayı 1,00'dır ve en olumsuz senaryo olarak bütün seçili motorların akımları adetleriyle toplanır. M5–M8 sınıfı eşzamanlılık katsayısına çevrilmez. Yalnız tesisin kilitlemelerle tanımlanmış gerçek çalışma senaryosu varsa otomatiği kapatıp mühendis onaylı katsayı girin; raporda manuel olduğu görünür." },
     { label: "Varsayılan motor kablo boyu", key: "defaultMotorCableLengthM", effective: values.settings.defaultMotorCableLengthM, suffix: "m", step: "1", autoKey: "defaultMotorCableLengthAuto", info: "Devreye özel boy girilmemişse sürücü-motor arasındaki tek yön elektriksel uzunluk olarak kullanılır. Otomatik ön kabul 30 m'dir." },
     { label: "Ana besleme kablo boyu", key: "mainCableLengthM", effective: values.settings.mainCableLengthM, suffix: "m", step: "1", autoKey: "mainCableLengthAuto", info: "Besleme noktasından ana panoya kadar tek yön uzunluktur. Otomatik ön kabul 50 m'dir; güzergâh ölçüldüğünde manuel gerçek değer girilmelidir." },
   ];
@@ -616,9 +621,82 @@ function CablesEditor(props: ElectricalModuleEditorProps) {
           </tbody>
         </table>
       </div>
+      <section className="grid gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <h4 className="text-xs font-semibold">VDE akım taşıma düzeltmeleri ve hesap izi</h4>
+          <InfoButton title="VDE akım taşıma hesabı">
+            Ham kapasite, kullanıcı ekindeki VDE 0298 Part 4 özet tablosundan seçilir. Ek dokümanda baskı tarihi belirtilmemiştir; değerler 30 °C, 3 yüklü damar + PE ve sürekli çalışma temelindedir. Her katsayı ayrı gösterilir. Ara sıcaklık ve damar adedinde ihtiyatlı üst tablo satırı kullanılır. Kesintili çalışma artışı, görev çevrimi girilmedikçe uygulanmaz.
+          </InfoButton>
+        </div>
+        {[...values.motorCables.map((row) => ({ kind: "motor" as const, row })), { kind: "main" as const, row: values.mainCable }].map((entry) => {
+          const isMain = entry.kind === "main";
+          const label = isMain ? "Ana Besleme" : entry.row.circuit.label;
+          const motorCount = isMain ? 1 : entry.row.circuit.motorCount;
+          const physicalCount = motorCount * entry.row.selectedRuns;
+          const trace = entry.row.ampacityTrace;
+          const circuit = isMain ? undefined : inputs.circuits[entry.row.circuit.key] ?? {};
+          const updateCircuit = (patch: Record<string, unknown>) => {
+            if (isMain) onInputsChange({ ...inputs, ...patch });
+            else onInputsChange({
+              ...inputs,
+              circuits: { ...inputs.circuits, [entry.row.circuit.key]: { ...circuit, ...patch } },
+            });
+          };
+          const installationAuto = isMain
+            ? inputs.mainInstallationModeAuto
+            : circuit?.installationModeAuto !== false;
+          const installationMode = isMain
+            ? inputs.mainInstallationMode
+            : circuit?.installationMode ?? trace.installationMode;
+          return (
+            <article key={isMain ? "main-supply" : entry.row.circuit.key} className={cn("grid min-w-0 gap-3 border p-3", isMain && "border-primary/40 bg-primary/[0.03]")}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h5 className="text-sm font-semibold">{label}</h5>
+                  <p className="text-[11px] text-muted-foreground">
+                    {entry.row.selectedRuns} × {fmt(entry.row.selectedCable?.sectionMm2 ?? 0, 1)} mm² · {fmt(entry.row.lengthM, 1)} m · {isMain ? fmt(entry.row.designCurrentA) : fmt(entry.row.designCurrentA)} A
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  <Status pass={entry.row.ampacityA >= entry.row.designCurrentA}>Iz {fmt(entry.row.ampacityA)} A</Status>
+                  <Status pass={entry.row.voltageDropPct <= values.settings.voltageDropLimitPct}>ΔU %{fmt(entry.row.voltageDropPct)}</Status>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {Array.from({ length: physicalCount }, (_, index) => {
+                  const motorNo = Math.floor(index / entry.row.selectedRuns) + 1;
+                  const runNo = index % entry.row.selectedRuns + 1;
+                  return <Badge key={index} variant="outline" className="font-mono text-[10px]">{label}{motorCount > 1 ? ` M${motorNo}` : ""}{entry.row.selectedRuns > 1 ? ` P${runNo}` : ""} · {fmt(entry.row.designCurrentA / entry.row.selectedRuns)} A · Iz {fmt(entry.row.ampacityA / entry.row.selectedRuns)} A</Badge>;
+                })}
+              </div>
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <label className="grid min-w-0 gap-1 sm:col-span-2">
+                  <FieldLabel auto={{ on: installationAuto, disabled, onToggle: (on) => updateCircuit(isMain ? { mainInstallationModeAuto: on } : { installationModeAuto: on }) }} info="Otomatikte feston paketindeki motor devreleri 'havada serbest asılı', diğer motor devreleri ve ana besleme 'tek kablo, zemin üzerinde' tablosunu kullanır. Gerçek güzergâh farklıysa otomatiği kapatın.">Yerleşim biçimi</FieldLabel>
+                  <select className={selectClass} value={trace.installationMode} disabled={disabled || installationAuto} onChange={(event) => updateCircuit(isMain ? { mainInstallationMode: event.target.value as CableInstallationMode, mainInstallationModeAuto: false } : { installationMode: event.target.value as CableInstallationMode, installationModeAuto: false })}>
+                    {Object.entries(CABLE_INSTALLATION_LABELS).map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+                  </select>
+                  {!installationAuto && installationMode !== trace.installationMode && <span className="text-[10px] text-destructive">Seçim yeniden hesaplanıyor…</span>}
+                </label>
+                <NumericSetting label="Yüklü damar" value={isMain ? inputs.mainLoadedConductors : circuit?.loadedConductors ?? 3} step="1" min={1} disabled={disabled} info="Aynı çok damarlı kabloda akım taşıyan damar adedidir. 3 damara kadar k=1,00; daha çok yüklü damarda ek tablodaki azaltma uygulanır." onChange={(value) => updateCircuit(isMain ? { mainLoadedConductors: value } : { loadedConductors: value })} />
+                <NumericSetting label="Demet katsayısı" value={isMain ? inputs.mainGroupingFactor : circuit?.groupingFactor ?? 1} step="0.01" min={0.01} disabled={disabled} info="Aynı güzergâhtaki kabloların karşılıklı ısıl etkisi için proje girdisidir. Üretici/döşeme düzeni hesabından gelmelidir; bilinmiyorsa 1,00 gizli azaltma uygulamaz." onChange={(value) => updateCircuit(isMain ? { mainGroupingFactor: value } : { groupingFactor: value })} />
+                <label className="grid gap-1">
+                  <FieldLabel info="Boş bırakıldığında sürekli çalışma kabulü k=1,00'dır. Yalnız gerçek görev çevrimi doğrulanmışsa %15, 20, 25, 40 veya 60 tablosundan artış uygulanır; M sınıfından otomatik türetilmez.">Kesintili görev [%]</FieldLabel>
+                  <Input type="number" min={15} max={100} step="1" value={(isMain ? inputs.mainDutyCyclePct : circuit?.dutyCyclePct) ?? ""} disabled={disabled} placeholder="Sürekli" onChange={(event) => updateCircuit(isMain ? { mainDutyCyclePct: event.target.value === "" ? undefined : numberValue(event.target.value, 100) } : { dutyCyclePct: event.target.value === "" ? undefined : numberValue(event.target.value, 100) })} />
+                </label>
+              </div>
+              <div className="grid gap-1 bg-muted/30 p-2 font-mono text-[11px] leading-relaxed sm:grid-cols-[auto_1fr]">
+                <span className="text-muted-foreground">Ham tablo:</span><span>{fmt(trace.rawAmpacityA)} A · {trace.installationLabel}</span>
+                <span className="text-muted-foreground">Düzeltme:</span><span>{fmt(trace.rawAmpacityA)} × {fmt(trace.ambientFactor, 3)} (sıcaklık) × {fmt(trace.loadedConductorFactor, 3)} (damar) × {fmt(trace.groupingFactor, 3)} (demet) × {fmt(trace.projectFactor, 3)} (proje) × {fmt(trace.intermittentFactor, 3)} (görev) × {trace.parallelRuns} (paralel)</span>
+                <span className="text-muted-foreground">Sonuç:</span><span className="font-semibold">{fmt(trace.correctedAmpacityA)} A</span>
+                <span className="text-muted-foreground">Kaynak:</span><span>{trace.source}</span>
+              </div>
+              {trace.notes.length > 0 && <p className="text-[11px] text-amber-700 dark:text-amber-300">Not: {trace.notes.join("; ")}</p>}
+            </article>
+          );
+        })}
+      </section>
       <p className="text-xs leading-relaxed text-muted-foreground">
-        Bu tablo ön boyutlandırmadır. Kablo döşeme biçimi, aynı tava/demet düzeltmesi, ortam sıcaklığı, harmonikler,
-        kısa devre termik dayanımı, PE kesiti ve koruma cihazı koordinasyonu elektrik projesinin sorumluluğunda kalır.
+        Ana besleme otomatikte tüm seçili motorların aynı anda çalıştığı en olumsuz senaryo üzerinden hesaplanır; düzeltilmiş kapasite hiçbir eşzamanlılık katsayısıyla çarpılmaz. Katsayı yalnız manuel moda alınırsa yük akımını etkiler. Harmonikler, kısa devre termik dayanımı, PE kesiti ve koruma cihazı koordinasyonu nihai elektrik projesinde doğrulanmalıdır.
       </p>
     </div>
   );
@@ -626,74 +704,63 @@ function CablesEditor(props: ElectricalModuleEditorProps) {
 
 function FestoonLayoutSvg({ values }: { values: ElectricalValues }) {
   const layout = values.festoon;
-  const vbW = 220;
-  const vbH = 184;
   const usableW = Math.max(1, layout.usableWidthMm);
-  const usableH = Math.max(1, layout.usableHeightMm);
-  const worldCenterX = usableW / 2;
-  const halfW = Math.max(usableW / 2, ...layout.placements.map((p) => Math.abs(p.xMm - worldCenterX) + p.widthMm / 2));
-  const halfH = Math.max(usableH / 2, ...layout.placements.map((p) => Math.abs(p.yMm) + p.heightMm / 2));
-  const scale = Math.min(116 / (2 * halfW), 30 / (2 * halfH)) * 0.94;
-  const centerX = 110;
-  const centerY = 126;
-  const cogX = centerX + layout.centerOffsetMm * scale;
-  const dimensionLeft = centerX - usableW * scale / 2;
-  const dimensionRight = centerX + usableW * scale / 2;
+  const rows = Array.from({ length: layout.rowCount }, (_, row) => layout.placements.filter((p) => p.row === row));
+  const frontLeft = 252;
+  const frontWidth = 150;
+  const frontCenter = frontLeft + frontWidth / 2;
+  const scale = Math.min(1.25, 132 / usableW);
+  const supportLeft = frontCenter - usableW * scale / 2;
+  const supportRight = frontCenter + usableW * scale / 2;
+  const cogX = frontCenter + layout.centerOffsetMm * scale;
+  const cableNode = (p: typeof layout.placements[number], rowIndex: number) => {
+    const x = frontCenter + (p.xMm - usableW / 2) * scale;
+    const rowTop = 111 + rowIndex * 36;
+    const width = Math.max(4, p.widthMm * scale);
+    const height = Math.max(4, p.heightMm * scale);
+    return p.widthMm === p.heightMm
+      ? <circle key={p.id} cx={x} cy={rowTop + height / 2} r={width / 2} fill={p.color} fillOpacity="0.82" stroke="#262626" strokeWidth="0.8"><title>{`${p.label} · ${p.family} ${p.construction}`}</title></circle>
+      : <rect key={p.id} x={x - width / 2} y={rowTop} width={width} height={height} rx="1.5" fill={p.color} fillOpacity="0.82" stroke="#262626" strokeWidth="0.8"><title>{`${p.label} · ${p.family} ${p.construction}`}</title></rect>;
+  };
   return (
     <div className="border bg-[#fbfaf8] p-2 dark:bg-neutral-950">
-      <svg viewBox={`0 0 ${vbW} ${vbH}`} className="h-auto max-h-[470px] w-full" role="img" aria-label="Feston kablo arabası ve enine kablo yerleşimi">
+      <svg viewBox="0 0 440 214" className="h-auto max-h-[520px] w-full" role="img" aria-label="Feston kablo arabası yan görünüşü ve A-A kablo kesiti">
         <defs>
           <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#E7E5E4" /><stop offset="1" stopColor="#A8A29E" /></linearGradient>
           <marker id="dimArrow" markerWidth="5" markerHeight="5" refX="2.5" refY="2.5" orient="auto-start-reverse"><path d="M0,0 L5,2.5 L0,5 Z" fill="#78716C" /></marker>
         </defs>
-        {/* I profil ve dört tekerli taşıyıcının önden görünüşü. */}
-        <rect x="34" y="10" width="152" height="5" rx="1" fill="#57534E" />
-        <rect x="105" y="15" width="10" height="12" fill="#78716C" />
-        <rect x="52" y="24" width="116" height="4" rx="1" fill="#44403C" />
-        {[72, 92, 128, 148].map((x) => (
-          <g key={x}>
-            <circle cx={x} cy="31" r="9" fill="url(#steel)" stroke="#292524" strokeWidth="1.2" />
-            <circle cx={x} cy="31" r="3" fill="#57534E" stroke="#1C1917" strokeWidth="0.7" />
-          </g>
+        <text x="108" y="14" fontSize="8" fontWeight="700" textAnchor="middle" fill="#292524">YAN GÖRÜNÜŞ</text>
+        <rect x="28" y="23" width="160" height="7" fill="#57534E" />
+        {[68, 98, 128, 158].map((x) => <g key={x}><circle cx={x} cy="40" r="11" fill="url(#steel)" stroke="#292524" strokeWidth="1.4" /><circle cx={x} cy="40" r="3.5" fill="#57534E" /></g>)}
+        <path d="M46 53 H170 L155 79 L130 95 H86 L61 79 Z" fill="url(#steel)" stroke="#292524" strokeWidth="1.4" />
+        <rect x="103" y="55" width="11" height="48" fill="#A8A29E" stroke="#292524" />
+        <path d="M45 118 Q108 91 171 118" fill="none" stroke="#57534E" strokeWidth="9" strokeLinecap="round" />
+        <path d="M45 118 Q108 96 171 118" fill="none" stroke="#F5F5F4" strokeWidth="5" strokeLinecap="round" />
+        {[[-34, "#D94A3A"], [-17, "#2F6FEB"], [0, "#0F9D8A"], [17, "#D94A3A"], [34, "#D94A3A"]].map(([offset, color], i) => (
+          <path key={i} d={`M${108 + Number(offset)} 112 Q${108 + Number(offset)} 170 ${78 + Number(offset) * 0.25} 193`} fill="none" stroke={String(color)} strokeWidth="4" strokeLinecap="round" />
         ))}
-        <polygon points="56,39 164,39 151,65 128,83 92,83 69,65" fill="url(#steel)" stroke="#292524" strokeWidth="1.2" />
-        <rect x="102" y="43" width="16" height="31" rx="7" fill="#D6D3D1" stroke="#292524" strokeWidth="1" />
-        <circle cx="110" cy="51" r="4" fill="#F5F5F4" stroke="#292524" strokeWidth="1" />
-        <circle cx="110" cy="70" r="4" fill="#F5F5F4" stroke="#292524" strokeWidth="1" />
-        <rect x="106" y="82" width="8" height="30" fill="#A8A29E" stroke="#292524" strokeWidth="1" />
-        <polygon points="87,111 133,111 121,99 99,99" fill="#D6D3D1" stroke="#292524" strokeWidth="1" />
-        {/* D çaplı bombeli kablo mesnedi ve delikli alt sıkma plakası. */}
-        <path d="M43 132 Q110 101 177 132" fill="none" stroke="#57534E" strokeWidth="6" strokeLinecap="round" />
-        <path d="M43 132 Q110 105 177 132" fill="none" stroke="#F5F5F4" strokeWidth="3.5" strokeLinecap="round" />
-        {layout.placements.map((p) => {
-          const x = centerX + (p.xMm - worldCenterX) * scale - p.widthMm * scale / 2;
-          const y = centerY + p.yMm * scale - p.heightMm * scale / 2;
-          return p.widthMm === p.heightMm ? (
-            <g key={p.id}>
-              <circle cx={x + p.widthMm * scale / 2} cy={y + p.heightMm * scale / 2} r={p.widthMm * scale / 2} fill={p.color} fillOpacity="0.8" stroke="#262626" strokeWidth="0.5" />
-              <title>{p.label} · {p.family} {p.construction} · {p.weightKgPerM} kg/m</title>
-            </g>
-          ) : (
-            <g key={p.id}>
-              <rect x={x} y={y} width={p.widthMm * scale} height={p.heightMm * scale} rx="0.8" fill={p.color} fillOpacity="0.8" stroke="#262626" strokeWidth="0.5" />
-              <title>{p.label} · {p.family} {p.construction} · {p.weightKgPerM} kg/m</title>
-            </g>
-          );
-        })}
-        <rect x="42" y="137" width="136" height="14" rx="2" fill="url(#steel)" stroke="#292524" strokeWidth="1.2" />
-        {Array.from({ length: 14 }, (_, i) => <circle key={i} cx={51 + i * 9} cy="144" r="1.4" fill="#57534E" />)}
-        <line x1={cogX} y1="103" x2={cogX} y2="153" stroke="#991B1B" strokeWidth="1.5" strokeDasharray="3 2" />
-        <polygon points={`${cogX - 3},103 ${cogX + 3},103 ${cogX},109`} fill="#991B1B" />
-        <text x={cogX} y="99" fontSize="5" fontWeight="600" textAnchor="middle" fill="#991B1B">AG · {fmt(Math.abs(layout.centerOffsetMm), 1)} mm</text>
-        <line x1={dimensionLeft} y1="158" x2={dimensionRight} y2="158" stroke="#78716C" strokeWidth="0.7" markerStart="url(#dimArrow)" markerEnd="url(#dimArrow)" />
-        <line x1={dimensionLeft} y1="153" x2={dimensionLeft} y2="162" stroke="#78716C" strokeWidth="0.6" />
-        <line x1={dimensionRight} y1="153" x2={dimensionRight} y2="162" stroke="#78716C" strokeWidth="0.6" />
-        <text x={centerX} y="166" fontSize="5" textAnchor="middle" fill="#57534E">b2 = {fmt(layout.usableWidthMm, 0)} mm</text>
-        <text x="184" y="128" fontSize="5" fill="#57534E">D = {fmt(layout.supportDiameterMm, 0)} mm</text>
-        <text x="184" y="139" fontSize="5" fill="#57534E">s = {fmt(layout.usableHeightMm, 0)} mm</text>
-        <text x={vbW / 2} y="178" fontSize="5.5" fontWeight="600" textAnchor="middle" fill="#292524">
-          {kimlikBuyuk(layout.trolleyBrand)} · {layout.trolleyModel} · {layout.rowCount} sıra
-        </text>
+        <rect x="42" y="121" width="132" height="10" rx="2" fill="url(#steel)" stroke="#292524" />
+        <text x="108" y="207" fontSize="6.5" textAnchor="middle" fill="#57534E">Kablolar bombeli mesnedin altından loop oluşturur</text>
+
+        <line x1="220" y1="8" x2="220" y2="204" stroke="#D6D3D1" />
+        <text x="327" y="14" fontSize="8" fontWeight="700" textAnchor="middle" fill="#292524">A–A KESİTİ · {layout.rowCount === 1 ? "TEK KAT" : "ÇİFT KAT"}</text>
+        <rect x="246" y="23" width="162" height="7" fill="#57534E" />
+        {[278, 306, 348, 376].map((x) => <g key={x}><circle cx={x} cy="40" r="11" fill="url(#steel)" stroke="#292524" strokeWidth="1.4" /><circle cx={x} cy="40" r="3.5" fill="#57534E" /></g>)}
+        <path d="M256 53 H398 L382 78 L354 92 H300 L272 78 Z" fill="url(#steel)" stroke="#292524" strokeWidth="1.4" />
+        <rect x="322" y="55" width="10" height="36" fill="#A8A29E" stroke="#292524" />
+        {/* Referans çizimindeki sıra: üst mesnet → kablolar → sıkma plakası. */}
+        <path d={`M${supportLeft} 103 Q${frontCenter} 88 ${supportRight} 103`} fill="none" stroke="#57534E" strokeWidth="8" strokeLinecap="round" />
+        <path d={`M${supportLeft} 103 Q${frontCenter} 93 ${supportRight} 103`} fill="none" stroke="#F5F5F4" strokeWidth="4" strokeLinecap="round" />
+        {rows[0].map((p) => cableNode(p, 0))}
+        <rect x={supportLeft} y="132" width={supportRight - supportLeft} height="9" rx="2" fill="url(#steel)" stroke="#292524" />
+        {layout.rowCount === 2 && <>
+          {rows[1].map((p) => cableNode(p, 1))}
+          <rect x={supportLeft} y="168" width={supportRight - supportLeft} height="9" rx="2" fill="url(#steel)" stroke="#292524" />
+        </>}
+        <line x1={cogX} y1="96" x2={cogX} y2={layout.rowCount === 2 ? 181 : 146} stroke="#991B1B" strokeWidth="1.4" strokeDasharray="4 3" />
+        <text x={cogX} y="91" fontSize="6" fontWeight="600" textAnchor="middle" fill="#991B1B">AG {fmt(Math.abs(layout.centerOffsetMm), 1)} mm</text>
+        <line x1={supportLeft} y1="190" x2={supportRight} y2="190" stroke="#78716C" markerStart="url(#dimArrow)" markerEnd="url(#dimArrow)" />
+        <text x={frontCenter} y="201" fontSize="6" textAnchor="middle" fill="#57534E">b2 = {fmt(layout.usableWidthMm, 0)} mm · D = {fmt(layout.supportDiameterMm, 0)} mm</text>
       </svg>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-[11px] text-muted-foreground">
         <span><i className="mr-1 inline-block size-2 bg-[#D94A3A]" />Güç</span>
@@ -701,6 +768,7 @@ function FestoonLayoutSvg({ values }: { values: ElectricalValues }) {
         <span><i className="mr-1 inline-block size-2 bg-[#0F9D8A]" />Sinyal</span>
         <span><i className="mr-1 inline-block h-3 w-px bg-black" />Ağırlık merkezi</span>
       </div>
+      <p className="mt-2 text-center text-[11px] text-muted-foreground">{kimlikBuyuk(layout.trolleyBrand)} · {layout.trolleyModel} · şema sıra sayısı ve seçilen fiziksel kablolarla dinamik güncellenir.</p>
     </div>
   );
 }
@@ -760,7 +828,7 @@ function FestoonEditor(props: ElectricalModuleEditorProps) {
   const allCircuits = values.motorCables.map((x) => x.circuit);
   return (
     <div className="grid gap-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.3fr)]">
+      <div className="grid gap-4">
         <div className="grid content-start gap-4">
           <section className="grid gap-3 border bg-muted/15 p-3">
             <label className="grid gap-1">
@@ -835,7 +903,7 @@ function FestoonEditor(props: ElectricalModuleEditorProps) {
           </section>
         </div>
 
-        <div className="grid content-start gap-3">
+        <div className="order-first grid content-start gap-3">
           <FestoonLayoutSvg values={values} />
           <div className="flex flex-wrap gap-2">
             <Status pass={layout.fitsWidth}>En {fmt(layout.packageWidthMm, 1)} / {fmt(layout.usableWidthMm, 1)} mm</Status>

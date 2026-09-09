@@ -328,6 +328,8 @@ const MOTOR_ROW: CatalogRow = {
     torque_nm: 97,
     frame_size: "160L",
     efficiency_pct: 92.1,
+    current_a: 29.4,
+    power_factor: 0.84,
     efficiency_class: "IE3",
     weight_kg: 127,
     shaft_mm: 42,
@@ -359,6 +361,15 @@ describe.each([
     const sel = applyCatalogPick(mapping, MOTOR_ROW);
     expect(sel.motorPowerKw).toBe(15);
     expect(sel.motorBrand).toBe("INNOMOTICS");
+  });
+
+  it("elektrik hesabı için katalog akımı, gerçek verim ve güç katsayısını taşır", () => {
+    const sel = applyCatalogPick(mapping, MOTOR_ROW);
+    expect(sel).toMatchObject({
+      motorRatedCurrentA: 29.4,
+      motorEfficiencyPct: 92.1,
+      motorPowerFactor: 0.84,
+    });
   });
 
   it("katalogda mil çapı yoksa elle girilen değeri korur", () => {

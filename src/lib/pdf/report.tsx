@@ -2332,6 +2332,9 @@ const ELECTRICAL_REPORT_SOURCES = [
   "HELUKABEL Türkiye ürün kataloğu — TOPFLEX 611-C-PUR, JZ-600, PVC Flat ve kumanda/sinyal kabloları",
   "ÜNTEL üretici katalogları — H07VVH6-F, NGFLCGÖU, ÜNFLEX PUR ve 2XSLCH-J kablo ölçüleri, ağırlıkları ve bükülme değerleri",
   "IEC 60364-5-52 — Alçak gerilim elektrik tesisleri; kablo sistemlerinin seçimi ve kurulması",
+  "Kullanıcı eki — VDE 0298 Part 4 Current Carrying Capacity; 30 °C ham akım taşıma, ortam sıcaklığı, yüklü damar ve kesintili çalışma tabloları (baskı tarihi belirtilmemiş)",
+  "DIN VDE 0298-4:2023-06 + Berichtigung 1:2023-10 — güncel standart baskısı nihai elektrik projesinde doğrulanır",
+  "IEC 60204-32 — Kaldırma makinelerinde elektrik donanımı ve besleme iletkeni seçimi",
   "Vasel — I-Beam Cable Festoon Systems, VS2020A-4WF",
   "Conductix-Wampfler — KAT0320-0003-EN, I-kiriş feston arabaları",
 ] as const;

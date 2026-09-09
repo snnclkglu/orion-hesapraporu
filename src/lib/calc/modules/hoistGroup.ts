@@ -793,6 +793,10 @@ export interface HoistSelections {
   gearboxWeightKg: number;
   gearboxAllowedRadialKn: number;
   motorPowerKw: number;
+  /** Seçilen katalog satırındaki elektriksel anma değerleri. */
+  motorRatedCurrentA?: number;
+  motorEfficiencyPct?: number;
+  motorPowerFactor?: number;
   motorRpm: number;
   motorShaftMm: number;
   motorBrand: string;

@@ -1828,3 +1828,32 @@ Motor IEC flanş/adaptör uyumu dış doğrulama notudur. Boş motor sipariş
 alanları `order-defaults.ts` ile firma kabullerinden tamamlanır; kullanıcı
 değeri ve kilit korunur. Ayrıntılı plan ve doğrulama:
 `docs/plans/HIZLI_SECIM_TASARIM_GIRDISI_PLANI.md`.
+
+## HESAP-44 — Elektrik kablo hesabı ham tabloyu ve her düzeltmeyi ayrı izler.
+
+Elektrik motor akımı kaynak önceliği değişmezdir: kullanıcının manuel etiket
+akımı, seçili motor katalog anma akımı, katalog `cosφ`/gerçek `η` ile formül,
+son olarak yalnız katalog verisi yoksa proje geneli geri dönüş kabulü. IEC
+verim sınıfı gerçek motor verimi değildir ve sayısal `η` yerine geçirilmez.
+
+`electrical-ampacity.ts`, kullanıcı ekindeki VDE 0298 Part 4 özet tablosunun
+ham 30 °C akımlarını; ortam, yüklü damar ve kesintili çalışma katsayılarını
+tek kaynaktan verir. Ek baskı tarihi belirtmediği için bu eksik arayüzde ve
+PDF kaynakçasında yazılır. Düzeltme zinciri
+`Iz = Iz_ham × k_sıcaklık × k_damar × k_demet × k_proje × k_görev × paralel`
+olarak saklanır ve gösterilir. Kesintili çalışma artışı görev çevrimi açıkça
+girilmeden uygulanmaz. Ara tablo değerlerinde ihtiyatlı üst sıcaklık/damar
+satırı kullanılır; tablo sınırı dışı başarı sayılmaz.
+
+Ana besleme otomatikte bütün seçili motorların adetli akım toplamını en
+olumsuz eşzamanlı çalışma senaryosu kabul eder; gizli `0,75` azaltması yoktur.
+M5–M8 sınıfı yük spektrumu ve kullanım sınıflandırmasıdır, doğrudan
+eşzamanlılık veya kablo kapasite katsayısına çevrilmez. Gerçek kilitlemelerle
+tanımlanmış işletme senaryosu varsa mühendis otomatiği kapatıp manuel yük
+katsayısı girebilir; bu seçim raporda açıkça görünür. Eşzamanlılık yük akımını
+etkiler, seçilmiş kablonun düzeltilmiş kapasitesini asla çarpmaz.
+
+Motor adedi ve paralel koşu adedi fiziksel kablo adedidir. Editör ve PDF her
+fiziksel kabloyu motor/paralel numarasıyla ayrı gösterir. Feston çiziminde yan
+görünüş ile A-A kesiti aynı şemadadır; kesitte kablo üst mesnet ile alt sıkma
+plakası arasındadır. Çift katta ara plaka ikinci sıranın mesnedidir.

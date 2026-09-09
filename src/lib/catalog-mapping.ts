@@ -1027,6 +1027,9 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
       // ile aranıyor, motor eşlemesinde ise yalnız marka vardı.
       { sel: "motorModel", from: "model" },
       { sel: "motorPowerKw", from: { attr: "power_kw" } },
+      { sel: "motorRatedCurrentA", from: { attr: "current_a" } },
+      { sel: "motorEfficiencyPct", from: { attr: "efficiency_pct" } },
+      { sel: "motorPowerFactor", from: { attr: "power_factor" } },
       // Devir KATALOGTAKİ GERÇEK yüklü devirdir (1465, 1470, …) ve senkron
       // devire YUVARLANMAZ: motorRpm gerekli çevrim oranını (n/n_tambur),
       // gerçekleşen kaldırma hızını ve gerekli motor gücünü doğrudan
@@ -1214,6 +1217,9 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "motorBrand", from: "brand" },
       { sel: "motorModel", from: "model" },
       { sel: "motorPowerKw", from: { attr: "power_kw" } },
+      { sel: "motorRatedCurrentA", from: { attr: "current_a" } },
+      { sel: "motorEfficiencyPct", from: { attr: "efficiency_pct" } },
+      { sel: "motorPowerFactor", from: { attr: "power_factor" } },
       // Gerçek yüklü devir — travelGroup.ts gerçekleşen yürüyüş hızını,
       // gerekli çevrim oranını, giriş torkunu ve tampon tahrik kuvvetini
       // bu sayıdan üretir; senkron devire yuvarlamak hepsini kaydırır.

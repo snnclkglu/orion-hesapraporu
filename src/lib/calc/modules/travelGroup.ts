@@ -330,6 +330,10 @@ export interface TravelSelections {
   /** Sargı sıcaklık koruması: "PTC" | "3PTC" | "PT100" | "Yok" */
   motorThermalProtection?: string;
   motorPowerKw: number;
+  /** Seçilen katalog satırındaki elektriksel anma değerleri. */
+  motorRatedCurrentA?: number;
+  motorEfficiencyPct?: number;
+  motorPowerFactor?: number;
   motorRpm: number;
   motorCount: number;
   motorShaftMm: number;

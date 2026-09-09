@@ -1428,6 +1428,9 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   // Tip kodu katalogtan gelir ve iki yeri besler: ekipman listesindeki model
   // sütunu ve "Katalog Sayfası" düğmesi (sayfa MARKA + MODEL ile bulunur).
   { key: "motorModel", label: "Motor Tip Kodu", type: "text" },
+  { key: "motorRatedCurrentA", label: "Motor Katalog Anma Akımı", unit: "A", type: "number", hint: "Seçilen motor katalog satırından gelir; elektrik hesabında formül sonucuna tercih edilir." },
+  { key: "motorEfficiencyPct", label: "Motor Katalog Verimi η", unit: "%", type: "number", hint: "IEC verim sınıfı değil, seçilen motorun katalogdaki gerçek verim değeridir." },
+  { key: "motorPowerFactor", label: "Motor Katalog Güç Katsayısı cosφ", type: "number", hint: "Seçilen motor katalog satırındaki güç katsayısıdır." },
   {
     key: "motorMountType", label: "Motor Bağlantı Biçimi", type: "select",
     options: MOTOR_MOUNT_TYPES as unknown as string[], optionLabels: MOTOR_MOUNT_TYPE_LABELS,

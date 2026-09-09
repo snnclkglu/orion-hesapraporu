@@ -630,6 +630,7 @@ const AUTO_FLAGS = [
   "defaultMotorCableLengthAuto",
   "mainCableLengthAuto",
   "mainCableAuto",
+  "mainInstallationModeAuto",
   "festoonCircuitKeysAuto",
   "trolleyPresetAuto",
   "loopHeightAuto",
