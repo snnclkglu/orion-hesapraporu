@@ -1,6 +1,8 @@
 import { MODULE_ORDER } from "@/lib/calc/presentation/module-family";
 import { completeElectricalSelection } from "./electrical";
 import { prepareSelectionRequest } from "./technical-contract";
+import { applyDesignInputs } from "./design-inputs";
+import { completeOrderDefaults } from "./order-defaults";
 import { runCalc } from "@/lib/calc/engine";
 import { checkDisplay } from "@/lib/calc/types";
 import { buildEquipmentGroups } from "@/lib/equipment-list";
@@ -10,7 +12,7 @@ import { contentHash, selectionSourceHash, type EquipmentRow, type SelectionIssu
 
 /** Kullanıcının başlattığı işlem içinde kütle → tahrik → kesit bağımlılıklarını kapatır. */
 export function solveSelection(request: SelectionRequest, rows: EquipmentRow[], progress?: (progress: SelectionProgress) => void): SelectionProposal {
-  let working = prepareSelectionRequest(request);
+  let working = prepareSelectionRequest(applyDesignInputs(request));
   if (request.enableStructuralChecks && request.active.includes("girder")) {
     working.active = MODULE_ORDER.filter(key => request.active.includes(key) || key === "buckling" || key === "endCarriage");
   }
@@ -51,6 +53,10 @@ export function solveSelection(request: SelectionRequest, rows: EquipmentRow[], 
   if (!proposal) throw new Error("Seçim başlatılamadı.");
   proposal.trace.evaluations = evaluations;
   proposal.trace.weightSourceHash = contentHash(request.weightBreakdown ?? {});
+  proposal.trace.design = request.design;
+  proposal.trace.series = request.series;
+  if (request.design) proposal.trace.issues.push({ code: "design.assumptions", state: "review", message: "Halat donanımı, teker/tahrik adetleri ve raylar başlangıç penceresindeki tasarım kararlarıdır. Her tahrik bir tekeri sürer. Diğer ölçüler ve motor sipariş özellikleri rapordaki firma kabulleriyle hesaplandı; düzenlenebilir." });
+  completeOrderDefaults(working, proposal);
   completeElectricalSelection(working, proposal);
   proposal.active = working.active;
   proposal.trace.issues.push(...massIssues);

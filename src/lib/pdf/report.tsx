@@ -360,10 +360,11 @@ function sectionPrintedFor(
   adapter: ModuleAdapter,
   specs: TechnicalSpecs,
   hidden: ReadonlySet<string>,
-  inputs?: Record<string, unknown>
+  inputs?: Record<string, unknown>,
+  selections?: Record<string, unknown>
 ): (section: AdapterSection) => boolean {
   return (section) =>
-    (!section.visible || section.visible(specs, inputs)) &&
+    (!section.visible || section.visible(specs, inputs, selections)) &&
     // Kullanıcının gizlediği alt bölüm rapora hiç girmez; girdileri korunur,
     // kutucuk geri açılınca bölüm aynen döner.
     !isSectionHidden(hidden, adapter.key, section.rawId);
@@ -397,7 +398,8 @@ function modulePrintedIn(
     return adapter.sections.some(
       sectionPrintedFor(
         adapter, props.input.specs, hidden,
-        moduleState(props.input, key)?.inputs as Record<string, unknown> | undefined
+        moduleState(props.input, key)?.inputs as Record<string, unknown> | undefined,
+        moduleState(props.input, key)?.selections as Record<string, unknown> | undefined
       )
     );
   };
@@ -1988,12 +1990,13 @@ function checkSectionAnchors(
   specs: TechnicalSpecs,
   /** Kullanıcının gizlediği alt bölümler — basılmayan bölüme sayfa verilmez */
   hidden: ReadonlySet<string>,
-  moduleInputs?: Record<string, unknown>
+  moduleInputs?: Record<string, unknown>,
+  moduleSelections?: Record<string, unknown>
 ): Map<string, string> {
   const out = new Map<string, string>();
   if (!mr) return out;
   for (const section of adapter.sections) {
-    if (section.visible && !section.visible(specs, moduleInputs)) continue;
+    if (section.visible && !section.visible(specs, moduleInputs, moduleSelections)) continue;
     if (isSectionHidden(hidden, adapter.key, section.rawId)) continue;
     for (const c of sectionChecks(adapter, section, mr)) {
       if (!out.has(c.id)) out.set(c.id, sectionAnchor(adapter.key, section.rawId));
@@ -2096,7 +2099,7 @@ function ChecksSummarySection({
         const mr = moduleResult(result, adapter.key);
         const checks = checksOf(adapter);
         if (!mr || checks.length === 0) return null;
-        const anchors = checkSectionAnchors(adapter, mr, input.specs, hidden, moduleState(input, adapter.key)?.inputs as Record<string, unknown> | undefined);
+        const anchors = checkSectionAnchors(adapter, mr, input.specs, hidden, moduleState(input, adapter.key)?.inputs as Record<string, unknown> | undefined, moduleState(input, adapter.key)?.selections as Record<string, unknown> | undefined);
         const lines = checks.map((c) => {
           const anchor = anchors.get(c.id);
           return (
@@ -2587,7 +2590,7 @@ function ModulePage({
    * İkisi tek yüklemden okur: numara basılan bölümlerin sırasıdır, ayrı
    * yazılsalardı gizlenen bölüm süzülür ama numarası harcanmaya devam ederdi.
    */
-  const sectionPrinted = sectionPrintedFor(adapter, input.specs, hidden, state.inputs as Record<string, unknown>);
+  const sectionPrinted = sectionPrintedFor(adapter, input.specs, hidden, state.inputs as Record<string, unknown>, state.selections as Record<string, unknown>);
   // Numaralar bölümlerden ÖNCE tek seferde çözülür: gizlenen ya da o vinçte
   // olmayan bölüm numarasını da götürür, sonrakiler bir öne kayar.
   const secNos = sectionDisplayNumbers(adapter.sections, moduleNo, sectionPrinted);
@@ -3011,7 +3014,7 @@ function compactCardsFor(
   const hidden = hiddenSetOf(props);
   const inputs = state.inputs as Record<string, unknown>;
   const selections = state.selections as Record<string, unknown>;
-  const sectionPrinted = sectionPrintedFor(adapter, input.specs, hidden, inputs);
+  const sectionPrinted = sectionPrintedFor(adapter, input.specs, hidden, inputs, selections);
   const secNos = sectionDisplayNumbers(adapter.sections, moduleNo, sectionPrinted);
   const [no, ...rest] = renumberTitle(adapterTitle(adapter, input.specs), moduleNo).split(" · ");
   const lines = compactSummaryLines(adapter.key, state);

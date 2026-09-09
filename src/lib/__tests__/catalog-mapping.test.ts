@@ -43,7 +43,7 @@ it("halat seçimi ekipman bağlantısı için birebir katalog modelini saklar", 
   };
 
   expect(applyCatalogPick(mapping, row)).toMatchObject({
-    ropeBrand: "Haşçelik",
+    ropeBrand: "HAŞÇELİK",
     ropeCatalogModel: row.model,
     ropeDiaMm: 20,
   });
@@ -225,7 +225,7 @@ describe("kaldırma redüktörü (2.3)", () => {
     // kaplin bölümlerinin mil çapları
     expect(sel.gearboxOutputShaftMm).toBe(120);
     expect(sel.gearboxInputShaftMm).toBe(55);
-    expect(sel.gearboxModel).toBe("Yılmaz Redüktör HT0823");
+    expect(sel.gearboxModel).toBe("YILMAZ REDÜKTÖR HT0823");
   });
 
   it("katalogda olmayan alanı yazmaz (elle girilen değer korunur)", () => {
@@ -259,7 +259,7 @@ describe("yürütme redüktörü (5.5)", () => {
     const sel = applyCatalogPick(mapping, TRAVEL_GEARBOX);
     expect(sel.gearboxOutputTorqueKnm).toBeCloseTo(0.85, 10);
     expect(sel.gearboxInputShaftText).toBe("24 mm");
-    expect(sel.gearboxModel).toBe("Yılmaz Redüktör DT472");
+    expect(sel.gearboxModel).toBe("YILMAZ REDÜKTÖR DT472");
   });
 
   it("araba ve köprü aynı eşlemeyi paylaşır", () => {

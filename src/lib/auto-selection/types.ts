@@ -3,8 +3,9 @@ import type { ModulesState } from "@/lib/calc/state";
 import type { ModuleKey } from "@/lib/calc/presentation/module-family";
 import type { CatalogRow } from "@/lib/catalog-mapping";
 import type { AgirlikDokumuDurumu } from "@/lib/weights/types";
+import type { DesignInputs } from "./design-inputs";
 
-export const SELECTION_VERSION = "1.1.0";
+export const SELECTION_VERSION = "1.2.0";
 export type BrandKey = "motor" | "hoistGearbox" | "travelGearbox" | "brake" | "hoistBrake" | "travelBrake" | "motorCoupling" | "wheelCoupling" | "drumCoupling" | "bearing" | "rope" | "buffer";
 export const BRAND_LABELS: Record<BrandKey, string> = {
   motor: "Motor", hoistGearbox: "Kaldırma redüktörü", travelGearbox: "Yürütme redüktörü",
@@ -21,6 +22,8 @@ export interface SelectionRequest {
   modules: ModulesState;
   active: ModuleKey[];
   brands: Brands;
+  series?: Brands;
+  design?: DesignInputs;
   /** Bölüm kilidi: main.2.4; alan kilidi: main.inputs.shaftD2Mm. */
   locks: string[];
   sizeDesigns: boolean;
@@ -66,6 +69,8 @@ export interface SelectionTrace {
   resultHash: string;
   catalogHash: string;
   brands: Brands;
+  series?: Brands;
+  design?: DesignInputs;
   locks: string[];
   decisions: SelectionDecision[];
   issues: SelectionIssue[];

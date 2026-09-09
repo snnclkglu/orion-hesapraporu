@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { kimlikBuyuk } from "@/lib/tr-text";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -135,7 +136,7 @@ export function CouplingDialog({
             </div>
             <div className="grid gap-2">
               <Label htmlFor="cp-brand">Marka</Label>
-              <Input id="cp-brand" value={brand} onChange={(e) => setBrand(e.target.value)} required />
+              <Input id="cp-brand" value={brand} onChange={(e) => setBrand(kimlikBuyuk(e.target.value))} required />
             </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

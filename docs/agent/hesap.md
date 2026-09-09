@@ -1812,3 +1812,19 @@ Yeni dış kontrol kaydı belge, referans/revizyon, yöntem ve sonuç ister;
 termik güç/devir sınırı doğru birimde ve güncel hesap talebinin üzerinde olmalıdır.
 Özel tiplerin kapsam eksiği ekipman seçildi diye kapanmaz. Son durum:
 `docs/plans/HIZLI_OTOMATIK_SECIM_TAMAMLAMA_DURUMU.md`.
+
+1.2.0 (09.09.2026): pencere standart markaları, gerçek katalog serilerini ve
+her aktif grubun halat donanımı/teker-tahrik adedi/ray kararını alır.
+`design-inputs.ts` kararları ortak girdilere uygular; değişen tasarım ölçü
+teyitlerini sıfırlar. Kilit çatışması çalıştırmadan bildirilir. Seri tercihi
+RPC indirmesinde ve bağlı aday aramasında zorunludur; sonuç bulunamayınca
+başka seriye sessizce geçilmez. İlk tercih H/DR ve SIBRE APC-AT'tir.
+
+`gearboxInputConfiguration` yürütme redüktörünün gerçek katalog bağlantısıdır.
+`Motor akuple` ise harici motor kaplini hesabı, editör bölümü, PDF ve ekipman
+satırı `travelNeedsMotorCoupling` üzerinden birlikte kalkar. DR adından tahmin
+yapılmaz; yeni katalog seçiminde boş bağlantı eski kararı temizler.
+Motor IEC flanş/adaptör uyumu dış doğrulama notudur. Boş motor sipariş
+alanları `order-defaults.ts` ile firma kabullerinden tamamlanır; kullanıcı
+değeri ve kilit korunur. Ayrıntılı plan ve doğrulama:
+`docs/plans/HIZLI_SECIM_TASARIM_GIRDISI_PLANI.md`.

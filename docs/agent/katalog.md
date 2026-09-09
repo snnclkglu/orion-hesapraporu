@@ -1,5 +1,13 @@
 # Üretici katalogları ve katalog sayfaları
 
+Marka kimliği veride büyük harftir (09.09.2026). `kimlikBuyuk` ve SQL
+`orion_brand_upper` aynı kuralı uygular: ASCII marka DERELI, Türkçe karakterli
+marka YILMAZ REDÜKTÖR / HAŞÇELİK. `cat_equipment`, `cat_couplings`, elektrik
+belgesi üreticisi ve `offer_options` marka listeleri veritabanı tetikleyicisiyle
+normalize edilir. Ürün UUID'si, model, kapasite varyantı ve yayımlanmış belge
+snapshot'ı bu dönüşümde değiştirilmez. Yeni girişler de normalize edilir;
+eski föy/tercih eşleşmelerinde büyük-küçük harf farkı kimlik farkı sayılmaz.
+
 > ORION Cranes — İş Yönetim Sistemi · alan dokümanı.
 > Kök kurallar ve harita: `AGENTS.md`. Bu dosya ELLE düzenlenir;
 > `.claude/rules/katalog.md` ve haritadaki satır ondan ÜRETİLİR

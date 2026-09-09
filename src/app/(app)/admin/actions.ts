@@ -9,7 +9,7 @@ import { z } from "zod";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { USER_ROLES, type UserRole } from "@/lib/roles";
-import { adBuyuk } from "@/lib/tr-text";
+import { adBuyuk, kimlikBuyuk } from "@/lib/tr-text";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { consumableMatchKey } from "@/lib/purchasing/consumable-key";
 import {
@@ -628,7 +628,7 @@ const KINDS = ["motor", "gearbox", "rope", "brake", "bearing", "wheel", "buffer"
 
 const equipmentSchema = z.object({
   kind: z.enum(KINDS),
-  brand: z.string().trim().min(1, "Marka gerekli"),
+  brand: z.string().trim().min(1, "Marka gerekli").transform(kimlikBuyuk),
   model: z.string().trim().min(1, "Model gerekli"),
   notes: z.string().trim(),
   datasheet_url: z.string().trim().optional().default(""),
@@ -719,7 +719,7 @@ export async function deleteEquipment(id: string): Promise<AdminActionResult> {
 
 const couplingSchema = z.object({
   coupling_type: z.enum(["drum", "brake", "gear"]),
-  brand: z.string().trim().min(1, "Marka gerekli"),
+  brand: z.string().trim().min(1, "Marka gerekli").transform(kimlikBuyuk),
   series: z.string().trim().min(1, "Seri gerekli"),
   model: z.string().trim().min(1, "Model gerekli"),
   dmax: z.number().positive("dmax pozitif olmalı"),

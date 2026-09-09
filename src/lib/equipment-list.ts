@@ -10,6 +10,7 @@
 // yeniden dışa verir, bu yüzden hiçbir çağrı yeri değişmedi.
 
 import { baslikDuzeni, kimlikBuyuk } from "@/lib/tr-text";
+import { travelNeedsMotorCoupling } from "@/lib/calc/modules/travelGroup";
 import { MODULE_LABELS } from "@/lib/calc/labels";
 import { moduleResult, moduleState } from "@/lib/calc/presentation/module-access";
 import {
@@ -845,7 +846,7 @@ function travelRows(
       qty: trolleyCount > 0 ? trolleyCount : "-",
     });
   }
-  return rows;
+  return travelNeedsMotorCoupling(sel) ? rows : rows.filter(row => row.rowKey !== rk("motorCoupling"));
 }
 
 /**

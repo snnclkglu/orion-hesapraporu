@@ -1,5 +1,6 @@
 import { applyCatalogPick, type SectionCatalogMapping } from "@/lib/catalog-mapping";
 import { contentHash, type EquipmentRow } from "./types";
+import { kimlikBuyuk } from "@/lib/tr-text";
 
 export function positive(value: unknown): number | undefined {
   if (typeof value !== "number" && typeof value !== "string") return undefined;
@@ -36,7 +37,7 @@ export function replaceCatalogSelection(mapping: SectionCatalogMapping, row: Equ
 const REQUIRED: Record<string, string[]> = {
   rope: ["dia_mm", "breaking_load_kn", "weight_kg_per_m"],
   motor: ["power_kw", "rpm", "shaft_mm"],
-  gearbox: ["ratio", "input_speed_rpm", "output_torque_nm", "input_shaft_mm", "output_shaft_mm"],
+  gearbox: ["ratio", "input_speed_rpm", "output_torque_nm", "output_shaft_mm"],
   brake: ["brake_torque_nm"], coupling: ["nominal_torque_nm", "max_shaft_dia_mm"],
   bearing: ["bore_mm", "static_load_kn"], wheel: ["dia_mm"], sheave: ["dia_mm"],
   hook: ["hook_nr"], buffer: ["stroke_mm"],
@@ -44,6 +45,7 @@ const REQUIRED: Record<string, string[]> = {
 };
 export function missingCatalogFields(row: EquipmentRow): string[] {
   const required = [...(REQUIRED[row.kind] ?? [])];
+  if (row.kind === "gearbox" && !(row.attrs.application === "yurutme" && row.attrs.input_configuration === "Motor akuple")) required.push("input_shaft_mm");
   if (row.kind === "coupling" && ["drum", "barrel"].includes(String(row.attrs.coupling_type))) required.push("max_radial_load_n");
   if (row.kind === "gearbox" && row.attrs.application === "kaldirma") required.push("allowed_radial_output_kn");
   return required.filter(key => positive(row.attrs[key]) === undefined);
@@ -51,7 +53,8 @@ export function missingCatalogFields(row: EquipmentRow): string[] {
 
 export function normalizeCatalog(rows: EquipmentRow[]): EquipmentRow[] {
   const unique = new Map<string, EquipmentRow>();
-  for (const row of rows) {
+  for (const source of rows) {
+    const row = { ...source, brand: kimlikBuyuk(source.brand) };
     if (!row.id || !row.brand || !row.model || !row.attrs || row.attrs.unverified === true) continue;
     const key = variantKey(row);
     const old = unique.get(key);

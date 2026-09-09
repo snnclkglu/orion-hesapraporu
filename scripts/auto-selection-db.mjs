@@ -28,7 +28,11 @@ const response = await fetch(`https://api.supabase.com/v1/projects/${ref}/databa
   method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
   body: JSON.stringify({ query }),
 });
-if (!response.ok) throw new Error(`Veritabanı isteği başarısız: HTTP ${response.status}`);
+if (!response.ok) {
+  const detail = await response.json().catch(() => ({}));
+  const reason = typeof detail.message === 'string' ? detail.message : typeof detail.error === 'string' ? detail.error : '';
+  throw new Error(`Veritabanı isteği başarısız: HTTP ${response.status}${reason ? ` · ${reason.slice(0, 1200)}` : ''}`);
+}
 const result = await response.json();
 if (mode === 'catalog') {
   fs.mkdirSync('tmp/auto-selection', { recursive: true });

@@ -8,7 +8,8 @@ import { HOIST_FIELD, moduleResult } from "@/lib/calc/presentation/module-access
 import { MODULE_LABELS, isHoistKey, isHookBlockKey, isTravelKey, type ModuleKey } from "@/lib/calc/presentation/module-family";
 import { checkSeverity, type AnyCheck } from "@/lib/calc/types";
 import { hoistReeving, hoistSpecView, type HoistInputs } from "@/lib/calc/modules/hoistGroup";
-import { travelSpecView } from "@/lib/calc/modules/travelGroup";
+import { travelSpecView, travelNeedsMotorCoupling } from "@/lib/calc/modules/travelGroup";
+import { kimlikBuyuk } from "@/lib/tr-text";
 import { validateReeving } from "@/lib/calc/reeving";
 import { SAFETY_BRAKES, brakesInArrangement, minFlangeDiaMm, recommendHydraulicUnit } from "@/lib/calc/safety-brake";
 import { selectionScopeIssues } from "./scope";
@@ -186,7 +187,8 @@ export function solveSelection(request: SelectionRequest, inputRows: EquipmentRo
     const mapping = getCatalogMapping(stage.module, stage.section);
     if (!mapping) return [];
     const brand = stage.brand ? request.brands[stage.brand] ?? (["hoistBrake", "travelBrake"].includes(stage.brand) ? request.brands.brake : undefined) : undefined;
-    const options = (byKind.get(mapping.kind) ?? []).filter(row => (!brand || row.brand === brand) && matchesFacets(row, mapping) && missingCatalogFields(row).length === 0)
+    const series = stage.brand ? request.series?.[stage.brand] : undefined;
+    const options = (byKind.get(mapping.kind) ?? []).filter(row => (!brand || row.brand === kimlikBuyuk(brand)) && (!series || row.attrs.series === series) && matchesFacets(row, mapping) && missingCatalogFields(row).length === 0)
       .filter(row => row.kind !== "rope" || /vinç|crane/i.test(String(row.attrs.typical_application ?? "")))
       .filter(row => row.kind !== "bearing" || ["4.5", "2.9"].includes(stage.section) || (/^22[23]/.test(row.model) && !/K(?:\d|\s|\/|$)/.test(row.model)))
       .filter(row => row.kind !== "brake" || !isHoistKey(stage.module) || hoistServiceBrakeSupported(row))
@@ -235,6 +237,7 @@ export function solveSelection(request: SelectionRequest, inputRows: EquipmentRo
   const chainFeasible = (modules: ModulesState, chain: Stage[], index = 0): boolean => {
     if (index >= chain.length) return true;
     const stage = chain[index];
+    if (stage.section === "5.6" && !travelNeedsMotorCoupling(modules[stage.module].selections)) return chainFeasible(modules, chain, index + 1);
     if (groupLocked(request, stage.module, stage.section)) {
       return passed(checksOf(calc(modules), stage)) && chainFeasible(modules, chain, index + 1);
     }
@@ -263,6 +266,7 @@ export function solveSelection(request: SelectionRequest, inputRows: EquipmentRo
       return false;
     };
     for (const candidate of beam) {
+      if (stage.section === "5.6" && !travelNeedsMotorCoupling(candidate.modules[stage.module].selections)) { next.push(candidate); continue; }
       if (stage.section.startsWith("design-")) {
         let accepted = 0;
         for (const modules of designCandidates(request, candidate, stage, calc(candidate.modules))) {
@@ -389,6 +393,7 @@ export function solveSelection(request: SelectionRequest, inputRows: EquipmentRo
     if (isHoistKey(key)) for (const problem of validateReeving(hoistReeving(best.modules[key].inputs as HoistInputs))) issues.push({ code: `reeving.${key}.${problem.alan}`, module: key, state: problem.agirlik === "hata" ? "failed" : "review", message: problem.mesaj });
   }
   for (const d of best.decisions) {
+    if (d.row.kind === "gearbox" && d.row.attrs.input_configuration === "Motor akuple") issues.push({ code: `gearbox.mounting.${d.module}`, module: d.module, state: "missing", message: `${d.row.brand} ${d.row.model}: motor akuple giriş seçildi; harici motor kaplini kullanılmaz. Motorun IEC flanşı/adaptörü ve üretici montaj uyumu doğrulanmalı.` });
     if (d.row.kind === "gearbox" && !positive(d.row.attrs.thermal_power_kw)) issues.push({ code: `thermal.${d.module}`, module: d.module, state: "missing", message: `${d.row.brand} ${d.row.model}: termik kapasite / çalışma çevrimi doğrulaması eksik.` });
     if (d.row.kind === "coupling" && !positive(d.row.attrs.max_speed_rpm)) issues.push({ code: `speed.${d.module}.${d.section}`, module: d.module, state: "missing", message: `${d.row.brand} ${d.row.model}: kaplinin azami devri ve göbek bağlantısı üreticiyle doğrulanmalı.` });
     if (d.row.kind === "brake" && d.row.attrs.brake_type === "em") issues.push({ code: `mounting.${d.module}.${d.section}`, module: d.module, state: "missing", message: `${d.row.brand} ${d.row.model}: elektromanyetik frenin motor miline montajı ve açma çevrimi doğrulanmalı.` });

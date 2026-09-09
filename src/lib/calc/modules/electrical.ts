@@ -15,6 +15,7 @@ import {
   type ElectricalDriveModel,
 } from "../electrical-catalog";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "../types";
+import { kimlikBuyuk } from "@/lib/tr-text";
 
 export type ElectricalCircuitKey =
   | "main"
@@ -499,10 +500,8 @@ function resolveDrive(source: ElectricalMotorSource, pick: ElectricalDrivePick |
     ? ELECTRICAL_DRIVE_MODELS.find((x) => x.model === pick.model)
     : undefined;
   if (exact) return { drive: exact, automatic: false };
-  const brand = pick?.brand && DRIVE_BRANDS.includes(pick.brand as never)
-    ? pick.brand
-    : "Schneider Electric";
-  const series = pick?.series || (brand === "Schneider Electric" ? "ATV340" : undefined);
+  const brand = DRIVE_BRANDS.find(value => value === kimlikBuyuk(pick?.brand ?? "")) ?? "SCHNEIDER ELECTRIC";
+  const series = pick?.series || (brand === "SCHNEIDER ELECTRIC" ? "ATV340" : undefined);
   let candidates = ELECTRICAL_DRIVE_MODELS
     .filter((x) => x.brand === brand && (!series || x.series === series))
     .filter((x) => x.motorPowerKw >= source.motorPowerKw && x.outputCurrentA >= designCurrentA)

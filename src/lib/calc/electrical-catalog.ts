@@ -1,3 +1,5 @@
+import { kimlikBuyuk } from "@/lib/tr-text";
+
 // Elektrik hesap raporunun izlenebilir, küçük yerel kataloğu.
 //
 // Sürücü satırları üretici seçim tablolarından; kablo ölçüleri ise ORION'un
@@ -6,9 +8,9 @@
 // hesap ve fiziksel feston yerleşimi için gereken sayısal özellikleri taşır.
 
 export type ElectricalDriveBrand =
-  | "Schneider Electric"
+  | "SCHNEIDER ELECTRIC"
   | "ABB"
-  | "Siemens";
+  | "SIEMENS";
 
 export interface ElectricalDriveModel {
   brand: ElectricalDriveBrand;
@@ -28,18 +30,18 @@ const siemens = "Siemens SINAMICS S120 D21.4 katalogu, Booksize Motor Module";
 
 export const ELECTRICAL_DRIVE_MODELS: readonly ElectricalDriveModel[] = [
   // ATV320 — 380…500 V üç faz, kompakt/kitap tip gövdeler.
-  { brand: "Schneider Electric", series: "ATV320", model: "ATV320U04N4C", motorPowerKw: 0.37, outputCurrentA: 1.5, source: schneider },
-  { brand: "Schneider Electric", series: "ATV320", model: "ATV320U06N4C", motorPowerKw: 0.55, outputCurrentA: 1.9, source: schneider },
-  { brand: "Schneider Electric", series: "ATV320", model: "ATV320U07N4C", motorPowerKw: 0.75, outputCurrentA: 2.3, source: schneider },
-  { brand: "Schneider Electric", series: "ATV320", model: "ATV320U11N4C", motorPowerKw: 1.1, outputCurrentA: 3, source: schneider },
-  { brand: "Schneider Electric", series: "ATV320", model: "ATV320U15N4C", motorPowerKw: 1.5, outputCurrentA: 4.1, source: schneider },
-  { brand: "Schneider Electric", series: "ATV320", model: "ATV320U22N4C", motorPowerKw: 2.2, outputCurrentA: 5.5, source: schneider },
-  { brand: "Schneider Electric", series: "ATV320", model: "ATV320U30N4C", motorPowerKw: 3, outputCurrentA: 7.1, source: schneider },
-  { brand: "Schneider Electric", series: "ATV320", model: "ATV320U40N4C", motorPowerKw: 4, outputCurrentA: 9.5, source: schneider },
-  { brand: "Schneider Electric", series: "ATV320", model: "ATV320U55N4C", motorPowerKw: 5.5, outputCurrentA: 14.3, source: schneider },
-  { brand: "Schneider Electric", series: "ATV320", model: "ATV320U75N4C", motorPowerKw: 7.5, outputCurrentA: 17, source: schneider },
-  { brand: "Schneider Electric", series: "ATV320", model: "ATV320D11N4C", motorPowerKw: 11, outputCurrentA: 27.7, source: schneider },
-  { brand: "Schneider Electric", series: "ATV320", model: "ATV320D15N4C", motorPowerKw: 15, outputCurrentA: 33, source: schneider },
+  { brand: "SCHNEIDER ELECTRIC", series: "ATV320", model: "ATV320U04N4C", motorPowerKw: 0.37, outputCurrentA: 1.5, source: schneider },
+  { brand: "SCHNEIDER ELECTRIC", series: "ATV320", model: "ATV320U06N4C", motorPowerKw: 0.55, outputCurrentA: 1.9, source: schneider },
+  { brand: "SCHNEIDER ELECTRIC", series: "ATV320", model: "ATV320U07N4C", motorPowerKw: 0.75, outputCurrentA: 2.3, source: schneider },
+  { brand: "SCHNEIDER ELECTRIC", series: "ATV320", model: "ATV320U11N4C", motorPowerKw: 1.1, outputCurrentA: 3, source: schneider },
+  { brand: "SCHNEIDER ELECTRIC", series: "ATV320", model: "ATV320U15N4C", motorPowerKw: 1.5, outputCurrentA: 4.1, source: schneider },
+  { brand: "SCHNEIDER ELECTRIC", series: "ATV320", model: "ATV320U22N4C", motorPowerKw: 2.2, outputCurrentA: 5.5, source: schneider },
+  { brand: "SCHNEIDER ELECTRIC", series: "ATV320", model: "ATV320U30N4C", motorPowerKw: 3, outputCurrentA: 7.1, source: schneider },
+  { brand: "SCHNEIDER ELECTRIC", series: "ATV320", model: "ATV320U40N4C", motorPowerKw: 4, outputCurrentA: 9.5, source: schneider },
+  { brand: "SCHNEIDER ELECTRIC", series: "ATV320", model: "ATV320U55N4C", motorPowerKw: 5.5, outputCurrentA: 14.3, source: schneider },
+  { brand: "SCHNEIDER ELECTRIC", series: "ATV320", model: "ATV320U75N4C", motorPowerKw: 7.5, outputCurrentA: 17, source: schneider },
+  { brand: "SCHNEIDER ELECTRIC", series: "ATV320", model: "ATV320D11N4C", motorPowerKw: 11, outputCurrentA: 27.7, source: schneider },
+  { brand: "SCHNEIDER ELECTRIC", series: "ATV320", model: "ATV320D15N4C", motorPowerKw: 15, outputCurrentA: 33, source: schneider },
 
   // ATV340 — ağır hizmet (HD) sütunu.
   ...[
@@ -52,7 +54,7 @@ export const ELECTRICAL_DRIVE_MODELS: readonly ElectricalDriveModel[] = [
     ["ATV340D37N4E", 37, 74.5], ["ATV340D45N4E", 45, 88],
     ["ATV340D55N4E", 55, 106], ["ATV340D75N4E", 75, 145],
   ].map(([model, motorPowerKw, outputCurrentA]) => ({
-    brand: "Schneider Electric" as const,
+    brand: "SCHNEIDER ELECTRIC" as const,
     series: "ATV340",
     model: model as string,
     motorPowerKw: motorPowerKw as number,
@@ -76,7 +78,7 @@ export const ELECTRICAL_DRIVE_MODELS: readonly ElectricalDriveModel[] = [
     ["ATV930C22N4", 160, 246], ["ATV930C25N4C", 220, 301],
     ["ATV930C31N4C", 250, 375],
   ].map(([model, motorPowerKw, outputCurrentA]) => ({
-    brand: "Schneider Electric" as const,
+    brand: "SCHNEIDER ELECTRIC" as const,
     series: "ATV930",
     model: model as string,
     motorPowerKw: motorPowerKw as number,
@@ -118,7 +120,7 @@ export const ELECTRICAL_DRIVE_MODELS: readonly ElectricalDriveModel[] = [
     ["6SL3120-1TE26-0AA3", 32, 60], ["6SL3120-1TE28-5AA3", 46, 85],
     ["6SL3120-1TE31-3AA3", 71, 132], ["6SL3120-1TE32-0AA4", 107, 200],
   ].map(([model, motorPowerKw, outputCurrentA]) => ({
-    brand: "Siemens" as const,
+    brand: "SIEMENS" as const,
     series: "SINAMICS S120 Booksize",
     model: model as string,
     motorPowerKw: motorPowerKw as number,
@@ -367,14 +369,14 @@ export const ELECTRICAL_CABLE_MODELS: readonly ElectricalCableModel[] = [
 
 export const CABLE_BRANDS = ["HELUKABEL", "ÜNTEL"] as const;
 
-export const DRIVE_BRANDS = ["Schneider Electric", "ABB", "Siemens"] as const;
+export const DRIVE_BRANDS = ["SCHNEIDER ELECTRIC", "ABB", "SIEMENS"] as const;
 
 export function driveSeriesFor(brand: string): string[] {
-  return [...new Set(ELECTRICAL_DRIVE_MODELS.filter((x) => x.brand === brand).map((x) => x.series))];
+  return [...new Set(ELECTRICAL_DRIVE_MODELS.filter((x) => x.brand === kimlikBuyuk(brand)).map((x) => x.series))];
 }
 
 export function driveModelsFor(brand: string, series: string): ElectricalDriveModel[] {
-  return ELECTRICAL_DRIVE_MODELS.filter((x) => x.brand === brand && x.series === series);
+  return ELECTRICAL_DRIVE_MODELS.filter((x) => x.brand === kimlikBuyuk(brand) && x.series === series);
 }
 
 export function cableByArticle(articleNo: string): ElectricalCableModel | undefined {

@@ -21,6 +21,7 @@ import {
   type ElectricalValues,
 } from "@/lib/calc/modules/electrical";
 import { cn } from "@/lib/utils";
+import { kimlikBuyuk } from "@/lib/tr-text";
 
 type Mode = "drives" | "cables" | "festoon";
 
@@ -156,7 +157,7 @@ function DrivesEditor(props: ElectricalModuleEditorProps) {
             {values.drives.map((row) => {
               const key = row.circuit.key;
               const pick = selections.drives[key] ?? {};
-              const brand = pick.brand ?? row.drive?.brand ?? "Schneider Electric";
+              const brand = kimlikBuyuk(pick.brand ?? row.drive?.brand ?? "SCHNEIDER ELECTRIC");
               const series = pick.series ?? row.drive?.series ?? driveSeriesFor(brand)[0] ?? "";
               const model = pick.model ?? row.drive?.model ?? "";
               const circuitInput = inputs.circuits[key] ?? {};
@@ -691,7 +692,7 @@ function FestoonLayoutSvg({ values }: { values: ElectricalValues }) {
         <text x="184" y="128" fontSize="5" fill="#57534E">D = {fmt(layout.supportDiameterMm, 0)} mm</text>
         <text x="184" y="139" fontSize="5" fill="#57534E">s = {fmt(layout.usableHeightMm, 0)} mm</text>
         <text x={vbW / 2} y="178" fontSize="5.5" fontWeight="600" textAnchor="middle" fill="#292524">
-          {layout.trolleyBrand} · {layout.trolleyModel} · {layout.rowCount} sıra
+          {kimlikBuyuk(layout.trolleyBrand)} · {layout.trolleyModel} · {layout.rowCount} sıra
         </text>
       </svg>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-[11px] text-muted-foreground">
@@ -786,7 +787,7 @@ function FestoonEditor(props: ElectricalModuleEditorProps) {
               >Feston arabası kataloğu</FieldLabel>
               <select className={selectClass} value={layout.trolleyAutomatic ? layout.trolleyPresetId : inputs.trolleyPresetId} disabled={disabled || layout.trolleyAutomatic} onChange={(e) => changePreset(e.target.value)}>
                 {FESTOON_TROLLEY_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>{preset.brand} · {preset.model}</option>
+                  <option key={preset.id} value={preset.id}>{kimlikBuyuk(preset.brand)} · {preset.model}</option>
                 ))}
                 {inputs.trolleyPresetId === "custom" && <option value="custom">Özel · Elle girilen ölçüler</option>}
               </select>

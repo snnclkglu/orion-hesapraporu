@@ -29,6 +29,16 @@ const props: ReportProps = {
 };
 
 describe("alt bölüm gizleme — PDF raporu", () => {
+  it("motor akuple redüktörde harici motor kaplini basılmaz; mil girişli diğer grupta kalır", async () => {
+    const integrated = structuredClone(input);
+    integrated.trolley!.selections.gearboxInputConfiguration = "Motor akuple";
+    const collected = new Set<string>();
+    await renderToBuffer(<ReportDocument {...props} input={integrated} result={runCalc(integrated)} hiddenSections={[]} collect={anchor => collected.add(anchor)} />);
+    expect(collected.has("sec-trolley-5.6")).toBe(false);
+    expect(collected.has("sec-trolley-5.5")).toBe(true);
+    expect(collected.has("sec-trolley-5.7")).toBe(true);
+    expect(collected.has("sec-bridge-5.6")).toBe(true);
+  }, 240_000);
   it("gizlenen bölümler basılmaz, komşuları ve köprüdeki eşleri basılır", async () => {
     const collected = new Set<string>();
     await renderToBuffer(

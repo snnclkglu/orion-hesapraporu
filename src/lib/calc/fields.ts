@@ -1375,10 +1375,11 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   {
     key: "balanceLoadcellBrand", label: "Loadcell Markası", type: "select",
     options: BALANCE_LOADCELL_BRANDS as unknown as string[],
-    hint: "Esit PL/PLI veya Kobastar LPW1. Kapasite, halat yükü × adet'ten otomatik seçilir.",
+    optionLabels: { Esit: "ESIT", Kobastar: "KOBASTAR" },
+    hint: "ESIT PL/PLI veya KOBASTAR LPW1. Kapasite, halat yükü × adet'ten otomatik seçilir.",
   },
   {
-    key: "balanceLoadcellSeries", label: "Esit Loadpin Serisi", type: "select",
+    key: "balanceLoadcellSeries", label: "ESIT Loadpin Serisi", type: "select",
     options: ["PL", "PLI"],
     optionLabels: { PL: "PL · Çelik", PLI: "PLI · Paslanmaz" },
     visibleWhen: (source) => source.balanceLoadcellBrand !== "Kobastar",

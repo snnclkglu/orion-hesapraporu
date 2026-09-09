@@ -9,7 +9,7 @@
 // Yalnız tek varyantta üretilen satırlar `variant` ile işaretlenir; sunum
 // adaptörü bunları diğer varyantta eler.
 
-import { travelBufferType, travelHasFestoon, travelSpecView } from "../modules/travelGroup";
+import { travelBufferType, travelHasFestoon, travelSpecView, travelNeedsMotorCoupling } from "../modules/travelGroup";
 import type {
   TravelDeps,
   TravelInputs,
@@ -62,7 +62,7 @@ export interface TravelSectionDef {
    * `HoistSectionDef.visible` deseniyle aynı). Tampon bölümü, teknik
    * özelliklerde o grup için tampon seçilmişse görünür.
    */
-  visible?: (specs: TechnicalSpecs, which: TravelWhich) => boolean;
+  visible?: (specs: TechnicalSpecs, which: TravelWhich, selections?: TravelSelections) => boolean;
   inputKeys: (keyof TravelInputs & string)[];
   selectionKeys: (keyof TravelSelections & string)[];
   /** Jenerik alan ızgarasına sığmayan, bölüme ait özel düzenleyici. */
@@ -449,7 +449,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       // MİL YÖNLERİ KUTUSU YÜRÜTMEDE YOKTUR (kullanıcı kararı, 24.08.2026):
       // yürütme redüktörü teker miline sabit bir düzende oturur, yön bir
       // sipariş sorusu değildir.
-      "gearboxModel", "gearboxOutputFeature",
+      "gearboxModel", "gearboxInputConfiguration", "gearboxOutputFeature",
       "gearboxMountingPosition", "gearboxOptions",
       "gearboxRatio", "gearboxOutputTorqueKnm",
       "gearboxInputShaftMm", "gearboxOutputShaftMm",
@@ -519,6 +519,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
   {
     id: "5.6",
     title: "Motor — Redüktör Kaplini",
+    visible: (_specs, _which, selections) => travelNeedsMotorCoupling(selections),
     equipmentSlugs: ["motorCoupling"],
     inputKeys: ["motorCouplingServiceFactor"],
     selectionKeys: [

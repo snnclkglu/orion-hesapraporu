@@ -6,6 +6,8 @@
 // Anahtar: bölümün ham id'si (rawId). Ana/yrd kaldırma aynı 2.x bölümlerini,
 // araba/köprü aynı 5.x bölümlerini paylaşır — eşlemeler modül grubuna göredir.
 
+import { kimlikBuyuk } from "@/lib/tr-text";
+
 export interface CatalogRow {
   id: string;
   brand: string;
@@ -1234,6 +1236,7 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "gearboxOutputTorqueKnm", from: { attr: "output_torque_nm" }, scale: 0.001 },
       { sel: "gearboxOutputShaftMm", from: { attr: "output_shaft_mm" } },
       { sel: "gearboxInputShaftText", from: { attr: "input_shaft_mm" }, suffix: " mm" },
+      { sel: "gearboxInputConfiguration", from: { attr: "input_configuration" } },
       { sel: "gearboxInputShaftMm", from: { attr: "input_shaft_mm" } },
       // AĞIRLIK — hesaba girmez, AĞIRLIK DÖKÜMÜ penceresi okur.
       { sel: "gearboxWeightKg", from: { attr: "weight_kg" } },
@@ -1447,10 +1450,13 @@ export function applyCatalogPick(
   const out: Record<string, unknown> = {};
   for (const f of mapping.fields) {
     let v: unknown;
-    if (f.from === "brand") v = row.brand;
+    if (f.from === "brand") v = kimlikBuyuk(row.brand);
     else if (f.from === "model") v = row.model;
-    else if (f.from === "brand_model") v = `${row.brand} ${row.model}`.trim();
+    else if (f.from === "brand_model") v = `${kimlikBuyuk(row.brand)} ${row.model}`.trim();
     else v = row.attrs[f.from.attr];
+    // Yeni redüktör eski motor akuple kararını devralamaz. Alanı olmayan
+    // katalog için bağlantı bilinmiyor; harici kaplin kontrolü açık kalır.
+    if (f.sel === "gearboxInputConfiguration" && (v === undefined || v === null)) { out[f.sel] = ""; continue; }
     if (v === undefined || v === null || v === "") continue;
     if (f.scale !== undefined && typeof v === "number") v = v * f.scale;
     if (f.translate && f.from !== "brand" && f.from !== "model" && f.from !== "brand_model") {

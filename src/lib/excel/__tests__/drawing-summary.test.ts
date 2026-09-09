@@ -84,7 +84,9 @@ describe("çizim detayları", () => {
   });
 
   it("tambur mili ölçü zinciri A…G eksiksizdir", () => {
-    const l = labels(drum);
+    const shaft = sectionNamed(SUMMARY, "Tambur Mili · Ana Kaldırma");
+    expect(shaft).toBeDefined();
+    const l = labels(shaft);
     for (const harf of ["A (redüktör tarafı)", "B", "C (sol yiv)", "D (yivsiz orta)",
       "E (sağ yiv)", "F", "G (yatak tarafı)"]) {
       expect(l, harf).toContain(`Mil ölçüsü ${harf}`);
@@ -96,7 +98,7 @@ describe("çizim detayları", () => {
     expect(l).toContain("Teker mili çapı");
     expect(l).toContain("Teker mili mesnet ölçüsü a");
     expect(l).toContain("Tahrikli teker adedi");
-    expect(l).toContain("Redüktör oranı");
+    expect(l).toContain("Gerçekleşen hız");
   });
 
   it("ray altı T profil YALNIZ profil varken basılır", () => {

@@ -1222,7 +1222,8 @@ function buildSteps(
    */
   hidden: ReadonlySet<string>,
   /** Bölüm görünürlüğü input'a bağlı olabilir (ör. halat dengeleme "Yok"). */
-  inputsOf: (key: ModuleKey) => Record<string, unknown> | undefined
+  inputsOf: (key: ModuleKey) => Record<string, unknown> | undefined,
+  selectionsOf: (key: ModuleKey) => Record<string, unknown> | undefined
 ): Step[] {
   const steps: Step[] = [{ kind: "specs", key: "specs", title: "01 · Teknik Özellikler" }];
   for (const adapter of MODULE_ADAPTERS) {
@@ -1232,13 +1233,13 @@ function buildSteps(
       adapter.sections,
       num,
       (section) =>
-        (!section.visible || section.visible(specs, inputsOf(adapter.key))) &&
+        (!section.visible || section.visible(specs, inputsOf(adapter.key), selectionsOf(adapter.key))) &&
         !hidden.has(sectionHideKeyFor(adapter.key, section.rawId))
     );
     for (const section of adapter.sections) {
       // Koşullu bölüm (ör. emniyet freni olmayan kaldırma grubunda 2.8, ya da
       // halat dengeleme düzeni "Yok" iken denge bölümü).
-      if (section.visible && !section.visible(specs, inputsOf(adapter.key))) continue;
+      if (section.visible && !section.visible(specs, inputsOf(adapter.key), selectionsOf(adapter.key))) continue;
       const displayId = nos.get(section.rawId) ?? HIDDEN_SECTION_NO;
       steps.push({
         kind: "module",
@@ -1559,7 +1560,7 @@ export function RevisionEditor({
   // kutucuk işaretlendiği anda sonraki bölümler bir öne kayar (PDF'teki dizinin
   // aynısı), mühendis kararının sonucunu kaydetmeden görür.
   const STEPS = useMemo(
-    () => buildSteps(present, numbers, specs, hiddenSections, (k) => mods[k]?.inputs as Record<string, unknown> | undefined),
+    () => buildSteps(present, numbers, specs, hiddenSections, (k) => mods[k]?.inputs as Record<string, unknown> | undefined, (k) => mods[k]?.selections as Record<string, unknown> | undefined),
     [present, numbers, specs, hiddenSections, mods]
   );
   // Bölüm sayısı azalınca state'i bir effect içinde yeniden yazmak yerine

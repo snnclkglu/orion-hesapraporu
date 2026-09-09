@@ -16,6 +16,15 @@ const oneMotor: ElectricalDeps = {
 };
 
 describe("elektrik hesap raporu", () => {
+  it("eski ve büyük harfli sürücü markaları aynı gerçek katalogdan seçilir", () => {
+    expect(driveModelsFor("Siemens", "SINAMICS S120")).toEqual(driveModelsFor("SIEMENS", "SINAMICS S120"));
+    for (const brand of ["Siemens", "SIEMENS"]) {
+      const result = computeElectrical(NEW_WORK_SPECS, { ...DEFAULT_ELECTRICAL_INPUTS, circuits: { main: { driveAuto: false } } },
+        { ...DEFAULT_ELECTRICAL_SELECTIONS, drives: { main: { brand } } },
+        { motors: [{ key: "main", label: "Ana Kaldırma", motorPowerKw: 4, motorCount: 1 }] });
+      expect(result.values.drives[0].drive?.brand).toBe("SIEMENS");
+    }
+  });
   it("yalnız teknik özellikte açıldığında aktif olur", () => {
     expect(moduleAllowedByConfig(NEW_WORK_SPECS, "electrical")).toBe(false);
     expect(activeModules(NEW_WORK_SPECS).has("electrical")).toBe(false);

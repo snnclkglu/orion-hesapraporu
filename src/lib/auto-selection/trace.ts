@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { designInputsSchema } from "./design-inputs";
 import { ENGINE_VERSION, runCalc, type CalcInput, type CalcResult } from "@/lib/calc/engine";
 import { checkSeverity, type AnyCheck } from "@/lib/calc/types";
 import { MODULE_ORDER } from "@/lib/calc/presentation/module-family";
@@ -9,10 +10,12 @@ import { isHoistKey, type ModuleKey } from "@/lib/calc/presentation/module-famil
 
 const boundedText = z.string().max(4000);
 const schema = z.object({
-  version: z.enum(["1.0.0", "1.1.0"]), engineVersion: z.string().max(60), createdAt: z.iso.datetime(),
+  version: z.enum(["1.0.0", "1.1.0", "1.2.0"]), engineVersion: z.string().max(60), createdAt: z.iso.datetime(),
   sourceHash: z.string().max(100), resultHash: z.string().max(100), catalogHash: z.string().max(100),
   brands: z.partialRecord(z.enum(["motor", "hoistGearbox", "travelGearbox", "brake", "hoistBrake", "travelBrake", "motorCoupling", "wheelCoupling", "drumCoupling", "bearing", "rope", "buffer"]), z.string().max(200)),
   locks: z.array(z.string().max(150)).max(300),
+  series: z.partialRecord(z.enum(["motor", "hoistGearbox", "travelGearbox", "brake", "hoistBrake", "travelBrake", "motorCoupling", "wheelCoupling", "drumCoupling", "bearing", "rope", "buffer"]), z.string().max(200)).optional(),
+  design: designInputsSchema.optional(),
   decisions: z.array(z.object({ module: z.enum(MODULE_ORDER), section: z.string().max(100), label: boundedText,
     variantKey: boundedText, checked: z.array(z.string().max(150)).max(200),
     evidence: z.array(z.object({ id: z.string().max(150), label: boundedText,

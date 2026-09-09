@@ -7,6 +7,7 @@ import { requestedHookStandard } from "./technical-contract";
 import { requestedBrakeFamily } from "./brands";
 import { brakeDrumOptions, manufacturerConditionsMatch } from "./manufacturer";
 import type { EquipmentRow, SelectionRequest } from "./types";
+import { kimlikBuyuk } from "@/lib/tr-text";
 
 /** Üretici sınırları ve birebir bağlantı koşulları. Fizik formülü içermez. */
 export function catalogCompatible(request: SelectionRequest, modules: ModulesState, key: ModuleKey, section: string, row: EquipmentRow): boolean {
@@ -20,7 +21,7 @@ export function catalogCompatible(request: SelectionRequest, modules: ModulesSta
     if (!row.model.includes(standard)) return false;
   }
   if (row.kind === "bearing_housing") {
-    if (row.brand !== sel.bearingBrand || bearingHousingCompatibilityKey(sel.bearingCode) !== bearingHousingCompatibilityKey(row.attrs.compatible_bearing) || positive(row.attrs.bearing_bore_mm) !== positive(sel.bearingBoreMm)) return false;
+    if (kimlikBuyuk(row.brand) !== kimlikBuyuk(String(sel.bearingBrand ?? "")) || bearingHousingCompatibilityKey(sel.bearingCode) !== bearingHousingCompatibilityKey(row.attrs.compatible_bearing) || positive(row.attrs.bearing_bore_mm) !== positive(sel.bearingBoreMm)) return false;
   }
   if (row.kind === "buffer" && isTravelKey(key) && !travelBufferCatalogTypes(request.specs, key).includes(String(row.attrs.type))) return false;
   if (row.kind === "brake") {

@@ -2,6 +2,20 @@ import { isHoistKey, isTravelKey } from "@/lib/calc/presentation/module-family";
 import { getCatalogMapping } from "@/lib/catalog-mapping";
 import { travelBufferCatalogTypes } from "@/lib/calc/modules/travelGroup";
 import { BRAND_LABELS, type BrandKey, type Brands, type SelectionRequest } from "./types";
+import { kimlikBuyuk } from "@/lib/tr-text";
+
+export const DEFAULT_BRANDS: Brands = {
+  motor: "GAMAK", hoistGearbox: "YILMAZ REDÜKTÖR", travelGearbox: "YILMAZ REDÜKTÖR",
+  hoistBrake: "SIBRE", travelBrake: "DERELI", motorCoupling: "SIBRE",
+  wheelCoupling: "OZGUN", drumCoupling: "OZGUN", bearing: "SKF", rope: "HAŞÇELİK", buffer: "SIBRE",
+};
+export const SERIES_KEYS: BrandKey[] = ["hoistGearbox", "travelGearbox", "motorCoupling", "wheelCoupling", "drumCoupling"];
+export function defaultSeries(key: BrandKey, brand: string): string {
+  const name = kimlikBuyuk(brand);
+  return name === "YILMAZ REDÜKTÖR" ? (key === "hoistGearbox" ? "H" : key === "travelGearbox" ? "DR" : "")
+    : name === "SIBRE" && key === "motorCoupling" ? "APC-AT" : name === "OZGUN" && key === "drumCoupling" ? "J" : "";
+}
+export function initialBrands(saved: Brands = {}): Brands { return { ...DEFAULT_BRANDS, ...normalizedBrands(saved) }; }
 
 export interface CatalogFamily { kind: string; brand: string; attrs: Record<string, unknown>; count?: number }
 export const BRAND_KINDS: Record<BrandKey, string> = {
@@ -9,8 +23,8 @@ export const BRAND_KINDS: Record<BrandKey, string> = {
   motorCoupling: "coupling", wheelCoupling: "coupling", drumCoupling: "coupling", bearing: "bearing", rope: "rope", buffer: "buffer",
 };
 export function normalizedBrands(brands: Brands): Brands {
-  const next = { ...brands };
-  if (brands.brake) { next.hoistBrake ??= brands.brake; next.travelBrake ??= brands.brake; delete next.brake; }
+  const next = Object.fromEntries(Object.entries(brands).map(([key, value]) => [key, kimlikBuyuk(value).trim()])) as Brands;
+  if (next.brake) { next.hoistBrake ??= next.brake; next.travelBrake ??= next.brake; delete next.brake; }
   return next;
 }
 export function activeBrandKeys(request: Pick<SelectionRequest, "active">): BrandKey[] {
@@ -29,8 +43,8 @@ export function familyMatchesBrandKey(row: CatalogFamily, key: BrandKey, request
     const family = requestedBrakeFamily(String((key === "hoistBrake" ? request.specs.hoistBrakeType : request.specs.travelBrakeType) ?? ""));
     return !!family && row.attrs.brake_type === family;
   }
-  if (key === "motorCoupling" || key === "drumCoupling") {
-    const mapping = getCatalogMapping("main", key === "motorCoupling" ? "2.6" : "2.7")!;
+  if (key === "motorCoupling" || key === "drumCoupling" || key === "wheelCoupling") {
+    const mapping = getCatalogMapping(key === "wheelCoupling" ? "trolley" : "main", key === "motorCoupling" ? "2.6" : key === "wheelCoupling" ? "5.7" : "2.7")!;
     return Object.entries(mapping.lockedFacets ?? {}).every(([attr, values]) => (Array.isArray(values) ? values : [values]).includes(String(row.attrs[attr])));
   }
   if (key === "buffer") return request.active.filter(isTravelKey).some(module => travelBufferCatalogTypes(request.specs, module).includes(String(row.attrs.type)));
@@ -38,5 +52,9 @@ export function familyMatchesBrandKey(row: CatalogFamily, key: BrandKey, request
   return true;
 }
 export function availableBrands(rows: CatalogFamily[], key: BrandKey, request: Pick<SelectionRequest, "active" | "specs">): string[] {
-  return [...new Set(rows.filter(row => familyMatchesBrandKey(row, key, request)).map(row => row.brand))].sort((a, b) => a.localeCompare(b, "tr"));
+  return [...new Set(rows.filter(row => familyMatchesBrandKey(row, key, request)).map(row => kimlikBuyuk(row.brand)))].sort((a, b) => a.localeCompare(b, "tr"));
+}
+
+export function availableSeries(rows: CatalogFamily[], key: BrandKey, brand: string, request: Pick<SelectionRequest, "active" | "specs">): string[] {
+  return [...new Set(rows.filter(row => (!brand || kimlikBuyuk(row.brand) === kimlikBuyuk(brand)) && familyMatchesBrandKey(row, key, request)).map(row => String(row.attrs.series ?? "")).filter(Boolean))].sort((a, b) => a.localeCompare(b, "tr", { numeric: true }));
 }

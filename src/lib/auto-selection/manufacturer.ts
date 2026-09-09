@@ -7,7 +7,7 @@ import { positive } from "./catalog";
  * Seri bilgisi montaj/çevrim/ısıl enerji onayı yerine geçmez. */
 export function hoistServiceBrakeSupported(row: EquipmentRow): boolean {
   return row.attrs.brake_type === "drum" ? !!positive(row.attrs.wheel_dia_mm)
-    : row.attrs.brake_type === "em" && (row.attrs.spring_applied === true || (row.brand === "Dereli" && /^DYF\d+$/.test(row.model)));
+    : row.attrs.brake_type === "em" && (row.attrs.spring_applied === true || (/^derel[iİı]$/i.test(row.brand) && /^DYF\d+$/.test(row.model)));
 }
 export function brakeDrumOptions(row: EquipmentRow): number[] {
   return [row.attrs.brake_drum_diameter_mm, ...(Array.isArray(row.attrs.brake_dia_options_mm) ? row.attrs.brake_dia_options_mm : [])].flatMap(value => positive(value) ?? []);

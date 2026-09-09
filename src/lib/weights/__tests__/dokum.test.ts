@@ -717,14 +717,15 @@ describe("katalogda olmayan ağırlıklar artık boş durmuyor (md. 4)", () => {
     expect(kalem.kgUst).toBeGreaterThan(kalem.kg!);
   });
 
-  it("YÜK HÜCRESİ ağırlığı Esit föyünden gelir", () => {
+  it("ESIT PL/PLI föyünde yayımlanmayan yük hücresi ağırlığı boş ve gerekçeli kalır", () => {
     // Denge traversli varsayılan düzende loadcell satırı doğar.
     const kalem = grup(dokumFor(), "trolley", "balance")!.kalemler.find((k) =>
       k.rowKey?.endsWith(":balanceLoadcell")
     );
     expect(kalem, "yük hücresi satırı").toBeDefined();
     expect(kalem!.kaynak).toBe("katalog");
-    expect(kalem!.kg).toBeGreaterThan(0);
+    expect(kalem!.kg).toBeNull();
+    expect(kalem!.gerekce).toContain("ağırlık yayımlanmamış");
   });
 
   it("DENGE MAKARASI yayımlanmış çapta tartılır, yayımlanmamışta gerekçe yazar", () => {

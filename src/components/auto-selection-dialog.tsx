@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { WandSparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AutoSelectionDecisions } from "@/components/auto-selection-decisions";
-import { activeBrandKeys, availableBrands, normalizedBrands, type CatalogFamily } from "@/lib/auto-selection/brands";
+import { activeBrandKeys, availableBrands, initialBrands, availableSeries, defaultSeries, SERIES_KEYS, type CatalogFamily } from "@/lib/auto-selection/brands";
+import { AutoSelectionDesign } from "@/components/auto-selection-design";
+import { applyDesignInputs, designInputsFrom, type DesignInputs } from "@/lib/auto-selection/design-inputs";
 import { loadCatalogManifest, loadSelectionCatalog } from "@/lib/auto-selection/catalog-client";
 import { selectionCatalogFilter } from "@/lib/auto-selection/catalog-scope";
 import { selectionScopeIssues } from "@/lib/auto-selection/scope";
@@ -22,7 +24,9 @@ type Props = {
 export function AutoSelectionDialog({ revisionId, request, onApply, previewRows }: Props) {
   const [open, setOpen] = useState(false);
   const [families, setFamilies] = useState<CatalogFamily[] | null>(previewRows ?? null);
-  const [brands, setBrands] = useState<Brands>({});
+  const [brands, setBrands] = useState<Brands>(() => initialBrands());
+  const [series, setSeries] = useState<Brands>({});
+  const [design, setDesign] = useState<DesignInputs>(() => designInputsFrom(request));
   const [locks, setLocks] = useState<string[]>([]);
   const [sizeDesigns, setSizeDesigns] = useState(true);
   const [enableStructuralChecks, setEnableStructuralChecks] = useState(true);
@@ -40,7 +44,15 @@ export function AutoSelectionDialog({ revisionId, request, onApply, previewRows 
   function cancel() { worker.current?.terminate(); worker.current = null; controller.current?.abort(); setRunning(false); setLoading(false); setProgress(null); }
   async function show() {
     setOpen(true); setError(""); setResult(null);
-    try { const saved: unknown = JSON.parse(localStorage.getItem("orion.auto-selection.brands.v1") ?? "{}"); if (saved && typeof saved === "object") setBrands(normalizedBrands(Object.fromEntries(Object.entries(saved).filter(([k, v]) => k in BRAND_LABELS && typeof v === "string")))); } catch { /* Depolama kapalıyken de çalışır. */ }
+    setDesign(designInputsFrom(request));
+    let selected = initialBrands(); let savedSeries: Brands = {};
+    const preferences = (raw: unknown): Brands => raw && typeof raw === "object" ? Object.fromEntries(Object.entries(raw).filter(([k, v]) => k in BRAND_LABELS && typeof v === "string" && v.length <= 200)) : {};
+    try {
+      selected = initialBrands(preferences(JSON.parse(localStorage.getItem("orion.auto-selection.brands.v1") ?? "{}")));
+      savedSeries = preferences(JSON.parse(localStorage.getItem("orion.auto-selection.series.v1") ?? "{}"));
+    } catch { /* Depolama kapalıyken firma tercihleri kullanılır. */ }
+    setBrands(selected);
+    setSeries(Object.fromEntries(SERIES_KEYS.map(key => [key, savedSeries[key] ?? defaultSeries(key, selected[key] ?? "")])));
     if (previewRows) return;
     const abort = new AbortController(); controller.current = abort; setLoading(true);
     try {
@@ -51,11 +63,13 @@ export function AutoSelectionDialog({ revisionId, request, onApply, previewRows 
   }
   async function start() {
     if (!families || running) return;
+    try { applyDesignInputs({ ...request, brands, series, design, locks, sizeDesigns, speedTolerancePct: 5 }); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Tasarım kararlarını kontrol edin."); return; }
     setError(""); setResult(null); setRunning(true); setProgress({ stage: "Bağlı hesaplar ve katalog adayları değerlendiriliyor", completed: 0, total: 1, evaluations: 0 });
-    try { localStorage.setItem("orion.auto-selection.brands.v1", JSON.stringify(brands)); } catch { /* Tercih kaydı zorunlu değil. */ }
+    try { localStorage.setItem("orion.auto-selection.brands.v1", JSON.stringify(brands)); localStorage.setItem("orion.auto-selection.series.v1", JSON.stringify(series)); } catch { /* Tercih kaydı zorunlu değil. */ }
     const abort = new AbortController(); controller.current = abort;
     try {
-      const rows = previewRows ?? await loadSelectionCatalog(revisionId, catalogVersion.current!, selectionCatalogFilter({ ...request, brands }), abort.signal, setProgress);
+      const rows = previewRows ?? await loadSelectionCatalog(revisionId, catalogVersion.current!, selectionCatalogFilter({ ...request, brands, series }), abort.signal, setProgress);
       if (abort.signal.aborted) return;
     const current = new Worker(new URL("../lib/auto-selection/selection.worker.ts", import.meta.url));
     worker.current = current;
@@ -71,7 +85,7 @@ export function AutoSelectionDialog({ revisionId, request, onApply, previewRows 
       }
     };
     current.onerror = () => { if (worker.current === current) { setError("Seçim işlemi tamamlanamadı. Rapor değiştirilmedi."); cancel(); } };
-    current.postMessage({ request: { ...request, brands, locks, sizeDesigns, enableStructuralChecks, speedTolerancePct: 5 }, rows });
+    current.postMessage({ request: { ...request, brands, series, design, locks, sizeDesigns, enableStructuralChecks, speedTolerancePct: 5 }, rows });
     } catch (cause) { if (!abort.signal.aborted) { setError(cause instanceof Error ? cause.message : "Seçim başlatılamadı."); cancel(); } }
   }
   const brandKeys = activeBrandKeys(request);
@@ -92,17 +106,23 @@ export function AutoSelectionDialog({ revisionId, request, onApply, previewRows 
           {scopeIssues.length > 0 && <details className="rounded-md border bg-muted/30 p-3"><summary className="oc-tap cursor-pointer text-sm font-medium">Bu taslakta ayrı doğrulanacak koşullar ({scopeIssues.length})</summary><ul className="space-y-2 pt-2 text-sm">{scopeIssues.map(issue => <li key={issue.code}>{issue.message}</li>)}</ul></details>}
           <div className="grid gap-3 sm:grid-cols-2">{brandKeys.map(key => {
             const available = availableBrands(families ?? [], key, request);
-            return <label className="space-y-1 text-sm" key={key}><span>{BRAND_LABELS[key]}</span><select className="oc-tap w-full rounded-md border bg-background px-3 py-2 text-base" value={brands[key] ?? ""} onChange={event => setBrands({ ...brands, [key]: event.target.value })}><option value="">Uygun markalar arasından seç</option>{brands[key] && !available.includes(brands[key]!) && <option value={brands[key]}>Katalogda yok: {brands[key]}</option>}{available.map(brand => <option key={brand}>{brand}</option>)}</select></label>;
+            const types = availableSeries(families ?? [], key, brands[key] ?? "", request);
+            return <div key={key} className="min-w-0 space-y-2"><label className="block space-y-1 text-sm"><span>{BRAND_LABELS[key]}</span><select className="oc-tap w-full min-w-0 rounded-md border bg-background px-3 py-2 text-base" value={brands[key] ?? ""} onChange={event => { setBrands({ ...brands, [key]: event.target.value }); setSeries({ ...series, [key]: defaultSeries(key, event.target.value) }); }}><option value="">Uygun markalar arasından seç</option>{brands[key] && !available.includes(brands[key]!) && <option value={brands[key]}>Bu ailede yok: {brands[key]}</option>}{available.map(brand => <option key={brand}>{brand}</option>)}</select></label>
+              {SERIES_KEYS.includes(key) && <label className="block space-y-1 text-sm"><span>{BRAND_LABELS[key]} · Seri / tip</span><select className="oc-tap w-full min-w-0 rounded-md border bg-background px-3 py-2 text-base" value={series[key] ?? ""} onChange={event => setSeries({ ...series, [key]: event.target.value })}><option value="">Uygun seriler arasından seç</option>{series[key] && !types.includes(series[key]!) && <option value={series[key]}>Bu ailede yok: {series[key]}</option>}{types.map(type => <option key={type} value={type}>{type}</option>)}</select></label>}
+            </div>;
           })}</div>
+          <AutoSelectionDesign request={request} value={design} onChange={setDesign} />
+          <p className="text-sm text-muted-foreground">Hesap sırası: halat → tambur ve miller → motor/redüktör → fren/kaplin → kanca/makara → yürütme → taşıyıcı yapı ve son kontroller. Motor güçleri, çaplar ve katalog büyüklükleri bu sırada hesaplanır; bağlı seçim gerektiğinde birlikte yeniden denenir.</p>
           <label className="oc-tap flex items-center gap-3 text-sm"><input type="checkbox" checked={sizeDesigns} onChange={event => setSizeDesigns(event.target.checked)} />Tambur, mil ve kesit ölçüleri için hesapla uygun aday öner</label>
           {request.active.includes("girder") && <label className="oc-tap flex items-center gap-3 text-sm"><input type="checkbox" checked={enableStructuralChecks} onChange={event => setEnableStructuralChecks(event.target.checked)} />Buruşma ve başkiriş bölümlerini açıp taşıyıcı yapıyı birlikte değerlendir</label>}
           <details><summary className="oc-tap cursor-pointer text-sm font-medium">Korunacak bölümler</summary><div className="grid gap-2 pt-2 sm:grid-cols-2">{request.active.map(key => <label key={key} className="oc-tap flex items-center gap-2 text-sm"><input type="checkbox" checked={locks.includes(key)} onChange={event => setLocks(event.target.checked ? [...locks, key] : locks.filter(lock => lock !== key))} />{MODULE_LABELS[key]} seçimlerini koru</label>)}</div></details>
+          <p className="text-sm text-muted-foreground">Ekipman ve ölçü kilidi: işaretlediğiniz mevcut seçimi otomatik işlem değiştirmez. Örneğin motoru kilitlerseniz motor korunur, diğer ekipmanlar ona göre aranır. İlk hesapta boş bırakabilirsiniz; kilit uygunluk kontrolünü kaldırmaz.</p>
           <details><summary className="oc-tap cursor-pointer text-sm font-medium">Ekipman ve ölçü kilitleri</summary><div className="max-h-60 space-y-3 overflow-y-auto pt-2">{request.active.filter(key => isHoistKey(key) || isTravelKey(key)).map(key => {
             const hoist = isHoistKey(key);
             const choices = hoist ? [["2.1", "Halat"], ["2.4", "Motor"], ["2.3", "Redüktör"], ["2.5", "Fren"], ["2.6", "Motor kaplini"], ["2.7", "Tambur kaplini"], ["selections.drumDiaMm", "Tambur çapı"], ["inputs.shaftD2Mm", "Tambur rulman mili"]] : [["5.1", "Teker"], ["5.4", "Motor"], ["5.5", "Redüktör"], ["5.5b", "Fren"], ["inputs.shaftDiaMm", "Teker mili"]];
             return <fieldset key={key}><legend className="text-sm font-medium">{MODULE_LABELS[key]}</legend><div className="grid grid-cols-2 gap-1">{choices.map(([section, label]) => { const id = `${key}.${section}`; return <label key={id} className="oc-tap flex items-center gap-2 text-sm"><input type="checkbox" checked={locks.includes(id) || locks.includes(key)} disabled={locks.includes(key)} onChange={event => setLocks(event.target.checked ? [...locks, id] : locks.filter(lock => lock !== id))} />{label}</label>; })}</div></fieldset>;
           })}</div></details>
-          <p className="text-xs text-muted-foreground">Gerçek hız hedefi: ±%5 firma toleransı. Fiziksel adetler ve ölçü teyitleri korunur. Seçimler sınırlı aday aramasıyla belirlenir; eksik veriler sonuçta listelenir.</p>
+          <p className="text-xs text-muted-foreground">Gerçek hız hedefi: ±%5 firma toleransı. Seçtiğiniz donanım, teker/tahrik sayıları ve raylar hesaba uygulanır; ölçü teyitleri kullanıcıya aittir. Seçimler sınırlı aday aramasıyla belirlenir; eksik veriler sonuçta listelenir.</p>
           <Button className="oc-tap w-full gap-2" disabled={!families} onClick={start}><WandSparkles className="size-4" />Hesap raporunu oluştur</Button>
           {error && <Button variant="outline" className="oc-tap" onClick={show}>Kataloğu tekrar yükle</Button>}
         </>}

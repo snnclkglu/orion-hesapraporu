@@ -89,7 +89,7 @@ import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import { computeHoistGroup } from "@/lib/calc/modules/hoistGroup";
 
 import { computeHookBlock, hookBlockDepsFromHoist, type HookBlockDeps } from "@/lib/calc/modules/hookBlock";
-import { computeTravelGroup, type TravelDeps } from "@/lib/calc/modules/travelGroup";
+import { computeTravelGroup, type TravelDeps, type TravelSelections } from "@/lib/calc/modules/travelGroup";
 import { computeMainGirder, type GirderDeps, type GirderWhich } from "@/lib/calc/modules/mainGirder";
 import { computeBuckling } from "@/lib/calc/modules/buckling";
 import { computeEndCarriage, type EndCarriageDeps } from "@/lib/calc/modules/endCarriage";
@@ -321,7 +321,7 @@ export interface AdapterSection {
    * yüzden adım listesi kurulurken de değerlendirilebilir. Tanımsızsa bölüm
    * her zaman görünür.
    */
-  visible?: (specs: TechnicalSpecs, inputs?: Record<string, unknown>) => boolean;
+  visible?: (specs: TechnicalSpecs, inputs?: Record<string, unknown>, selections?: Record<string, unknown>) => boolean;
 }
 
 /** Ana kiriş takımı anahtarları — adaptör iki takımı da aynı fabrikadan üretir. */
@@ -909,7 +909,7 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
       checkSuffixes: s.checkSuffixes,
       // Koşullu bölümler (ör. 5.8 tampon — tampon tipi "Yok" ise görünmez).
       // hoistAdapter ile aynı desen; koşul teknik özelliklerden okunur.
-      visible: s.visible ? (specs: TechnicalSpecs) => s.visible!(specs, which) : undefined,
+      visible: s.visible ? (specs: TechnicalSpecs, _inputs?: Record<string, unknown>, selections?: Record<string, unknown>) => s.visible!(specs, which, selections as unknown as TravelSelections | undefined) : undefined,
       // Tüm yürütme varyantları AYNI semantik anahtarları kullanır; yalnız tek
       // varyantta üretilen satırlar diğerinde gösterilmez.
       rows: s.rows

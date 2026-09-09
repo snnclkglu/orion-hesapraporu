@@ -68,6 +68,11 @@ export const TRAVEL_WHEEL_HARDNESS_OPTIONS = [
 ] as const;
 export const DEFAULT_TRAVEL_WHEEL_HARDNESS = "32-35 HRC";
 
+/** Motor akuple girişte harici motor-redüktör kaplini bulunmaz. */
+export function travelNeedsMotorCoupling(selection?: { gearboxInputConfiguration?: string }): boolean {
+  return selection?.gearboxInputConfiguration !== "Motor akuple";
+}
+
 /** "Yok" ve boş değer rapor metnine dönüşmez. */
 export function travelWheelHardnessText(value: unknown): string | null {
   const text = typeof value === "string" ? value.trim() : "";
@@ -342,6 +347,7 @@ export interface TravelSelections {
   gearboxRatio: number;
   gearboxOutputTorqueKnm: number;
   gearboxInputShaftText: string;
+  gearboxInputConfiguration?: string;
   /** Redüktör giriş mili çapı [mm]; yeni katalog seçimlerinde doğrudan dolar. */
   gearboxInputShaftMm?: number;
   gearboxOutputShaftMm: number;
@@ -1182,7 +1188,7 @@ export function computeTravelGroup(
   set("motorCoupling.shaftDia", motorCouplingShaft);
   const motorCouplingSafety = sel.motorCouplingTorqueNm / requiredMotorCouplingTorque;
   set("motorCoupling.actualSafety", motorCouplingSafety);
-  checks.push({
+  if (travelNeedsMotorCoupling(sel)) checks.push({
     id: `${which}.motorCoupling.torque`,
     label: "Motor Kaplini Tork Kapasitesi",
     required: requiredMotorCouplingTorque, provided: sel.motorCouplingTorqueNm, unit: "Nm", op: ">=",
@@ -1190,7 +1196,7 @@ export function computeTravelGroup(
     pass: sel.motorCouplingTorqueNm >= requiredMotorCouplingTorque,
     kind: "firma", severity: "engelleyici",
   });
-  checks.push({
+  if (travelNeedsMotorCoupling(sel)) checks.push({
     id: `${which}.motorCoupling.bore`,
     label: "Motor Kaplini Delik Çapı",
     required: motorCouplingShaft, provided: sel.motorCouplingDmaxMm, unit: "mm", op: ">=",

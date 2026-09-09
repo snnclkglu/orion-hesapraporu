@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { attrLabel } from "@/lib/catalog-mapping";
+import { kimlikBuyuk } from "@/lib/tr-text";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -177,7 +178,7 @@ export function EquipmentDialog({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="eq-brand">Marka</Label>
-              <Input id="eq-brand" value={brand} onChange={(e) => setBrand(e.target.value)} required />
+              <Input id="eq-brand" value={brand} onChange={(e) => setBrand(kimlikBuyuk(e.target.value))} required />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="eq-model">Model</Label>

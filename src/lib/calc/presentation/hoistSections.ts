@@ -13,6 +13,7 @@ import type {
 } from "../modules/hoistGroup";
 import { hasSafetyBrake } from "../types";
 import type { TechnicalSpecs } from "../types";
+import { kimlikBuyuk } from "@/lib/tr-text";
 
 export interface HoistCtx {
   c: Record<string, number | string>; // semantik anahtar → değer (motor çıktısı)
@@ -1094,7 +1095,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         key: "balance.loadcellSel", label: "Seçilen Loadcell (otomatik)",
         valueFrom: (x) => (x.c["balance.loadcellModel"] as string) ?? "—",
         subst: (x) =>
-          `${x.sel.balanceLoadcellBrand ?? "Esit"} · kapasite ${n(num(x.c["balance.loadcellCapacity"]))} kg`,
+          `${kimlikBuyuk(x.sel.balanceLoadcellBrand ?? "Esit")} · kapasite ${n(num(x.c["balance.loadcellCapacity"]))} kg`,
       },
     ],
     checkSuffixes: ["balance.socketMbl", "balance.loadcell", "balance.bearing"],
@@ -1135,7 +1136,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         key: "balance.loadcellSel", label: "Seçilen Loadcell (otomatik)",
         valueFrom: (x) => (x.c["balance.loadcellModel"] as string) ?? "—",
         subst: (x) =>
-          `${x.sel.balanceLoadcellBrand ?? "Esit"} · kapasite ${n(num(x.c["balance.loadcellCapacity"]))} kg`,
+          `${kimlikBuyuk(x.sel.balanceLoadcellBrand ?? "Esit")} · kapasite ${n(num(x.c["balance.loadcellCapacity"]))} kg`,
       },
     ],
     checkSuffixes: ["balance.sheaveDia", "balance.loadcell", "balance.bearing"],

@@ -387,6 +387,7 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
     hint: "PTC eşik anahtarıdır, PT100 sıcaklığı ölçer. Siparişte ayrıca istenir; standart Yok.",
   },
   { key: "gearboxModel", label: "Seçilen Dişli Kutusu", type: "text" },
+  { key: "gearboxInputConfiguration", label: "Redüktör Giriş Bağlantısı", type: "select", options: ["Motorsuz mil girişli", "Motor akuple"], hint: "Motor akuple girişte harici motor kaplini bulunmaz. IEC flanş/adaptör uyumu üreticiyle doğrulanır." },
   {
     key: "gearboxOutputFeature", label: "Redüktör Özelliği (Çıkış)", type: "select",
     options: GEARBOX_OUTPUT_FEATURES as unknown as string[],
