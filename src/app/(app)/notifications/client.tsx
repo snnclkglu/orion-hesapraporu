@@ -10,6 +10,7 @@
 import { useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   markAllNotificationsRead,
   markNotificationRead,
@@ -35,7 +36,12 @@ export function NotificationRowLink({
       href={href || "/jobs"}
       onClick={() => {
         if (okunmamis) {
-          void markNotificationRead(id).then(() => router.refresh());
+          void markNotificationRead(id)
+            .then((sonuc) => {
+              if (sonuc.error) toast.error("Bildirim okundu olarak işaretlenemedi.");
+              router.refresh();
+            })
+            .catch(() => toast.error("Bildirim okundu olarak işaretlenemedi."));
         }
       }}
       className={className}
@@ -56,12 +62,37 @@ export function MarkAllReadButton() {
       disabled={bekliyor}
       onClick={() =>
         basla(async () => {
-          await markAllNotificationsRead();
-          router.refresh();
+          try {
+            const sonuc = await markAllNotificationsRead();
+            if (sonuc.error) {
+              toast.error("Bildirimler güncellenemedi. Yeniden deneyin.");
+              return;
+            }
+            toast.success("Bildirimlerin tümü okundu olarak işaretlendi.");
+            router.refresh();
+          } catch {
+            toast.error("Bildirimler güncellenemedi. Yeniden deneyin.");
+          }
         })
       }
     >
-      Tümünü Okundu Say
+      {bekliyor ? "İşaretleniyor…" : "Tümünü Okundu Say"}
+    </Button>
+  );
+}
+
+export function RetryNotificationsButton() {
+  const router = useRouter();
+  const [bekliyor, basla] = useTransition();
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={bekliyor}
+      onClick={() => basla(() => router.refresh())}
+    >
+      {bekliyor ? "Yenileniyor…" : "Tekrar Dene"}
     </Button>
   );
 }

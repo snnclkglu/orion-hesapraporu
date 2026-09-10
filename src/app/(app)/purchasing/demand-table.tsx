@@ -54,6 +54,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PdfDownloadForm } from "@/components/pdf-download-link";
+import { ListPagination } from "@/components/list-pagination";
+import { StatePanel } from "@/components/state-panel";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -113,6 +115,9 @@ const DURUM_ETIKET: Record<Durum, string> = {
   kismi: "Kısmi sipariş",
   tamam: "Sipariş edildi",
 };
+
+/** Açılır ayrıntılı satırlar ağırdır; bütün süzgeç kümesini değil bir dilimi çizeriz. */
+const PAGE_SIZE = 50;
 
 /**
  * SATIR ZEMİNİ DURUMU SÖYLER — SÜTUN DEĞİL.
@@ -278,6 +283,7 @@ export function DemandTable({
   }, [f]);
   const [sortKey, setSortKey] = useState<SortKey>("kategori");
   const [desc, setDesc] = useState(false);
+  const [page, setPage] = useState(1);
   const [secili, setSecili] = useState<Set<string>>(new Set());
   const [acik, setAcik] = useState<Set<string>>(new Set());
   const [teklifPenceresi, setTeklifPenceresi] = useState<Gorunum | null>(null);
@@ -405,7 +411,12 @@ export function DemandTable({
     });
   }, [gorunumler, f, sortKey, desc, kategoriler, isKalemleri]);
 
+  const pageCount = Math.max(1, Math.ceil(gorunen.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const sayfaSatirlari = gorunen.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   function sirala(k: SortKey) {
+    setPage(1);
     if (k === sortKey) setDesc((d) => !d);
     else {
       setSortKey(k);
@@ -415,8 +426,9 @@ export function DemandTable({
 
   const temiz = JSON.stringify(f) === JSON.stringify(BOS);
   const seciliGorunumler = gorunen.filter((g) => secili.has(g.satir.key));
+  const filtreDisiSecim = Math.max(0, secili.size - seciliGorunumler.length);
   /** ÇIKTIYA GİDEN LİSTE: seçim varsa o, yoksa ekrandaki süzgeçli liste. */
-  const ciktiListesi = seciliGorunumler.length > 0 ? seciliGorunumler : gorunen;
+  const ciktiListesi = secili.size > 0 ? seciliGorunumler : gorunen;
 
   function kategoriyeTasi(kategori: string) {
     if (seciliGorunumler.length === 0) return;
@@ -442,25 +454,32 @@ export function DemandTable({
         havuz={havuz}
         gorunumler={gorunumler}
         aktifSiniflar={f.siniflar}
-        onSinif={(sinif) =>
+        onSinif={(sinif) => {
+          setPage(1);
           setF((s) => ({
             ...s,
             siniflar: s.siniflar.includes(sinif)
               ? s.siniflar.filter((x) => x !== sinif)
               : [...s.siniflar, sinif],
-          }))
-        }
+          }));
+        }}
       />
 
       <FilterBar
         gorunen={gorunen.length}
         toplam={gorunumler.length}
         temiz={temiz}
-        onTemizle={() => setF(BOS)}
+        onTemizle={() => {
+          setF(BOS);
+          setPage(1);
+        }}
       >
         <SearchBox
           value={f.query}
-          onChange={(v) => setF((s) => ({ ...s, query: v }))}
+          onChange={(v) => {
+            setF((s) => ({ ...s, query: v }));
+            setPage(1);
+          }}
           placeholder="Tanım, Kod, Grup, İş, Not Ara…"
           className="w-[min(18rem,calc(100vw-4rem))]"
         />
@@ -468,26 +487,35 @@ export function DemandTable({
           baslik="İş"
           secenekler={secenekler.isler}
           secili={f.isler}
-          onChange={(v) => setF((s) => ({ ...s, isler: v }))}
+          onChange={(v) => {
+            setF((s) => ({ ...s, isler: v }));
+            setPage(1);
+          }}
         />
         <CokluSuzgec
           baslik="Kategori"
           secenekler={secenekler.siniflar}
           secili={f.siniflar}
-          onChange={(v) => setF((s) => ({ ...s, siniflar: v }))}
+          onChange={(v) => {
+            setF((s) => ({ ...s, siniflar: v }));
+            setPage(1);
+          }}
         />
         <CokluSuzgec
           baslik="Durum"
           secenekler={secenekler.durumlar}
           secili={f.durumlar}
-          onChange={(v) => setF((s) => ({ ...s, durumlar: v }))}
+          onChange={(v) => {
+            setF((s) => ({ ...s, durumlar: v }));
+            setPage(1);
+          }}
         />
 
         <span className="hidden h-5 w-px bg-border sm:block" />
 
         <CiktiFormu
           anahtarlar={ciktiListesi.map((g) => g.satir.key)}
-          secimVar={seciliGorunumler.length > 0}
+          secimVar={secili.size > 0}
           suzgecOzeti={suzgecOzeti(f, secenekler)}
         />
 
@@ -510,13 +538,29 @@ export function DemandTable({
       )}
 
       {gorunen.length === 0 ? (
-        <div className="border bg-card px-6 py-12 text-center">
-          <p className="text-sm text-muted-foreground">
-            {gorunumler.length === 0
-              ? "Havuzda kalem yok. Teknik resim paketi yüklenip eşleştirildiğinde satın alma satırları buraya düşer."
-              : "Bu süzgeçle eşleşen kalem yok. Süzgeci temizleyip yeniden deneyin."}
-          </p>
-        </div>
+        <StatePanel
+          kind={gorunumler.length === 0 ? "empty" : "filtered"}
+          title={gorunumler.length === 0 ? "Talep havuzu henüz boş" : "Süzgeçle eşleşen kalem yok"}
+          description={
+            gorunumler.length === 0
+              ? "Teknik resim paketi yüklenip eşleştirildiğinde satın alma kalemleri burada görünür."
+              : "Aramayı veya süzgeçleri değiştirin ya da bütün sonuçlara dönün."
+          }
+        >
+          {!temiz ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setF(BOS);
+                setPage(1);
+              }}
+            >
+              Süzgeçleri Temizle
+            </Button>
+          ) : null}
+        </StatePanel>
       ) : (
         <Table
           className="oc-tablet-table oc-purchasing-table"
@@ -527,18 +571,21 @@ export function DemandTable({
                 {canWrite && (
                   <TableHead className="w-10 p-0">
                     <SecimKutusu
-                      checked={gorunen.length > 0 && gorunen.every((g) => secili.has(g.satir.key))}
+                      checked={
+                        sayfaSatirlari.length > 0 &&
+                        sayfaSatirlari.every((g) => secili.has(g.satir.key))
+                      }
                       onChange={(v) =>
                         setSecili((o) => {
                           const y = new Set(o);
-                          for (const g of gorunen) {
+                          for (const g of sayfaSatirlari) {
                             if (v) y.add(g.satir.key);
                             else y.delete(g.satir.key);
                           }
                           return y;
                         })
                       }
-                      label="Görünen kalemlerin tamamını seç"
+                      label="Bu sayfadaki kalemlerin tamamını seç"
                     />
                   </TableHead>
                 )}
@@ -640,7 +687,7 @@ export function DemandTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {gorunen.map((g) => (
+              {sayfaSatirlari.map((g) => (
                 <Satir
                   key={g.satir.key}
                   g={g}
@@ -672,8 +719,18 @@ export function DemandTable({
             </TableBody>
         </Table>
       )}
+      <ListPagination
+        page={safePage}
+        pageSize={PAGE_SIZE}
+        total={gorunen.length}
+        onPageChange={setPage}
+      />
 
-      <p className="flex flex-wrap items-center gap-x-2 font-mono text-[11px] text-muted-foreground">
+      <p
+        role="status"
+        aria-live="polite"
+        className="flex flex-wrap items-center gap-x-2 font-mono text-[11px] text-muted-foreground"
+      >
         <span>
           {formatNum(gorunen.length)} Kalem · {formatNum(gorunen.reduce((t, g) => t + g.kalan, 0))}{" "}
           Adet Sipariş Bekliyor
@@ -688,18 +745,38 @@ export function DemandTable({
       {canWrite && secili.size > 0 && (
         <div className="sticky bottom-2 z-20 flex flex-wrap items-center gap-2 border bg-card p-2 shadow-lg">
           <span className="font-mono text-[12px] font-medium">
-            {formatNum(secili.size)} Kalem Seçili
+            {formatNum(seciliGorunumler.length)} Kalem İşleme Hazır
           </span>
           <span className="font-mono text-[11px] text-muted-foreground">
             {formatNum(seciliGorunumler.reduce((t, g) => t + g.kalan, 0))} adet
           </span>
+          {filtreDisiSecim > 0 && (
+            <span className="font-mono text-[11px] text-amber-700 dark:text-amber-400">
+              {formatNum(filtreDisiSecim)} seçim süzgeç dışında
+            </span>
+          )}
           <Button type="button" size="xs" variant="ghost" onClick={() => setSecili(new Set())}>
             Seçimi bırak
           </Button>
+          {seciliGorunumler.length < gorunen.length && (
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              onClick={() => setSecili(new Set(gorunen.map((g) => g.satir.key)))}
+            >
+              Filtre Sonucundaki {formatNum(gorunen.length)} Kalemi Seç
+            </Button>
+          )}
           <span className="ml-auto flex flex-wrap items-center gap-1.5">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button type="button" size="xs" variant="outline" disabled={calisiyor}>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  disabled={calisiyor || seciliGorunumler.length === 0}
+                >
                   <FolderInput className="size-3" />
                   Kategoriye Taşı
                 </Button>
@@ -709,7 +786,7 @@ export function DemandTable({
                 className="max-h-[min(24rem,60dvh)] min-w-[min(16rem,calc(100vw-1.5rem))] overflow-y-auto"
               >
                 <DropdownMenuLabel className="oc-kicker text-muted-foreground">
-                  Seçili {formatNum(secili.size)} kalem
+                  İşleme hazır {formatNum(seciliGorunumler.length)} kalem
                 </DropdownMenuLabel>
                 {kategoriler.map((k) => (
                   <DropdownMenuItem key={k} onSelect={() => kategoriyeTasi(k)}>
@@ -1269,13 +1346,14 @@ function CiktiFormu({
   );
   const ipucu = secimVar
     ? `Yalnız seçili ${anahtarlar.length} kalem`
-    : `Ekrandaki süzgeçle aynı ${anahtarlar.length} kalem`;
+    : `Filtre sonucundaki ${anahtarlar.length} kalem`;
+  const bosSecim = secimVar && anahtarlar.length === 0;
 
   return (
     <span className="flex items-center gap-2">
       <form method="POST" action="/purchasing/export?bicim=xlsx">
         {alanlar}
-        <Button type="submit" variant="outline" size="xs" title={ipucu}>
+        <Button type="submit" variant="outline" size="xs" title={ipucu} disabled={bosSecim}>
           <FileSpreadsheet className="size-3" />
           Excel
         </Button>
@@ -1286,7 +1364,13 @@ function CiktiFormu({
         shareTitle="Satın Alma Talebi"
       >
         {alanlar}
-        <Button type="submit" variant="outline" size="xs" title={`${ipucu} — satın alma talebi`}>
+        <Button
+          type="submit"
+          variant="outline"
+          size="xs"
+          title={`${ipucu} — satın alma talebi`}
+          disabled={bosSecim}
+        >
           <FileText className="size-3" />
           PDF
         </Button>

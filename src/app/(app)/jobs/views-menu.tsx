@@ -50,6 +50,17 @@ export interface SavedViewRow {
   isDefault: boolean;
 }
 
+function gorunumAnahtari(raw: unknown): string | null {
+  const state = configToState(raw);
+  if (!state) return null;
+  const config = stateToConfig(state);
+  return JSON.stringify({
+    ...config,
+    musteri: [...config.musteri].sort((a, b) => a.localeCompare(b, "tr")),
+    durum: [...config.durum].sort((a, b) => a.localeCompare(b, "tr")),
+  });
+}
+
 export function ViewsMenu({
   views,
   currentState,
@@ -63,6 +74,7 @@ export function ViewsMenu({
   const [varsayilan, setVarsayilan] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const currentKey = gorunumAnahtari(stateToConfig(currentState));
 
   function uygula(config: unknown) {
     const state = configToState(config);
@@ -93,67 +105,80 @@ export function ViewsMenu({
 
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {views.map((v) => (
-        <span key={v.id} className="inline-flex items-stretch border">
-          <button
-            type="button"
-            onClick={() => uygula(v.config)}
-            className="oc-tap inline-flex items-center gap-1.5 px-2.5 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            title={v.isDefault ? `${v.name} — açılış görünümü` : v.name}
-          >
-            {v.isDefault && (
-              <Star className="size-3 shrink-0 fill-amber-400 text-amber-500" />
+      {views.map((v) => {
+        const etkin = gorunumAnahtari(v.config) === currentKey;
+        return (
+          <span
+            key={v.id}
+            className={cn(
+              "inline-flex items-stretch border",
+              etkin && "border-primary bg-primary/[0.06]"
             )}
-            <span className="max-w-[10rem] truncate">{v.name}</span>
-          </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={`${v.name} görünüm eylemleri`}
-                className="oc-tap-square grid place-items-center border-l px-1 text-muted-foreground hover:text-foreground"
-              >
-                <MoreHorizontal className="size-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" onCloseAutoFocus={(e) => e.preventDefault()}>
-              <DropdownMenuItem
-                onSelect={() => {
-                  startTransition(async () => {
-                    const res = await setDefaultSavedView(v.id, !v.isDefault);
-                    if (res?.error) {
-                      toast.error(res.error);
-                      return;
-                    }
-                    router.refresh();
-                  });
-                }}
-              >
-                <Star
-                  className={cn("size-3.5", v.isDefault && "fill-amber-400 text-amber-500")}
-                />
-                {v.isDefault ? "Varsayılanı Kaldır" : "Açılış Görünümü Yap"}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={() => {
-                  startTransition(async () => {
-                    const res = await deleteSavedView(v.id);
-                    if (res?.error) {
-                      toast.error(res.error);
-                      return;
-                    }
-                    toast.success("Görünüm silindi.");
-                    router.refresh();
-                  });
-                }}
-              >
-                <Trash2 className="size-3.5" /> Sil
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </span>
-      ))}
+          >
+            <button
+              type="button"
+              onClick={() => uygula(v.config)}
+              aria-pressed={etkin}
+              className={cn(
+                "oc-tap inline-flex items-center gap-1.5 px-2.5 py-1 text-sm transition-colors hover:text-foreground",
+                etkin ? "font-medium text-primary" : "text-muted-foreground"
+              )}
+              title={`${v.name}${v.isDefault ? " — açılış görünümü" : ""}${etkin ? " — etkin" : ""}`}
+            >
+              {v.isDefault && (
+                <Star className="size-3 shrink-0 fill-amber-400 text-amber-500" />
+              )}
+              <span className="max-w-[10rem] truncate">{v.name}</span>
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`${v.name} görünüm eylemleri`}
+                  className="oc-tap-square grid place-items-center border-l px-1 text-muted-foreground hover:text-foreground"
+                >
+                  <MoreHorizontal className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" onCloseAutoFocus={(e) => e.preventDefault()}>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    startTransition(async () => {
+                      const res = await setDefaultSavedView(v.id, !v.isDefault);
+                      if (res?.error) {
+                        toast.error(res.error);
+                        return;
+                      }
+                      router.refresh();
+                    });
+                  }}
+                >
+                  <Star
+                    className={cn("size-3.5", v.isDefault && "fill-amber-400 text-amber-500")}
+                  />
+                  {v.isDefault ? "Varsayılanı Kaldır" : "Açılış Görünümü Yap"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => {
+                    startTransition(async () => {
+                      const res = await deleteSavedView(v.id);
+                      if (res?.error) {
+                        toast.error(res.error);
+                        return;
+                      }
+                      toast.success("Görünüm silindi.");
+                      router.refresh();
+                    });
+                  }}
+                >
+                  <Trash2 className="size-3.5" /> Sil
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </span>
+        );
+      })}
 
       <Button
         type="button"

@@ -11,8 +11,9 @@ import { createClient } from "@/lib/supabase/server";
 import { tarihSaatIstanbul } from "@/lib/format-time";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { StatePanel } from "@/components/state-panel";
 import { cn } from "@/lib/utils";
-import { MarkAllReadButton, NotificationRowLink } from "./client";
+import { MarkAllReadButton, NotificationRowLink, RetryNotificationsButton } from "./client";
 
 interface Row {
   id: string;
@@ -57,7 +58,7 @@ export default async function NotificationsPage() {
   if (!profile) redirect("/login");
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("notifications")
     .select("id, title, href, created_at, read_at")
     .order("created_at", { ascending: false })
@@ -78,7 +79,15 @@ export default async function NotificationsPage() {
         {okunmamis.length > 0 && <MarkAllReadButton />}
       </PageHeader>
 
-      {rows.length === 0 ? (
+      {error ? (
+        <StatePanel
+          kind="error"
+          title="Bildirimler yüklenemedi"
+          description="Bağlantıyı kontrol edip yeniden deneyin. Bildirimleriniz silinmedi."
+        >
+          <RetryNotificationsButton />
+        </StatePanel>
+      ) : rows.length === 0 ? (
         <EmptyState
           title="BİLDİRİM YOK"
           description="Bir işte size görev atandığında, adınız bir yorumda geçtiğinde ya da izlediğiniz işin durumu değiştiğinde burada listelenir."

@@ -1487,6 +1487,7 @@ export function RevisionEditor({
   // `openGroups` KALKTI: ray tek düzeydir (HESAP-36), katlanacak grup yok.
   // Bölüm navigasyonu arama filtresi (bölüm adına göre)
   const [navQuery, setNavQuery] = useState("");
+  const [yalnizUygunOlmayanlar, setYalnizUygunOlmayanlar] = useState(false);
   /**
    * BÖLÜM TABAKASI — her genişlikte varsayılan KAPALI (MOBIL-29).
    *
@@ -3695,6 +3696,24 @@ export function RevisionEditor({
         : "Özet · Kontrol Panosu";
   }
 
+  function stepHasProblem(s: Step): boolean {
+    return (
+      s.kind === "module" &&
+      !stepHidden(s) &&
+      sectionChecks(s.moduleKey, s.section).some((c) => !c.pass)
+    );
+  }
+
+  const problemStepIndexes = STEPS.flatMap((s, index) =>
+    stepHasProblem(s) ? [index] : []
+  );
+
+  function goToNextProblem() {
+    if (problemStepIndexes.length === 0) return;
+    const next = problemStepIndexes.find((index) => index > activeStepIndex);
+    goToStep(next ?? problemStepIndexes[0]);
+  }
+
   /**
    * Bölüme geçiş. Tabaka içeriğin ÜSTÜNDE durur; seçimden sonra kapanır, aksi
    * hâlde kullanıcı seçtiği bölümü görmek için listeyi bir kez daha geçerdi.
@@ -3827,6 +3846,16 @@ export function RevisionEditor({
     };
   });
 
+  const listelenecekRayOgeleri = yalnizUygunOlmayanlar
+    ? rayOgeleri.flatMap((oge) => {
+        const cocuklar = oge.cocuklar?.filter((cocuk) => cocuk.uyari && !cocuk.gizli);
+        if (cocuklar && cocuklar.length > 0) {
+          return [{ ...oge, cocuklar, uyari: true }];
+        }
+        return oge.uyari && !oge.gizli ? [oge] : [];
+      })
+    : rayOgeleri;
+
   /** Aktif adımın düştüğü modül satırı. */
   /**
    * BULUNULAN ADIMIN kimliği — grubunki DEĞİL.
@@ -3852,7 +3881,11 @@ export function RevisionEditor({
   const rayAramaSonuclari: BolumOgesi[] | undefined =
     raySorgu === ""
       ? undefined
-      : STEPS.filter((s) => trKatla(stepLabel(s)).includes(raySorgu)).map((s) => ({
+      : STEPS.filter(
+          (s) =>
+            trKatla(stepLabel(s)).includes(raySorgu) &&
+            (!yalnizUygunOlmayanlar || stepHasProblem(s))
+        ).map((s) => ({
           id: `${RAY_ADIM_ONEKI}${s.key}`,
           numara: stepChip(s),
           baslik: stepLabel(s),
@@ -3882,7 +3915,7 @@ export function RevisionEditor({
    * "bu bölüm" sayacı alt adım şeridine indi (orada zaten adım bilgisi var).
    */
   const statusStrip = (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2" aria-live="polite">
       <div className="flex items-center gap-1.5 text-sm">
         {failCount === 0 ? (
           <>
@@ -3905,6 +3938,27 @@ export function RevisionEditor({
           </>
         )}
       </div>
+      {failCount > 0 && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="hidden sm:inline-flex"
+          onClick={goToNextProblem}
+        >
+          Sonraki Uygun Olmayan
+        </Button>
+      )}
+      {!readOnly && (
+        <span
+          className={cn(
+            "hidden font-mono text-[11px] tabular-nums sm:inline",
+            dirty ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
+          )}
+        >
+          {pending ? "Kaydediliyor…" : dirty ? "Kaydedilmemiş değişiklikler" : "Kaydedildi"}
+        </span>
+      )}
       {/* Kaydet lg ALTINDA burada değil, sabitlenmiş adım şeridindedir.
           Gerekçe artık "başlık mobilde sticky değil" DEĞİLDİR (şerit her
           genişlikte `sticky`): eylem şeridi dar ekranda yatay kayan bir
@@ -3934,7 +3988,7 @@ export function RevisionEditor({
           etiket="Hesap bölümleri"
           panelId={NAV_PANEL_ID}
           depoAnahtari="orion.hesap.ray.daraltildi"
-          ogeler={rayOgeleri}
+          ogeler={listelenecekRayOgeleri}
           aktifId={rayAktifId}
           onSec={rayaGit}
           acik={rayAcik}
@@ -3954,6 +4008,29 @@ export function RevisionEditor({
             onDegisti: setNavQuery,
             sonuclar: rayAramaSonuclari,
           }}
+          altEk={
+            <div className="flex gap-1 p-1">
+              <Button
+                type="button"
+                size="xs"
+                variant={yalnizUygunOlmayanlar ? "default" : "outline"}
+                className="min-w-0 flex-1"
+                aria-pressed={yalnizUygunOlmayanlar}
+                onClick={() => setYalnizUygunOlmayanlar((v) => !v)}
+              >
+                {yalnizUygunOlmayanlar ? "Tüm Bölümler" : `Uygun Olmayanlar · ${failCount}`}
+              </Button>
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                disabled={problemStepIndexes.length === 0}
+                onClick={goToNextProblem}
+              >
+                Sonraki
+              </Button>
+            </div>
+          }
         />
 
       {/* İçerik — kayan gövde + altta adım şeridi. Üstteki durum çubuğu
@@ -4035,6 +4112,16 @@ export function RevisionEditor({
                   {activeStepIndex + 1}/{STEPS.length} · {step.title}
                 </span>
               </button>
+              {!readOnly && (
+                <span
+                  className={cn(
+                    "ml-1 shrink-0 font-mono text-[10px] sm:hidden",
+                    dirty ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
+                  )}
+                >
+                  {pending ? "Yazılıyor" : dirty ? "Kaydedilmedi" : "Kaydedildi"}
+                </span>
+              )}
               {step.kind === "module" && stepChecks.length > 0 && (
                 <span
                   className={cn(

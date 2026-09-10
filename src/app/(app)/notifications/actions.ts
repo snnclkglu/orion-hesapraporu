@@ -17,11 +17,12 @@ export async function markNotificationRead(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı" };
 
-  await supabase
+  const { error } = await supabase
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
     .eq("id", id)
     .is("read_at", null);
+  if (error) return { error: error.message };
   return {};
 }
 

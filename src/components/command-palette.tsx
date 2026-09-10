@@ -30,6 +30,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
+import { Button } from "@/components/ui/button";
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -80,14 +81,29 @@ export function CommandPalette() {
       />
       <CommandList>
         <CommandEmpty>
-          {durum.status === "error"
-            ? "Defter yüklenemedi — paleti kapatıp yeniden açın."
-            : veri === null
+          {durum.status === "error" ? (
+            <div className="grid justify-items-center gap-2 py-2">
+              <span>Arama defteri yüklenemedi.</span>
+              <Button type="button" variant="outline" size="sm" onClick={ensureCommandIndex}>
+                Tekrar Dene
+              </Button>
+            </div>
+          ) : veri === null
               ? "Defter yükleniyor…"
               : sorguVar
                 ? "Eşleşen kayıt yok."
                 : "En az iki karakter yazın."}
         </CommandEmpty>
+
+        {sorguVar && veri && sonuc.toplam > 0 ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="border-b px-3 py-1.5 font-mono text-[11px] tabular-nums text-muted-foreground"
+          >
+            {sonuc.toplam.toLocaleString("tr-TR")} sonuç
+          </div>
+        ) : null}
 
         {/* Sorgu yokken: hızlı eylem + son bakılanlar + sayfalar. */}
         {!sorguVar && (

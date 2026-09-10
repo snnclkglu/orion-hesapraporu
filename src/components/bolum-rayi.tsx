@@ -544,6 +544,8 @@ export function BolumRayi({
               aria-label={
                 aktifOge
                   ? `${etiket} — ${aktifSira + 1}/${ogeler.length}: ${aktifOge.baslik}`
+                  : tabakaAcik
+                    ? `${etiket} — listeyi kapat`
                   : sabitlenebilirSayfa
                     ? `${etiket} — sütunu genişlet`
                     : `${etiket} — listeyi aç`
@@ -551,7 +553,9 @@ export function BolumRayi({
               title={
                 aktifOge
                   ? `${etiket} · ${aktifSira + 1}/${ogeler.length} · ${aktifOge.baslik}`
-                  : `${etiket} — listeyi aç`
+                  : tabakaAcik
+                    ? `${etiket} — listeyi kapat`
+                    : `${etiket} — listeyi aç`
               }
               className="oc-tap-square group/ray flex h-full w-full flex-col items-center justify-center gap-px border-r border-border bg-card/60 px-[3px] py-2 transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
             >

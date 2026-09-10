@@ -45,6 +45,8 @@ import {
   type PackageSortKey,
 } from "./filters";
 import { FilterBar, SearchBox, SortableHead } from "./sortable-head";
+import { StatePanel } from "@/components/state-panel";
+import { Button } from "@/components/ui/button";
 
 /** Tablodaki sütun sayısı — grup başlığının `colSpan`ı buradan okunur. */
 const SUTUN = 8;
@@ -155,11 +157,21 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
       </FilterBar>
 
       {gorunen.length === 0 ? (
-        <div className="border bg-card px-6 py-12 text-center">
-          <p className="text-sm text-muted-foreground">
-            Bu süzgeçle eşleşen paket yok. Süzgeci temizleyip yeniden deneyin.
-          </p>
-        </div>
+        <StatePanel
+          kind={packages.length === 0 ? "empty" : "filtered"}
+          title={packages.length === 0 ? "Teknik resim paketi yok" : "Süzgeçle eşleşen paket yok"}
+          description={
+            packages.length === 0
+              ? "Yeni bir teknik resim paketi yüklendiğinde burada görünür."
+              : "Aramayı veya süzgeçleri değiştirin ya da bütün paketlere dönün."
+          }
+        >
+          {!temiz ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setF(EMPTY_PACKAGE_FILTERS)}>
+              Süzgeçleri Temizle
+            </Button>
+          ) : null}
+        </StatePanel>
       ) : (
         // `oc-table-clamp` + `oc-sticky-head`: paket listesi teslimlerle
         // BÜYÜYEN bir defterdir; uzun kaydırmada başlık kayıpsa "bu sayı
