@@ -264,6 +264,10 @@
   grup, varsayılan birim, kullanım izi, pasif); yeni tanım hızlı sarf girişinden
   de açılır
 - `src/app/(app)/katalog/` — oturumlu iç katalog görüntüleyici
+- `src/app/(app)/tools/` — bütün rollerin kullandığı Teknik Araçlar merkezi:
+  yalnız metrik ağırlık hesabı, 477 kesitlik profil kütüphanesi, kama ölçüleri
+  ve kaynak kapsamıyla sınırlı geçme toleransları. Saf hesap/veri çekirdekleri
+  `src/lib/engineering-tools/` altındadır; kalıcı kayıt ve Supabase bağı yoktur
 - `src/app/(public)/paylas/` — üyelik istemeyen müşteri kapısı: katalog
   yaprağı ve iptal edilebilir tek-PDF teknik resim bağlantıları; ekipman
   listesi, Excel ve PDF ekipman ADINDAN açık katalog sayfasına bağlanır

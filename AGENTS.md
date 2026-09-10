@@ -123,6 +123,7 @@ işaretçiler aynı yönlendirmeyi otomatik yapar; harita onların yedeğidir.
 | Üretici katalogları ve katalog sayfaları | `docs/agent/katalog.md` | Katalog ürünü ↔ kullanım grubu, katalog sayfası defteri, ek belge (mühendisin kendi yaprağı) |
 | Satın Alma | `docs/agent/satinalma.md` | Talep havuzu (ekipman), teklif/sipariş/teslim, fiyat arşivi, sarf gideri, KDV, tedarikçi defteri |
 | Hammadde Havuzu | `docs/agent/hammadde.md` | Ayıklama dilbilgisi, beş sınıf, sac plaka yerleşimi, teklif partisi/talebi, alım analizi |
+| Teknik Araçlar | `docs/agent/teknik-araclar.md` | Herkese açık metrik ağırlık, profil, kama ve geçme toleransı araçları |
 | Personel | `docs/agent/personel.md` | Dönemli kayıt, fazla mesai, ücret planı, bordro, özlük dosyası, döviz kuru |
 | Teknik Resimler | `docs/agent/resimler.md` | Paket yükleme ve tanıma, hoşgörü ilkeleri, defter/ilerleme, Teknik Resim Takibi planı |
 | İşler ve iş kalemleri | `docs/agent/isler.md` | İş emri → kalem → rapor bağı, doküman no, BÜYÜK HARF kuralı, müşteri defteri, İşler hub'ı |
@@ -154,4 +155,3 @@ alan açılırsa `docs/agent/<alan>.md` ve `.claude/rules/<alan>.md` (`paths:`
 frontmatter'ı ZORUNLU) ELLE yazılır, haritaya satır elle eklenir,
 `manifest.ts`e kayıt tutarlılık için girilir. Denetim SALT OKUNURDUR:
 `npx tsx scripts/agent-docs/doctor.ts`.
-

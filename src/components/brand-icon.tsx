@@ -132,6 +132,19 @@ const ICON_PATHS: Record<BrandIconName, React.ReactNode> = {
       <circle cx="17.6" cy="6.4" r="1.4" />
     </>
   ),
+  // Teknik Araçlar: kumpas çeneleri ve ölçü çizgisi. Bölüm hesap, profil ve
+  // tolerans okur; genel bir anahtar/çekiç simgesi bu ölçüm odağını anlatmaz.
+  caliper: (
+    <>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="7" y1="4" x2="7" y2="16" />
+      <path d="M7 16 L11 16 L11 12" />
+      <line x1="16" y1="7" x2="16" y2="18" />
+      <path d="M16 18 L12 18 L12 14" />
+      <line x1="10" y1="5" x2="10" y2="9" />
+      <line x1="13" y1="5" x2="13" y2="9" />
+    </>
+  ),
   menu: (
     <>
       <line x1="5" y1="7" x2="19" y2="7" />
@@ -178,6 +191,7 @@ export type BrandIconName =
   | "cart"
   | "wallet"
   | "tag"
+  | "caliper"
   | "menu"
   | "close"
   | "sidebarCollapse"

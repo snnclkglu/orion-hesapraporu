@@ -299,6 +299,13 @@ describe("sectionAccess — ızgaranın hücresi", () => {
     expect(sectionAccess(bolum("/jobs"), "manager")).toBe("yazar");
   });
 
+  it("TEKNİK ARAÇLAR bütün rollere açıktır", () => {
+    expect(bolum("/tools").visible).toBeUndefined();
+    for (const role of USER_ROLES) {
+      expect(sectionAccess(bolum("/tools"), role), role).toBe("yazar");
+    }
+  });
+
   it("Yönetici HER bölümde yazar", () => {
     for (const s of WORKSPACE_SECTIONS) {
       expect(sectionAccess(s, "admin"), s.href).toBe("yazar");

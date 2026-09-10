@@ -157,6 +157,18 @@ export const ALANLAR: Alan[] = [
     al: ["Mimari ilkeler|hammadde havuzu ekipman havuzunun"],
   },
   {
+    dosya: "teknik-araclar",
+    onek: "ARAC",
+    baslik: "Teknik Araçlar",
+    ozet: "Herkese açık metrik ağırlık, profil, kama ve geçme toleransı araçları",
+    yollar: [
+      "src/lib/engineering-tools/**",
+      "src/app/(app)/tools/**",
+      "src/app/dev/tools-preview/**",
+    ],
+    al: [],
+  },
+  {
     dosya: "personel",
     onek: "PERSONEL",
     baslik: "Personel",

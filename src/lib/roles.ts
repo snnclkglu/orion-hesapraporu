@@ -453,6 +453,13 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     yazabilir: canEditReports,
     yazma: "Yönetici · Mühendis",
   },
+  {
+    href: "/tools",
+    label: "Teknik Araçlar",
+    icon: "caliper",
+    hint: "Metrik ağırlık, profil, kama ve geçme toleransı araçları",
+    kime: "Herkes",
+  },
   // Teknik Resimler'de `visible` YOKTUR ve bu bilinçlidir: teknik resim
   // atölyenin ortak gerçeğidir, bütün roller görür. Yazma yetkisi
   // `canEditDrawings` ile ekranın içinde sorulur.
