@@ -4,15 +4,16 @@ import type { CalcInput } from "@/lib/calc/engine";
 import type { ExternalReviewEvidence, SelectionTrace } from "@/lib/auto-selection/types";
 import { externalReviewIssues, externalReviewRequirement, selectionReviewComplete, selectionReviewHash } from "@/lib/auto-selection/trace";
 import { Button } from "@/components/ui/button";
+import { AutoSelectionAudit } from "@/components/auto-selection-audit";
 
 export function AutoSelectionReview({ trace, input, readOnly, onChange }: { trace: SelectionTrace; input: CalcInput; readOnly: boolean; onChange: (trace: SelectionTrace) => void }) {
   const [notes, setNotes] = useState(trace.review?.notes ?? {});
   const [evidence, setEvidence] = useState<Record<string, ExternalReviewEvidence>>(trace.review?.evidence ?? {});
   const issues = externalReviewIssues(trace);
-  if (!issues.length) return null;
+  if (!issues.length) return <AutoSelectionAudit trace={trace} />;
   const complete = selectionReviewComplete(trace, input);
   const draft: SelectionTrace = { ...trace, review: { inputHash: selectionReviewHash(input), notes, evidence, reviewedAt: new Date().toISOString() } };
-  return <details><summary className="oc-tap cursor-pointer">Üretici ve imalat kontrol notları ({issues.length}){complete ? " · Kaydedildi" : " · Bekliyor"}</summary>
+  return <><AutoSelectionAudit trace={trace} /><details><summary className="oc-tap cursor-pointer">Üretici ve imalat kontrol notları ({issues.length}){complete ? " · Kaydedildi" : " · Bekliyor"}</summary>
     <p className="py-2 text-muted-foreground">Eksik veriyi raporda tamamlayın. Kontrolün belgesini, sayfa/model veya hesap revizyonunu ve sonucunu ayrı kaydedin. Sayısal hatalar bu kayıtla geçerli olmaz; rapor değişirse yeniden kontrol gerekir.</p>
     <div className="max-h-96 space-y-4 overflow-y-auto">{issues.map(issue => {
       const proof = evidence[issue.code] ?? { source: "", reference: "", method: "manufacturer" as const };
@@ -29,5 +30,5 @@ export function AutoSelectionReview({ trace, input, readOnly, onChange }: { trac
       </fieldset>;
     })}</div>
     {!readOnly && <Button type="button" variant="outline" className="oc-tap mt-3" disabled={!selectionReviewComplete(draft, input)} onClick={() => onChange(draft)}>Kontrol belgelerini bu hesapla ilişkilendir</Button>}
-  </details>;
+  </details></>;
 }

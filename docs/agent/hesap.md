@@ -1784,10 +1784,13 @@ eski ürünün kapasitesiyle doldurulmaz; bilinmeyen `null` kalır. Katalog sayf
 ve sürüm kontrolü tamamlanmadan seçim başlamaz. Katalog önbelleği her çalışmada
 yetki ve sürüm bakımından tekrar doğrulanır.
 
-HESAP-35'in kütle doğrulaması kullanıcı onayı olmadan sürekli geri beslenmez.
-Yeni düğmedeki açık ölçü önerisi seçeneği içinde, yalnız TAM kütle bantları
-en fazla dört turda hesaba alınabilir. Eksik bantta girilmiş kütle korunur ve
-eksik yazılır. Fiziksel adetler ve insanın ölçü teyitleri otomatik üretilmez.
+HESAP-35'in kütle doğrulaması kullanıcı düğmesi dışında sürekli geri beslenmez.
+1.3.0'da (kullanıcı kararı, 10.09.2026) açık ölçü önerisi içinde tam bantlar
+ve girilmiş kabulü aşan kısmi kütle modeli en fazla dört turda ele alınır.
+Kısmi model yalnız tasarım kabulünü yükseltir; bilinmeyen kalemin kilosu
+üretilmez, eksik ve tahmin notları korunur. Kilitli kütle değiştirilmez ve
+çelişki hata olarak kalır. Fiziksel adetler ve insanın ölçü teyitleri
+otomatik üretilmez.
 
 `inputs.autoSelection` seçim izidir. Güncel sayısal kontroller yayımlamada
 sunucuda yeniden hesaplanır; NaN/Infinity başarı sayılmaz. Üretici/kapsam
@@ -1828,6 +1831,29 @@ Motor IEC flanş/adaptör uyumu dış doğrulama notudur. Boş motor sipariş
 alanları `order-defaults.ts` ile firma kabullerinden tamamlanır; kullanıcı
 değeri ve kilit korunur. Ayrıntılı plan ve doğrulama:
 `docs/plans/HIZLI_SECIM_TASARIM_GIRDISI_PLANI.md`.
+
+1.3.0: standart yeni motor sınıfı 1500 dev/dak ±%10'dur; gerçek etiket devri
+korunur. Redüktörün referans giriş noktasına ±%10 firma kabulü uygulanır;
+katalog kapasitesi ölçeklenmez, açık azami giriş devri aşılmaz. Gerçek hareket
+hızı ayrıca ±%5 denetlenir. Kilitli farklı devirdeki motor korunur.
+
+`assessment.ts` her tur güncel ortak hesabı, tahrik zincirini ve kütle
+kaynaklarını inceler. `orchestrator.ts` ilk seçim + en fazla üç hedefli onarım
+koşturur; paylaşılan 60.000 değerlendirme/120 saniye arama bütçesi vardır
+(son denetim bütçe dışındaki küçük sabit iştir). Bölüm başına pay bir
+çözümsüz bağlantının diğer bölümleri aç bırakmasını önler. Yeni yük kabulü
+gerekirse karşılaştırılan iki kesit de aynı yükte yeniden hesaplanır.
+İlk tur dahil önce geçen sayısal hedefi kaybeden sonuç kabul edilmez.
+Kiriş v2 aday serisi yükseklik, gerçek gövde aralığı ve flanş genişlikleri ile
+kalınlıkları birlikte tarar; sehim/geometri uyarıları da tasarım hedefidir.
+
+Bir tahrik kesinleşmeden yeni fren/kaplin kararı üretilmez; geçici karar
+teklife gitmez. `inputs.autoSelection.audit` başlangıç teknik snapshot'ını,
+firma kuralı/sürümünü, denemeleri, geri alma nedenini ve kütle kaynaklarını
+korur. İçe aktarım sınırı 2 MB'dır. Nesnede eksik anahtar ile `undefined`
+kayıt hash'inde eşdeğerdir; NaN/Infinity gizlenmez. Yayımlamada kayıtlı
+başarıya değil güncel `publication-check.ts` denetimine bakılır; manuel
+düzeltmeler yeniden hesaplanabilir. Üretici teyidi sayısal hatayı kapatmaz.
 
 ## HESAP-44 — Elektrik kablo hesabı ham tabloyu ve her düzeltmeyi ayrı izler.
 

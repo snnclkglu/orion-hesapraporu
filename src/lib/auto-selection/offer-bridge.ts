@@ -49,7 +49,13 @@ export function reportTechnicalRows(input: CalcInput, trace?: SelectionTrace): R
     const selection = state.selections as Record<string, unknown>;
     const eligible = (section: string, checkGroup: string) => {
       if (!selectionChecksComplete((moduleResult(result, key)?.checks ?? []).filter(check => check.id.startsWith(`${key}.${checkGroup}.`)))) return false;
-      return !trace || externallyReviewed || trace.decisions.some(decision => decision.module === key && decision.section === section);
+      if (trace && ["motor", "gearbox", "brake"].includes(checkGroup)) {
+        const drive = (moduleResult(result, key)?.checks ?? []).filter(check => new RegExp(`^${key}\\.(motor|gearbox)\\.`).test(check.id));
+        if (!selectionChecksComplete(drive)) return false;
+        if (!externallyReviewed && trace.issues.some(issue => issue.code === `audit.chain.${key}`)) return false;
+      }
+      if (!externallyReviewed && trace?.decisions.some(decision => decision.module === key && decision.section === section && decision.provisional)) return false;
+      return !trace || externallyReviewed || trace.decisions.some(decision => decision.module === key && decision.section === section && !decision.provisional);
     };
     const hoist = isHoistKey(key);
     const group = key === "main" ? "mainHoist" : key === "aux" ? "auxHoist" : key;

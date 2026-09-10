@@ -502,6 +502,7 @@ const EXTRA_INPUT_KEYS: Partial<Record<ModuleFamily, Record<string, OptionalKind
   },
   girder: { loadMeasurementsConfirmed: "boolean" },
   wheelLoads: { measurementsConfirmed: "boolean" },
+  electrical: { mainDutyCyclePct: "number" },
 };
 
 const EXTRA_SELECTION_KEYS: Partial<Record<ModuleFamily, Record<string, OptionalKind>>> = {
@@ -511,6 +512,7 @@ const EXTRA_SELECTION_KEYS: Partial<Record<ModuleFamily, Record<string, Optional
 
 /** Alan tanımı dışındaki bilinen anahtarların Türkçe etiketleri (rehber için). */
 const EXTRA_KEY_LABELS: Record<string, { label: string; unit?: string; hint?: string }> = {
+  mainDutyCyclePct: { label: "Ana Besleme Görev Çevrimi", unit: "%", hint: "Yalnız tanımlanmış işletme çevriminde verilir; bilinmiyorsa boş kalır." },
   shaftEdgeGapMm: { label: "Kanca Mili Kenar Boşluğu", unit: "mm", hint: "Görsel mil düzenleyicisinden yazılır." },
   shaftSheavePitchMm: { label: "Kanca Mili Makara Adımı", unit: "mm", hint: "Görsel mil düzenleyicisinden yazılır." },
   shaftCenterGapMm: { label: "Kanca Mili Orta Boşluğu", unit: "mm", hint: "Görsel mil düzenleyicisinden yazılır." },

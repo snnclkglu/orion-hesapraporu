@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { WandSparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AutoSelectionDecisions } from "@/components/auto-selection-decisions";
+import { AutoSelectionDecisions, comparison } from "@/components/auto-selection-decisions";
+import { AutoSelectionAudit } from "@/components/auto-selection-audit";
 import { activeBrandKeys, availableBrands, initialBrands, availableSeries, defaultSeries, SERIES_KEYS, type CatalogFamily } from "@/lib/auto-selection/brands";
 import { AutoSelectionDesign } from "@/components/auto-selection-design";
 import { applyDesignInputs, designInputsFrom, type DesignInputs } from "@/lib/auto-selection/design-inputs";
@@ -100,7 +101,8 @@ export function AutoSelectionDialog({ revisionId, request, onApply, previewRows 
           <p className="font-medium">{result.trace.decisions.length} ekipman seçimi taslağa uygulandı.</p>
           <p className="text-sm text-muted-foreground">{result.trace.status === "incomplete" ? "Hesapta tamamlanması gereken seçim veya veriler var. Aşağıdaki maddeleri raporda düzenleyebilirsiniz." : "Sayısal seçim tamamlandı; tasarım ve üretici kontrolleri incelenmeli."} Rapor henüz kaydedilmedi.</p>
           <AutoSelectionDecisions decisions={result.trace.decisions} />
-          <details open><summary className="oc-tap cursor-pointer font-medium">Kalan kontroller ({result.trace.issues.length})</summary><ul className="max-h-60 space-y-2 overflow-y-auto pt-2">{result.trace.issues.map(issue => <li key={issue.code} className="text-sm">{issue.module ? `${MODULE_LABELS[issue.module]} · ` : ""}{issue.message}</li>)}</ul></details>
+          <AutoSelectionAudit trace={result.trace} />
+          <details open><summary className="oc-tap cursor-pointer font-medium">Kalan kontroller ({result.trace.issues.length})</summary><ul className="max-h-60 space-y-2 overflow-y-auto pt-2">{result.trace.issues.map(issue => <li key={issue.code} className="text-sm">{issue.module ? `${MODULE_LABELS[issue.module]} · ` : ""}{issue.message}{issue.evidence && issue.category !== "human" && <p className="text-xs tabular-nums text-muted-foreground">{comparison(issue.evidence)}</p>}</li>)}</ul></details>
           <Button className="oc-tap w-full" onClick={() => setOpen(false)}>Raporda düzenlemeye devam et</Button>
         </div> : <>
           {scopeIssues.length > 0 && <details className="rounded-md border bg-muted/30 p-3"><summary className="oc-tap cursor-pointer text-sm font-medium">Bu taslakta ayrı doğrulanacak koşullar ({scopeIssues.length})</summary><ul className="space-y-2 pt-2 text-sm">{scopeIssues.map(issue => <li key={issue.code}>{issue.message}</li>)}</ul></details>}
@@ -122,7 +124,7 @@ export function AutoSelectionDialog({ revisionId, request, onApply, previewRows 
             const choices = hoist ? [["2.1", "Halat"], ["2.4", "Motor"], ["2.3", "Redüktör"], ["2.5", "Fren"], ["2.6", "Motor kaplini"], ["2.7", "Tambur kaplini"], ["selections.drumDiaMm", "Tambur çapı"], ["inputs.shaftD2Mm", "Tambur rulman mili"]] : [["5.1", "Teker"], ["5.4", "Motor"], ["5.5", "Redüktör"], ["5.5b", "Fren"], ["inputs.shaftDiaMm", "Teker mili"]];
             return <fieldset key={key}><legend className="text-sm font-medium">{MODULE_LABELS[key]}</legend><div className="grid grid-cols-2 gap-1">{choices.map(([section, label]) => { const id = `${key}.${section}`; return <label key={id} className="oc-tap flex items-center gap-2 text-sm"><input type="checkbox" checked={locks.includes(id) || locks.includes(key)} disabled={locks.includes(key)} onChange={event => setLocks(event.target.checked ? [...locks, id] : locks.filter(lock => lock !== id))} />{label}</label>; })}</div></fieldset>;
           })}</div></details>
-          <p className="text-xs text-muted-foreground">Gerçek hız hedefi: ±%5 firma toleransı. Seçtiğiniz donanım, teker/tahrik sayıları ve raylar hesaba uygulanır; ölçü teyitleri kullanıcıya aittir. Seçimler sınırlı aday aramasıyla belirlenir; eksik veriler sonuçta listelenir.</p>
+          <p className="text-xs text-muted-foreground">Motor: standart 1500 dev/dak sınıfı, yakın katalog devirleri ±%10 kabul edilir. Gerçek hareket hızı: ±%5 firma toleransı. Seçimden sonra hesap ve bağlı ekipmanlar otomatik denetlenir; gerektiğinde en fazla üç düzeltme turu yapılır. Verdiğiniz donanım, teker/tahrik sayıları, raylar ve kilitler korunur.</p>
           <Button className="oc-tap w-full gap-2" disabled={!families} onClick={start}><WandSparkles className="size-4" />Hesap raporunu oluştur</Button>
           {error && <Button variant="outline" className="oc-tap" onClick={show}>Kataloğu tekrar yükle</Button>}
         </>}

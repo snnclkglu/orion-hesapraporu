@@ -18,7 +18,15 @@ export function completeElectricalSelection(request: SelectionRequest, proposal:
   if (!preview) return;
   const { drives, motorCables, mainCable, festoon } = preview.values;
   const selections: ElectricalSelections = { ...oldSelections, drives: {}, motorCables: {}, mainCable: {} };
-  const inputs: ElectricalInputs = { ...automatic, circuits: { ...automatic.circuits }, mainCableAuto: false, trolleyPresetAuto: false, trolleyPresetId: festoon.trolleyPresetId };
+  // Otomatiği kapatırken yalnız model kimliğini taşımak eski arabanın dar
+  // ölçülerini bırakıyordu. Seçilen gerçek katalog satırının bütün ölçüleri donar.
+  const inputs: ElectricalInputs = { ...automatic, circuits: { ...automatic.circuits }, mainCableAuto: false, trolleyPresetAuto: false,
+    trolleyPresetId: festoon.trolleyPresetId, trolleyBrand: festoon.trolleyBrand, trolleyModel: festoon.trolleyModel,
+    trolleyWidthMm: festoon.trolleyWidthMm, usableWidthMm: festoon.usableWidthMm, usableHeightMm: festoon.usableHeightMm,
+    supportDiameterMm: festoon.supportDiameterMm, maxCableLoadKg: festoon.maxCableLoadKg };
+  // Hedefli onarım elektrik dışındaki bir gruptan gelmiş olsa da elektrik
+  // son tahrikten yeniden kurulur; önceki turun aynı kararları çoğaltılmaz.
+  proposal.trace.decisions = proposal.trace.decisions.filter(decision => decision.module !== "electrical");
   const decisions = proposal.trace.decisions;
   const add = (section: string, label: string, row: EquipmentRow) => decisions.push({ module: "electrical", section, label, row, variantKey: variantKey(row), checked: preview.checks.filter(check => check.id.startsWith(`electrical.${section}.`)).map(check => check.id) });
   for (const value of drives) {

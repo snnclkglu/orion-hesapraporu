@@ -12,6 +12,8 @@ import type { EquipmentRow } from "../types";
 import pilot from "../fixtures/catalog-pilot.json";
 import { loadRevision } from "@/lib/revision-load";
 import { selectionScopeIssues } from "../scope";
+import { replaceCatalogSelection } from "../catalog";
+import { getCatalogMapping } from "@/lib/catalog-mapping";
 import { offerDemand, offerDemandPatch } from "../offer-demand";
 
 const offer = () => emptyItem("DENETİM", ["general", "mainHoist", "trolley", "bridge", "electrical"]);
@@ -92,6 +94,11 @@ it("rapor aktarımı teklifin düşük/yüksek hız aralığını tek hıza indi
 
 it("ilk dört redüktöre uymayan kaplin için sonraki uygun çifte döner", () => {
   const request = requestFixture(); request.sizeDesigns = true;
+  // Eski pilotun 975 rpm motoru artık standart otomatik aday değildir;
+  // bu testte mevcut/kilitli tahrik olarak korunur (konu kaplin aramasıdır).
+  const motor = (pilot as EquipmentRow[]).find(row => row.kind === "motor" && row.model === "M3BP 160MLA")!;
+  Object.assign(request.modules.main.selections, replaceCatalogSelection(getCatalogMapping("main", "2.4")!, motor, request.modules.main.selections));
+  request.locks = ["main.2.4"];
   const baseline = solveSelection(request, pilot as EquipmentRow[]);
   const drive = baseline.trace.decisions.find(decision => decision.row.kind === "gearbox")!.row;
   const coupling = baseline.trace.decisions.find(decision => decision.section === "2.6")!.row;

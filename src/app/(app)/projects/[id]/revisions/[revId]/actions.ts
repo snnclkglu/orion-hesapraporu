@@ -1,6 +1,7 @@
 "use server";
 
 import { readSelectionTrace, selectionReviewComplete, selectionNumericallyComplete } from "@/lib/auto-selection/trace";
+import { selectionAuditChecksComplete } from "@/lib/auto-selection/publication-check";
 import type { SelectionTrace } from "@/lib/auto-selection/types";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -59,6 +60,7 @@ export async function issueRevision(
     if (!trace || !selectionReviewComplete(trace, savedInput)) return { error: "Hızlı seçimde eksik üretici veya imalat kontrolleri var. Teknik özelliklerdeki kontrol notlarını güncel hesapla ilişkilendirip kaydedin." };
     const verified = runCalc(savedInput);
     if (!selectionNumericallyComplete(verified)) return { error: "Hızlı seçimli raporda engelleyici kontroller var. Önce rapordaki eksik seçimleri ve ölçü teyitlerini tamamlayın." };
+    if (!selectionAuditChecksComplete(trace, savedInput, weightBreakdownFromRevision(current.inputs as RevisionInputsJson))) return { error: "Son denetimde hareket hızı, tasarım hedefi veya kütle tutarlılığı sorunu var. Rapordaki ilgili hesabı düzeltip kaydedin; kontrol notu sayısal hatayı kapatmaz." };
   }
   const { data: revision, error } = await supabase
     .from("revisions")

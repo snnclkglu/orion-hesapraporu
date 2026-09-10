@@ -5,7 +5,7 @@ import type { CatalogRow } from "@/lib/catalog-mapping";
 import type { AgirlikDokumuDurumu } from "@/lib/weights/types";
 import type { DesignInputs } from "./design-inputs";
 
-export const SELECTION_VERSION = "1.2.0";
+export const SELECTION_VERSION = "1.3.0";
 export type BrandKey = "motor" | "hoistGearbox" | "travelGearbox" | "brake" | "hoistBrake" | "travelBrake" | "motorCoupling" | "wheelCoupling" | "drumCoupling" | "bearing" | "rope" | "buffer";
 export const BRAND_LABELS: Record<BrandKey, string> = {
   motor: "Motor", hoistGearbox: "Kaldırma redüktörü", travelGearbox: "Yürütme redüktörü",
@@ -38,6 +38,8 @@ export interface SelectionIssue {
   module?: ModuleKey;
   message: string;
   state: "failed" | "missing" | "review" | "unsupported";
+  category?: "repairable" | "data" | "constraint" | "human";
+  evidence?: SelectionEvidence;
 }
 export interface SelectionDecision {
   module: ModuleKey;
@@ -48,6 +50,26 @@ export interface SelectionDecision {
   checked: string[];
   /** Son bağlı hesabın sonuçları; seçimin ilk aday anına ait eski değerler değil. */
   evidence?: SelectionEvidence[];
+  /** Üst tahrik tamamlanmadıysa alt seçim kesinleştirilmez. */
+  provisional?: boolean;
+}
+export interface SelectionDiagnostic {
+  module: ModuleKey;
+  section: string;
+  motors: number;
+  gearboxes: number;
+  rejected: Record<string, number>;
+  accepted: number;
+}
+export interface SelectionAudit {
+  policy: string;
+  source: { specs: TechnicalSpecs; modules: ModulesState; active: ModuleKey[]; sizeDesigns: boolean; speedTolerancePct: number; craneType?: string; weightBreakdown?: AgirlikDokumuDurumu; enableStructuralChecks?: boolean };
+  attempts: { iteration: number; reason: string; resultHash: string; accepted: boolean; explanation: string; failures: number; targets: number; incompleteChains: number; evaluations: number }[];
+  stop: "complete" | "noRepair" | "cycle" | "noImprovement" | "budget" | "limit";
+  elapsedMs: number;
+  resolved: number;
+  remaining: number;
+  masses: { key: string; inputKg: number | null; modelKg: number | null; unknown: number; estimated: boolean; sources: Record<string, number> }[];
 }
 export interface SelectionEvidence {
   id: string;
@@ -79,6 +101,8 @@ export interface SelectionTrace {
   search: "bounded";
   designProfile?: string;
   weightSourceHash?: string;
+  diagnostics?: SelectionDiagnostic[];
+  audit?: SelectionAudit;
   /** Kullanıcının üretici/imalat kontrol notları; bir hesap geçer sonucu değildir. */
   review?: { inputHash: string; notes: Record<string, string>; evidence?: Record<string, ExternalReviewEvidence>; reviewedAt: string; reviewedBy?: string };
 }
@@ -102,8 +126,9 @@ export interface SelectionProgress { stage: string; completed: number; total: nu
 export function stableStringify(value: unknown): string {
   if (typeof value === "number" && !Number.isFinite(value)) return `"!${value}"`;
   if (value === undefined) return '"!undefined"';
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-  if (value !== null && typeof value === "object") return `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b, "en")).map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(",")}}`;
+  if (Array.isArray(value)) return `[${Array.from(value, item => item === undefined ? "null" : stableStringify(item)).join(",")}]`;
+  // JSONB/save/load nesnede undefined alanı düşürür; NaN/Infinity ise ayrı kalır.
+  if (value !== null && typeof value === "object") return `{${Object.entries(value).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b, "en")).map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(",")}}`;
   return JSON.stringify(value);
 }
 

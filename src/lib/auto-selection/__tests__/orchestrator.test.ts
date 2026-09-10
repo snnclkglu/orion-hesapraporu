@@ -43,7 +43,9 @@ it("istenirse yapısal modülleri açar; bilinmeyen kütleyi ve insan ölçü on
   const request = requestFixture(); request.active = ["main", "girder"]; request.enableStructuralChecks = true; request.sizeDesigns = true;
   const result = solveSelection(request, []);
   expect(result.active).toEqual(expect.arrayContaining(["girder", "buckling", "endCarriage"]));
-  expect(result.specs.mainTrolleyWeightT).toBe(request.specs.mainTrolleyWeightT);
+  expect(result.specs.mainTrolleyWeightT).toBeGreaterThanOrEqual(request.specs.mainTrolleyWeightT);
+  expect(result.trace.audit?.masses.some(band => band.unknown > 0)).toBe(true);
+  expect(result.trace.issues.some(issue => issue.code === "mass.trolley" && issue.state === "missing")).toBe(true);
   expect(result.trace.issues.some(issue => issue.code.startsWith("mass."))).toBe(true);
   expect((result.modules.girder.inputs as Record<string, unknown>).loadMeasurementsConfirmed).not.toBe(true);
   expect(result.trace.status).toBe("incomplete");
@@ -54,6 +56,9 @@ it("elektrik önerisini sabit seçime dönüştürür; kilitli elektrik bölüm�
   const result = solveSelection(request, []);
   expect(result.trace.decisions.some(decision => decision.module === "electrical")).toBe(true);
   expect((result.modules.electrical.inputs as Record<string, unknown>).mainCableAuto).toBe(false);
+  const electrical = runCalc(selectionCalcInput(request, result.modules)).electrical!;
+  expect(electrical.checks.filter(check => /festoon\.(width|bend)/.test(check.id)).every(check => check.pass)).toBe(true);
+  expect(result.modules.electrical.inputs).toMatchObject({ usableWidthMm: electrical.values.festoon.usableWidthMm, supportDiameterMm: electrical.values.festoon.supportDiameterMm });
   expect(result.trace.issues.some(issue => issue.code === "electrical.installation")).toBe(true);
   request.locks = ["electrical"];
   const locked = solveSelection(request, []);
