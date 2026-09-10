@@ -214,6 +214,7 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
   const calisiyor =
     asama === "yukleme" || asama === "dogrulama" || asama === "okuma" || asama === "eslestirme";
   const yuzde = ilerleme.toplam > 0 ? Math.round((ilerleme.yapilan / ilerleme.toplam) * 100) : 0;
+  const ilerlemeOlcegi = Math.min(100, Math.max(0, asama === "yukleme" ? yuzde : 100)) / 100;
   const gonderilecek = onizleme ? onizleme.toplam - (devam ? 0 : onizleme.atlanacak) : 0;
   const gonderilecekBayt = onizleme?.bayt ?? 0;
   const surumeHazir = !devam && Boolean(acikPaket) && supersedeKarari === "";
@@ -429,8 +430,8 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
           <h2 className="text-sm font-medium">3 · {durumMetni}</h2>
           <div className="mt-3 h-2 w-full overflow-hidden bg-muted">
             <div
-              className="h-full bg-primary transition-[width] duration-200"
-              style={{ width: `${asama === "yukleme" ? yuzde : 100}%` }}
+              className="h-full origin-left bg-primary transition-transform duration-200 ease-linear motion-reduce:transition-none"
+              style={{ transform: `scaleX(${ilerlemeOlcegi})` }}
             />
           </div>
           <p className="mt-2 font-mono text-xs text-muted-foreground">

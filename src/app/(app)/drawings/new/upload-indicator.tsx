@@ -52,6 +52,9 @@ export function UploadIndicator() {
 
   const yuzde =
     ilerleme.toplam > 0 ? Math.round((ilerleme.yapilan / ilerleme.toplam) * 100) : 0;
+  const ilerlemeOlcegi =
+    Math.min(100, Math.max(0, asama === "yukleme" || asama === "imza" ? yuzde : 100)) /
+    100;
 
   return (
     <div
@@ -84,8 +87,8 @@ export function UploadIndicator() {
         <>
           <div className="mt-2 h-1.5 w-full overflow-hidden bg-muted">
             <div
-              className="h-full bg-primary transition-[width] duration-200"
-              style={{ width: `${asama === "yukleme" || asama === "imza" ? yuzde : 100}%` }}
+              className="h-full origin-left bg-primary transition-transform duration-200 ease-linear motion-reduce:transition-none"
+              style={{ transform: `scaleX(${ilerlemeOlcegi})` }}
             />
           </div>
           <p className="mt-1 font-mono text-[11px] text-muted-foreground">

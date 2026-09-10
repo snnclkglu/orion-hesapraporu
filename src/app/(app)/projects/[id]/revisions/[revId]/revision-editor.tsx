@@ -3668,6 +3668,7 @@ export function RevisionEditor({
   // ------------------------------------------------------------ layout
   const passCount = visibleChecks.length - failCount;
   const progressPct = ((activeStepIndex + 1) / STEPS.length) * 100;
+  const progressScale = Math.min(100, Math.max(0, progressPct)) / 100;
   // Gizli bölümün adım şeridi sayacı da susar — bölüm rapora girmiyor.
   const stepChecks =
     step.kind === "module" &&
@@ -3977,8 +3978,8 @@ export function RevisionEditor({
               İlerleme çizgisi alan çalmadan çubuğun üst kenarında durur. */}
           <div className="absolute inset-x-0 top-0 h-0.5 bg-muted sm:hidden">
             <div
-              className="h-full bg-primary transition-[width] duration-300"
-              style={{ width: `${progressPct}%` }}
+              className="h-full origin-left bg-primary transition-transform duration-200 ease-linear motion-reduce:transition-none"
+              style={{ transform: `scaleX(${progressScale})` }}
             />
           </div>
           <div
@@ -4006,8 +4007,8 @@ export function RevisionEditor({
             <div className="flex min-w-0 items-center sm:grow sm:basis-0 sm:gap-2.5">
               <div className="hidden h-1 min-w-8 flex-1 overflow-hidden bg-muted sm:block">
                 <div
-                  className="h-full bg-primary transition-[width] duration-300"
-                  style={{ width: `${progressPct}%` }}
+                  className="h-full origin-left bg-primary transition-transform duration-200 ease-linear motion-reduce:transition-none"
+                  style={{ transform: `scaleX(${progressScale})` }}
                 />
               </div>
               {/* BÖLÜM LİSTESİNİN GİRİŞİ.

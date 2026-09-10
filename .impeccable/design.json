@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-10T00:00:00+03:00",
+  "title": "Design System: ORION Engineering Control Desk",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Warm Engineering Paper",
+        "canonical": "oklch(0.98 0.003 49)",
+        "tonalRamp": ["#211F1D", "#262626", "#48433F", "#6B6663", "#9A9591", "#C6C2BF", "#E7E4E2", "#FAF8F7"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Structural Charcoal",
+        "canonical": "oklch(0.269 0 0)",
+        "tonalRamp": ["#211F1D", "#262626", "#48433F", "#6B6663", "#9A9591", "#C6C2BF", "#E7E4E2", "#FAF8F7"]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Instrument White",
+        "canonical": "oklch(1 0 0)",
+        "tonalRamp": ["#211F1D", "#262626", "#48433F", "#6B6663", "#9A9591", "#C6C2BF", "#E7E4E2", "#FFFFFF"]
+      },
+      "orion-red": {
+        "role": "primary",
+        "displayName": "ORION Red",
+        "canonical": "oklch(0.467 0.17 27)",
+        "tonalRamp": ["oklch(0.22 0.08 27)", "oklch(0.30 0.12 27)", "oklch(0.38 0.15 27)", "oklch(0.467 0.17 27)", "oklch(0.56 0.16 27)", "oklch(0.68 0.12 27)", "oklch(0.82 0.07 27)", "oklch(0.94 0.025 27)"]
+      },
+      "on-orion-red": {
+        "role": "neutral",
+        "displayName": "Paper on Red",
+        "canonical": "oklch(0.98 0.003 49)",
+        "tonalRamp": ["#211F1D", "#262626", "#48433F", "#6B6663", "#9A9591", "#C6C2BF", "#E7E4E2", "#FAF8F7"]
+      },
+      "steel-blue": {
+        "role": "secondary",
+        "displayName": "Engineering Steel Blue",
+        "canonical": "oklch(0.45 0.078 234)",
+        "tonalRamp": ["oklch(0.20 0.04 234)", "oklch(0.28 0.055 234)", "oklch(0.36 0.065 234)", "oklch(0.45 0.078 234)", "oklch(0.56 0.07 234)", "oklch(0.68 0.055 234)", "oklch(0.82 0.035 234)", "oklch(0.94 0.012 234)"]
+      },
+      "muted-surface": {
+        "role": "neutral",
+        "displayName": "Quiet Metal Surface",
+        "canonical": "oklch(0.955 0.004 56)",
+        "tonalRamp": ["#211F1D", "#262626", "#48433F", "#6B6663", "#9A9591", "#C6C2BF", "#E7E4E2", "#F4F1EF"]
+      },
+      "muted-ink": {
+        "role": "neutral",
+        "displayName": "Muted Technical Ink",
+        "canonical": "oklch(0.514 0.008 53)",
+        "tonalRamp": ["#211F1D", "#262626", "#48433F", "#6B6663", "#9A9591", "#C6C2BF", "#E7E4E2", "#FAF8F7"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Precision Hairline",
+        "canonical": "oklch(0.905 0.004 56)",
+        "tonalRamp": ["#211F1D", "#262626", "#48433F", "#6B6663", "#9A9591", "#C6C2BF", "#DCD9D7", "#EDEAE8"]
+      },
+      "input-border": {
+        "role": "neutral",
+        "displayName": "Control Border",
+        "canonical": "oklch(0.887 0.004 56)",
+        "tonalRamp": ["#211F1D", "#262626", "#48433F", "#6B6663", "#9A9591", "#C6C2BF", "#DCD9D7", "#EDEAE8"]
+      },
+      "focus-ring": {
+        "role": "primary",
+        "displayName": "Accessible Red Focus",
+        "canonical": "oklch(0.6 0.12 27)",
+        "tonalRamp": ["oklch(0.22 0.08 27)", "oklch(0.30 0.12 27)", "oklch(0.38 0.15 27)", "oklch(0.467 0.17 27)", "oklch(0.60 0.12 27)", "oklch(0.70 0.10 27)", "oklch(0.82 0.07 27)", "oklch(0.94 0.025 27)"]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Verified Green",
+        "canonical": "oklch(0.54 0.13 158)",
+        "tonalRamp": ["oklch(0.20 0.04 158)", "oklch(0.28 0.07 158)", "oklch(0.36 0.10 158)", "oklch(0.45 0.12 158)", "oklch(0.54 0.13 158)", "oklch(0.66 0.10 158)", "oklch(0.80 0.06 158)", "oklch(0.94 0.02 158)"]
+      }
+    },
+    "typographyMeta": {
+      "display": {"displayName": "Display", "purpose": "Geniş tanıtıcı veya rapor kapak başlıkları; operasyon ekranlarında kullanılmaz."},
+      "headline": {"displayName": "Headline", "purpose": "Birincil sayfa veya rapor bölümü başlıkları."},
+      "title": {"displayName": "Title", "purpose": "Kart, panel ve içerik grubu başlıkları."},
+      "body": {"displayName": "Body", "purpose": "Okunabilir açıklama ve uzun biçimli arayüz metni."},
+      "body-compact": {"displayName": "Compact Body", "purpose": "Yoğun operasyon ekranlarındaki kontrol, tablo ve kısa metinler."},
+      "formula": {"displayName": "Formula", "purpose": "Yatay kaydırılabilen uzun hesap formülleri."},
+      "caption-compact": {"displayName": "Compact Caption", "purpose": "Yoğun tablo ve yardımcı açıklama metinleri."},
+      "label": {"displayName": "Technical Label", "purpose": "Kicker, mikro etiket ve teknik kategori işaretleri."},
+      "micro": {"displayName": "Micro Technical", "purpose": "Dar teknik çipler ve en küçük veri etiketleri."},
+      "data": {"displayName": "Technical Data", "purpose": "Ölçü, kod, revizyon, tarih ve hesap sonuçları."}
+    },
+    "shadows": [
+      {"name": "ui-flat", "value": "none", "purpose": "Kalıcı uygulama yüzeylerinin varsayılanı; katman sınır ve tonla anlatılır."}
+    ],
+    "motion": [
+      {"name": "instant", "value": "80ms", "purpose": "Mikro durum cevabı."},
+      {"name": "fast", "value": "120ms", "purpose": "Düğme, sekme, renk ve sınır geçişleri."},
+      {"name": "base", "value": "180ms", "purpose": "Açılır yüzey ve görünürlük geçişleri."},
+      {"name": "slow", "value": "260ms", "purpose": "Daha büyük fakat seyrek yerleşim değişimleri."},
+      {"name": "technical-ease", "value": "cubic-bezier(.2, 0, .2, 1)", "purpose": "Varsayılan kısa ve kontrollü teknik hareket."},
+      {"name": "out-ease", "value": "cubic-bezier(0, 0, .2, 1)", "purpose": "Açılan geçici yüzeylerin yerleşmesi."}
+    ],
+    "breakpoints": [
+      {"name": "sm", "value": "640px"},
+      {"name": "md", "value": "768px"},
+      {"name": "lg", "value": "1024px"},
+      {"name": "xl", "value": "1280px"},
+      {"name": "2xl", "value": "1536px"}
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Bir ekran bölgesindeki tek baskın eylem için kısa, kare ve kırmızı kontrol.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Kaydet</button>",
+      "css": ".ds-btn-primary { min-height: 40px; padding: 0 12px; border: 1px solid var(--primary, oklch(0.467 0.17 27)); border-radius: 0; background: var(--primary, oklch(0.467 0.17 27)); color: var(--primary-foreground, oklch(0.98 0.003 49)); font-family: var(--font-archivo, Archivo, system-ui, sans-serif); font-size: 14px; font-weight: 600; transition: background-color 120ms cubic-bezier(.2,0,.2,1), border-color 120ms cubic-bezier(.2,0,.2,1), transform 80ms cubic-bezier(.2,0,.2,1); } .ds-btn-primary:hover { background: color-mix(in oklab, var(--primary, oklch(0.467 0.17 27)) 90%, black); } .ds-btn-primary:focus-visible { outline: 2px solid var(--ring, oklch(0.6 0.12 27)); outline-offset: 2px; } .ds-btn-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "İkincil eylemleri kırmızıyla yarışmadan taşıyan nötr kontrol.",
+      "html": "<button class=\"ds-btn-outline\" type=\"button\">Vazgeç</button>",
+      "css": ".ds-btn-outline { min-height: 40px; padding: 0 12px; border: 1px solid var(--input, oklch(0.887 0.004 56)); border-radius: 0; background: var(--background, oklch(0.98 0.003 49)); color: var(--foreground, oklch(0.269 0 0)); font-family: var(--font-archivo, Archivo, system-ui, sans-serif); font-size: 14px; font-weight: 600; transition: background-color 120ms cubic-bezier(.2,0,.2,1), border-color 120ms cubic-bezier(.2,0,.2,1), transform 80ms cubic-bezier(.2,0,.2,1); } .ds-btn-outline:hover { background: var(--accent, oklch(0.932 0.006 50)); } .ds-btn-outline:focus-visible { outline: 2px solid var(--ring, oklch(0.6 0.12 27)); outline-offset: 2px; } .ds-btn-outline:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Görünür etiketi ve belirgin odağı olan kompakt veri girişi.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Proje adı</span><input class=\"ds-input\" type=\"text\" /></label>",
+      "css": ".ds-field { display: grid; gap: 7px; color: var(--foreground, oklch(0.269 0 0)); font-family: var(--font-archivo, Archivo, system-ui, sans-serif); } .ds-field-label { font-size: 13px; font-weight: 600; } .ds-input { min-height: 40px; padding: 0 12px; border: 1px solid var(--input, oklch(0.887 0.004 56)); border-radius: 0; background: var(--background, oklch(0.98 0.003 49)); color: var(--foreground, oklch(0.269 0 0)); font: inherit; font-size: 16px; transition: border-color 120ms cubic-bezier(.2,0,.2,1), outline-color 120ms cubic-bezier(.2,0,.2,1); } .ds-input:hover { border-color: var(--muted-foreground, oklch(0.514 0.008 53)); } .ds-input:focus-visible { outline: 2px solid var(--ring, oklch(0.6 0.12 27)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "status-badge",
+      "description": "Durumu metinle taşıyan küçük, kare ve teknik etiket.",
+      "html": "<span class=\"ds-status\"><span class=\"ds-status-dot\" aria-hidden=\"true\"></span>Hazır</span>",
+      "css": ".ds-status { display: inline-flex; min-height: 20px; align-items: center; gap: 7px; padding: 0 8px; border: 1px solid var(--border, oklch(0.905 0.004 56)); border-radius: 0; background: var(--muted, oklch(0.955 0.004 56)); color: var(--foreground, oklch(0.269 0 0)); font-family: var(--font-ibm-plex-mono, 'IBM Plex Mono', monospace); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; } .ds-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success, oklch(0.54 0.13 158)); }"
+    },
+    {
+      "name": "Operational Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Dekorasyon yerine içerik gruplamak için kullanılan düz, sınırlı yüzey.",
+      "html": "<section class=\"ds-card\"><div class=\"ds-card-kicker\">TEKNİK KAYIT</div><h3 class=\"ds-card-title\">Başlık</h3><p class=\"ds-card-body\">Açıklama ve ilgili işlem bilgisi bu yüzeyde gruplanır.</p></section>",
+      "css": ".ds-card { padding: 16px; border: 1px solid var(--border, oklch(0.905 0.004 56)); border-radius: 0; background: var(--card, oklch(1 0 0)); color: var(--card-foreground, oklch(0.269 0 0)); font-family: var(--font-archivo, Archivo, system-ui, sans-serif); } .ds-card-kicker { margin-bottom: 9px; color: var(--primary, oklch(0.467 0.17 27)); font-family: var(--font-ibm-plex-mono, 'IBM Plex Mono', monospace); font-size: 11px; font-weight: 600; letter-spacing: .22em; } .ds-card-title { margin: 0 0 7px; font-size: 17px; line-height: 1.4; } .ds-card-body { margin: 0; color: var(--muted-foreground, oklch(0.514 0.008 53)); font-size: 14px; line-height: 1.6; } .ds-card:focus-within { outline: 2px solid var(--ring, oklch(0.6 0.12 27)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Active Navigation Item",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "Etkin bölümü tek kırmızı blokla belirginleştiren yan navigasyon öğesi.",
+      "html": "<a class=\"ds-nav-active\" href=\"#\" aria-current=\"page\">Projeler</a>",
+      "css": ".ds-nav-active { display: flex; min-height: 40px; align-items: center; padding: 0 12px; border-radius: 0; background: var(--primary, oklch(0.467 0.17 27)); color: var(--primary-foreground, oklch(0.98 0.003 49)); font-family: var(--font-archivo, Archivo, system-ui, sans-serif); font-size: 14px; font-weight: 600; text-decoration: none; transition: background-color 120ms cubic-bezier(.2,0,.2,1); } .ds-nav-active:hover { background: color-mix(in oklab, var(--primary, oklch(0.467 0.17 27)) 90%, black); } .ds-nav-active:focus-visible { outline: 2px solid var(--ring, oklch(0.6 0.12 27)); outline-offset: 2px; } .ds-nav-active:active { background: color-mix(in oklab, var(--primary, oklch(0.467 0.17 27)) 82%, black); }"
+    },
+    {
+      "name": "Technical Kicker",
+      "kind": "custom",
+      "refersTo": "label",
+      "description": "Bölüm ve veri kategorisini işaretleyen kırmızı kurallı mikro başlık.",
+      "html": "<div class=\"ds-kicker\"><span class=\"ds-kicker-rule\" aria-hidden=\"true\"></span><span>HESAP RAPORU</span></div>",
+      "css": ".ds-kicker { display: inline-flex; align-items: center; gap: 9px; color: var(--foreground, oklch(0.269 0 0)); font-family: var(--font-ibm-plex-mono, 'IBM Plex Mono', monospace); font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: .22em; text-transform: uppercase; } .ds-kicker-rule { width: 44px; height: 5px; background: var(--primary, oklch(0.467 0.17 27)); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Mühendislik Kontrol Masası",
+    "overview": "ORION arayüzü bir pazarlama vitrini değil, üretim kararlarının alındığı düzenli bir kontrol masasıdır. Görsel dil; endüstriyel ekipmanın açıklığını, teknik resmin kesinliğini ve yoğun operasyon ekranlarının taranabilirliğini bir araya getirir. Karakteri teknik, düzenli, köşeli ve kompakttır; ayrıntı çoktur fakat hiyerarşi belirsiz değildir.\n\nKimlik mevcut ORION marka sisteminden gelir ve iyileştirme bu sistemi koruyarak yapılır. Sıcak kâğıt yüzeyler, kömür tonlu iskelet, ince sınırlar ve sınırlı kırmızı vurgu ana malzemedir. Parlak gradyan, ağır gölge, dekoratif animasyon veya tüketici uygulaması yumuşaklığı bu dünyanın parçası değildir.",
+    "keyCharacteristics": [
+      "Endüstriyel, teknik ve ölçülü",
+      "Yüksek bilgi yoğunluğu içinde açık hiyerarşi",
+      "Kare geometri, ince sınırlar ve hassas hizalama",
+      "Kırmızıyı az ve anlamlı kullanan vurgu sistemi",
+      "Teknik veride mono, arayüz dilinde güçlü sans tipografi",
+      "Masaüstü ve mobilde aynı bilgi yapısı"
+    ],
+    "rules": [
+      {"name": "The Kırmızı Azdır Rule", "body": "ORION kırmızısını marka izi, ekranın birincil eylemi, etkin seçim veya gerçekten kritik durum dışında yaygınlaştırma. Aynı görünümde birden fazla eşit ağırlıklı kırmızı eylem oluşturma.", "section": "colors"},
+      {"name": "The Zemin Sessizdir Rule", "body": "İçeriğin okunabilirliğini kâğıt, kart ve kömür yüzeylerle kur; dekoratif renk bloklarıyla bölüm üretme. Teknik mavi, kırmızının yerine ikinci bir genel çağrı rengine dönüşmemelidir.", "section": "colors"},
+      {"name": "The Teknik Veri Rule", "body": "Sayı, birim, kod ve revizyonu mono ve mümkün olduğunda tabular rakamlarla göster; açıklama cümlelerini mono yapma. Teknik veri ile insan dilinin rolleri görünür biçimde ayrılmalıdır.", "section": "typography"},
+      {"name": "The Kısa Emir Rule", "body": "Düğme ve işlem metinleri Türkçe, kısa ve doğrudan fiiller kullanır. Büyük harf ve geniş harf aralığı yalnızca kicker/mikro etiket rolünde sistematik olarak uygulanır; uzun gövde metnine yayılmaz.", "section": "typography"},
+      {"name": "The Tek DOM Rule", "body": "Masaüstü ve mobil için aynı içerik ve eylem yapısını kullan. Kırılım yalnızca yerleşimi, görünürlüğü ve sıralamayı değiştirir; iki ayrı ekran ağacı üretmez.", "section": "layout"},
+      {"name": "The Yoğun ama Sıkışık Değil Rule", "body": "Boşluğu süs olarak değil, gruplama aracı olarak kullan. Kontroller ve tablolar kompakt olabilir; ancak tıklanabilir etkin alan dokunmatik ortamda erişilebilir boyutu korur.", "section": "layout"},
+      {"name": "The Çizgi Önce Rule", "body": "Derinlik ihtiyacında önce sınır, yüzey tonu ve yerleşim hiyerarşisini düzelt; gölgeyi varsayılan kart dekorasyonu yapma. Baskı levhası, tabela veya fiziksel ürün görselleştirmelerine ait gölgeler uygulama bileşenlerine taşınmaz.", "section": "elevation"},
+      {"name": "The Geometri İşlevdir Rule", "body": "Köşe biçimini yumuşaklık hissi vermek için rastgele değiştirme. Kare form varsayılandır; daire ve hap, bileşenin fiziksel ya da semantik işleviyle gerekçelendirilmelidir.", "section": "shapes"},
+      {"name": "The Hareket Açıklamak Zorundadır Rule", "body": "Hareket yalnızca durum değişimini, açılma-kapanmayı, yeniden sıralamayı veya kullanıcının eylemine verilen cevabı açıklamak için vardır. Yaylı sıçrama, dekoratif süzülme ve ölçek gösterisi kullanma. Geçişler kısa ve kontrollüdür; `prefers-reduced-motion` tercihi zorunlu olmayan hareketi kaldırır.", "section": "components"}
+    ],
+    "dos": [
+      "Do mevcut semantik tema tokenlarını ve merkezi bileşenleri kullan.",
+      "Do ORION kırmızısını tek bir ana vurgu hiyerarşisi için ayır.",
+      "Do teknik değerlerde IBM Plex Mono, tabular rakam ve açık birim gösterimi kullan.",
+      "Do klavye odağını görünür, dokunmatik etkin alanı erişilebilir tut.",
+      "Do mobil ve masaüstü davranışını aynı bilgi yapısıyla ve ilgili önizleme ekranlarında doğrula.",
+      "Do logo ve sembol için yalnızca `public/brand/` altındaki onaylı varlıkları kullan."
+    ],
+    "donts": [
+      "Don't marka kimliğini yeniden yorumlayan yeni logo, kırmızı tonu veya rastgele köşe yarıçapı üretme.",
+      "Don't parlak gradyan, ağır gölge, cam efekti ya da dekoratif animasyon ekleme.",
+      "Don't renkleri doğrudan bileşene gömme; çalışma zamanı tema tokenlarını atlama.",
+      "Don't durum bilgisini yalnızca renkle anlatma.",
+      "Don't dar ekran için ayrı içerik ağacı veya sayfa düzeyinde yatay taşma oluşturma.",
+      "Don't eksik iş verisini örnek, tahmin veya sahte içerikle doldurma."
+    ]
+  }
+}

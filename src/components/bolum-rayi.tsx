@@ -573,7 +573,7 @@ export function BolumRayi({
                     key={o.id}
                     aria-hidden
                     className={cn(
-                      "min-h-[2px] shrink transition-all",
+                      "min-h-[2px] shrink",
                       // ÜÇ GENİŞLİK KADEMESİ (10 · 6 · 3 px) + aktifte iki kat
                       // boy. Aktifi renkten ayırmak İMKÂNSIZ (primary ve
                       // destructive bir derece arayla aynı kırmızı), ayırt

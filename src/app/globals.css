@@ -1368,3 +1368,47 @@
     --app-header-h: 48px;
   }
 }
+
+/*
+ * HAREKET AZALTMA — geri bildirimi yok etmez, mekânsal hareketi sakinleştirir.
+ * Radix yüzeylerinin kendi konum `transform`ları korunur; yalnız tw-animate'in
+ * giriş/çıkış keyframe'i opaklıkla değiştirilir. Böylece ortalı diyalog veya
+ * tetikleyiciye bağlı menü yanlış yere sıçramaz.
+ */
+@keyframes oc-reduced-fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes oc-reduced-fade-out {
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    [data-slot="popover-content"],
+    [data-slot="select-content"],
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"],
+    [data-slot="dialog-overlay"],
+    [data-slot="dialog-content"]
+  )[data-state="open"] {
+    animation-name: oc-reduced-fade-in !important;
+    animation-duration: 80ms !important;
+  }
+
+  :is(
+    [data-slot="popover-content"],
+    [data-slot="select-content"],
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"],
+    [data-slot="dialog-overlay"],
+    [data-slot="dialog-content"]
+  )[data-state="closed"] {
+    animation-name: oc-reduced-fade-out !important;
+    animation-duration: 80ms !important;
+  }
+
+  .animate-spin {
+    animation-duration: 1.5s !important;
+  }
+}

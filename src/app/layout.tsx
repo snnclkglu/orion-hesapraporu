@@ -104,6 +104,7 @@ export default function RootLayout({
         <Toaster
           richColors
           closeButton
+          containerAriaLabel="Bildirimler"
           position="top-center"
           offset={{ top: "calc(var(--app-header-h, 48px) + 12px)" }}
           mobileOffset={{ top: "calc(var(--app-header-h, 48px) + 8px)" }}

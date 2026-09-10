@@ -119,6 +119,8 @@ function adOnerileri(band: DrawingBand | null): string[] {
 
 /** İlerleme çubuğu — başlıktaki tek satırlık özet. */
 function IlerlemeCubugu({ percent, done, total }: { percent: number; done: number; total: number }) {
+  const fillPercent = Math.min(100, Math.max(0, Math.max(percent, percent > 0 ? 2 : 0)));
+
   return (
     <div className="flex min-w-[10rem] flex-1 items-center gap-2 sm:max-w-[18rem]">
       <div
@@ -130,8 +132,8 @@ function IlerlemeCubugu({ percent, done, total }: { percent: number; done: numbe
         aria-label="Teknik resim tamamlanma oranı"
       >
         <div
-          className="h-full rounded-full bg-primary transition-[width] duration-300"
-          style={{ width: `${Math.max(percent, percent > 0 ? 2 : 0)}%` }}
+          className="h-full origin-left rounded-full bg-primary transition-transform duration-200 ease-linear motion-reduce:transition-none"
+          style={{ transform: `scaleX(${fillPercent / 100})` }}
         />
       </div>
       <span className="shrink-0 font-mono text-xs font-semibold tabular-nums">%{percent}</span>

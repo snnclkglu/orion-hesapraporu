@@ -8,14 +8,14 @@
 // Sidebar genişliğinin ve içerik payının TEK kaynağı `--app-sidebar-w`
 // değişkenidir; iki değer ayrı yerlerde tanımlanırsa daralt/genişlet sırasında
 // içerik bir kare kayar. Daraltma tercihi boyamadan ÖNCE okunur
-// (useLayoutEffect) ve geçiş sınıfı ilk okuma bitene kadar kapalıdır; aksi
-// hâlde her açılışta sidebar 240px'ten 56px'e "animasyonla" düşer.
+// (useLayoutEffect). Genişlik değişimi bilinçli olarak anlıktır; üç genişlik
+// eksenini birlikte animasyonla değiştirmek kabuğu her karede yeniden dizer.
 //
 // Revizyon editörü SABİT ÇERÇEVE modunda çalışır: sayfa gövdesi kaymaz, yalnız
 // editörün kendi bölgeleri kayar. Böylece durum çubuğu ve adım şeridi gerçek
 // çerçeve kenarı olur, `sticky` ile belge akışında sürüklenmez.
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -58,9 +58,6 @@ const COLLAPSE_KEY = "orion.sidebar.collapsed";
  */
 const SIDEBAR_W_COLLAPSED = "4.5rem";
 const SIDEBAR_W_EXPANDED = "15rem";
-
-/** Hiç değişmeyen depo — yalnız "hidrasyon bitti mi" sorusu için. */
-const subscribeNever = () => () => {};
 
 /**
  * Dar ekrandaki bölüm adı — aynı deftere sorulur.
@@ -348,18 +345,6 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
     // `pathname`e bağlı: sayfanın eylemi olup olmaması şeridin yüksekliğini
     // değiştirir; her gezinmede taze bir senkron ölçüm istiyoruz.
   }, [pathname]);
-  /**
-   * Genişlik geçişi HİDRASYONDAN SONRA açılır: sunucu tercihi bilemez ve geniş
-   * çizer, istemci daralmış okuduğunda sidebar her açılışta 240px'ten kayarak
-   * daralırdı. Hiç değişmeyen bir depoya abone olmak bu soruyu `setState`li
-   * bir efekte gerek kalmadan sorar (react-hooks/set-state-in-effect).
-   */
-  const ready = useSyncExternalStore(
-    subscribeNever,
-    () => true,
-    () => false
-  );
-
   // Düğme ve Ctrl+B revizyon ekranında ZİYARETE ÖZEL, dışarıda KALICI yazar.
   const toggleCollapsed = useCallback(() => {
     if (isRevisionScreen) {
@@ -451,8 +436,7 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
         // içsel en küçük genişliğine göre şişiyordu.
         style={{ width: sidebarW, minWidth: sidebarW, maxWidth: sidebarW }}
         className={cn(
-          "sticky top-0 z-40 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-l-[14px] border-sidebar-border border-l-primary bg-sidebar text-sidebar-foreground lg:flex",
-          ready && "transition-[width] duration-200 ease-out"
+          "sticky top-0 z-40 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-l-[14px] border-sidebar-border border-l-primary bg-sidebar text-sidebar-foreground lg:flex"
         )}
       >
         <SidebarContent
