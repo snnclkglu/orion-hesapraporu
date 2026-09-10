@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CircleDot, Ruler, Scale, TableProperties } from "lucide-react";
+import { ArrowRight, CircleDot, Construction, Disc3, Footprints, LockKeyhole, Ruler, Scale, TableProperties, TrainFront, Wrench } from "lucide-react";
 
 const TOOLS = [
   {
@@ -30,6 +30,12 @@ const TOOLS = [
     meta: "JIS B 0401:1999 · 0–500 mm",
     icon: CircleDot,
   },
+  { href: "/tools/raylar", title: "Ray Sistemleri", hint: "A, S ve çubuk ray; uyumlu Crapex krapo ve Beket pedi", meta: "Ray · krapo · ped", icon: TrainFront },
+  { href: "/tools/civata", title: "Cıvata Merkezi", hint: "Diş, delik, pul, somun, tork, boy ve Eurocode aralıkları", meta: "M6–M36", icon: Wrench },
+  { href: "/tools/segman", title: "Segman Ölçüleri", hint: "Mil ve delik için dış/iç segman kanal ölçüleri", meta: "DIN 471 · DIN 472", icon: Disc3 },
+  { href: "/tools/kece", title: "Keçe Kataloğu", hint: "Mil, yuva, yükseklik, tip ve malzemeye göre Suptex araması", meta: "3.896 kayıt", icon: Construction },
+  { href: "/tools/aks-tutucu", title: "Aks Tutucu", hint: "Mil çapından DIN 15058 tutucu ve bağlantı ölçüleri", meta: "16–250 mm", icon: LockKeyhole },
+  { href: "/tools/erisim-emniyeti", title: "Erişim ve Emniyet", hint: "Platform, merdiven, korkuluk ve tehlikeli bölge kaynak rehberi", meta: "EN ISO 14122 · EN 13586", icon: Footprints },
 ] as const;
 
 export default function ToolsPage() {

@@ -2,7 +2,7 @@
 // güvenle doğrulanabilen IT değerleri. İlk kapsam H delik, h/js mil sınıflarıdır.
 
 export type HoleToleranceCode = "H6" | "H7" | "H8" | "H9" | "H10";
-export type ShaftToleranceCode = "h5" | "h6" | "h7" | "h8" | "h9" | "js5" | "js6" | "js7";
+export type ShaftToleranceCode = "h5" | "h6" | "h7" | "h8" | "h9" | "js5" | "js6" | "js7" | "p6";
 
 interface ToleranceBand {
   fromExclusiveMm: number;
@@ -39,7 +39,11 @@ export interface FitResult {
   minClearanceMicrometre: number;
   maxClearanceMicrometre: number;
   kind: "bosluklu" | "gecis" | "sikilik";
+  behavior: string;
+  behaviorNote: string;
 }
+
+const P6_LOWER_BY_BAND = [6, 12, 15, 18, 22, 26, 32, 37, 43, 50, 56, 62, 68] as const;
 
 function gradeOf(code: string): 5 | 6 | 7 | 8 | 9 | 10 {
   return Number(code.replace(/\D/g, "")) as 5 | 6 | 7 | 8 | 9 | 10;
@@ -71,8 +75,10 @@ export function calculateFit(
     maxSizeMm: nominalMm + holeIt / 1000,
   };
   const shaftIsJs = shaftCode.startsWith("js");
-  const shaftUpper = shaftIsJs ? shaftIt / 2 : 0;
-  const shaftLower = shaftIsJs ? -shaftIt / 2 : -shaftIt;
+  const bandIndex = TOLERANCE_BANDS.findIndex((item) => nominalMm > item.fromExclusiveMm && nominalMm <= item.toInclusiveMm);
+  const p6Lower = shaftCode === "p6" ? P6_LOWER_BY_BAND[bandIndex] : null;
+  const shaftUpper = p6Lower !== null ? p6Lower + shaftIt : shaftIsJs ? shaftIt / 2 : 0;
+  const shaftLower = p6Lower !== null ? p6Lower : shaftIsJs ? -shaftIt / 2 : -shaftIt;
   const shaft: DeviationResult = {
     code: shaftCode,
     lowerMicrometre: shaftLower,
@@ -82,16 +88,15 @@ export function calculateFit(
   };
   const minClearanceMicrometre = hole.lowerMicrometre - shaft.upperMicrometre;
   const maxClearanceMicrometre = hole.upperMicrometre - shaft.lowerMicrometre;
+  const kind = minClearanceMicrometre >= 0 ? "bosluklu" : maxClearanceMicrometre <= 0 ? "sikilik" : "gecis";
+  const behavior = shaftCode === "h6" && holeCode === "H7" ? "Yakın boşluklu / elle kayar" : shaftCode === "js6" && holeCode === "H7" ? "Hassas konumlama" : shaftCode === "p6" && holeCode === "H7" ? "Pres geçme" : kind === "bosluklu" ? "Boşluklu" : kind === "gecis" ? "Geçiş" : "Sıkı";
   return {
     hole,
     shaft,
     minClearanceMicrometre,
     maxClearanceMicrometre,
-    kind:
-      minClearanceMicrometre >= 0
-        ? "bosluklu"
-        : maxClearanceMicrometre <= 0
-          ? "sikilik"
-          : "gecis",
+    kind,
+    behavior,
+    behaviorNote: "Kullanım karakteri ön seçim bilgisidir; yük, sıcaklık, yüzey, yağlama ve montaj yöntemi ayrıca değerlendirilir.",
   };
 }

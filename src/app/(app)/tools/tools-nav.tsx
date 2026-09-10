@@ -11,6 +11,12 @@ const ROUTES = [
   { href: "/tools/profiller", label: "Profiller", exact: false },
   { href: "/tools/kama", label: "Kama", exact: false },
   { href: "/tools/tolerans", label: "Tolerans", exact: false },
+  { href: "/tools/raylar", label: "Raylar", exact: false },
+  { href: "/tools/civata", label: "Cıvata", exact: false },
+  { href: "/tools/segman", label: "Segman", exact: false },
+  { href: "/tools/kece", label: "Keçe", exact: false },
+  { href: "/tools/aks-tutucu", label: "Aks tutucu", exact: false },
+  { href: "/tools/erisim-emniyeti", label: "Erişim", exact: false },
 ] as const;
 
 export function ToolsNav() {
@@ -28,7 +34,7 @@ export function ToolsNav() {
         options={ROUTES}
         label="Teknik Araçlar bölümü"
       />
-      <nav className="hidden items-center gap-x-3 border-b md:flex" aria-label="Teknik Araçlar">
+      <nav className="hidden flex-wrap items-center gap-x-1 border-b md:flex" aria-label="Teknik Araçlar">
         {ROUTES.map((route) => {
           const active = route.href === activeHref;
           return (

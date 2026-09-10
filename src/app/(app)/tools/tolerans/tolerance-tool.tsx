@@ -6,7 +6,7 @@ import { calculateFit, type HoleToleranceCode, type ShaftToleranceCode } from "@
 import { NumberField, parseMetricNumber } from "../number-field";
 
 const HOLES: readonly HoleToleranceCode[] = ["H6", "H7", "H8", "H9", "H10"];
-const SHAFTS: readonly ShaftToleranceCode[] = ["h5", "h6", "h7", "h8", "h9", "js5", "js6", "js7"];
+const SHAFTS: readonly ShaftToleranceCode[] = ["h5", "h6", "h7", "h8", "h9", "js5", "js6", "js7", "p6"];
 const mm = new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 3, maximumFractionDigits: 4 });
 const micro = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 1 });
 
@@ -37,12 +37,15 @@ export function ToleranceTool() {
       {calculation.result ? <section aria-live="polite" className="grid gap-4 lg:grid-cols-3">
         <ToleranceCard title={`Delik ${calculation.result.hole.code}`} lower={calculation.result.hole.lowerMicrometre} upper={calculation.result.hole.upperMicrometre} min={calculation.result.hole.minSizeMm} max={calculation.result.hole.maxSizeMm} />
         <ToleranceCard title={`Mil ${calculation.result.shaft.code}`} lower={calculation.result.shaft.lowerMicrometre} upper={calculation.result.shaft.upperMicrometre} min={calculation.result.shaft.minSizeMm} max={calculation.result.shaft.maxSizeMm} />
-        <div className="border-l-4 border-primary bg-primary/[0.05] p-4"><span className="oc-kicker text-muted-foreground">Geçme sonucu</span><strong className="mt-1 block text-xl text-primary">{calculation.result.kind === "bosluklu" ? "Boşluklu geçme" : calculation.result.kind === "gecis" ? "Geçiş geçmesi" : "Sıkı geçme"}</strong><dl className="mt-4 grid gap-2 text-sm"><Row label="En az boşluk" value={`${signed(calculation.result.minClearanceMicrometre)} µm`} /><Row label="En çok boşluk" value={`${signed(calculation.result.maxClearanceMicrometre)} µm`} /></dl></div>
+        <div className="border-l-4 border-primary bg-primary/[0.05] p-4"><span className="oc-kicker text-muted-foreground">Geçme sonucu</span><strong className="mt-1 block text-xl text-primary">{calculation.result.kind === "bosluklu" ? "Boşluklu geçme" : calculation.result.kind === "gecis" ? "Geçiş geçmesi" : "Sıkı geçme"}</strong><span className="mt-1 block text-sm font-medium">{calculation.result.behavior}</span><dl className="mt-4 grid gap-2 text-sm"><Row label="En az boşluk" value={`${signed(calculation.result.minClearanceMicrometre)} µm`} /><Row label="En çok boşluk" value={`${signed(calculation.result.maxClearanceMicrometre)} µm`} /></dl></div>
       </section> : <section aria-live="polite" className="border p-5 text-sm text-muted-foreground">{calculation.error ?? "Sonucu görmek için 0–500 mm arasında bir anma ölçüsü girin."}</section>}
+
+      {calculation.result && <FitDiagram result={calculation.result} />}
 
       <section className="grid gap-3 border bg-card p-4">
         <h3 className="font-semibold">Kapsam ve kullanım notu</h3>
-        <p className="text-sm leading-6 text-muted-foreground">Bu ilk sürüm, verilen belgeden doğrulanan H6–H10 delik ve h5–h9 / js5–js7 mil sınıflarını kapsar. K, M, N, P gibi sıkı geçme bölgeleri kaynak tablodan tam ve çift kontrollü aktarılmadan eklenmemiştir. Sonuçlar tasarım ve ön seçim içindir; imalat resmi yayımlanmadan önce geçerli standart ve proses şartları ayrıca doğrulanmalıdır.</p>
+        <div className="grid gap-3 text-sm leading-6 text-muted-foreground sm:grid-cols-3"><p><strong className="text-foreground">Boşluklu:</strong> En büyük mil bile en küçük delikten küçüktür. Serbest çalışma ve kayma gereken yerlerde kullanılır.</p><p><strong className="text-foreground">Geçişli:</strong> Üretim sapmalarına göre küçük boşluk veya küçük sıkılık oluşabilir. Hassas konumlamaya uygundur.</p><p><strong className="text-foreground">Sıkı:</strong> Mil tolerans bölgesi deliğin üzerindedir. Montaj pres, ısıtma veya soğutma gerektirebilir.</p></div>
+        <p className="border-t pt-3 text-[12px] text-muted-foreground">H, h ve js sınıfları kullanıcı belgesinden; H7/p6 yaygın pres geçmesi satırları ISO 286 limit sapma tablosundan aktarılmıştır. Sonuç tasarım ön seçimidir. Yük, sıcaklık, yüzey, yağlama ve montaj yöntemi ayrıca doğrulanır.</p>
       </section>
     </main>
   );
@@ -57,3 +60,11 @@ function ToleranceCard({ title, lower, upper, min, max }: { title: string; lower
 }
 
 function Row({ label, value }: { label: string; value: string }) { return <div className="flex items-baseline justify-between gap-3 border-b pb-1"><dt className="text-muted-foreground">{label}</dt><dd className="font-mono font-medium">{value}</dd></div>; }
+
+function FitDiagram({ result }: { result: NonNullable<ReturnType<typeof calculateFit>> }) {
+  const min = Math.min(result.hole.lowerMicrometre, result.shaft.lowerMicrometre, 0);
+  const max = Math.max(result.hole.upperMicrometre, result.shaft.upperMicrometre, 0);
+  const span = Math.max(1, max - min);
+  const x = (value: number) => 72 + ((value - min) / span) * 516;
+  return <section className="border bg-card p-4"><h3 className="font-semibold">Tolerans bölgeleri</h3><p className="mt-1 text-[12px] text-muted-foreground">Sıfır çizgisine göre delik ve mil sapmalarının şematik konumu</p><div className="oc-scrollx mt-3 overflow-x-auto"><svg viewBox="0 0 660 180" className="min-w-[620px]" role="img" aria-label={`${result.hole.code} delik ve ${result.shaft.code} mil tolerans bölgeleri`}><line x1={x(0)} x2={x(0)} y1="24" y2="150" className="stroke-foreground" strokeWidth="2"/><text x={x(0)+5} y="20" className="fill-foreground" fontSize="11">0 µm</text><rect x={x(result.hole.lowerMicrometre)} y="46" width={Math.max(3,x(result.hole.upperMicrometre)-x(result.hole.lowerMicrometre))} height="36" className="fill-primary/30 stroke-primary"/><rect x={x(result.shaft.lowerMicrometre)} y="108" width={Math.max(3,x(result.shaft.upperMicrometre)-x(result.shaft.lowerMicrometre))} height="36" className="fill-muted stroke-foreground"/><text x="8" y="69" className="fill-foreground" fontSize="12">DELİK</text><text x="8" y="131" className="fill-foreground" fontSize="12">MİL</text><text x="72" y="170" className="fill-muted-foreground" fontSize="11">{signed(min)} µm</text><text x="548" y="170" className="fill-muted-foreground" fontSize="11">{signed(max)} µm</text></svg></div><p className="mt-2 text-[11px] leading-5 text-muted-foreground">{result.behaviorNote}</p></section>;
+}
