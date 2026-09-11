@@ -301,6 +301,8 @@ export function ProjectsTable({
               <SelectValue placeholder="Sırala" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="created_at:desc">Oluşturulma · Yeniden Eskiye</SelectItem>
+              <SelectItem value="created_at:asc">Oluşturulma · Eskiden Yeniye</SelectItem>
               <SelectItem value="doc_no:desc">Doküman No · Yeni</SelectItem>
               <SelectItem value="doc_no:asc">Doküman No · Eski</SelectItem>
               <SelectItem value="name:asc">Proje Adı · A-Z</SelectItem>

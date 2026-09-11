@@ -179,6 +179,8 @@ export const ATTR_LABELS: Record<string, string> = {
   hollow_bore_mm: "Delik Mil Çapı [mm]",
   shrinkdisc_bore_mm: "Sıkma Bileziği Delik Çapı [mm]",
   allowed_radial_output_kn: "İzin Verilen Radyal Yük — Çıkış [kN]",
+  radial_load_basis: "Radyal Kapasitenin Katalog Koşulları",
+  stage_type: "Kademe Tipi",
   allowed_radial_input_kn: "İzin Verilen Radyal Yük — Giriş [kN]",
   stages: "Kademe Sayısı",
   dimension_page: "Katalog Ölçü Sayfası",

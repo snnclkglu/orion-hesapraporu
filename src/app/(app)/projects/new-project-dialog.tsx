@@ -428,27 +428,27 @@ export function NewProjectDialog({
               name="doc_no"
               value={docNo}
               onChange={(e) => setDocNo(e.target.value)}
-              readOnly={!!selectedItem}
+              readOnly={offerContext || !!selectedItem}
               className={cn(selectedItem && "bg-muted text-muted-foreground")}
               title={
                 selectedItem
                   ? "İş kalemi numarasından gelir — elle yazmak için \"Kalem Seçilmedi\"yi seçin"
                   : undefined
               }
-              required
+              required={!offerContext}
             />
             {/* Doküman kodunun canlı önizlemesi: kuralın ne ürettiği alanın
                 altında görünsün, PDF açılana kadar beklenmesin. */}
             <p className="text-[11px] text-muted-foreground">
               {offerContext ? (
-                <>Teklif çalışmasına ait benzersiz doküman no; rapor kodu bundan türer → </>
+                <>Kaydedilirken TEHR-GGAAYYYY-sıra biçiminde otomatik atanır.</>
               ) : (
                 <>
                   Doküman no <span className="font-medium">iş kalemi numarasıdır</span>; rapor
                   kodu bundan türer →{" "}
                 </>
               )}
-              <span className="font-mono">{docCode("HR", docNo || "0055-01", 1)}</span>
+              {!offerContext && <span className="font-mono">{docCode("HR", docNo || "0055-01", 1)}</span>}
             </p>
           </div>
           {/* AD ALANLARI YAZILIRKEN BÜYÜR (firma kuralı, `adBuyuk`). Dönüşüm

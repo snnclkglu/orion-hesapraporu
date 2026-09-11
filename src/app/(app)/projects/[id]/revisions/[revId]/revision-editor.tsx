@@ -3424,6 +3424,7 @@ export function RevisionEditor({
                   {section.selectionDefs.map((f) =>
                     ropeOrderCells && f.key !== "drumGrooveLengthText"
                       ? null
+                      : f.visible && !f.visible(specs) ? null
                       : f.visibleWhen && !f.visibleWhen(sel as Record<string, unknown>) ? null : (
                     <Field
                       key={f.key}

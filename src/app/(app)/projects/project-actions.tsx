@@ -240,7 +240,8 @@ export function DuplicateProjectDialog({
             <Label htmlFor="dup_doc_no">Yeni Doküman No</Label>
             <Input
               id="dup_doc_no"
-              value={docNo}
+              readOnly={!allowJobAssignment}
+              value={allowJobAssignment ? docNo : ""}
               onChange={(e) => setDocNo(e.target.value)}
               required
             />
@@ -251,9 +252,9 @@ export function DuplicateProjectDialog({
                   kodu bundan türer →{" "}
                 </>
               ) : (
-                <>Teklif çalışmasına ait benzersiz doküman no; rapor kodu bundan türer → </>
+                <>Kopya kaydedildiğinde TEHR-GGAAYYYY-sıra biçiminde yeni bir numara atanır.</>
               )}
-              <span className="font-mono">{docCode("HR", docNo || "0055-02", 1)}</span>
+              {allowJobAssignment && <span className="font-mono">{docCode("HR", docNo || "0055-02", 1)}</span>}
             </p>
           </div>
           <div className="grid gap-2">
@@ -360,6 +361,7 @@ export function EditProjectDetailsDialog({
             <Label htmlFor="project_doc_no">Doküman No</Label>
             <Input
               id="project_doc_no"
+              readOnly={reportContext === OFFER_REPORT_CONTEXT}
               value={docNo}
               onChange={(e) => setDocNo(e.target.value)}
               required

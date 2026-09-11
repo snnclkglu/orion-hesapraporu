@@ -1883,3 +1883,34 @@ Motor adedi ve paralel koşu adedi fiziksel kablo adedidir. Editör ve PDF her
 fiziksel kabloyu motor/paralel numarasıyla ayrı gösterir. Feston çiziminde yan
 görünüş ile A-A kesiti aynı şemadadır; kesitte kablo üst mesnet ile alt sıkma
 plakası arasındadır. Çift katta ara plaka ikinci sıranın mesnedidir.
+
+### 11.09.2026 — Teklif hesap kimliği ve hızlı seçim tercihleri
+
+Teklif hesap raporlarının `projects.doc_no` değeri `TEHR-GGAAYYYY-sıra`dır.
+İstanbul gününe göre veritabanı sayacı atomik üretir; yeni kayıt, kopya ve
+tekliften/içe aktarımdan açılış aynı tetikleyiciden geçer. Güncelleme numarayı
+korur. Önceki numaralar denetim defterinde saklanır; yayımlanmış PDF arşivi
+ve revizyon snapshot'ı değiştirilmez. Liste `created_at desc` ile açılır;
+gün-ay içeren doküman kodunun alfabetik sırası tarih sırası değildir.
+Hesap PDF'i TEHR kimliğini aynen basar, revizyon ayrıca gösterilir.
+
+Hızlı seçim halat konstrüksiyonunu da alır. Haşçelik ve İzmit A.Ş. için
+katalogdaki `6x36 WS` başlangıç tercihidir; kullanıcı değiştirebilir.
+İstenen `3x36 WS` İzmit kataloğunda bulunmadığından veri uydurulmaz.
+Konstrüksiyon `attrs.construction` alanındadır; aile özeti, RPC indirmesi
+ve aday seçimi aynı anahtarı kullanır.
+
+Kiriş aday serisi v3: yan sac yüksekliği `h3Mm` / üst iç flanş genişliği
+`b2Mm` oranı 1,5–3 dahil aralığındadır. Aday üretimi sınırlar ve ara oranları
+tarar; son denetim kilitli veya çözümsüz kesiti de bu açıdan açıkça bildirir.
+Bu firma geometri tercihidir; dayanım, sehim ve burkulma kontrollerinin yerine
+geçmez. Manuel ölçüleri kısıtlayan bir şema kuralı değildir.
+
+Eldro ve disk servis frenleri `brakeHandedness` sipariş alanını taşır:
+1 adet: Sağ/Sol, başlangıç boş; 2 adet: 1 sağ 1 sol / 2 sağ / 2 sol;
+4 adet: 2 sağ 2 sol / 4 sağ / 4 sol. Varsayılanlar dengeli dağılımdır.
+Kaldırmada `brakeQty`, yürütmede gerçek `motorCount` esas alınır. Adet değişip
+eski seçenek geçersizleşince yeni adedin varsayılanına geçilir; geçerli insan
+seçimi korunur. PDF, ekipman listesi ve kayıt aynı değeri taşır; manyetik
+frende alan gösterilmez. Eski snapshot yüklemesine yeni boş anahtar eklenmez:
+seçim izinin sonuç hash'i sırf yükleme yüzünden değişmemelidir.

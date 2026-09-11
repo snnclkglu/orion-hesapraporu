@@ -21,6 +21,8 @@ import { offerRevLabel } from "@/lib/offers/no";
  * grup kodudur.
  */
 export function docCode(kind: "HR" | "EQ" | "TR", docNo: string, revNo: number): string {
+  // Teklif hesabı kendi belge kimliğini taşır; revizyon kapakta ayrıca basılır.
+  if (kind === "HR" && /^TEHR-\d{8}-[1-9]\d*$/.test(docNo)) return docNo;
   return `ORC-${kind}-${docNo}-R${String(revNo).padStart(2, "0")}`;
 }
 

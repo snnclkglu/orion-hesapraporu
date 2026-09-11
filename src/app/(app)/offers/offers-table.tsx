@@ -162,6 +162,11 @@ export function OffersTable({
           />
         </div>
 
+        <Button type="button" className="oc-tap" variant={filtre.openOnly ? "default" : "outline"}
+          aria-pressed={!!filtre.openOnly}
+          onClick={() => setFiltre(f => ({ ...f, openOnly: !f.openOnly }))}>
+          Açık Teklifler
+        </Button>
         <CokluSuzgec
           baslik="Takip"
           secenekler={TAKIP_BANDS.map((b) => ({ value: b.key, label: b.label }))}

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "a6e929ff-3a31-4fee-bc03-f9f94c6dca09",
+    "kind": "rope",
+    "brand": "HAŞÇELİK",
+    "model": "Ø10 6x36 WS FC 1770 MPa",
+    "attrs": {
+      "core": "FC",
+      "dia_mm": 10,
+      "grade_mpa": 1770,
+      "construction": "6x36 WS",
+      "weight_kg_per_m": 0.37,
+      "breaking_load_kn": 58.4,
+      "typical_application": "Vinç",
+      "wire_strength_kgmm2": 180
+    },
+    "datasheet_url": "https://www.hascelikhalat.com.tr/depo/urunler2023/02/01.pdf"
+  },
+  {
+    "id": "77dce1a0-9d94-4fe7-992c-901dd519235b",
+    "kind": "rope",
+    "brand": "İZMİT A.Ş.",
+    "model": "Ø10 6x36 WS FC 1770 MPa",
+    "attrs": {
+      "core": "FC",
+      "dia_mm": 10,
+      "grade_mpa": 1770,
+      "construction": "6x36 WS",
+      "strength_class": "1770 MPa",
+      "weight_kg_per_m": 0.367,
+      "breaking_load_kn": 58.4,
+      "rotation_resistant": false,
+      "typical_application": "Vinç",
+      "wire_strength_kgmm2": 180
+    },
+    "datasheet_url": "https://guvencelikhalat.com.tr/wp-content/uploads/2026/01/IZMIT-A.S.-6x36-SINIFI-urun.pdf"
+  }
+]

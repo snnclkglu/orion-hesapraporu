@@ -25,7 +25,7 @@ describe("hızlı seçim başlangıç kararları", () => {
     expect(defaultSeries("hoistGearbox", "Yılmaz Redüktör")).toBe("H");
     expect(defaultSeries("travelGearbox", "Yılmaz Redüktör")).toBe("DR");
     expect(defaultSeries("motorCoupling", "SIBRE")).toBe("APC-AT");
-    expect(defaultSeries("travelGearbox", "FLENDER")).toBe("");
+    expect(defaultSeries("travelGearbox", "FLENDER")).toBe("H");
   });
   it("marka ve seri birlikte süzülür; başka markanın aynı tipine kaymaz", () => {
     const request = requestFixture(); request.active = ["main", "trolley"]; request.brands = initialBrands(); request.series = { hoistGearbox: "H", travelGearbox: "DR" };

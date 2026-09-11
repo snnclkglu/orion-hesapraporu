@@ -1,3 +1,4 @@
+import { brakeHandednessOptions, directionalBrake } from "./brake-handedness";
 // Form alanı metadata'sı — UI formları bu tanımlardan üretilir.
 // key'ler motor tiplerinin (TechnicalSpecs, HoistInputs, HoistSelections)
 // alan adlarıyla birebir aynıdır.
@@ -1482,6 +1483,14 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "brakeTorqueNm", label: "Fren Torku", unit: "Nm", type: "number" },
   { key: "brakeWheelDiaMm", label: "Fren Kasnak Çapı", unit: "mm", type: "number", diameter: true },
   { key: "brakeQty", label: "Fren Adedi", type: "number" },
+  {
+    key: "brakeHandedness", label: "Fren Sağ / Sol Düzeni", type: "select",
+    options: ["Sağ", "Sol", "1 sağ 1 sol", "2 sağ", "2 sol", "2 sağ 2 sol", "4 sağ", "4 sol"],
+    optionsFrom: source => brakeHandednessOptions(Number(source.brakeQty)),
+    visible: specs => directionalBrake(specs.hoistBrakeType),
+    visibleWhen: source => [1, 2, 4].includes(Number(source.brakeQty)),
+    hint: "İki frende 1 sağ 1 sol, dört frende 2 sağ 2 sol; tek frende yönü seçin.",
+  },
   {
     key: "brakeOptions", label: "Fren Opsiyonları", type: "multiselect",
     options: BRAKE_OPTIONS as unknown as string[],

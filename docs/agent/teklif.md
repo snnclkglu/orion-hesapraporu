@@ -2127,3 +2127,10 @@ revizyonunun ortak INSERT yolu, hesapları DB tetikleyicisinde atomik kopyalar.
 Eski inceleme onayı taşınmaz. Bağlantıdaki belirli revizyon okunur; yayımlanmış
 kaynağı değiştirmek yerine yeni taslak açılır. Son doğrulamalar ve sınırlar:
 `docs/plans/HIZLI_OTOMATIK_SECIM_TAMAMLAMA_DURUMU.md`.
+
+### 11.09.2026 — Açık Teklifler hızlı süzgeci
+
+Liste her açılışta `openOnly=true` ile başlar. Kullanıcının açık tanımı yalnız
+`won` ve `budgetary` durumlarını dışlar; diğer durumlar korunur. Düğme kapalı
+iken bu iki durum da geri gelir; diğer yıl/arama süzgeçleri bağımsızdır.
+Tablo ve özetler ortak `matchesOfferFilters` sonucundan beslenir.

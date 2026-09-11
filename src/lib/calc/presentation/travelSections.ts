@@ -506,7 +506,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       "Araba ve köprü yürütme mekanizmalarında motor başına gereken giriş torku üzerinden hesaplanır. Fren seçimi yapılmadan kontrol uygun olmaz.",
     equipmentSlugs: ["brake"],
     inputKeys: ["brakeServiceFactor"],
-    selectionKeys: ["brakeBrand", "brakeTorqueNm", "brakeWheelDiaMm", "brakeOptions"],
+    selectionKeys: ["brakeBrand", "brakeTorqueNm", "brakeWheelDiaMm", "brakeHandedness", "brakeOptions"],
     rows: [
       {
         key: "brake.requiredTorque", label: "Gerekli Fren Tork Kapasitesi",

@@ -1,3 +1,4 @@
+import { brakeHandednessOptions, directionalBrake } from "../brake-handedness";
 // Yürütme grubu form alanı metadata'sı — UI formları bu tanımlardan üretilir.
 // key'ler TravelInputs / TravelSelections alan adlarıyla birebir aynıdır.
 // Araba ve köprü aynı alan listesini kullanır; yalnız tek varyantta anlamlı
@@ -431,6 +432,14 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   { key: "gearboxOutputShaftMm", label: "Çıkış Mil Çapı", unit: "mm", type: "number", diameter: true },
   { key: "brakeBrand", label: "Seçilen Fren", type: "text" },
   { key: "brakeTorqueNm", label: "Fren Torku", unit: "Nm", type: "number" },
+  {
+    key: "brakeHandedness", label: "Fren Sağ / Sol Düzeni", type: "select",
+    options: ["Sağ", "Sol", "1 sağ 1 sol", "2 sağ", "2 sol", "2 sağ 2 sol", "4 sağ", "4 sol"],
+    optionsFrom: source => brakeHandednessOptions(Number(source.motorCount)),
+    visible: specs => directionalBrake(specs.travelBrakeType),
+    visibleWhen: source => [1, 2, 4].includes(Number(source.motorCount)),
+    hint: "İki frende 1 sağ 1 sol, dört frende 2 sağ 2 sol; tek frende yönü seçin.",
+  },
   {
     key: "brakeOptions", label: "Fren Opsiyonları", type: "multiselect",
     options: BRAKE_OPTIONS as unknown as string[],

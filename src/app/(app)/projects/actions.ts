@@ -194,7 +194,7 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
   if (!user) return { error: "Oturum bulunamadı" };
 
   const parsed = projectSchema.safeParse({
-    doc_no: formData.get("doc_no"),
+    doc_no: formData.get("report_context") === OFFER_REPORT_CONTEXT ? "AUTO" : formData.get("doc_no"),
     name: formData.get("name"),
     customer: formData.get("customer"),
     crane_type: formData.get("crane_type") || DEFAULT_CRANE_TYPE,
@@ -238,7 +238,7 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
   const { data: project, error } = await supabase
     .from("projects")
     .insert({ ...projectData, created_by: user.id })
-    .select("id")
+    .select("id, doc_no")
     .single();
 
   if (error) {
@@ -266,7 +266,7 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
     actor: user.id,
     action: "project.create",
     detail: {
-      doc_no: parsed.data.doc_no,
+      doc_no: project.doc_no,
       name: parsed.data.name,
       ...(parsed.data.job_id ? { job_id: parsed.data.job_id } : {}),
       ...(jobItemId ? { job_item_id: jobItemId } : {}),
@@ -832,7 +832,7 @@ export async function duplicateProject(
       job_id: targetJobId,
       created_by: user.id,
     })
-    .select("id")
+    .select("id, doc_no")
     .single();
   if (error) {
     return {
@@ -894,7 +894,7 @@ export async function duplicateProject(
       source_revision_id: last?.id ?? null,
       job_id: targetJobId,
       ...(targetJobItemId ? { job_item_id: targetJobItemId } : {}),
-      doc_no: parsed.data.doc_no,
+      doc_no: copy.doc_no,
     },
   });
 

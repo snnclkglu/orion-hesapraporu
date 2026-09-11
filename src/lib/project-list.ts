@@ -281,6 +281,7 @@ export function projectEntryMatches(
 }
 
 export type ProjectListSortKey =
+  | "created_at"
   | "job_no"
   | "doc_no"
   | "name"
@@ -294,6 +295,8 @@ export function projectEntrySortValue(
   key: ProjectListSortKey
 ): string | number {
   switch (key) {
+    case "created_at":
+      return entry.projects.reduce((latest, row) => row.created_at > latest ? row.created_at : latest, "");
     case "job_no":
       return projectEntryJobNo(entry);
     case "doc_no":

@@ -188,6 +188,7 @@ export async function ProjectListPage({ context }: { context: ReportContext }) {
           jobs={jobs}
           customerOptions={customerOptions}
           canDelete={isAdmin}
+          defaultSort={offerContext ? { key: "created_at", dir: "desc" } : undefined}
           basePath={reportBasePath(context)}
           reportContext={context}
         />

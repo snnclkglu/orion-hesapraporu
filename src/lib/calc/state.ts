@@ -1,3 +1,4 @@
+import { directionalBrake, resolvedBrakeHandedness } from "./brake-handedness";
 // Ortak saf durum geçişleri: manuel editör ve hızlı seçim aynı türetmeleri kullanır.
 import { deriveGirderInputs, deriveHoistInputs, deriveHookBlockSelections, deriveTravelInputs, type GirderDeriveContext } from "./derive";
 import { hoistReeving, hoistSpecView, type HoistInputs, type HoistSelections } from "./modules/hoistGroup";
@@ -119,6 +120,10 @@ export function withDerivedHoist(
   put("drumCouplingServiceFactor", d.drumCouplingServiceFactor);
 
   const selPatch: Partial<HoistSelections> = {};
+  if (directionalBrake(specs.hoistBrakeType)) {
+    const handedness = resolvedBrakeHandedness(selections.brakeQty, selections.brakeHandedness);
+    if (handedness !== selections.brakeHandedness) selPatch.brakeHandedness = handedness;
+  } else if (selections.brakeHandedness) selPatch.brakeHandedness = "";
   if (
     d.drumGrooveLengthText !== undefined &&
     d.drumGrooveLengthText !== selections.drumGrooveLengthText
@@ -176,6 +181,10 @@ export function withDerivedTravel(
   put("accelerationMs2", d.accelerationMs2);
 
   const selPatch: Partial<TravelSelections> = {};
+  if (directionalBrake(specs.travelBrakeType)) {
+    const handedness = resolvedBrakeHandedness(d.motorCount ?? selections.motorCount, selections.brakeHandedness);
+    if (handedness !== selections.brakeHandedness) selPatch.brakeHandedness = handedness;
+  } else if (selections.brakeHandedness) selPatch.brakeHandedness = "";
   if (d.motorCount !== undefined && d.motorCount !== selections.motorCount) {
     selPatch.motorCount = d.motorCount;
   }

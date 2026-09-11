@@ -128,6 +128,7 @@ export type { ModuleKey } from "@/lib/calc/presentation/module-family";
 /** Alan tanımlarının modülden bağımsız (gevşetilmiş) hali — FieldDef<T> ile
  *  yapısal uyumludur; keyof T'nin kontravaryansından kaçınmak için ayrı tanımlıdır. */
 export interface AnyFieldDef {
+  visible?: (specs: TechnicalSpecs) => boolean;
   key: string;
   label: string;
   /** Teknik özelliklere göre değişen etiket (ör. kanca/tutucu tipi adı) */

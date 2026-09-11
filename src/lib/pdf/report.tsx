@@ -975,9 +975,11 @@ export function fieldShownValue(f: AnyFieldDef, rec: Record<string, unknown>): s
 /** Uygulama görünürlüğünden bağımsız, belgeye basılacak seçim alanları. */
 export function selectionDefsForReport(
   defs: readonly AnyFieldDef[],
-  selections: Record<string, unknown>
+  selections: Record<string, unknown>,
+  specs?: TechnicalSpecs
 ): AnyFieldDef[] {
   return defs.filter((f) => {
+    if (specs && f.visible && !f.visible(specs)) return false;
     if (f.visibleWhen && !f.visibleWhen(selections)) return false;
     if (f.reportVisibleWhen && !f.reportVisibleWhen(selections)) return false;
     const shown = fieldShownValue(f, selections).trim().toLocaleLowerCase("tr-TR");
@@ -2691,7 +2693,8 @@ function ModulePage({
         // ızgarasının süzgeci ayrıdır ve bugünkü davranışını korur.)
         const visibleSelectionDefs = selectionDefsForReport(
           section.selectionDefs,
-          state.selections as Record<string, unknown>
+          state.selections as Record<string, unknown>,
+          input.specs
         );
         if (visibleSelectionDefs.length > 0) {
           const selectionTable = (

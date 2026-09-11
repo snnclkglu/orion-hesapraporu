@@ -9,15 +9,21 @@ export const DEFAULT_BRANDS: Brands = {
   hoistBrake: "SIBRE", travelBrake: "DERELI", motorCoupling: "SIBRE",
   wheelCoupling: "OZGUN", drumCoupling: "OZGUN", bearing: "SKF", rope: "HAŞÇELİK", buffer: "SIBRE",
 };
-export const SERIES_KEYS: BrandKey[] = ["hoistGearbox", "travelGearbox", "motorCoupling", "wheelCoupling", "drumCoupling"];
+export const SERIES_KEYS: BrandKey[] = ["rope", "hoistGearbox", "travelGearbox", "motorCoupling", "wheelCoupling", "drumCoupling"];
 export function defaultSeries(key: BrandKey, brand: string): string {
   const name = kimlikBuyuk(brand);
+  if (key === "rope" && ["HAŞÇELİK", "İZMİT A.Ş."].includes(name)) return "6x36 WS";
+  if (name === "FLENDER" && ["hoistGearbox", "travelGearbox"].includes(key)) return "H";
   return name === "YILMAZ REDÜKTÖR" ? (key === "hoistGearbox" ? "H" : key === "travelGearbox" ? "DR" : "")
     : name === "SIBRE" && key === "motorCoupling" ? "APC-AT" : name === "OZGUN" && key === "drumCoupling" ? "J" : "";
 }
 export function initialBrands(saved: Brands = {}): Brands { return { ...DEFAULT_BRANDS, ...normalizedBrands(saved) }; }
 
 export interface CatalogFamily { kind: string; brand: string; attrs: Record<string, unknown>; count?: number }
+export function catalogSeries(row: CatalogFamily, key: BrandKey): string {
+  const value = String((key === "rope" ? row.attrs.construction : row.attrs.series) ?? "");
+  return row.kind === "gearbox" && kimlikBuyuk(row.brand) === "FLENDER" && /^H[1-4]$/.test(value) ? "H" : value;
+}
 export const BRAND_KINDS: Record<BrandKey, string> = {
   motor: "motor", hoistGearbox: "gearbox", travelGearbox: "gearbox", brake: "brake", hoistBrake: "brake", travelBrake: "brake",
   motorCoupling: "coupling", wheelCoupling: "coupling", drumCoupling: "coupling", bearing: "bearing", rope: "rope", buffer: "buffer",
@@ -56,5 +62,5 @@ export function availableBrands(rows: CatalogFamily[], key: BrandKey, request: P
 }
 
 export function availableSeries(rows: CatalogFamily[], key: BrandKey, brand: string, request: Pick<SelectionRequest, "active" | "specs">): string[] {
-  return [...new Set(rows.filter(row => (!brand || kimlikBuyuk(row.brand) === kimlikBuyuk(brand)) && familyMatchesBrandKey(row, key, request)).map(row => String(row.attrs.series ?? "")).filter(Boolean))].sort((a, b) => a.localeCompare(b, "tr", { numeric: true }));
+  return [...new Set(rows.filter(row => (!brand || kimlikBuyuk(row.brand) === kimlikBuyuk(brand)) && familyMatchesBrandKey(row, key, request)).map(row => catalogSeries(row, key)).filter(Boolean))].sort((a, b) => a.localeCompare(b, "tr", { numeric: true }));
 }

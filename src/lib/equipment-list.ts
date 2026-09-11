@@ -1,3 +1,4 @@
+import { brakeHandednessNote } from "./calc/brake-handedness";
 // EKİPMAN LİSTESİNİN SAF ÇEKİRDEĞİ — satırlar, gruplar, katalog bağları ve
 // teknik ressam özeti. DB/HTTP/React/ExcelJS bağımlılığı YOKTUR.
 //
@@ -654,7 +655,7 @@ function hoistRows(
       component: "Fren",
       brand: textOr(sel.brakeBrand),
       model: textOr(sel.brakeModel),
-      spec: `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm${brakeOptionsNote(sel.brakeOptions)}`,
+      spec: `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm${brakeOptionsNote(sel.brakeOptions)}${brakeHandednessNote(specs.hoistBrakeType, sel.brakeQty, sel.brakeHandedness)}`,
       qty: sel.brakeQty,
     },
     {
@@ -713,7 +714,8 @@ function travelRows(
   inp: TravelInputs,
   sel: TravelSelections,
   /** Bu eksende enerji beslemesi feston mu (teknik özellik) */
-  hasFestoon: boolean
+  hasFestoon: boolean,
+  specs: TechnicalSpecs
 ): EqRow[] {
   const rk = (slug: string) => `${moduleKey}:${slug}`;
   const wheelHardness = travelWheelHardnessText(sel.wheelHardness);
@@ -777,7 +779,7 @@ function travelRows(
       // Yürütme freninin kimliği tek birleşik alandadır ve MARKA sütununda
       // görünür; katalog sayfası o metinle aranır.
       catalogModel: sel.brakeBrand,
-      spec: `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm${brakeOptionsNote(sel.brakeOptions)}`,
+      spec: `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm${brakeOptionsNote(sel.brakeOptions)}${brakeHandednessNote(specs.travelBrakeType, sel.motorCount, sel.brakeHandedness)}`,
       qty: sel.motorCount,
     });
   }
@@ -1231,7 +1233,8 @@ function moduleEquipmentRowsHam(
       key,
       inputs as TravelInputs,
       selections as TravelSelections,
-      travelHasFestoon(specs, key)
+      travelHasFestoon(specs, key),
+      specs
     );
   }
   return null;

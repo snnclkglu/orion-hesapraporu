@@ -52,6 +52,9 @@ export function AutoSelectionDialog({ revisionId, request, onApply, previewRows 
       selected = initialBrands(preferences(JSON.parse(localStorage.getItem("orion.auto-selection.brands.v1") ?? "{}")));
       savedSeries = preferences(JSON.parse(localStorage.getItem("orion.auto-selection.series.v1") ?? "{}"));
     } catch { /* Depolama kapalıyken firma tercihleri kullanılır. */ }
+    for (const key of ["hoistGearbox", "travelGearbox"] as const) {
+      if (selected[key] === "FLENDER" && /^H[1-4]$/.test(savedSeries[key] ?? "")) savedSeries[key] = "H";
+    }
     setBrands(selected);
     setSeries(Object.fromEntries(SERIES_KEYS.map(key => [key, savedSeries[key] ?? defaultSeries(key, selected[key] ?? "")])));
     if (previewRows) return;
@@ -113,6 +116,7 @@ export function AutoSelectionDialog({ revisionId, request, onApply, previewRows 
               {SERIES_KEYS.includes(key) && <label className="block space-y-1 text-sm"><span>{BRAND_LABELS[key]} · Seri / tip</span><select className="oc-tap w-full min-w-0 rounded-md border bg-background px-3 py-2 text-base" value={series[key] ?? ""} onChange={event => setSeries({ ...series, [key]: event.target.value })}><option value="">Uygun seriler arasından seç</option>{series[key] && !types.includes(series[key]!) && <option value={series[key]}>Bu ailede yok: {series[key]}</option>}{types.map(type => <option key={type} value={type}>{type}</option>)}</select></label>}
             </div>;
           })}</div>
+          {request.active.includes("girder") && <p className="text-sm text-muted-foreground">Ana kiriş: yan sac yüksekliği, üst sac genişliğinin 1,5–3 katı aralığında seçilir.</p>}
           <AutoSelectionDesign request={request} value={design} onChange={setDesign} />
           <p className="text-sm text-muted-foreground">Hesap sırası: halat → tambur ve miller → motor/redüktör → fren/kaplin → kanca/makara → yürütme → taşıyıcı yapı ve son kontroller. Motor güçleri, çaplar ve katalog büyüklükleri bu sırada hesaplanır; bağlı seçim gerektiğinde birlikte yeniden denenir.</p>
           <label className="oc-tap flex items-center gap-3 text-sm"><input type="checkbox" checked={sizeDesigns} onChange={event => setSizeDesigns(event.target.checked)} />Tambur, mil ve kesit ölçüleri için hesapla uygun aday öner</label>

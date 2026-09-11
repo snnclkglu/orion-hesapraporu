@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { RevisionEditor } from "@/app/(app)/projects/[id]/revisions/[revId]/revision-editor";
 import { NEW_WORK_DISABLED_MODULES, NEW_WORK_TEMPLATE } from "@/lib/calc/defaults";
 import pilotCatalog from "@/lib/auto-selection/fixtures/catalog-design-pilot.json";
+import standardRopes from "@/lib/auto-selection/fixtures/catalog-standard-ropes.json";
 import type { EquipmentRow } from "@/lib/auto-selection/types";
 import largeFixture from "@/lib/auto-selection/fixtures/crane-100t-50m.json";
 import largeCatalog from "@/lib/auto-selection/fixtures/catalog-100t-50m.json";
@@ -20,6 +21,6 @@ export default async function AutoSelectionPreview({ searchParams }: { searchPar
   return <main className="flex h-dvh min-h-0 flex-col gap-3 p-3">
     <p className="shrink-0 text-sm text-muted-foreground">Hızlı seçim önizleme · {params.context === "offer" ? "Teklif" : "Mühendislik"} · kayıt yapılmaz</p>
     <div className="min-h-0 flex-1"><RevisionEditor projectId="dev" revisionId="dev" readOnly={params.readonly === "1"} initial={initial}
-      initialDisabled={large ? MODULE_ORDER.filter(key => !largeFixture.active.includes(key)) : [...NEW_WORK_DISABLED_MODULES]} previewCatalog={(large ? largeCatalog : pilotCatalog) as EquipmentRow[]} /></div>
+      initialDisabled={large ? MODULE_ORDER.filter(key => !largeFixture.active.includes(key)) : [...NEW_WORK_DISABLED_MODULES]} previewCatalog={[...(large ? largeCatalog : pilotCatalog), ...standardRopes] as EquipmentRow[]} /></div>
   </main>;
 }

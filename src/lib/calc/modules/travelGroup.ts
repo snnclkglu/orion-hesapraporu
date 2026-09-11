@@ -357,6 +357,8 @@ export interface TravelSelections {
   gearboxOutputShaftMm: number;
   /** Frenin sipariş opsiyonları (çoklu, virgülle ayrık: "İçten Yaylı, Elle Açma Kolu") */
   brakeOptions?: string;
+  /** Frenlerin siparişteki sağ/sol dağılımı. */
+  brakeHandedness?: string;
   brakeBrand: string;           // yürütme freni
   brakeTorqueNm: number;
   brakeWheelDiaMm: number;

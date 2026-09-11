@@ -1,5 +1,6 @@
 import { validateSelectionRequest } from "./preflight";
-import { DESIGN_FACTORS, DESIGN_PROFILE, DESIGN_SHAFTS, designDimension } from "./design-profile";
+import { catalogSeries } from "./brands";
+import { DESIGN_FACTORS, DESIGN_PROFILE, DESIGN_SHAFTS, designDimension, girderPlateRatioValid } from "./design-profile";
 import { brakeDrumOptions, hoistServiceBrakeSupported, manufacturerConditionsMatch } from "./manufacturer";
 import { catalogCompatible } from "./compatibility";
 import { ENGINE_VERSION, runCalc, type CalcInput, type CalcResult } from "@/lib/calc/engine";
@@ -161,13 +162,17 @@ function designCandidates(request: SelectionRequest, candidate: Candidate, stage
     const minWidth = Math.ceil(minimum("spanToWidthRatio", "aMm") / 25) * 25;
     const minHeight = Math.ceil(minimum("spanToDepthRatio", "h3Mm") / 25) * 25;
     const heights = [...new Set([0.875, 1, 1.125, 1.25, 1.5, 1.75, 2, 2.5].map(f => designDimension("h3Mm", minHeight * f)).filter((n): n is number => !!n))];
-    for (const widthFactor of [1, 1.25, 1.5]) for (const height of heights) for (const plate of [6, 8, 10, 12, 16, 20, 25, 30, 40, 50]) {
+    for (const widthFactor of [1, 1.25, 1.5]) {
       const width = designDimension("aMm", minWidth * widthFactor);
       if (!width) continue;
       const extra = Math.max(0, width - Number(base.aMm));
+      const topWidth = Number(base.b2Mm) + extra;
+      const ratioHeights = [1.5, 1.75, 2, 2.25, 2.5, 2.75, 3].map(ratio => designDimension("h3Mm", topWidth * ratio)).filter((n): n is number => !!n);
+      for (const height of [...new Set([...heights, ...ratioHeights])]) for (const plate of [6, 8, 10, 12, 16, 20, 25, 30, 40, 50]) {
       const values = { h3Mm: height, aMm: width, b2Mm: Number(base.b2Mm) + extra, b5Mm: Number(base.b5Mm) + extra,
         t1Mm: plate, t2Mm: plate, t3Mm: plate, t4Mm: plate, t5Mm: plate };
-      out.push(patch(request, candidate.modules, key, "inputs", values));
+      if (girderPlateRatioValid(values)) out.push(patch(request, candidate.modules, key, "inputs", values));
+      }
     }
   } else {
     const fields = stage.section === "design-travel" ? ["shaftDiaMm"] : stage.section === "design-hook" ? ["shaftD1Mm"] : stage.section === "design-end" ? ["topPlateThicknessMm", "sidePlateThicknessMm", "sidePlateHeightMm", "bottomPlateThicknessMm"] : ["h3Mm", "t1Mm", "t2Mm", "t3Mm", "t4Mm", "t5Mm"];
@@ -214,7 +219,7 @@ export function solveSelection(request: SelectionRequest, inputRows: EquipmentRo
     if (!mapping) return [];
     const brand = stage.brand ? request.brands[stage.brand] ?? (["hoistBrake", "travelBrake"].includes(stage.brand) ? request.brands.brake : undefined) : undefined;
     const series = stage.brand ? request.series?.[stage.brand] : undefined;
-    const scoped = (byKind.get(mapping.kind) ?? []).filter(row => (!brand || row.brand === kimlikBuyuk(brand)) && (!series || row.attrs.series === series) && matchesFacets(row, mapping));
+    const scoped = (byKind.get(mapping.kind) ?? []).filter(row => (!brand || row.brand === kimlikBuyuk(brand)) && (!series || catalogSeries(row, stage.brand!) === series) && matchesFacets(row, mapping));
     const valid = scoped.filter(row => missingCatalogFields(row).length === 0);
     if (mapping.kind === "motor" || mapping.kind === "gearbox") catalogRejections.set(cacheKey, Object.fromEntries(Object.entries({
       [`${mapping.kind}Data`]: scoped.length - valid.length,
@@ -320,6 +325,7 @@ export function solveSelection(request: SelectionRequest, inputRows: EquipmentRo
         let accepted = 0;
         for (const modules of designCandidates(request, candidate, stage, calc(candidate.modules), options.designBase ?? request.modules)) {
           if (exhausted()) break;
+          if (request.sizeDesigns && stage.section === "design-girder" && !girderPlateRatioValid(record(modules[stage.module].inputs))) continue;
           const result = calc(modules);
           const structural = stage.section === "design-girder" || stage.section === "design-end";
           const checks = structural ? [ ...(moduleResult(result, stage.module)?.checks ?? []), ...(stage.module === "girder" && request.active.includes("buckling") ? result.buckling?.checks ?? [] : []) ].filter(c => !HUMAN_CHECK.test(c.id)) : checksOf(result, stage);

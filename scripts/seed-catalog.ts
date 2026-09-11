@@ -213,6 +213,14 @@ for (const { file, application } of REDUCER_FILES) {
       // gereksiz yere şişirmemelidir. Doğru H sayfası seçilen n1 ile manifestte
       // çözülür; `input_speed_rpm` veritabanında kalır.
       delete a.technical_page;
+      // H1–H4 kademe bilgisidir; kullanıcı tek H ailesinden seçer.
+      if (brand === "FLENDER" && /^H[1-4]$/.test(String(a.series))) {
+        a.stage_type = a.series;
+        a.series = "H";
+      }
+      if (brand === "FLENDER") {
+        a.radial_load_basis = "MD 20.1 s.9/8: standart masif mil S, mil uzantısı ortasında kuvvet; düşeyden ±35°, f1 ≥ 1,2. Mil versiyonlarının en küçük FR2 değeri. H1 ve 19+ boylar üretici teyidi gerektirir; takviyeli yatak V tablosu kullanılmaz.";
+      }
       // İzin verilen radyal yükler katalogda N; motor ve kontroller kN bekliyor.
       for (const [k, isNewton] of [
         ["allowed_radial_output_kn", radialOutputIsNewton],

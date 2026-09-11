@@ -4,6 +4,11 @@ import { describe, expect, it } from "vitest";
 import { REPORT_LEVEL_LABELS, docCode, downloadFileName } from "../doc-naming";
 
 describe("docCode", () => {
+  it("teklif hesap raporunun TEHR kimliği kapakta aynen korunur", () => {
+    expect(docCode("HR", "TEHR-11092026-1", 0)).toBe("TEHR-11092026-1");
+    expect(docCode("HR", "TEHR-11092026-1", 2)).toBe("TEHR-11092026-1");
+    expect(downloadFileName(["VİNÇ", docCode("HR", "TEHR-11092026-1", 2), "V2"])).toContain("TEHR-11092026-1 - V2");
+  });
   it("belge türü + doküman no + revizyon", () => {
     expect(docCode("HR", "0055", 1)).toBe("ORC-HR-0055-R01");
     expect(docCode("EQ", "0055", 12)).toBe("ORC-EQ-0055-R12");

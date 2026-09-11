@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildProjectListEntries,
   projectEntryMatches,
+  projectEntrySortValue,
   projectEntryRevisionLabel,
   projectEntryStatusLabel,
   projectRowsFromRecords,
@@ -28,6 +29,14 @@ function row(
 }
 
 describe("Mühendislik ana defteri — iş bazında katlama", () => {
+  it("teklif raporunu gün-ay yazılı numaraya değil oluşturulma anına göre sıralar", () => {
+    const entries = buildProjectListEntries([
+      row("old", { doc_no: "TEHR-31082026-10", name: "ESKİ", created_at: "2026-08-31T10:00:00Z" }),
+      row("new", { doc_no: "TEHR-01092026-1", name: "YENİ", created_at: "2026-09-01T10:00:00Z" }),
+    ], false);
+    entries.sort((a,b) => String(projectEntrySortValue(b,"created_at")).localeCompare(String(projectEntrySortValue(a,"created_at"))));
+    expect(entries[0].projects[0].id).toBe("new");
+  });
   const rows = [
     row("single", {
       doc_no: "0063-00",

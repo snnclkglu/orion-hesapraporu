@@ -321,3 +321,18 @@ satırını birlikte taşıyan denetlenmiş 1-2 fiziksel sayfa `technical_extrac
 olarak kaydedilir. Aynı fiziksel aralığı paylaşan farklı makaleler de ürün
 kimliği ve bağı bakımından ayrı kalır; her kayıtta ortak kaynak belge ile gerçek
 sayfa aralığı açıkça izlenir.
+
+### 11.09.2026 — FLENDER H ailesi ve radyal kapasite doğrulaması
+
+MD 20.1 PDF s.9/8 (PDF sayfa 268) görsel olarak ve 6.128 kaynak satırla
+karşılaştırıldı; canlı veritabanındaki 140 model grubunun radyal değerleri
+aynıydı. Radyal kuvvet standart masif mil S için mil versiyonlarının en küçük
+FR2 değeridir; katalog zaten minimum değerler yayımlar. Mil uzantısı ortası,
+düşeyden ±35° ve f1 ≥ 1,2 koşulları geçerlidir. H1 ve 19+ gövdelere sayı
+uydurulmaz; V takviyeli yatak tablosu S tablosunun yerine kullanılamaz.
+`radial_load_basis` kaynak koşullarını katalogda görünür kılar.
+
+H1/H2/H3/H4 kullanıcı için tek `series=H` ailesidir; `model`, `stages` ve
+`stage_type` gerçek kademe/ürün kimliğini korur. B kademeleri değiştirilmedi.
+Seed aynı normalizasyonu yapar; `scripts/generate-flender-review.py` PDF'ten
+görsel doğrulanan alt sınırları kaynak JSON'a karşı sınayıp migration üretir.

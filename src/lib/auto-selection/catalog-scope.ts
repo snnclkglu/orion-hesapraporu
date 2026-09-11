@@ -16,6 +16,8 @@ export function selectionCatalogFilter(request: Pick<SelectionRequest, "active" 
   }
   const keys = activeBrandKeys(request);
   return CATALOG_KINDS.filter(kind => kinds.has(kind)).flatMap((kind): CatalogFilter => {
+    if (kind === "rope") return [{ kind, brands: request.brands.rope ? [request.brands.rope] : null,
+      ...(request.series?.rope ? { series: request.series.rope } : {}) }];
     if (kind === "gearbox") return [
       ...(request.active.some(isHoistKey) ? [{ kind, brands: request.brands.hoistGearbox ? [request.brands.hoistGearbox] : null, application: "kaldirma" as const, ...(request.series?.hoistGearbox ? { series: request.series.hoistGearbox } : {}) }] : []),
       ...(request.active.some(isTravelKey) ? [{ kind, brands: request.brands.travelGearbox ? [request.brands.travelGearbox] : null, application: "yurutme" as const, ...(request.series?.travelGearbox ? { series: request.series.travelGearbox } : {}) }] : []),

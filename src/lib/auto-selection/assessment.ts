@@ -1,3 +1,4 @@
+import { girderPlateRatioValid } from "./design-profile";
 import { runCalc, type CalcResult } from "@/lib/calc/engine";
 import { checkSeverity } from "@/lib/calc/types";
 import { moduleResult } from "@/lib/calc/presentation/module-access";
@@ -51,6 +52,11 @@ export function assessSelection(request: SelectionRequest, proposal: SelectionPr
   for (const key of active) {
     const moduleOutput = moduleResult(result, key);
     if (!moduleOutput) { failures.push(`audit.module.${key}`); issues.push({ code: `audit.module.${key}`, module: key, state: "missing", category: "data", message: "Etkin bölümün hesap sonucu yok." }); }
+    if (request.sizeDesigns && (key === "girder" || key === "girder2") && !girderPlateRatioValid(proposal.modules[key].inputs as unknown as Record<string, unknown>)) {
+      const code = `audit.girderRatio.${key}`;
+      failures.push(code); repair.add(key);
+      issues.push({ code, module: key, state: "failed", category: request.locks.includes(key) ? "constraint" : "repairable", message: "Yan sac yüksekliği / üst sac genişliği oranı 1,5–3 arasında olmalı." });
+    }
     if (!isHoistKey(key) && !isTravelKey(key)) continue;
     const hoist = isHoistKey(key);
     const sections = hoist ? ["2.4", "2.3"] : ["5.4", "5.5"];

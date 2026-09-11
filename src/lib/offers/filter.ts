@@ -104,6 +104,7 @@ export const TAKIP_BANDS = [
 ] as const;
 
 export interface OfferFilterInput {
+  openOnly?: boolean;
   /** ÇÖZÜLMÜŞ yıl: "tumu" ya da "2026". */
   yil: string;
   musteri: readonly string[];
@@ -143,10 +144,11 @@ export const EMPTY_OFFER_FILTER: OfferFilterInput = {
  */
 export function defaultOfferFilter(bugun: string): OfferFilterInput {
   const yil = /^(\d{4})-\d{2}-\d{2}$/.exec(bugun)?.[1] ?? "tumu";
-  return { ...EMPTY_OFFER_FILTER, yil, bugun };
+  return { ...EMPTY_OFFER_FILTER, yil, bugun, openOnly: true };
 }
 
 export function matchesOfferFilters(row: OfferListRow, f: OfferFilterInput): boolean {
+  if (f.openOnly && ["won", "budgetary"].includes(offerStatusOf(row.status))) return false;
   if (f.yil !== "tumu" && offerYear(row) !== f.yil) return false;
   if (f.musteri.length > 0 && !f.musteri.includes(row.customer_name.trim())) return false;
   if (f.durum.length > 0 && !f.durum.includes(offerStatusOf(row.status))) return false;

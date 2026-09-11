@@ -824,6 +824,8 @@ export interface HoistSelections {
   brakeQty: number;
   /** Frenin sipariş opsiyonları (çoklu, virgülle ayrık: "İçten Yaylı, Elle Açma Kolu") */
   brakeOptions?: string;
+  /** Frenlerin siparişteki sağ/sol dağılımı. */
+  brakeHandedness?: string;
   motorCouplingBrand: string;
   motorCouplingModel: string;
   motorCouplingWheelDiaMm: number;

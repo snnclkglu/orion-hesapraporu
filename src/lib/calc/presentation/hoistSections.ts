@@ -818,7 +818,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     inputKeys: ["brakeServiceFactor"],
     selectionKeys: [
       "brakeBrand", "brakeModel", "brakeTorqueNm", "brakeWheelDiaMm", "brakeQty",
-      "brakeOptions",
+      "brakeHandedness", "brakeOptions",
     ],
     rows: [
       {
