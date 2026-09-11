@@ -96,7 +96,7 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
 
   const { data: job, error } = await supabase
     .from("jobs")
-    .insert({ ...jobRowFrom(parsed.data), created_by: user.id })
+    .insert({ ...jobRowFrom(parsed.data), created_by: user.id, document_editing: true })
     .select("id")
     .single();
   if (error) {
@@ -119,6 +119,8 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
     if (itemsError) return { error: itemsError.message };
   }
 
+  const completed = await supabase.from('jobs').update({ document_editing: false }).eq('id', job.id);
+  if (completed.error) return { error: 'İş emri kaydı tamamlanamadı. Tekrar kaydedin.' };
   await supabase.from("audit_log").insert({
     actor: user.id,
     action: "job.create",
@@ -147,6 +149,10 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
   const parsed = jobInputSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
+  const editToken = crypto.randomUUID();
+  const lock = await supabase.rpc('job_document_lock', { p_job: jobId, p_token: editToken });
+  if (lock.error || !lock.data) return { error: 'Bu iş emri başka bir işlemde kaydediliyor. Kısa süre sonra yeniden deneyin.' };
+  try {
   // REVİZYON OLAYI İÇİN ÖNCEKİ HARF YAZMADAN ÖNCE OKUNUR — "neyden neye"
   // bilgisi olayın kendisidir ve sonradan geri hesaplanamaz (durum yazımıyla
   // aynı gerekçe). Sütun migration bekliyorsa sorgu hata döner ve harf boş
@@ -160,7 +166,7 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
 
   const { error } = await supabase
     .from("jobs")
-    .update(jobRowFrom(parsed.data))
+    .update({ ...jobRowFrom(parsed.data), document_editing: true })
     .eq("id", jobId);
   if (error) {
     return { error: error.code === "23505" ? "Bu iş no zaten kayıtlı" : error.message };
@@ -211,7 +217,8 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
     if (no && hedef && noById.has(hedef)) shareByNo.set(no, noById.get(hedef)!);
   }
 
-  await supabase.from("job_items").delete().eq("job_id", jobId);
+  const deletedItems = await supabase.from("job_items").delete().eq("job_id", jobId);
+  if (deletedItems.error) return { error: deletedItems.error.message };
 
   const items = cleanItems(parsed.data.items);
   if (items.length > 0) {
@@ -259,6 +266,8 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
     }
   }
 
+  const saved = await supabase.from('jobs').update({ document_editing: false }).eq('id', jobId);
+  if (saved.error) return { error: 'İş emri kaydı tamamlanamadı. Tekrar kaydedin.' };
   await supabase.from("audit_log").insert({
     actor: user.id,
     action: "job.update",
@@ -282,6 +291,9 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${jobId}`);
   redirect(`/jobs/${jobId}`);
+  } finally {
+    await supabase.rpc('job_document_lock', { p_job: jobId, p_token: editToken, p_release: true });
+  }
 }
 
 /**

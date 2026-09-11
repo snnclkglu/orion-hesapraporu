@@ -1,5 +1,9 @@
 # ORION Agent API v1
 
+E-posta yönetimi de bu kapının ayrı yetkileridir. Şablon, yayın, kural,
+önizleme ve gönderim işlemleri için [E-posta Merkezi yönergesini](email-center-agent.md)
+okuyun. Aşağıdaki yayımlama kısıtları Teklif modülüne aittir.
+
 Bu kapı, harici agent'ların ORION'a kullanıcı tarayıcısı veya oturum çerezi
 taklit etmeden bağlanması içindir. İlk açık modül Teklif'tir. Taslak oluşturma ve
 düzenleme vardır; yayımlama, yayımdan geri çekme, silme, teklif kopyalama,
@@ -8,7 +12,7 @@ maliyet, imza ve PDF binary bilerek yoktur.
 Production base URL:
 
 ```text
-https://orion-hesapraporu.vercel.app/api/agent
+https://app.orioncranes.com/api/agent
 ```
 
 ## Kurulum

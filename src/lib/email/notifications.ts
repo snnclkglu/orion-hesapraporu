@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notificationMessage } from "./message";
+import { captureNotificationEvents } from '@/lib/email-center/worker';
 
 export function emailNotificationsEnabled() {
   return process.env.EMAIL_NOTIFICATIONS_ENABLED === "true" &&
@@ -14,13 +15,10 @@ type OutboxRow = {
 
 /** Kimlik, başlık ve hedefler yalnız yetkili sunucu eyleminden gelir. */
 export async function queueNotificationEmails(rows: {
-  id: string; user_id: string; title: string; href: string;
+  id: string; user_id: string; title: string; href: string; kind?:string; job_id?:string|null; actor?:string; job_no?:string;
 }[]) {
   if (!emailNotificationsEnabled() || !rows.length) return;
-  const { error } = await createAdminClient().from("notification_email_outbox").insert(
-    rows.map(({ id, user_id, title, href }) => ({ id, user_id, title, href }))
-  );
-  if (error) throw new Error("E-posta kuyruğu yazılamadı.");
+  await captureNotificationEvents(rows);
 }
 
 /** Sağlayıcı arızaları ana iş kaydını etkilemez; cron kuyrukta kalanları tekrar dener. */

@@ -11,7 +11,7 @@ import "server-only";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { canEditOffers, canSeeOffers } from "@/lib/roles";
+import { canEditOffers, canSeeOffers, isAdminRole } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { OfferMutationError } from "@/app/(app)/offers/mutations";
 
@@ -29,7 +29,7 @@ const RESPONSE_HEADERS = {
 } as const;
 
 /** Her yeni bölüm burada kapalı bir scope olarak tanımlanır. */
-export const AGENT_SCOPES = ["offers:read", "offers:draft:write"] as const;
+export const AGENT_SCOPES = ["offers:read", "offers:draft:write", "email:read", "email:draft:write", "email:publish", "email:test:send", "email:send"] as const;
 export type AgentScope = (typeof AGENT_SCOPES)[number];
 
 const agentClientSchema = z
@@ -149,9 +149,15 @@ function defaultRateLimit(): number {
  */
 function configuredAgents(): ConfiguredAgent[] | null {
   const registry = process.env.AGENT_API_CLIENTS?.trim();
-  if (registry) {
+  const emailRegistry = process.env.EMAIL_AGENT_CLIENTS?.trim();
+  const token = process.env.AGENT_API_TOKEN?.trim() ?? "";
+  const actorId = process.env.AGENT_USER_ID?.trim() ?? "";
+  const legacy = token.length >= 32 && z.uuid().safeParse(actorId).success
+    ? [{id:'offers-v1',name:'Teklif Agentı',token,actorId,scopes:['offers:read','offers:draft:write']}]
+    : [];
+  if (registry || emailRegistry) {
     try {
-      const parsed = agentClientsSchema.safeParse(JSON.parse(registry));
+      const parsed = agentClientsSchema.safeParse([...(registry ? JSON.parse(registry) : legacy), ...(emailRegistry ? JSON.parse(emailRegistry) : [])]);
       if (!parsed.success) return null;
       return parsed.data.map((client) => ({
         ...client,
@@ -162,8 +168,6 @@ function configuredAgents(): ConfiguredAgent[] | null {
     }
   }
 
-  const token = process.env.AGENT_API_TOKEN?.trim() ?? "";
-  const actorId = process.env.AGENT_USER_ID?.trim() ?? "";
   if (token.length < 32 || !z.uuid().safeParse(actorId).success) return null;
   return [
     {
@@ -226,11 +230,13 @@ function rateLimitResponse(request: Request, agent: ConfiguredAgent): Response |
 }
 
 function profileCanUseScope(role: string | null, scope: AgentScope): boolean {
+  if (scope.startsWith('email:')) return isAdminRole(role);
   switch (scope) {
     case "offers:read":
       return canSeeOffers(role);
     case "offers:draft:write":
       return canEditOffers(role);
+    default: return false;
   }
 }
 

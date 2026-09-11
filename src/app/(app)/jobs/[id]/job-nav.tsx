@@ -32,6 +32,7 @@ export function JobNav({
       : []),
     { href: `${kok}/gorevler`, label: "Görevler", exact: false },
     { href: `${kok}/akis`, label: "Akış", exact: false },
+    { href: `${kok}/bildirimler`, label: "Yayın ve Bildirimler", exact: false },
     { href: `${kok}/baglantilar`, label: "Bağlantılar", exact: false },
   ];
   const aktifHref =

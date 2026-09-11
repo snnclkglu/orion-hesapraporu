@@ -23,6 +23,7 @@ import { JobStatusMenu } from "../../job-status-menu";
 import { FavoriButton } from "../../favori-button";
 import { JobNav } from "../job-nav";
 import { RecentMarker } from "../recent-marker";
+import { PublicationButton } from '../../publication-button';
 
 export default async function JobHubLayout({
   children,
@@ -56,6 +57,7 @@ export default async function JobHubLayout({
   if (!job) notFound();
   // İş emrini HERKES görür, DÜZENLEMEYİ Yönetici ve Müdür yapar (canEditJobs).
   const canEdit = canEditJobs((profil as { role?: string } | null)?.role);
+  const { data: publication } = await supabase.rpc('job_publication_state', { p_job: id });
 
   return (
     <div className="grid min-w-0 max-w-full gap-4 overflow-x-clip">
@@ -110,6 +112,7 @@ export default async function JobHubLayout({
         </div>
       </div>
 
+      <PublicationButton jobId={job.id} published={Boolean(publication?.published)} dirty={Boolean(publication?.dirty)} editable={canEdit} />
       <JobNav jobId={job.id} hasOfferDocument={hasOfferDocument === true} />
 
       {children}

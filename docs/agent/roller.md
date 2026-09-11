@@ -7,6 +7,13 @@
 
 **Kapsam:** `src/lib/roles.ts` · `src/proxy.ts` · `src/app/(app)/admin/**` · `src/app/(auth)/**` · `supabase/migrations/**`
 
+**E-posta Merkezi:** panel ve `email:*` ajan scope'ları ayrıca Yönetici rolünü
+doğrular. E-posta tablolarını istemci yazamaz; panel ve ajan aynı sunucu servisini
+kullanır. SQL yardımcıları yalnız service_role'a açıktır. İş emri yayın geçidi
+ayrıca `can_edit_jobs()` sorar; mevcut Yönetici/Müdür sınırı genişlemez.
+`/api/webhooks/resend` çerez yönlendirmesinden muaftır ama ham gövde imzası olmadan
+yazamaz. Yönerge: `docs/email-center-agent.md`.
+
 ## ROL-15 — Roller yetki SORUSUYLA sorulur, listeyle değil.
 
 `user_role` sekiz değer

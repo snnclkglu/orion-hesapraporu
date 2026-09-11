@@ -177,3 +177,8 @@
   ekranlarının AUTH'SUZ görsel önizlemesi (yalnız development). Ekran
   değiştirdiysen ÖNCE orada bak
 - Migration push: `npx supabase db push` (SUPABASE_ACCESS_TOKEN env ile; token asla commit etme)
+
+- E-posta Merkezi: `npm test -- src/lib/email-center src/lib/email src/lib/jobs src/app/api/webhooks/resend src/app/api/agent/__tests__` — güvenli HTML, alıcı tekilliği, gönderim korumaları, imza ve ajan yetkisi.
+- `node scripts/test-email-center-db.mjs --installed` — yayın, düzenleme kilidi, kuyruk sahipliği ve teslim sıralaması; tüm denemeler geri alınır. `ORION_SUPABASE_CLI` yerel CLI yoludur, bağlantı `.env.frankfurt` üzerinden okunur.
+- `node scripts/email-center.mjs get` — Codex için canlı e-posta merkezi; komut sözleşmesi `docs/email-center-agent.md` içindedir.
+- `/dev/email-center-preview` ve `?template=1` — yönetim ekranı ve gerçek varsayılan e-posta tasarımının gönderimsiz önizlemesi.

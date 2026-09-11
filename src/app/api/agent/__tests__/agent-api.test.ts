@@ -99,6 +99,7 @@ describe("agent teklif API güvenlik sınırı", () => {
     process.env.AGENT_API_TOKEN = token;
     process.env.AGENT_USER_ID = actorId;
     delete process.env.AGENT_API_CLIENTS;
+    delete process.env.EMAIL_AGENT_CLIENTS;
     delete process.env.AGENT_API_RATE_LIMIT;
     resetAgentRateLimitForTests();
     idempotencyRecords.clear();
@@ -111,6 +112,7 @@ describe("agent teklif API güvenlik sınırı", () => {
   });
 
   afterEach(() => {
+    delete process.env.EMAIL_AGENT_CLIENTS;
     delete process.env.AGENT_API_TOKEN;
     delete process.env.AGENT_USER_ID;
     delete process.env.AGENT_API_CLIENTS;
@@ -120,6 +122,16 @@ describe("agent teklif API güvenlik sınırı", () => {
   it("tokenı sabit boyutlu özetle karşılaştırır", () => {
     expect(secureTokenEquals(token, token)).toBe(true);
     expect(secureTokenEquals(`${token}-yanlış`, token)).toBe(false);
+  });
+
+  it('E-posta ajanı eklenmesi eski teklif anahtarını kapatmaz ve teklif anahtarına e-posta yetkisi vermez', async () => {
+    process.env.EMAIL_AGENT_CLIENTS=JSON.stringify([{id:'email-agent',name:'E-posta Agentı',token:token+'-email',actorId,scopes:['email:read']}]);
+    expect((await authorizeAgent(request(),'offers:read')).context).toBeDefined();
+    expect((await authorizeAgent(request(),'email:read')).response?.status).toBe(403);
+    expect((await authorizeAgent(request(token+'-email'),'email:read')).response?.status).toBe(403);
+    profileSingle.mockResolvedValue({data:{id:actorId,role:'admin'},error:null});
+    expect((await authorizeAgent(request(token+'-email'),'email:read')).context).toBeDefined();
+    expect((await authorizeAgent(request(token+'-email'),'email:send')).response?.status).toBe(403);
   });
 
   it("eksik veya yanlış tokenı 401 ile reddeder", async () => {

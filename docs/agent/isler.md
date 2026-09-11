@@ -9,20 +9,27 @@
 
 ## IS-25 — İŞLER BİR HUB'DIR
 
-**E-POSTA BİLDİRİMLERİ (11.09.2026):** `notify-write.ts` başarılı zil kaydından
-sonra aynı alıcıları yalnız sunucunun eriştiği `notification_email_outbox`a
-yazar. Atama, anma ve durum değişikliği kapsamındadır; işlemi yapan hariçtir.
-Eski bildirimlere geri dolum ve istemci INSERT'inden e-posta tetikleme yoktur.
-`lib/email/notifications.ts` yanıt sonrasında, `/api/cron/notification-emails`
-ise dakikada bir dener. Cron `CRON_SECRET` ister. `EMAIL_NOTIFICATIONS_ENABLED=true`,
-`VERCEL_ENV=production` ve `RESEND_API_KEY` birlikte gereklidir; önizleme göndermez.
-Gönderen `ORION <info@orioncranes.com>`, yanıt adresi `info@orioncranes.com`;
-bağlantı yalnız `https://app.orioncranes.com/jobs` altında olabilir.
-Alıcı doğrulanmış Auth e-postasıdır; kapatılan/değişen hesapta gönderim atlanır.
-Atomik sahiplenme, sabit gövde ve bildirim kimliğiyle Resend idempotency anahtarı
-aynı mesajın yeniden gönderimini önler. En çok sekiz deneme, 23 saat sınırı vardır.
-`sent` sağlayıcının kabulünü ifade eder; gelen kutusuna teslim Resend'den izlenir.
-Hata mesajlarında anahtar, e-posta gövdesi veya alıcı adresi yazdırılmaz.
+**E-POSTA MERKEZİ (11.09.2026):** Yönetim içindeki şablon, kural ve teslim
+defteridir. Kod değiştirmeden yönetim için önce `docs/email-center-agent.md`
+okunur. `notify-write.ts` bir işlemdeki alıcıları TEK `email_events` olayına
+bağlar; her alıcı için ayrı olay oluşturmak rol kurallarında çift gönderirdi.
+Eski `notification_email_outbox` yalnız kalan mesajları boşaltır. Yeni kod iki
+kuyruğa aynı mesajı yazmaz. Alıcı listesi boşken zil satırı yazılmaz; e-posta
+olayı, ayrıca kişi/rol seçilmiş bir kuralı değerlendirebilir.
+
+İş emri YAYINI kaydetmeden ayrıdır: `publish_job_order` işin anlık fotoğrafını
+ve kural/alıcı/sürüm fotoğrafını transaction içinde kaydeder. Aynı revizyon
+aynı fotoğrafla yeniden yayın oluşturmaz; değişen aynı revizyon reddedilir.
+`document_editing` yarım kalmış başlık/kalem kaydının yayımlanmasını önler.
+Eski işler geriye dönük yayımlanmaz. Mevcut üç bildirim canlı, yeni yayın
+kuralları alıcı seçilene kadar kapalı başlar. Gönderim hatası yayını geri almaz.
+
+Cron `CRON_SECRET` ister; gönderim için `EMAIL_NOTIFICATIONS_ENABLED=true`,
+`VERCEL_ENV=production`, `RESEND_API_KEY` birlikte gereklidir. İlk denemeden
+sonra 23 saat / sekiz deneme sınırı vardır. Gönderen ve yanıt adresi info@orioncranes.com,
+bağlantı app.orioncranes.com altındadır. `sent` kabul, `delivered` alıcı sunucusuna
+teslimdir. Webhook ham gövdede Svix imzasıyla doğrulanır; yalnız olay metadatası
+saklanır. Şablon sürümleri ve yayınlar değiştirilemez.
 
 (kullanıcı kararı, 16.08.2026: *"İşler sayfasını
 Notion gibi gelişmiş bir iş yönetim programına çevirmek istiyorum …

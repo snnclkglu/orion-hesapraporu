@@ -1,0 +1,12 @@
+-- scripts/generate-email-defaults.ts tarafından üretilir.
+do $$ declare tid uuid; vid uuid; begin
+  insert into public.email_templates(slug,name) values('orion-bildirim','ORION Bildirimi') returning id into tid;
+  insert into public.email_template_versions(template_id,version,content,source) values(tid,1,'{"subject":"ORION · {{notification.title}}","preheader":"{{job.number}} · {{job.customerName}}","html":"<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color:#FAF9F7;font-family:Arial,sans-serif;color:#262626\"><tr><td align=\"center\" style=\"padding:24px\"><table role=\"presentation\" width=\"100%\" cellpadding=\"24\" cellspacing=\"0\" style=\"max-width:600px;background-color:#ffffff\"><tr><td style=\"background-color:#262626;color:#ffffff;font-size:24px;font-weight:bold\">ORION</td></tr><tr><td><p>Merhaba {{recipient.name}},</p><h1 style=\"font-size:22px\">{{notification.title}}</h1>{{#if job.number}}<p><strong>İş no:</strong> {{job.number}}</p>{{/if}}{{#if job.customerName}}<p><strong>Müşteri:</strong> {{job.customerName}}</p>{{/if}}{{#if job.deliveryDate}}<p><strong>Teslim tarihi:</strong> {{job.deliveryDate}}</p>{{/if}}{{#if publication.revisionLabel}}<p>{{publication.revisionLabel}}</p>{{/if}}<table role=\"presentation\" cellpadding=\"14\" cellspacing=\"0\"><tr><td bgcolor=\"#A41E1E\" style=\"background-color:#A41E1E\"><a href=\"{{links.job}}\" style=\"color:#ffffff;text-decoration:none;font-weight:bold\">Uygulamada görüntüle</a></td></tr></table><p style=\"font-size:12px;color:#666666\">ORION İş Yönetim Sistemi</p></td></tr></table></td></tr></table>","text":"Merhaba {{recipient.name}},\n{{notification.title}}\n{{#if job.number}}İş no: {{job.number}}\n{{/if}}{{#if job.customerName}}Müşteri: {{job.customerName}}\n{{/if}}{{#if job.deliveryDate}}Teslim: {{job.deliveryDate}}\n{{/if}}{{links.job}}","requiredFields":["notification.title","links.job"]}'::jsonb,'kurulum') returning id into vid;
+  update public.email_templates set published_version_id=vid where id=tid;
+  insert into public.email_rules(name,event_type,template_id,mode,related_recipients) values
+    ('Görev atama','gorev_atandi',tid,'live',true),
+    ('Yorumda bahsetme','bahsedildi',tid,'live',true),
+    ('İş durumu değişikliği','durum_degisti',tid,'live',true),
+    ('İş emri ilk yayını','job.published',tid,'off',false),
+    ('İş emri revizyon yayını','job.revised',tid,'off',false);
+end $$;

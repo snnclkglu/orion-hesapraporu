@@ -11,7 +11,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotificationKind } from "@/lib/jobs/notify";
 import { randomUUID } from "node:crypto";
 import { after } from "next/server";
-import { queueNotificationEmails, processNotificationEmails } from "@/lib/email/notifications";
+import { queueNotificationEmails } from "@/lib/email/notifications";
+import { processEmailCenter } from '@/lib/email-center/worker';
 
 export async function bildirimYaz(
   supabase: SupabaseClient,
@@ -26,7 +27,6 @@ export async function bildirimYaz(
     actor: string;
   }
 ): Promise<void> {
-  if (b.targets.length === 0) return;
   const rows = [...new Set(b.targets)].filter((id) => id !== b.actor).map((user_id) => ({
       id: randomUUID(),
       user_id,
@@ -37,13 +37,16 @@ export async function bildirimYaz(
       href: b.href,
       actor: b.actor,
     }));
-  if (!rows.length) return;
   try {
-    const { error } = await supabase.from("notifications").insert(rows);
-    if (error) return;
-    await queueNotificationEmails(rows);
+    if(rows.length) {
+      const { error } = await supabase.from("notifications").insert(rows);
+      if (error) return;
+    }
+    // Olayın ilgili kişisi yokken de açıkça rol/kişi seçilmiş bir e-posta kuralı olabilir.
+    // Bu durumda zil tablosuna sahte satır eklenmez; olay ayrı kaydedilir.
+    await queueNotificationEmails(rows.length?rows:[{id:randomUUID(),user_id:'',title:b.title,href:b.href,kind:b.kind,job_id:b.jobId,actor:b.actor,job_no:b.jobNo}]);
     after(async () => {
-      try { await processNotificationEmails(); }
+      try { await processEmailCenter(1); }
       catch { console.error("E-posta kuyruğu sonraki denemeye bırakıldı."); }
     });
   } catch {

@@ -11,6 +11,7 @@ const ITEMS = [
   // değiştiren kişi, o değişikliğin hangi bölümü açtığını bir sonraki
   // maddeden görür.
   { href: "/admin/access", label: "Yetkiler" },
+  { href: "/admin/email-center", label: "E-posta Merkezi" },
   { href: "/admin/deletion-requests", label: "Silme Onayları" },
   { href: "/admin/customers", label: "Müşteriler" },
   { href: "/admin/profile-scoring", label: "Profil Puanlama" },
