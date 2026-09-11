@@ -9,6 +9,21 @@
 
 ## IS-25 — İŞLER BİR HUB'DIR
 
+**E-POSTA BİLDİRİMLERİ (11.09.2026):** `notify-write.ts` başarılı zil kaydından
+sonra aynı alıcıları yalnız sunucunun eriştiği `notification_email_outbox`a
+yazar. Atama, anma ve durum değişikliği kapsamındadır; işlemi yapan hariçtir.
+Eski bildirimlere geri dolum ve istemci INSERT'inden e-posta tetikleme yoktur.
+`lib/email/notifications.ts` yanıt sonrasında, `/api/cron/notification-emails`
+ise dakikada bir dener. Cron `CRON_SECRET` ister. `EMAIL_NOTIFICATIONS_ENABLED=true`,
+`VERCEL_ENV=production` ve `RESEND_API_KEY` birlikte gereklidir; önizleme göndermez.
+Gönderen `ORION <info@orioncranes.com>`, yanıt adresi `info@orioncranes.com`;
+bağlantı yalnız `https://app.orioncranes.com/jobs` altında olabilir.
+Alıcı doğrulanmış Auth e-postasıdır; kapatılan/değişen hesapta gönderim atlanır.
+Atomik sahiplenme, sabit gövde ve bildirim kimliğiyle Resend idempotency anahtarı
+aynı mesajın yeniden gönderimini önler. En çok sekiz deneme, 23 saat sınırı vardır.
+`sent` sağlayıcının kabulünü ifade eder; gelen kutusuna teslim Resend'den izlenir.
+Hata mesajlarında anahtar, e-posta gövdesi veya alıcı adresi yazdırılmaz.
+
 (kullanıcı kararı, 16.08.2026: *"İşler sayfasını
 Notion gibi gelişmiş bir iş yönetim programına çevirmek istiyorum …
 tüm kullanıcılara hitap edecek genel iyileştirmeler"* — kapsamın tamamı
