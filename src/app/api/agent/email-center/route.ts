@@ -16,7 +16,8 @@ export async function GET(request:Request){
   });
 }
 export async function POST(request:Request){
-  const json=await readAgentJson(request);if(json.response)return json.response;
+  // Asıl gövde tekrar güvenliği için okunabilir kalmalıdır.
+  const json=await readAgentJson(request.clone());if(json.response)return json.response;
   const parsed=commandSchema.safeParse(json.data);if(!parsed.success)return agentError(parsed.error.issues.map(i=>i.message).join(' · '),422);
   const command=parsed.data;
   const scopes:Record<typeof command.action,AgentScope>={
