@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     // Önceki sürümde sıraya girmiş mesajlar yalnız eski işleyicide boşaltılır.
     // Yeni bildirimler bu eski tabloya artık yazılmaz.
     const legacy=await processNotificationEmails(1);
-    const current=await processEmailCenter(2);
+    const current=await processEmailCenter(25);
     return NextResponse.json({legacy,...current});
   } catch {
     return NextResponse.json({ error: "E-posta kuyruğu işlenemedi." }, { status: 503 });

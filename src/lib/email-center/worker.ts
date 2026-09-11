@@ -23,8 +23,9 @@ export async function captureNotificationEvents(rows:{id:string;user_id:string;t
 }
 export async function processEmailCenter(limit=3) {
   if(!emailCenterEnabled()) return {processed:0,disabled:true};
+  const deadline=Date.now()+35_000;
   const admin=createAdminClient();let processed=0;
-  for(let index=0;index<limit;index++) {
+  for(let index=0;index<limit && Date.now()<deadline-12_000;index++) {
     const {data,error}=await admin.rpc('email_claim_event');dbCheck(error);
     const event=(data as EmailEvent[]|null)?.[0];if(!event) break;
     try {
@@ -34,7 +35,7 @@ export async function processEmailCenter(limit=3) {
       const {error}=await admin.from('email_events').update({status:'pending',lease_until:null,last_error:'Olay hazırlanamadı; tekrar denenecek.'}).eq('id',event.id).eq('attempts',event.attempts);dbCheck(error);
     }
   }
-  for(let index=0;index<limit;index++) {
+  for(let index=0;index<limit && Date.now()<deadline-12_000;index++) {
     const {data,error}=await admin.rpc('email_claim_delivery');dbCheck(error);
     const row=data?.[0];if(!row) break;
     const update=async(values:Record<string,unknown>)=> {
