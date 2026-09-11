@@ -10,7 +10,7 @@ import type { emailCenterData, EmailCommand } from '@/lib/email-center/service';
 type CenterData=Awaited<ReturnType<typeof emailCenterData>>;
 type Preview={payload:{subject:string;html:string;text:string};recipients:Recipient[];testAddress:string};
 type DeliveryDetail={id:string;status:string;payload:{subject?:string;html?:string;text?:string};provider_events:Record<string,string>;reasons:string[];first_attempt_at:string|null;attempts:number;provider_id:string|null};
-const date=(value:string|null)=>value?new Date(value).toLocaleString('tr-TR'):'—';
+const date=(value:string|null)=>value?new Date(value).toLocaleString('tr-TR',{timeZone:'Europe/Istanbul'}):'—';
 const panel='rounded-xl border bg-card p-4 sm:p-5';
 const control='oc-tap min-h-10 w-full rounded-md border bg-background px-3 py-2 text-base md:text-sm';
 const tabs=[{key:'overview',label:'Genel Bakış',icon:Mail},{key:'rules',label:'Kurallar',icon:Workflow},{key:'templates',label:'Şablonlar',icon:FileCode2},{key:'history',label:'Gönderimler',icon:History},{key:'settings',label:'Ayarlar',icon:Settings2}] as const;
