@@ -50,6 +50,26 @@ kullanmalıdır.
 
 ## Ortak istek sözleşmesi
 
+### Mevcut gizli kaydı değiştirmeden görev kapsamı ekleme
+
+Vercel'de geri okunamayan `AGENT_API_CLIENTS` kaydının tamamını yeniden
+yazmak gerekmez. Sunucuya ayrı `AGENT_TASK_SCOPE_GRANTS` JSON dizisi verilebilir:
+
+```json
+[{"tokenSha256":"<mevcut-bearer-tokeninin-64-karakter-kucuk-harf-sha256-ozeti>","scopes":["tasks:context:read","tasks:read","tasks:write","tasks:comment"]}]
+```
+
+Özet, token'ın başında/sonunda boşluk veya satır sonu olmadan UTF-8 baytlarından
+hesaplanır. Bu değer bearer token değildir ve kimlik doğrulamada kullanılamaz.
+Yalnız mevcut kayıtla eşleşen token'ın görev kapsamlarını genişletir; ajan
+kimliği, profil, teklif/e-posta izinleri, hız sınırı ve görev görünürlüğü değişmez.
+Yeni ajan oluşturmaz. Görev dışı scope, tekrar veya bozuk JSON güvenli biçimde
+503 üretir. Token yenilenirse özet de yenilenmelidir; aksi halde ek izin uygulanmaz.
+Bu ayar `NEXT_PUBLIC_` veya `next.config` içine yazılmaz. Üretim ayarı değiştikten
+sonra yeni dağıtım gerekir. Geri almak için yalnız ilgili ek izin kaydı kaldırılır
+ve yeniden dağıtılır; asıl ajan kayıtları korunur. Canlı kabulde mevcut token ile
+`GET /api/agent/tasks/context` ve `GET /api/agent/tasks` sınanır.
+
 Her iş isteği şu başlığı taşır:
 
 ```http

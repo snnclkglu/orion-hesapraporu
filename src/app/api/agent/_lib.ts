@@ -67,6 +67,30 @@ const agentClientsSchema = z
     });
   });
 
+// Mevcut gizli kayıt yeniden okunamadığında yalnız seçilmiş token'a görev
+// kapsamı ekler. Yeni kimlik/token oluşturmaz; profil ve kayıt yetkileri aynıdır.
+const taskScopeGrantsSchema = z.array(z.object({
+  tokenSha256: z.string().regex(/^[a-f0-9]{64}$/),
+  scopes: z.array(z.enum(["tasks:context:read", "tasks:read", "tasks:write", "tasks:comment"]))
+    .min(1).max(4).refine(scopes => new Set(scopes).size === scopes.length),
+}).strict()).max(50).refine(grants => new Set(grants.map(grant => grant.tokenSha256)).size === grants.length);
+
+function applyTaskScopeGrants(clients: ConfiguredAgent[]): ConfiguredAgent[] | null {
+  const raw = process.env.AGENT_TASK_SCOPE_GRANTS?.trim();
+  if (!raw) return clients;
+  try {
+    const parsed = taskScopeGrantsSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return null;
+    return clients.map(client => {
+      const digest = createHash("sha256").update(client.token).digest("hex");
+      const grant = parsed.data.find(value => value.tokenSha256 === digest);
+      return grant ? { ...client, scopes: [...new Set([...client.scopes, ...grant.scopes])] } : client;
+    });
+  } catch {
+    return null;
+  }
+}
+
 export interface AgentPrincipal {
   id: string;
   name: string;
@@ -159,17 +183,17 @@ function configuredAgents(): ConfiguredAgent[] | null {
     try {
       const parsed = agentClientsSchema.safeParse([...(registry ? JSON.parse(registry) : legacy), ...(emailRegistry ? JSON.parse(emailRegistry) : [])]);
       if (!parsed.success) return null;
-      return parsed.data.map((client) => ({
+      return applyTaskScopeGrants(parsed.data.map((client) => ({
         ...client,
         rateLimitPerMinute: client.rateLimitPerMinute ?? defaultRateLimit(),
-      }));
+      })));
     } catch {
       return null;
     }
   }
 
   if (token.length < 32 || !z.uuid().safeParse(actorId).success) return null;
-  return [
+  return applyTaskScopeGrants([
     {
       id: "offers-v1",
       name: "Teklif Agentı",
@@ -178,7 +202,7 @@ function configuredAgents(): ConfiguredAgent[] | null {
       scopes: ["offers:read", "offers:draft:write"],
       rateLimitPerMinute: defaultRateLimit(),
     },
-  ];
+  ]);
 }
 
 function bearerToken(request: Request): string {

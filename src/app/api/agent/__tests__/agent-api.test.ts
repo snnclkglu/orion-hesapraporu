@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { createHash } from "node:crypto";
 
 const actorId = "11111111-1111-4111-8111-111111111111";
 const token = "agent-test-token-that-is-longer-than-thirty-two-characters";
@@ -99,6 +100,7 @@ describe("agent teklif API güvenlik sınırı", () => {
     process.env.AGENT_API_TOKEN = token;
     process.env.AGENT_USER_ID = actorId;
     delete process.env.AGENT_API_CLIENTS;
+    delete process.env.AGENT_TASK_SCOPE_GRANTS;
     delete process.env.EMAIL_AGENT_CLIENTS;
     delete process.env.AGENT_API_RATE_LIMIT;
     resetAgentRateLimitForTests();
@@ -112,6 +114,7 @@ describe("agent teklif API güvenlik sınırı", () => {
   });
 
   afterEach(() => {
+    delete process.env.AGENT_TASK_SCOPE_GRANTS;
     delete process.env.EMAIL_AGENT_CLIENTS;
     delete process.env.AGENT_API_TOKEN;
     delete process.env.AGENT_USER_ID;
@@ -122,6 +125,52 @@ describe("agent teklif API güvenlik sınırı", () => {
   it("tokenı sabit boyutlu özetle karşılaştırır", () => {
     expect(secureTokenEquals(token, token)).toBe(true);
     expect(secureTokenEquals(`${token}-yanlış`, token)).toBe(false);
+  });
+
+  it("özetle verilen görev izni yalnız mevcut eşleşen ajanı genişletir, kimliğini korur", async () => {
+    process.env.AGENT_API_CLIENTS = JSON.stringify([
+      { id: "grok-offers", name: "Grok", token, actorId, scopes: ["offers:read"] },
+      { id: "other-agent", name: "Diğer", token: token + "-other", actorId, scopes: ["offers:read"] },
+    ]);
+    process.env.AGENT_TASK_SCOPE_GRANTS = JSON.stringify([{
+      tokenSha256: createHash("sha256").update(token).digest("hex"),
+      scopes: ["tasks:context:read", "tasks:read", "tasks:write", "tasks:comment"],
+    }]);
+    for (const scope of ["tasks:context:read", "tasks:read", "tasks:write", "tasks:comment"] as const) {
+      const result = await authorizeAgent(request(), scope);
+      expect(result.context?.principal).toMatchObject({ id: "grok-offers", actorId });
+      expect((await authorizeAgent(request(token + "-other"), scope)).response?.status).toBe(403);
+    }
+    expect((await authorizeAgent(request(), "offers:read")).context).toBeDefined();
+    expect((await authorizeAgent(request(), "offers:draft:write")).response?.status).toBe(403);
+    expect((await authorizeAgent(request(), "email:read")).response?.status).toBe(403);
+    expect((await authorizeAgent(request("unknown-token"), "tasks:read")).response?.status).toBe(401);
+    profileSingle.mockResolvedValueOnce({ data: null, error: null });
+    expect((await authorizeAgent(request(), "tasks:read")).response?.status).toBe(403);
+  });
+
+  it("görev özeti eski teklif kurulumu ile de çalışır", async () => {
+    process.env.AGENT_TASK_SCOPE_GRANTS = JSON.stringify([{
+      tokenSha256: createHash("sha256").update(token).digest("hex"), scopes: ["tasks:read"],
+    }]);
+    expect((await authorizeAgent(request(), "tasks:read")).context?.principal.id).toBe("offers-v1");
+    expect((await authorizeAgent(request(), "offers:draft:write")).context).toBeDefined();
+    delete process.env.AGENT_API_TOKEN;
+    delete process.env.AGENT_USER_ID;
+    expect((await authorizeAgent(request(), "tasks:read")).response?.status).toBe(503);
+  });
+
+  it.each([
+    "invalid-json",
+    JSON.stringify([{ tokenSha256: "invalid", scopes: ["tasks:read"] }]),
+    JSON.stringify([{ tokenSha256: "a".repeat(64), scopes: ["offers:draft:write"] }]),
+    JSON.stringify([{ tokenSha256: "a".repeat(64), scopes: ["tasks:read"], actorId }]),
+    JSON.stringify([{ tokenSha256: "a".repeat(64), scopes: ["tasks:read", "tasks:read"] }]),
+    JSON.stringify(Array(2).fill({ tokenSha256: "a".repeat(64), scopes: ["tasks:read"] })),
+  ])("geçersiz ek görev ayarı güvenli biçimde kapanır: %s", async value => {
+    process.env.AGENT_TASK_SCOPE_GRANTS = value;
+    expect((await authorizeAgent(request(), "tasks:read")).response?.status).toBe(503);
+    expect(adminClient.from).not.toHaveBeenCalled();
   });
 
   it('E-posta ajanı eklenmesi eski teklif anahtarını kapatmaz ve teklif anahtarına e-posta yetkisi vermez', async () => {
