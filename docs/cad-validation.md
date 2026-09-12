@@ -172,3 +172,15 @@ kaydı değiştirir. Hatalı kodda kayıt korunur; eski süreçler sonlanmışsa
 bağlantı duraklatılmış olarak yeniden açılır. İşler/çıktılar silinmez.
 15 yardımcı testi geçti: yeniden bağlantı sırası, başarısız kodda kayıt koruma,
 aktif iş engeli ve eski iş parçacıklarını bekleme dahil. AutoCAD motoru değişmedi.
+
+## 12 Eylül 2026 — Yardımcı 1.0.4 / ardışık pafta baskısı
+
+Kullanıcının KANCA BLOĞU iş günlüğünde ilk PDF başarılı, kalan 16 pafta
+RPC -2147418111 nedeniyle başarısızdı. Aynı yerel kaynak dosyanın ayrı kopyası
+yeni EXE ile AutoCAD 2025 üzerinde test edildi: 84,2 saniye, 17/17 başarılı
+pafta, 45 malzeme satırı, sıfır işlem hatası. Birleşik dahil 18 PDF / 34 sayfa
+okundu. Kaynak SHA-256 b05cc68ca295bf35707484793d7e65d929cfa66f679e84b4f326ce4670718566
+değişmedi. Bulut iş kaydı ve orijinal dosya değiştirilmedi; işlem sonrası hazır.
+18 yardımcı testi ve EXE self-test geçti. Kaynak motor değiştirilmedi.
+0063-00-0804 antet/çerçeve ölçek farkı bulgusu korunuyor; bu baskı hatası değildir.
+Yeni sürümde başarısız iş mesajı varsa üretilen pafta sayısını da belirtir.

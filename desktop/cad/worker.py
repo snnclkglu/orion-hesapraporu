@@ -15,7 +15,7 @@ import time
 from urllib.parse import urlparse
 import uuid
 
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 PROTOCOL = 1
 MAX_BYTES = 100 * 1024 * 1024
 MAX_RESULT = 2 * 1024 * 1024
@@ -149,15 +149,43 @@ class Api:
             raise RuntimeError("Çıktı yüklenemedi; dosya yerelde korundu.")
 
 
-def com_read(read):
+def com_read(read, attempts=21):
     # AutoCAD açılışında kısa süreli RPC reddi görülebilir; yalnız okumayı tekrarlar.
-    for attempt in range(21):
+    for attempt in range(attempts):
         try:
             return read()
         except Exception as error:
-            if getattr(error, "hresult", None) not in (-2147418111, -2147417846) or attempt == 20:
+            if getattr(error, "hresult", None) not in (-2147418111, -2147417846) or attempt == attempts - 1:
                 raise
             time.sleep(0.25)
+
+
+class PlotComProxy:
+    """Yalnız baskı nesnelerinde, sunucunun kabul etmediği COM çağrılarını tekrarlar."""
+    def __init__(self, target):
+        object.__setattr__(self, "_target", target)
+
+    def __getattr__(self, key):
+        value = com_read(lambda: getattr(self._target, key), attempts=121)
+        if callable(value):
+            return lambda *args, **kwargs: com_read(lambda: value(*args, **kwargs), attempts=121)
+        return value
+
+    def __setattr__(self, key, value):
+        com_read(lambda: setattr(self._target, key, value), attempts=121)
+
+
+def wait_plot_ready(acad, document, timeout=30):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            if acad.GetAcadState().IsQuiescent and int(document.GetVariable("CMDACTIVE")) == 0:
+                return
+        except Exception as error:
+            if getattr(error, "hresult", None) not in (-2147418111, -2147417846):
+                raise
+        time.sleep(0.25)
+    raise RuntimeError("AutoCAD baskıdan sonra hazır duruma dönmedi. Açık baskı/uyarı pencerelerini kontrol edin; işlem durduruldu.")
 
 
 def is_pristine_startup_document(document) -> bool:
@@ -295,7 +323,15 @@ def run_engine(job: dict, root: Path, stop: threading.Event) -> None:
                 process.wait(timeout=15)
                 raise RuntimeError("İş durdu. AutoCAD zorla kapatılmadı; açık işlem çizimini ve başlangıç ayarlarını kontrol edin.")
         if process.returncode != 0:
-            raise RuntimeError("AutoCAD işlemi tamamlanamadı. Yerel iş klasöründeki engine.log dosyasını inceleyin.")
+            message = "AutoCAD işlemi tamamlanamadı."
+            try:
+                summary = json.loads((root / "raw-result.json").read_text(encoding="utf-8"))["ozet"]
+                message += f" {int(summary['pafta'])} paftanın {int(summary['pdf_basarili'])} tanesi PDF oldu."
+                if "-2147418111" in (root / "engine.log").read_text(encoding="utf-8") or "-2147417846" in (root / "engine.log").read_text(encoding="utf-8"):
+                    message += " AutoCAD meşgul olduğu için baskı çağrısını kabul etmedi; açık baskı/uyarı pencerelerini kontrol edin."
+            except Exception:
+                pass
+            raise RuntimeError(message + " Ayrıntılar yerel iş klasöründeki engine.log dosyasında.")
 
 
 def engine_main(args: list[str]) -> int:
@@ -346,6 +382,18 @@ def engine_main(args: list[str]) -> int:
         return GuardedDocument(document), True
 
     engine.open_document = safe_open
+    original_plot = engine.configure_and_plot
+
+    def safe_plot(document, layout, *args, **kwargs):
+        from types import SimpleNamespace
+        wait_plot_ready(acad, document)
+        # Kaynak motor korunur; yalnız baskı COM erişimleri entegrasyonda sarılır.
+        plot_document = SimpleNamespace(Plot=PlotComProxy(com_read(lambda: document.Plot)))
+        answer = original_plot(plot_document, PlotComProxy(layout), *args, **kwargs)
+        wait_plot_ready(acad, document)
+        return answer
+
+    engine.configure_and_plot = safe_plot
     sys.argv = ["pafta_ayikla", source, "--out", output, "--sonuc", result, "--paper", paper, "--kopya", duplicates]
     try:
         return engine.main()

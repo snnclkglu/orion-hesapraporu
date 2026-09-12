@@ -65,7 +65,7 @@ yapılır; geniş dağıtımda kurumun kod imzalama sertifikasıyla imzalanmalı
    `--check` dahi Supabase'e kaynak yükler; açık dağıtım yetkisi olmadan çalıştırılmaz.
    Yetki sonrasında `node scripts/cad-deploy.cjs` yalnız `cad-api` dağıtır.
 3. `node scripts/cad-release.cjs --prepare` EXE hash'ini gösterir. Yetki sonrası
-   `--upload` özel `cad-private/releases/1.0.3/` yoluna yükler ve indirdiği kopyanın
+   `--upload` özel `cad-private/releases/1.0.4/` yoluna yükler ve indirdiği kopyanın
    hash'ini doğrular. Yönetici anahtarı geçici olarak bellekte kullanılır;
    istemciye, EXE'ye veya dosyaya konulmaz. Var olan farklı sürüm ezilmez.
 4. Web uygulaması normal Vercel yayın sürecinden geçirilir. Bu depo başka
@@ -80,3 +80,10 @@ Eski yardımcıyı kapatıp webden yeni EXE indirin. Aynı Windows hesabında ba
 kaydı korunur; yeniden kod gerekmez. Değiştirilmemiş ve içeriksiz Drawing1
 sekmesi açık kalabilir. Gerçek çizimlerinizi kaydedip kapattıktan sonra Kontrol
 et ve başlat kullanın. Yardımcı hiçbir kullanıcı sekmesini kapatmaz.
+
+## Yardımcı 1.0.4
+
+Paftalar arasında AutoCAD hazır olana kadar bekler; geçici meşgul yanıtlarında
+baskı erişimini sınırlı tekrar eder. Eski yardımcıyı kapatıp yeni EXE indirin.
+Mevcut bağlantı korunur. Kontrol et ve başlat sonrasında webde hatalı işi
+Yeniden dene ile çalıştırabilirsiniz.

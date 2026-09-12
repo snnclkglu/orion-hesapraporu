@@ -14,6 +14,45 @@ import worker
 
 
 class WorkerSafetyTests(unittest.TestCase):
+    def test_plot_proxy_retries_rejected_properties_and_methods(self):
+        error = RuntimeError('busy'); error.hresult = -2147418111
+        class Layout:
+            def __init__(self): self.writes = 0; self.reads = 0
+            @property
+            def ConfigName(self):
+                self.reads += 1
+                if self.reads == 1: raise error
+                return 'PDF.pc3'
+            @ConfigName.setter
+            def ConfigName(self, value):
+                self.writes += 1
+                if self.writes == 1: raise error
+        target = Layout(); target.PlotToFile = Mock(side_effect=[error,True])
+        proxy = worker.PlotComProxy(target)
+        with patch.object(worker.time, 'sleep'):
+            self.assertEqual(proxy.ConfigName, 'PDF.pc3')
+            proxy.ConfigName = 'PDF.pc3'
+            self.assertTrue(proxy.PlotToFile('test.pdf'))
+        self.assertEqual(target.writes,2)
+        self.assertEqual(target.PlotToFile.call_count,2)
+
+    def test_plot_proxy_does_not_retry_unknown_or_completed_calls(self):
+        target = SimpleNamespace(PlotToFile=Mock(return_value=True))
+        worker.PlotComProxy(target).PlotToFile('test.pdf')
+        self.assertEqual(target.PlotToFile.call_count,1)
+        target.PlotToFile = Mock(side_effect=RuntimeError('invalid plotter'))
+        with self.assertRaises(RuntimeError): worker.PlotComProxy(target).PlotToFile('test.pdf')
+        self.assertEqual(target.PlotToFile.call_count,1)
+
+    def test_plot_wait_requires_idle_command_and_has_deadline(self):
+        acad = self.acad([],idle=True)
+        doc = SimpleNamespace(GetVariable=Mock(side_effect=[1,0]))
+        with patch.object(worker.time,'sleep'):
+            worker.wait_plot_ready(acad,doc)
+        self.assertEqual(doc.GetVariable.call_count,2)
+        with patch.object(worker.time,'monotonic',side_effect=[0,1,31]), patch.object(worker.time,'sleep'):
+            with self.assertRaises(RuntimeError): worker.wait_plot_ready(self.acad([],idle=False),doc)
+
     def test_repair_replaces_credentials_only_after_valid_pair(self):
         existing = Mock()
         order = []

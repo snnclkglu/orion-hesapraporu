@@ -97,3 +97,11 @@ varsa önce duraklatma/tamamlanma gerekir. Eski kuyruk ve heartbeat iş parçac�
 sonlanmadan yeni eşleştirme yapılmaz. Yalnız başarılı pair yanıtından sonra DPAPI
 kaydı atomik değiştirilir; hatalı kod eski kaydı silmez. Yerel iş dosyalarına
 dokunulmaz. Bağlantıyı yenilemek için kullanıcının connection.dat silmesi istenmez.
+
+## CAD-8 — Ardışık baskıda AutoCAD meşgul durumu
+
+Yardımcı 1.0.4 kaynak motoru değiştirmeden configure_and_plot erişimini sarar.
+Her paftadan önce/sonra IsQuiescent ve CMDACTIVE=0 için en fazla 30 saniye
+bekler. Yalnız baskı COM nesnelerinde RPC_E_CALL_REJECTED / RETRYLATER
+çağrıları en fazla 30 saniye tekrar edilir. Başarılı veya farklı hatalı çağrı
+tekrarlanmaz. Kalıcı meşgul durumda iş durur; eksik PDF başarı sayılmaz.
