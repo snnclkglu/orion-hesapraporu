@@ -193,3 +193,33 @@ deneme PDF'si ve başarısız/eksik birleşik çıktı reddi test edildi. Taray�
 önizlemesinde filtreler, sayfalama ve tamamlanan DWG satırındaki birleşik PDF
 bağlantısı doğrulandı. Fiziksel yazıcıya çıktı gönderilmedi. Yardımcı sürümü
 1.0.4 olarak kalır; yeniden indirme gerekmez.
+
+## 12 Eylül 2026 — Sekmeler, otomatik hazırlık ve teknik baskı / 1.0.5
+
+- Yeni işlem, işlem geçmişi, sonuçlar ve bilgisayarlar ayrı sekmelerde.
+  Tarayıcı önizlemesinde yazarken arama (2 → 1 kayıt), geçen ay (0 kayıt),
+  temizleme (2 kayıt), ay/tarih alanlarının birlikte değişmesi ve sonuç sekmesine
+  geçiş doğrulandı. Dosya/klasör seçimi ayrı düğmelerle ve DWG sürükleme alanıyla sunulur.
+- Kaldırılmış cihazlar sunucuda filtrelenir; eski işler silinmez. Türkiye tarih
+  sınırları, artık yıl ve önceki yıl/ay kısayolları dahil 37 CAD testi geçti.
+- Yardımcı kayıtlı bağlantıyla otomatik izlemeye başlar. Hazırlık geçici olarak
+  engellendiğinde izleme sürer; durum değişikliği heartbeat beklemeden bildirilir.
+  Elle duraklatma, yeniden eşleştirme ve gerçek kullanıcı çizimlerini koruma
+  dahil 20 yardımcı testi geçti. Web görünürken yenileme 5 saniyedir.
+- ACI 7 siyah 0.35 mm, diğer indeks renkler siyah 0.13 mm. ezdxf float32
+  eşitlik araması tekrar indeks ürettiği için standart 27 CTB indeksi kullanılır.
+  İlk görsel kontrolde yakalanan aşırı kalın ölçüler bu düzeltmeyle giderildi.
+- PDFSHX COM değişkeni VT_I2 ile 2 yapılır (eski sürümde 0). Başlangıç değeri
+  normal kapanışta geri yüklenir. Yalnız açılan geçici DWG kopyası kapatılır.
+- Son dağıtım EXE'si AutoCAD 2025'te KANCA BLOĞU kopyasını 200.2 saniyede
+  17/17 pafta ve 45 malzeme satırıyla tamamladı. Birleşik PDF dahil tüm çıktılarda
+  AutoCAD SHX yorum sayısı 0. Örnek pafta render edilerek ana/yardımcı çizgi
+  ayrımı ve yazı okunaklılığı incelendi. Orijinal kaynak hash değişmedi.
+  Önceki iki denemede kullanıcı AutoCAD'i kapattığını bildirdi; bunlar başarı
+  sayılmadı ve kullanıcı oturumu açık bıraktıktan sonra yeniden test edildi.
+- EXE self-test 0; 22 kaynak motor dosyası değişmedi. Ayrılmış yayın kodunun
+  Next.js üretim derlemesi ve TypeScript kontrolü geçti. Mevcut libheif-js
+  dinamik require uyarısı CAD değişikliğinden bağımsız olarak sürüyor.
+- Fiziksel yazıcı testi yapılmadı. Eski bulut PDF'leri değiştirilmez; yeni baskı
+  görünümü için eski DWG yeniden işlenir. Kullanıcı eski yardımcıyı kapatıp
+  1.0.5 indirmelidir; DPAPI bağlantı kaydı korunur.

@@ -58,7 +58,7 @@ async function snapshot(jobId?: string, history: unknown = {}) {
   if (filter.from) query = query.gte("created_at", `${filter.from}T00:00:00+03:00`);
   if (filter.to) query = query.lt("created_at", new Date(Date.parse(`${filter.to}T00:00:00+03:00`) + 86400000).toISOString());
   const [devices, jobs] = await Promise.all([
-    db.from("cad_devices").select("id,name,state,autocad_version,helper_version,protocol,last_seen_at,revoked_at,message").eq("owner_id", actor).order("created_at", { ascending: false }),
+    db.from("cad_devices").select("id,name,state,autocad_version,helper_version,protocol,last_seen_at,revoked_at,message").eq("owner_id", actor).is("revoked_at", null).order("created_at", { ascending: false }),
     query.order("created_at", { ascending: false }).order("id", { ascending: false }).range(filter.page * HISTORY_PAGE_SIZE, (filter.page + 1) * HISTORY_PAGE_SIZE - 1),
   ]);
   if (devices.error || jobs.error) throw new CadError("Çizim İşleme altyapısına ulaşılamıyor. Kurulum veya bağlantı kontrol edilmeli.", 503);

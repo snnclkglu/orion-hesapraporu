@@ -56,7 +56,10 @@ Pafta sayısı/PDF sayısı eşitliği, tekil PDF adları ve sıfır işlem hata
 
 ## CAD-4 — Kullanıcının AutoCAD oturumu korunur
 
-Yardımcı kendiliğinden işlem başlatmaz; yerelde Kontrol et ve başlat gerekir.
+Yardımcı 1.0.5 kayıtlı bağlantıyla açıldığında hazır AutoCAD oturumunu otomatik izler.
+Yeni iş alımı elle durdurulabilir. Açık gerçek çizim varsa 3 saniye arayla yeniden
+kontrol eder; kullanıcı çizimi kapattığında yeniden düğmeye basması gerekmez.
+AutoCAD kapalıysa kullanıcı açar veya Kontrol et ve başlat kullanır.
 Kaydedilmiş veya değiştirilmiş açık çizimler varsa yeni iş alınmaz. Yardımcı 1.0.2
 yalnız DWGTITLED=0, DBMOD=0, boş model ve yalnız viewport içerebilen layout
 koşullarını sağlayan başlangıç çiziminin açık kalmasına izin verir; onu kapatmaz.
@@ -117,3 +120,16 @@ Yazdırma her DWG için ayrıdır. combined=1 yalnız review/approved durumunda,
 sahibinin güncel denemesindeki source_BIRLESIK.pdf için kısa süreli bağlantı
 üretir; kaynak DWG veya tek pafta yerine geçmez. İndirmeye zorlamaz; PDF
 görüntüleyicisinin yazdırma akışı kullanılır. Farklı DWG'ler birleştirilmez.
+
+## CAD-8 — Ekran ve teknik baskı
+
+Yeni işlem, geçmiş, sonuçlar ve bilgisayarlar ayrı sekmelerdir. Geçmiş 350 ms
+gecikmeyle otomatik filtrelenir; hızlı tarihler Türkiye gününe göredir. Kaldırılmış
+cihazlar seçeneklerden çıkarılır, geçmiş işleri korunur. Web görünürken 5 saniyede
+güncellenir; yardımcı durum değişimini 25 saniyelik düzenli bildirimi beklemeden iletir.
+
+1.0.5 paketindeki CTB varsayılanı ACI 7 için siyah 0.35 mm, diğer indeks renkler
+için siyah 0.13 mm kullanır. 0.25/0.50 alternatifleri karşılaştırma içindir.
+Kullanıcının mevcut CTB dosyasına yazılmaz; hash içeren ayrı ad kullanılır. PDFSHX
+2 (desteklenmeyen sürümde 0) SHX yorum simgelerini önler, önceki değer normal
+kapanışta geri yüklenir. Eski bulut PDF dosyaları kendiliğinden yeniden üretilmez.

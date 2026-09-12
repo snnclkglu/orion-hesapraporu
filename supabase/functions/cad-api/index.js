@@ -44,7 +44,7 @@ Deno.serve(async request => {
     if (input.action === "file") return reply({ url: await service.fileUrl(input.data.jobId, input.data.artifactId, input.data.combined === true) });
     if (input.action === "helper") {
       await authenticate(true);
-      const path = "releases/1.0.4/OrionCadYardimcisi.exe";
+      const path = "releases/1.0.5/OrionCadYardimcisi.exe";
       const info = await admin.storage.from(CAD_BUCKET).info(path);
       if (info.error) throw new CadError("Yardımcı dağıtım dosyası henüz yüklenmedi.", 503);
       const signed = await admin.storage.from(CAD_BUCKET).createSignedUrl(path, 60, { download: "OrionCadYardimcisi.exe" });

@@ -15,7 +15,7 @@ import time
 from urllib.parse import urlparse
 import uuid
 
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 PROTOCOL = 1
 MAX_BYTES = 100 * 1024 * 1024
 MAX_RESULT = 2 * 1024 * 1024
@@ -214,7 +214,7 @@ def assert_autocad_ready(acad) -> None:
     for index in range(int(com_read(lambda: documents.Count))):
         document = com_read(lambda: documents.Item(index))
         if not is_pristine_startup_document(document):
-            raise RuntimeError("Açık veya değiştirilmiş AutoCAD çizimlerini kaydedip kapatın; sonra kontrolü yeniden başlatın. Boş başlangıç sekmesi kalabilir.")
+            raise RuntimeError("Açık veya değiştirilmiş AutoCAD çizimlerini kaydedip kapatın; yardımcı otomatik yeniden kontrol eder. AutoCAD ve boş başlangıç sekmesi açık kalabilir.")
 
 
 def autocad_probe(start: bool = False) -> tuple[str, str, str]:
@@ -335,7 +335,10 @@ def run_engine(job: dict, root: Path, stop: threading.Event) -> None:
 
 
 def engine_main(args: list[str]) -> int:
-    source, output, result, paper, duplicates = args
+    source, output, result, paper, duplicates = args[:5]
+    print_weight = args[5] if len(args) > 5 else "035"
+    if print_weight not in ("025", "035", "050"):
+        raise ValueError("Baskı profili desteklenmiyor.")
     if paper not in ("A3", "AUTO") or duplicates not in ("hepsi", "alt", "ust", "dur"):
         raise ValueError("Baskı ayarları desteklenmiyor.")
     sys.path.insert(0, str(Path(__file__).parent / "engine"))
@@ -358,6 +361,11 @@ def engine_main(args: list[str]) -> int:
         def __init__(self, document):
             object.__setattr__(self, "_document", document)
             object.__setattr__(self, "_variables", {v: document.GetVariable(v) for v in ("FILEDIA", "CMDDIA", "BACKGROUNDPLOT")})
+            self._variables["PDFSHX"] = com_read(lambda: document.GetVariable("PDFSHX"))
+            try:
+                com_read(lambda: document.SetVariable("PDFSHX", win32com.client.VARIANT(pythoncom.VT_I2, 2)))
+            except Exception:
+                com_read(lambda: document.SetVariable("PDFSHX", win32com.client.VARIANT(pythoncom.VT_I2, 0)))
 
         def __getattr__(self, key):
             return getattr(self._document, key)
@@ -369,8 +377,8 @@ def engine_main(args: list[str]) -> int:
             if os.path.normcase(os.path.abspath(self._document.FullName)) != expected:
                 raise RuntimeError("Kullanıcı çizimi kapatılmadı.")
             for key, value in self._variables.items():
-                self._document.SetVariable(key, value)
-            self._document.Close(False)
+                com_read(lambda: self._document.SetVariable(key, win32com.client.VARIANT(pythoncom.VT_I2, int(value))))
+            com_read(lambda: self._document.Close(False))
 
     def safe_open(application, path, read_only=True):
         if os.path.normcase(os.path.abspath(path)) != expected:
@@ -379,9 +387,26 @@ def engine_main(args: list[str]) -> int:
         document, opened = original_open(application, path, True)
         if not opened or os.path.normcase(os.path.abspath(document.FullName)) != expected:
             raise RuntimeError("AutoCAD beklenmeyen çizime yöneldi; çizim değiştirilmedi.")
-        return GuardedDocument(document), True
+        try:
+            return GuardedDocument(document), True
+        except Exception:
+            # Ön hazırlık başarısızsa yalnız bu çağrıda açılan geçici kopyayı kapat.
+            com_read(lambda: document.Close(False))
+            raise
 
     engine.open_document = safe_open
+    # Uygulama ile taşınan profil; kullanıcının monochrome.ctb dosyası korunur.
+    style_name = f"ORION_Teknik_{print_weight}.ctb"
+    style_bytes = (Path(__file__).parent / "plot-styles" / style_name).read_bytes()
+    style_dirs = [Path(p.strip()) for p in str(com_read(lambda: acad.Preferences.Files.PrinterStyleSheetPath)).split(";") if p.strip()]
+    if not style_dirs:
+        raise RuntimeError("AutoCAD baskı stili klasörü bulunamadı.")
+    style_target = style_dirs[0] / ("ORION_" + hashlib.sha256(style_bytes).hexdigest()[:12] + "_" + style_name)
+    if not style_target.exists():
+        with style_target.open("xb") as stream:
+            stream.write(style_bytes)
+    if style_target.read_bytes() != style_bytes:
+        raise RuntimeError("ORION baskı profili değişmiş; mevcut dosyanın üzerine yazılmadı.")
     original_plot = engine.configure_and_plot
 
     def safe_plot(document, layout, *args, **kwargs):
@@ -394,7 +419,7 @@ def engine_main(args: list[str]) -> int:
         return answer
 
     engine.configure_and_plot = safe_plot
-    sys.argv = ["pafta_ayikla", source, "--out", output, "--sonuc", result, "--paper", paper, "--kopya", duplicates]
+    sys.argv = ["pafta_ayikla", source, "--out", output, "--sonuc", result, "--paper", paper, "--kopya", duplicates, "--ctb", style_target.name]
     try:
         return engine.main()
     finally:
@@ -407,10 +432,12 @@ class Worker:
         self.events = events
         self.stop = threading.Event()
         self.active = threading.Event()
+        self.active.set()
+        self.heartbeat_wake = threading.Event()
         self.job_stop = threading.Event()
         self.state = "attention"
         self.version = ""
-        self.message = "Kontrol et ve başlat düğmesini kullanın."
+        self.message = "AutoCAD hazırlığı otomatik kontrol ediliyor."
         self.job: dict | None = None
         self.progress = ""
         self.lock = threading.Lock()
@@ -422,6 +449,7 @@ class Worker:
             if self.job or self.active.is_set():
                 raise RuntimeError("Önce yeni iş alımını durdurun ve devam eden çizimin tamamlanmasını bekleyin.")
             self.stop.set()
+            self.heartbeat_wake.set()
         deadline = time.monotonic() + 100
         for name in ("thread", "heartbeat_thread"):
             thread = getattr(self, name)
@@ -432,11 +460,15 @@ class Worker:
 
     def status(self, state: str, message: str) -> None:
         with self.lock:
+            changed = (self.state, self.message) != (state, message)
             self.state, self.message = state, message
-        self.events.put(message)
+        if changed:
+            self.events.put(message)
+            self.heartbeat_wake.set()
 
     def heartbeat(self) -> None:
         while not self.stop.is_set():
+            self.heartbeat_wake.clear()
             with self.lock:
                 body = {"state": self.state, "message": self.message[:500], "autocadVersion": self.version,
                         "helperVersion": VERSION, "protocol": PROTOCOL}
@@ -454,7 +486,7 @@ class Worker:
                 self.events.put(str(error))
             except Exception:
                 self.events.put("İnternet bağlantısı kesildi; yerel dosyalar korunuyor.")
-            self.stop.wait(25)
+            self.heartbeat_wake.wait(25)
 
     def process(self, job: dict) -> None:
         job_id, attempt_id = str(uuid.UUID(job["id"])), str(uuid.UUID(job["attempt_id"]))
@@ -524,7 +556,7 @@ class Worker:
                 self.version = version
                 self.status(state, message)
                 if state != "ready":
-                    self.active.clear()
+                    self.stop.wait(3)
                     continue
                 # Claim öncesinde hazır durumu sunucuda görünür olmalı.
                 self.api.call("heartbeat", {"state": state, "autocadVersion": version, "helperVersion": VERSION, "protocol": PROTOCOL, "message": message})
@@ -534,7 +566,7 @@ class Worker:
                 if job:
                     self.process(job)
                 else:
-                    self.stop.wait(10)
+                    self.stop.wait(5)
             except Exception as error:
                 self.status("attention", str(error))
                 self.active.clear()
@@ -604,14 +636,16 @@ def main() -> int:
     worker: list[Worker] = []
     busy = threading.Event()
 
-    def attach(value):
+    def attach(value, auto=True):
         w = Worker(value, events); worker[:] = [w]
+        if not auto:
+            w.active.clear()
         w.thread = threading.Thread(target=w.run, daemon=True)
         w.thread.start()
 
     if config.get("token"):
         attach(config)
-        status.set("Bağlantı kayıtlı. Kontrol et ve başlat düğmesini kullanın.")
+        status.set("Bağlantı kayıtlı. Açık AutoCAD otomatik kontrol ediliyor; yeniden kod gerekmez.")
 
     def background(fn):
         if busy.is_set():
@@ -635,10 +669,10 @@ def main() -> int:
             except Exception:
                 # Hatalı/süresi dolmuş kod eski bağlantı kaydını silmez.
                 if worker and worker[0].stop.is_set() and all(not t or not t.is_alive() for t in (worker[0].thread, worker[0].heartbeat_thread)):
-                    attach(worker[0].api.config)
+                    attach(worker[0].api.config, auto=False)
                 raise
             attach(value)
-            events.put("Bağlantı kuruldu. Kontrol et ve başlat düğmesini kullanın.")
+            events.put("Bağlantı kuruldu. Açık AutoCAD otomatik kontrol ediliyor.")
         background(work)
 
     def start():

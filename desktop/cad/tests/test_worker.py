@@ -14,6 +14,29 @@ import worker
 
 
 class WorkerSafetyTests(unittest.TestCase):
+    def test_paired_worker_monitors_and_wakes_on_status_change(self):
+        events = queue.Queue()
+        w = worker.Worker({'origin':'https://example.com'}, events)
+        self.assertTrue(w.active.is_set())
+        w.status('ready','Hazır')
+        self.assertTrue(w.heartbeat_wake.is_set())
+        self.assertEqual(events.get_nowait(), 'Hazır')
+        w.heartbeat_wake.clear()
+        w.status('ready','Hazır')
+        self.assertFalse(w.heartbeat_wake.is_set())
+        self.assertTrue(events.empty())
+
+    def test_open_drawing_wait_recovers_without_manual_restart(self):
+        w = worker.Worker({'origin':'https://example.com'}, queue.Queue())
+        w.stop = Mock()
+        w.stop.is_set.side_effect = [False, False, False, True]
+        w.api.call = Mock(side_effect=[{'accepted':True}, {'job':None}])
+        with patch.object(worker.threading, 'Thread'), patch.object(worker, 'autocad_probe', side_effect=[('attention','','Çizim açık'),('ready','25','Hazır')]):
+            w.run()
+        self.assertTrue(w.active.is_set())
+        self.assertEqual(w.api.call.call_args_list[-1].args, ('claim',))
+        self.assertEqual(w.state, 'ready')
+
     def test_plot_proxy_retries_rejected_properties_and_methods(self):
         error = RuntimeError('busy'); error.hresult = -2147418111
         class Layout:

@@ -12,7 +12,7 @@ geçerlidir. Yerel kod teslimi tek başına canlı web özelliğini etkinleştir
 1. Web uygulamasında Çizim İşleme → Yardımcıyı indir.
 2. Yardımcıyı Windows'ta açın; web uygulamasından bilgisayar adıyla bağlantı kodu üretin.
 3. Uygulamanın ana HTTPS adresini ve 10 dakika geçerli bağlantı kodunu yardımcıya girin.
-4. AutoCAD'deki çizimleri kaydedip kapatın; yardımcıda Kontrol et ve başlat'a basın.
+4. AutoCAD'deki gerçek çizimleri kaydedip kapatın; AutoCAD açık kalabilir. Yardımcı hazır durumu otomatik izler. AutoCAD kapalıysa Kontrol et ve başlat ile açın.
 5. Webde hazır görünen bilgisayarı seçip DWG gönderin. İş boyunca AutoCAD'i kullanmayın.
 
 Pencere açık kalmalıdır; küçültülebilir. Windows servisi olarak çalıştırmayın:
@@ -65,7 +65,7 @@ yapılır; geniş dağıtımda kurumun kod imzalama sertifikasıyla imzalanmalı
    `--check` dahi Supabase'e kaynak yükler; açık dağıtım yetkisi olmadan çalıştırılmaz.
    Yetki sonrasında `node scripts/cad-deploy.cjs` yalnız `cad-api` dağıtır.
 3. `node scripts/cad-release.cjs --prepare` EXE hash'ini gösterir. Yetki sonrası
-   `--upload` özel `cad-private/releases/1.0.4/` yoluna yükler ve indirdiği kopyanın
+   `--upload` özel `cad-private/releases/1.0.5/` yoluna yükler ve indirdiği kopyanın
    hash'ini doğrular. Yönetici anahtarı geçici olarak bellekte kullanılır;
    istemciye, EXE'ye veya dosyaya konulmaz. Var olan farklı sürüm ezilmez.
 4. Web uygulaması normal Vercel yayın sürecinden geçirilir. Bu depo başka
@@ -87,3 +87,16 @@ Paftalar arasında AutoCAD hazır olana kadar bekler; geçici meşgul yanıtlar�
 baskı erişimini sınırlı tekrar eder. Eski yardımcıyı kapatıp yeni EXE indirin.
 Mevcut bağlantı korunur. Kontrol et ve başlat sonrasında webde hatalı işi
 Yeniden dene ile çalıştırabilirsiniz.
+
+## Yardımcı 1.0.5
+
+Kayıtlı bağlantıyla otomatik hazırlık takibi ve durum değişiminde anında bildirim.
+AutoCAD oturumunu işler arasında kapatmak gerekmez; gerçek kullanıcı çizimi
+açıkken iş alınmaz. Elle duraklatma ve işlem hatası sonrasında Kontrol et ve
+başlat gerekir. Güncellemede eski yardımcıyı kapatıp yeni EXE indirin; bağlantı korunur.
+
+Teknik baskı: ACI 7 siyah 0.35 mm, diğer indeks renkler siyah 0.13 mm. Beyaz
+yazı ve ölçüler de aynı renk kuralına tabidir; TrueColor ve STB kullanan çizimler
+ayrıca uyumluluk kontrolü gerektirir. CTB üretmek için geliştiricide ezdxf 1.4.4
+kurulu olmalı: create_plot_styles.py. Çalışan EXE bu pakete ihtiyaç duymaz.
+SHX yorumları yeni PDF çıktısında önlenir; eski sonuçlar için DWG yeniden işlenir.

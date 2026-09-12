@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { CAD_BUCKET, deviceAvailability, displayCell, stateLabels, type CadArtifact, type CadDevice, type CadJob, type CadOptions } from "@/lib/cad/contracts";
 import { selectCadFiles } from "@/lib/cad/selection";
-import { emptyHistory, historySchema, HISTORY_PAGE_SIZE, type CadHistoryFilter } from "@/lib/cad/history";
+import { emptyHistory, historySchema, monthRange, quickHistoryRange, HISTORY_PAGE_SIZE, type CadHistoryFilter } from "@/lib/cad/history";
 import { cadAction, cadSnapshot } from "./actions";
 import { cadExportStart, cadExportFile, cadExportFinish, cadItemOptions } from "./export-actions";
 import "./workspace.css";
@@ -16,6 +16,9 @@ export interface CadSnapshot { canWrite: boolean; devices: CadDevice[]; jobs: Ca
 const inputClass = "cad-input";
 export function CadWorkspace({ initial, preview = false }: { initial: CadSnapshot; preview?: boolean }) {
   const [state, setState] = useState(initial);
+  const [section, setSection] = useState<"new" | "history" | "results" | "devices">("new");
+  const fileInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
   const [history, setHistory] = useState(emptyHistory);
   const [draftHistory, setDraftHistory] = useState(emptyHistory);
   const [historyBusy, setHistoryBusy] = useState(false);
@@ -61,7 +64,7 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
     } finally { refreshing.current = false; }
   }, [preview]);
   useEffect(() => {
-    const timer = setInterval(() => { setNow(Date.now()); if (!document.hidden && !localBusy.current) void refresh(); }, 15000);
+    const timer = setInterval(() => { setNow(Date.now()); if (!document.hidden && !localBusy.current) void refresh(); }, 5000);
     return () => clearInterval(timer);
   }, [refresh]);
   useEffect(() => {
@@ -88,16 +91,19 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
   const chooseJob = async (job: CadJob) => {
     selectedRef.current = job.id; setSelectedId(job.id); setReviewed(false); setSearch(""); setLimit(50); setTab("sheets");
     setFolderName(job.source_name.replace(/\.dwg$/i, ""));
-    if (preview) return;
+    setSection("results");
+    if (preview) { setState(current => ({ ...current, selected: job })); return; }
     const sequence = ++refreshedAt.current;
     const response = await cadSnapshot(job.id, historyRef.current);
     if (response.ok && selectedRef.current === job.id && sequence === refreshedAt.current) setState(response.data);
     else if (!response.ok) setError(response.error);
   };
-  const loadHistory = async (next: CadHistoryFilter) => {
+  const loadHistory = useCallback(async (next: CadHistoryFilter) => {
     const parsed = historySchema.safeParse(next);
     if (!parsed.success) { setError(parsed.error.issues[0].message); return; }
-    if (preview) { setHistory(next); setDraftHistory(next); return; }
+    if (preview) {
+      const jobs = initial.jobs.filter(j => (!next.search || j.source_name.toLocaleLowerCase("tr").includes(next.search.toLocaleLowerCase("tr"))) && (!next.status || j.status === next.status) && (!next.device || j.device_id === next.device) && (!next.from || Date.parse(j.created_at) >= Date.parse(`${next.from}T00:00:00+03:00`)) && (!next.to || Date.parse(j.created_at) < Date.parse(`${next.to}T00:00:00+03:00`) + 86400000));
+      historyRef.current = next; setHistory(next); setState(current => ({ ...current, total: jobs.length, jobs: jobs.slice(next.page * HISTORY_PAGE_SIZE, (next.page + 1) * HISTORY_PAGE_SIZE) })); return; }
     historyLoading.current = true; setHistoryBusy(true); setError("");
     const sequence = ++refreshedAt.current;
     const previous = historyRef.current;
@@ -106,10 +112,15 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
       const response = await cadSnapshot(selectedRef.current, next);
       if (sequence !== refreshedAt.current) return;
       if (!response.ok) { historyRef.current = previous; setError(response.error); return; }
-      setState(response.data); setHistory(next); setDraftHistory(next);
-    } catch { historyRef.current = previous; setError("İşlem geçmişi alınamadı. Yeniden deneyin."); }
-    finally { historyLoading.current = false; setHistoryBusy(false); }
-  };
+      setState(response.data); setHistory(next);
+    } catch { if (sequence === refreshedAt.current) { historyRef.current = previous; setError("İşlem geçmişi alınamadı. Yeniden deneyin."); } }
+    finally { if (sequence === refreshedAt.current) { historyLoading.current = false; setHistoryBusy(false); } }
+  }, [preview, initial]);
+  useEffect(() => {
+    if (JSON.stringify({ ...draftHistory, page: 0 }) === JSON.stringify({ ...historyRef.current, page: 0 })) return;
+    const timer = setTimeout(() => { void loadHistory({ ...draftHistory, page: 0 }); }, 350);
+    return () => clearTimeout(timer);
+  }, [draftHistory, loadHistory]);
   const chooseFiles = (list: FileList | null) => {
     if (!list?.length) return;
     try {
@@ -140,6 +151,7 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
         selectedRef.current = data.jobId; setSelectedId(data.jobId);
         completed++; setFiles(current => current.filter(item => item !== file));
         setNotice(`${completed} DWG sıraya alındı. Her çizim ayrı iş olarak sırayla işlenecek.`);
+        setSection("history");
       } catch (error) {
         throw new Error(`${file.name}: ${error instanceof Error ? error.message : "Yüklenemedi."} Kalan dosyalar seçili; yeniden göndererek devam edebilirsiniz.`);
       }
@@ -176,6 +188,10 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
     setNotice("Sonuçlar Teknik Resimler paketine aktarıldı. Paketteki eşleştirmeleri kontrol edebilirsiniz.");
   });
   const hasPairedDevice = state.devices.some(d => !d.revoked_at && d.state !== "unpaired");
+  useEffect(() => {
+    if (deviceId && !state.devices.some(d => d.id === deviceId && !d.revoked_at)) setDeviceId("");
+    if (draftHistory.device && !state.devices.some(d => d.id === draftHistory.device && !d.revoked_at)) setDraftHistory(value => ({ ...value, device: "", page: 0 }));
+  }, [state.devices, deviceId, draftHistory.device]);
   const currentDevice = state.devices.find(d => d.id === deviceId);
   const available = deviceAvailability(currentDevice, now);
   const selected = state.selected;
@@ -188,8 +204,9 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
     {error && <div role="alert" className="cad-error">{error}<Button variant="ghost" onClick={() => void refresh()}>Yeniden kontrol et</Button></div>}
     {notice && <p role="status" className="cad-message">{notice}</p>}
     {busy && <p role="status" className="cad-message"><Loader2 className="animate-spin" size={16} />{busy} · Yükleme ve aktarım sırasında bu sekmeyi açık tutun.</p>}
-    <div className="cad-setup-grid">
-      <section className="cad-card"><div className="cad-section-title"><h2><Monitor size={18} /> Bilgisayar bağlantısı</h2><Button variant="ghost" disabled={!!busy} onClick={() => void refresh()} aria-label="Bağlantıyı yenile"><RefreshCw size={16} /></Button></div>
+    <nav className="cad-page-tabs" aria-label="Çizim İşleme bölümleri">{([["new","Yeni işlem"],["history","İşlem geçmişi"],["results","Sonuçlar"],["devices","Bilgisayarlar"]] as const).map(([key,label]) => <Button key={key} variant={section === key ? "default" : "outline"} disabled={key === "results" && !selected} aria-pressed={section === key} onClick={() => setSection(key)}>{label}</Button>)}</nav>
+    <div className="cad-pages">
+      <section hidden={section !== "devices"} className="cad-card"><div className="cad-section-title"><h2><Monitor size={18} /> Bilgisayar bağlantısı</h2><Button variant="ghost" disabled={!!busy} onClick={() => void refresh()} aria-label="Bağlantıyı yenile"><RefreshCw size={16} /></Button></div>
         {state.devices.filter(d => !d.revoked_at).length ? <div className="cad-devices">{state.devices.filter(d => !d.revoked_at).map(d => {
           const availability = deviceAvailability(d, now);
           return <div key={d.id} className="cad-device"><div><strong>{d.name}</strong><p>{availability.label}</p>{d.message && <small>{d.message}</small>}</div>{state.canWrite && <Button variant="ghost" disabled={!!busy} onClick={() => void run("Bağlantı kaldırılıyor", async () => { await command("revoke", { deviceId: d.id }); })}>Bağlantıyı kaldır</Button>}</div>;
@@ -198,38 +215,40 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
           {pair && <div className="cad-pair-code"><strong>Yardımcıdaki bağlantı ekranına yapıştırın</strong><p>Uygulama adresi: {typeof window !== "undefined" ? window.location.origin : ""}</p><code>{pair.code}</code><small>10 dakika geçerlidir. Yalnız kendi bilgisayarınızdaki yardımcıda kullanın.</small><Button variant="outline" onClick={() => void navigator.clipboard.writeText(pair.code).then(() => setNotice("Bağlantı kodu kopyalandı.")).catch(() => setError("Kodu seçip elle kopyalayabilirsiniz."))}>Kodu kopyala</Button></div>}
           </details><details className="cad-help"><summary>Yardımcı nasıl kurulur?</summary><ol><li><a href="/cad/helper" className="underline">ORION Yardımcısını indir</a> ve Windows’ta açın.</li><li>Bu sayfadaki uygulama adresini ve bağlantı kodunu yardımcıya girin.</li><li>AutoCAD’deki çizimlerinizi kaydedip kapatın. Yardımcıdan kontrolü başlatın.</li><li>DWG dosyalarını veya klasörü seçin. AutoCAD “İşleme hazır” olduğunda işleme gönderin.</li></ol><p>AutoCAD LT ve macOS bu sürümde desteklenmiyor. Yardımcı çalışırken AutoCAD’de başka çizim açmayın.</p></details></>}
       </section>
-      <section className="cad-card"><h2><Upload size={18} /> Yeni işlem</h2>{state.canWrite ? <div className="cad-form">
+      <section hidden={section !== "new"} className="cad-card"><h2><Upload size={18} /> Yeni işlem</h2>{state.canWrite ? <div className="cad-form">
         <label>İşlemi yapacak bilgisayar<select className={inputClass} value={deviceId} disabled={!!busy} onChange={e => setDeviceId(e.target.value)}><option value="">Bilgisayar seçin</option>{state.devices.filter(d => !d.revoked_at).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
         <p className="cad-muted" aria-live="polite">{available.label}</p>
-        <div className="cad-file">
-          <label>DWG dosyaları seç<input type="file" accept=".dwg" multiple disabled={!!busy} onChange={e => { chooseFiles(e.target.files); e.target.value = ""; }} /></label>
-          <label>Klasör seç<input type="file" multiple {...{ webkitdirectory: "", directory: "" }} disabled={!!busy} onChange={e => { chooseFiles(e.target.files); e.target.value = ""; }} /></label>
+        <div className="cad-file" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); if (!busy) chooseFiles(e.dataTransfer.files); }}>
+          <p className="cad-muted">DWG dosyalarını buraya sürükleyebilirsiniz. Klasör için aşağıdaki ayrı düğmeyi kullanın.</p>
+          <input ref={fileInput} aria-label="DWG dosyası seç" type="file" accept=".dwg" multiple hidden disabled={!!busy} onChange={e => { chooseFiles(e.target.files); e.target.value = ""; }} /><Button type="button" variant="outline" disabled={!!busy} onClick={() => fileInput.current?.click()}>DWG dosyası seç</Button><small>Bir veya birden fazla .dwg dosyasını seçip Aç düğmesine basın.</small>
+          <input ref={folderInput} aria-label="DWG klasörü seç" type="file" multiple hidden {...{ webkitdirectory: "", directory: "" }} disabled={!!busy} onChange={e => { chooseFiles(e.target.files); e.target.value = ""; }} /><Button type="button" variant="outline" disabled={!!busy} onClick={() => folderInput.current?.click()}>DWG içeren klasörü seç</Button><small>Klasörü bir kez seçip Klasör seç / Yükle düğmesine basın. Çift tıklamak klasörün içine girer.</small>
           <small>Klasörün alt klasörlerindeki DWG’ler de seçilir. Her DWG ayrı işlenir. En fazla 30 dosya; dosya başına 100 MB. Xref ve diğer destek dosyaları aktarılmaz.</small>
           {files.length > 0 && <div className="cad-selected-files"><strong>{files.length} DWG seçili</strong><ul>{files.map((file, i) => <li key={i}>{file.webkitRelativePath || file.name} <small>({(file.size / 1024 / 1024).toLocaleString("tr-TR", { maximumFractionDigits: 1 })} MB)</small></li>)}</ul><Button variant="outline" disabled={!!busy} onClick={() => { setFiles([]); uploadIds.current.clear(); }}>Seçimi temizle</Button></div>}
         </div>
-        {!available.ready && <p className="cad-muted">Dosya ve klasör seçebilirsiniz. İşleme göndermek için AutoCAD’deki çizimleri kaydedip kapatın; yardımcıda “Kontrol et ve başlat” düğmesine basın. Yeniden bağlantı kodu gerekmez.</p>}
+        {!available.ready && <p className="cad-muted">Dosya ve klasör seçebilirsiniz. İşleme göndermek için AutoCAD’deki çizimleri kaydedip kapatın; yardımcı 1.0.5 ve sonrası hazır durumu otomatik izler. AutoCAD kapalıysa yardımcıdaki “Kontrol et ve başlat” düğmesiyle açabilirsiniz.</p>}
         <div className="cad-two"><label>Kâğıt<select className={inputClass} value={paper} disabled={!!busy} onChange={e => setPaper(e.target.value as CadOptions["paper"])}><option value="A3">A3</option><option value="AUTO">Çerçeveden belirle</option></select></label><label>Tekrarlanan paftalar<select className={inputClass} value={duplicates} disabled={!!busy} onChange={e => setDuplicates(e.target.value as CadOptions["duplicates"])}><option value="hepsi">Tümünü incelemeye getir</option><option value="dur">İşlemi durdur</option><option value="alt">Alttaki kopyayı kullan</option><option value="ust">Üstteki kopyayı kullan</option></select></label></div>
         <label className="cad-check"><input type="checkbox" disabled={!!busy} checked={ack} onChange={e => setAck(e.target.checked)} />Seçtiğim bilgisayarda AutoCAD çizimlerimi kapattım; işlem sırasında AutoCAD’i kullanmayacağım.</label>
         <Button disabled={!!busy || !available.ready || !files.length || !ack} onClick={upload}><Upload size={16} />{files.length > 1 ? `${files.length} DWG’yi işleme gönder` : "İşleme gönder"}</Button>
         <small>Yükleme tamamlanana kadar sekmeyi açık tutun. İşlem, seçtiğiniz bilgisayar açık ve yardımcı hazırken yürür.</small>
       </div> : <p className="cad-muted">Yeni işlem için Yönetici, Mühendis veya Teknik Ressam yetkisi gerekir. Hazır paketleri Teknik Resimler bölümünden görüntüleyebilirsiniz.</p>}</section>
     </div>
-    <section className="cad-card" aria-busy={historyBusy}>
+    <section hidden={section !== "history"} className="cad-card" aria-busy={historyBusy}>
       <div className="cad-section-title"><h2>İşlem geçmişim</h2><small>{state.total ?? state.jobs.length} işlem</small></div>
+      <div className="cad-quick-dates">{[["all","Tüm zamanlar"],["today","Bugün"],["week","Son 7 gün"],["month","Bu ay"],["previous","Geçen ay"],["year","Bu yıl"]].map(([key,label]) => <Button variant={draftHistory.from === quickHistoryRange(key).from && draftHistory.to === quickHistoryRange(key).to ? "default" : "outline"} key={key} onClick={() => setDraftHistory(current => ({ ...current, ...quickHistoryRange(key), page: 0 }))}>{label}</Button>)}<label>Ay seç<input className={inputClass} type="month" value={draftHistory.from.endsWith("-01") && draftHistory.to === monthRange(draftHistory.from.slice(0,7)).to ? draftHistory.from.slice(0,7) : ""} onChange={e => setDraftHistory(current => ({ ...current, ...monthRange(e.target.value), page: 0 }))} /></label></div>
       <form className="cad-history-filters" onSubmit={e => { e.preventDefault(); void loadHistory({ ...draftHistory, page: 0 }); }}>
         <label>DWG adında ara<input className={inputClass} maxLength={120} value={draftHistory.search} onChange={e => setDraftHistory({ ...draftHistory, search: e.target.value })} placeholder="Dosya adı veya resim numarası" /></label>
         <label>Durum<select className={inputClass} value={draftHistory.status} onChange={e => setDraftHistory({ ...draftHistory, status: e.target.value as CadHistoryFilter["status"] })}><option value="">Tüm durumlar</option>{Object.entries(stateLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label>Bilgisayar<select className={inputClass} value={draftHistory.device} onChange={e => setDraftHistory({ ...draftHistory, device: e.target.value })}><option value="">Tüm bilgisayarlar</option>{state.devices.map(d => <option key={d.id} value={d.id}>{d.name}{d.revoked_at ? " (bağlantısı kaldırıldı)" : ""}</option>)}</select></label>
+        <label>Bilgisayar<select className={inputClass} value={draftHistory.device} onChange={e => setDraftHistory({ ...draftHistory, device: e.target.value })}><option value="">Tüm bilgisayarlar</option>{state.devices.filter(d => !d.revoked_at).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
         <label>Başlangıç tarihi<input type="date" className={inputClass} value={draftHistory.from} onChange={e => setDraftHistory({ ...draftHistory, from: e.target.value })} /></label>
         <label>Bitiş tarihi<input type="date" className={inputClass} value={draftHistory.to} min={draftHistory.from || undefined} onChange={e => setDraftHistory({ ...draftHistory, to: e.target.value })} /></label>
-        <div className="cad-actions"><Button type="submit" disabled={historyBusy || !!busy}>{historyBusy ? "Aranıyor…" : "Filtrele"}</Button><Button type="button" variant="outline" disabled={historyBusy || !!busy} onClick={() => void loadHistory(emptyHistory)}>Temizle</Button></div>
+        <div className="cad-actions"><span role="status" className="cad-muted">{historyBusy ? "Güncelleniyor…" : "Filtreler otomatik uygulanır"}</span><Button type="button" variant="outline" onClick={() => setDraftHistory({ ...emptyHistory })}>Temizle</Button></div>
       </form>
-      {state.jobs.length === 0 ? <div className="cad-empty"><FileText size={30} /><p>{history.search || history.status || history.device || history.from || history.to ? "Bu filtrelerle eşleşen işlem bulunamadı." : "Henüz işlem yok."}</p></div> : <div className="cad-job-list">{state.jobs.map(job => <div className="cad-history-row" key={job.id}><button disabled={!!busy || historyBusy} className={`cad-job oc-tap ${selectedId === job.id ? "cad-job-selected" : ""}`} onClick={() => void chooseJob(job)}><span><strong>{job.source_name}</strong><small>{new Date(job.created_at).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" })} · {state.devices.find(d => d.id === job.device_id)?.name ?? "Bilgisayar"}</small></span><span className={`cad-badge cad-state-${job.status}`}>{stateLabels[job.status]}</span></button>{["review","approved"].includes(job.status) && <a className="oc-tap cad-print-link" href={`/cad/file?job=${job.id}&combined=1`} target="_blank" rel="noreferrer" aria-label={`${job.source_name} birleşik PDF aç ve yazdır`}>Birleşik PDF / Yazdır</a>}</div>)}</div>}
+      {state.jobs.length === 0 ? <div className="cad-empty"><FileText size={30} /><p>{history.search || history.status || history.device || history.from || history.to ? "Bu filtrelerle eşleşen işlem bulunamadı." : "Henüz işlem yok."}</p></div> : <div className="cad-job-list">{state.jobs.map(job => <div className="cad-history-row" key={job.id}><button disabled={!!busy || historyBusy} className={`cad-job oc-tap ${selectedId === job.id ? "cad-job-selected" : ""}`} onClick={() => void chooseJob(job)}><span><strong>{job.source_name}</strong><small>{new Date(job.created_at).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" })}{state.devices.find(d => d.id === job.device_id && !d.revoked_at)?.name ? ` · ${state.devices.find(d => d.id === job.device_id)?.name}` : ""}</small></span><span className={`cad-badge cad-state-${job.status}`}>{stateLabels[job.status]}</span></button>{["review","approved"].includes(job.status) && <a className="oc-tap cad-print-link" href={`/cad/file?job=${job.id}&combined=1`} target="_blank" rel="noreferrer" aria-label={`${job.source_name} birleşik PDF aç ve yazdır`}>Birleşik PDF / Yazdır</a>}</div>)}</div>}
       <div className="cad-history-footer"><small>Sayfa {history.page + 1} · En yeni işlemler önce · Tarihler Türkiye saatine göre</small><div className="cad-actions"><Button variant="outline" disabled={history.page === 0 || historyBusy || !!busy} onClick={() => void loadHistory({ ...history, page: history.page - 1 })}>Önceki</Button><Button variant="outline" disabled={(history.page + 1) * HISTORY_PAGE_SIZE >= (state.total ?? state.jobs.length) || historyBusy || !!busy} onClick={() => void loadHistory({ ...history, page: history.page + 1 })}>Sonraki</Button></div></div>
       <p className="cad-muted">Birleşik PDF, yalnız ilgili DWG’nin tüm paftalarını içerir. PDF açıldığında yazıcı simgesini veya Ctrl+P’yi kullanarak tek seferde yazdırabilirsiniz.</p>
     </section>
 
-    {selected && <section className="cad-card cad-results"><div className="cad-section-title"><h2>{selected.source_name}</h2><span className={`cad-badge cad-state-${selected.status}`}>{stateLabels[selected.status]}</span></div>
+    {selected && <section hidden={section !== "results"} className="cad-card cad-results"><div className="cad-section-title"><h2>{selected.source_name}</h2><span className={`cad-badge cad-state-${selected.status}`}>{stateLabels[selected.status]}</span></div>
       <p className="cad-muted">{selected.progress || "Bilgisayar durumu bekleniyor"} · Deneme: {selected.attempts}</p>
       {selected.error && <p className="cad-error">{selected.error}</p>}
       {selected.status === "processing" && selected.lease_until && Date.parse(selected.lease_until) < now && <p className="cad-error">İşleme bağlantısı kesildi. Yardımcıyı kontrol edin; eski işlem otomatik olarak başarılı sayılmaz.</p>}
