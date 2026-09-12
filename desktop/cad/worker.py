@@ -15,7 +15,7 @@ import time
 from urllib.parse import urlparse
 import uuid
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 PROTOCOL = 1
 MAX_BYTES = 100 * 1024 * 1024
 MAX_RESULT = 2 * 1024 * 1024
@@ -149,6 +149,46 @@ class Api:
             raise RuntimeError("Çıktı yüklenemedi; dosya yerelde korundu.")
 
 
+def com_read(read):
+    # AutoCAD açılışında kısa süreli RPC reddi görülebilir; yalnız okumayı tekrarlar.
+    for attempt in range(21):
+        try:
+            return read()
+        except Exception as error:
+            if getattr(error, "hresult", None) not in (-2147418111, -2147417846) or attempt == 20:
+                raise
+            time.sleep(0.25)
+
+
+def is_pristine_startup_document(document) -> bool:
+    """Yalnız değiştirilmemiş, adsız, içeriksiz başlangıç çizimi; salt okunur."""
+    try:
+        # Path adsız Drawing1 için de çalışma klasörü olabilir; dosya varlığı ölçütü değildir.
+        if int(com_read(lambda: document.GetVariable("DWGTITLED"))) != 0:
+            return False
+        if int(com_read(lambda: document.GetVariable("DBMOD"))) != 0 or int(com_read(lambda: document.ModelSpace.Count)) != 0:
+            return False
+        layouts = com_read(lambda: document.Layouts)
+        for index in range(int(com_read(lambda: layouts.Count))):
+            block = com_read(lambda: layouts.Item(index).Block)
+            for entity_index in range(int(com_read(lambda: block.Count))):
+                if str(com_read(lambda: block.Item(entity_index).ObjectName)) != "AcDbViewport":
+                    return False
+        return True
+    except Exception:
+        return False
+
+
+def assert_autocad_ready(acad) -> None:
+    if not com_read(lambda: acad.GetAcadState().IsQuiescent):
+        raise RuntimeError("AutoCAD bir komut veya pencere bekliyor. Başlangıç/giriş pencerelerini tamamlayın.")
+    documents = com_read(lambda: acad.Documents)
+    for index in range(int(com_read(lambda: documents.Count))):
+        document = com_read(lambda: documents.Item(index))
+        if not is_pristine_startup_document(document):
+            raise RuntimeError("Açık veya değiştirilmiş AutoCAD çizimlerini kaydedip kapatın; sonra kontrolü yeniden başlatın. Boş başlangıç sekmesi kalabilir.")
+
+
 def autocad_probe(start: bool = False) -> tuple[str, str, str]:
     if os.name != "nt":
         return "autocad_missing", "", "Windows gerekli."
@@ -170,10 +210,10 @@ def autocad_probe(start: bool = False) -> tuple[str, str, str]:
             acad = win32com.client.Dispatch("AutoCAD.Application")
             acad.Visible = True
         version = str(acad.Version)
-        if int(acad.Documents.Count) != 0:
-            return "attention", version, "Açık AutoCAD çizimlerini kaydedip kapatın; sonra kontrolü yeniden başlatın."
-        if not acad.GetAcadState().IsQuiescent:
-            return "attention", version, "AutoCAD bir komut veya pencere bekliyor."
+        try:
+            assert_autocad_ready(acad)
+        except RuntimeError as error:
+            return "attention", version, str(error)
         return "ready", version, "Hazır. İşlem sırasında AutoCAD'de başka çizim açmayın."
     except Exception:
         return "attention", "", "AutoCAD'e erişilemiyor. Başlangıç/giriş pencerelerini tamamlayın."
@@ -268,8 +308,7 @@ def engine_main(args: list[str]) -> int:
     import pafta_ayikla as engine
     pythoncom.CoInitialize()
     acad = win32com.client.GetActiveObject("AutoCAD.Application")
-    if int(acad.Documents.Count) != 0 or not acad.GetAcadState().IsQuiescent:
-        raise RuntimeError("Açık AutoCAD çizimi veya bekleyen komut var; işlem başlamadı.")
+    assert_autocad_ready(acad)
     # Eski aracın genel önbellek silen bağlantısı kullanılmaz.
     try:
         acad = win32com.client.gencache.EnsureDispatch(acad)
@@ -300,6 +339,7 @@ def engine_main(args: list[str]) -> int:
     def safe_open(application, path, read_only=True):
         if os.path.normcase(os.path.abspath(path)) != expected:
             raise RuntimeError("Yalnız işin geçici DWG kopyası açılabilir.")
+        assert_autocad_ready(application)
         document, opened = original_open(application, path, True)
         if not opened or os.path.normcase(os.path.abspath(document.FullName)) != expected:
             raise RuntimeError("AutoCAD beklenmeyen çizime yöneldi; çizim değiştirilmedi.")

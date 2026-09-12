@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -11,6 +12,46 @@ import worker
 
 
 class WorkerSafetyTests(unittest.TestCase):
+    def collection(self, values):
+        return SimpleNamespace(Count=len(values), Item=lambda i: values[i])
+
+    def blank(self, titled=0, modified=0, path='', model=0, entities=('AcDbViewport',)):
+        return SimpleNamespace(Path=path, GetVariable=lambda key: {'DWGTITLED':titled,'DBMOD':modified}[key],
+                               ModelSpace=SimpleNamespace(Count=model),
+                               Layouts=self.collection([SimpleNamespace(Block=self.collection([SimpleNamespace(ObjectName=e) for e in entities]))]))
+
+    def acad(self, docs, idle=True):
+        return SimpleNamespace(Documents=SimpleNamespace(Count=len(docs),Item=lambda i:docs[i]),
+                               GetAcadState=lambda:SimpleNamespace(IsQuiescent=idle))
+
+    def test_pristine_blank_can_remain_open(self):
+        worker.assert_autocad_ready(self.acad([]))
+        worker.assert_autocad_ready(self.acad([self.blank()]))
+        worker.assert_autocad_ready(self.acad([self.blank(path='C:/WINDOWS/system32')]))
+
+    def test_real_modified_and_nonempty_drawings_are_blocked(self):
+        for options in ({'titled':1},{'modified':1},{'modified':4},
+                        {'model':1},{'entities':('AcDbViewport','AcDbLine')}):
+            with self.subTest(options=options):
+                with self.assertRaises(RuntimeError):
+                    worker.assert_autocad_ready(self.acad([self.blank(),self.blank(**options)]))
+
+    def test_unknown_document_and_busy_autocad_are_blocked(self):
+        with self.assertRaises(RuntimeError):
+            worker.assert_autocad_ready(self.acad([SimpleNamespace()]))
+        with self.assertRaises(RuntimeError):
+            worker.assert_autocad_ready(self.acad([self.blank()],idle=False))
+
+    def test_temporary_rpc_rejection_is_retried_but_bounded(self):
+        from unittest.mock import Mock
+        error = RuntimeError('busy'); error.hresult = -2147418111
+        read = Mock(side_effect=[error, 42])
+        with patch.object(worker.time, 'sleep'):
+            self.assertEqual(worker.com_read(read), 42)
+            always_busy = Mock(side_effect=error)
+            with self.assertRaises(RuntimeError): worker.com_read(always_busy)
+        self.assertEqual(always_busy.call_count, 21)
+
     def test_windows_names(self):
         for name in ('../a.pdf', 'a/b.pdf', 'NUL.dwg', 'a:stream', 'a.pdf.', ' a.dwg', 'a\0.pdf'):
             self.assertFalse(worker.safe_name(name), name)
@@ -82,7 +123,7 @@ class WorkerSafetyTests(unittest.TestCase):
         self.assertNotIn('["taskkill"', source)
         self.assertNotIn('.Quit(', source)
         self.assertIn('process.terminate()', source)
-        self.assertIn('int(acad.Documents.Count) != 0', source)
+        self.assertIn('assert_autocad_ready(application)', source)
 
 
 if __name__ == '__main__':

@@ -142,3 +142,24 @@ AutoCAD sürüm matrisi ve ekip paylaşımı ayrıca ele alınmalıdır.
 Zaman aşımında yalnız yardımcı alt süreci durdurulur. AutoCAD'deki geçici iş
 çizimi ve FILEDIA/CMDDIA/BACKGROUNDPLOT ayarları elle kontrol gerektirebilir.
 Bu durum başarı olarak gösterilmez.
+
+## 12 Eylül 2026 — Yardımcı 1.0.2 / boş başlangıç çizimi
+
+AutoCAD açılışta Drawing1 oluşturuyordu; önceki tüm açık belgeleri reddeden
+kontrol kendi açtığı oturumu da durduruyordu. Artık adsız, değiştirilmemiş,
+modeli boş ve layoutlarında yalnız viewport bulunan başlangıç belgesi açık
+kalabilir. Yardımcı bu belgeyi kapatmaz. Kayıtlı, düzenlenmiş, içerikli veya
+COM üzerinden güvenle okunamayan belgeler işlemi engeller. Ön kontrol ve
+gerçek DWG açma anında aynı koruma çalışır. Geçici RPC reddi sınırlı tekrar edilir.
+
+- Yardımcı: 12 test geçti; CAD web kuralları: 32 test geçti.
+- Yeni EXE --self-test: 0; 22 kaynak motor dosyasının hash değerleri değişmedi.
+- Gerçek AutoCAD 2025 (25.0s): boş Drawing1 açıkken hazır; örnek DWG'nin
+  geçici kopyası 77 saniyede 14 pafta, 49 malzeme satırı ve 14 başarılı pafta
+  PDF'i üretti. Birleşik PDF dahil 15 PDF / 28 sayfa okunabildi, hata sayısı 0.
+- Orijinal DWG hash değeri değişmedi; işlem sonrası yeniden hazır. Buluta
+  örnek DWG gönderilmedi. İlk pilot çağrısındaki göreli dosya yolu test
+  betiğinde mutlak yola çevrilerek tekrarlandı; üretim işleri mutlak yol kullanır.
+- AutoCAD PDF'lerinin PageMode yinelenme uyarıları ölümcül değil; tüm sayfalar okunabildi.
+- Kullanıcı mevcut 1.0.1 yardımcısını kapatıp webden 1.0.2 indirmeli. Aynı
+  Windows hesabının DPAPI bağlantı kaydı korunur; yeniden eşleştirme gerekmez.

@@ -57,7 +57,12 @@ Pafta sayısı/PDF sayısı eşitliği, tekil PDF adları ve sıfır işlem hata
 ## CAD-4 — Kullanıcının AutoCAD oturumu korunur
 
 Yardımcı kendiliğinden işlem başlatmaz; yerelde Kontrol et ve başlat gerekir.
-Açık çizimler varsa yeni iş alınmaz. İş çocuğu açılıştan hemen önce tekrar kontrol eder.
+Kaydedilmiş veya değiştirilmiş açık çizimler varsa yeni iş alınmaz. Yardımcı 1.0.2
+yalnız DWGTITLED=0, DBMOD=0, boş model ve yalnız viewport içerebilen layout
+koşullarını sağlayan başlangıç çiziminin açık kalmasına izin verir; onu kapatmaz.
+Path başlangıç çiziminde de dolu olabilir, kayıt ölçütü değildir. COM okuması
+başarısızsa iş alınmaz; kısa süreli RPC reddi sınırlı tekrar edilir. İş çocuğu
+ve geçici DWG açma sarmalayıcısı aynı kontrolü tekrar eder.
 Yalnız işin indirilmiş source.dwg kopyası açılır; beklenmeyen ActiveDocument
 eşleştirmesi reddedilir. FILEDIA/CMDDIA/BACKGROUNDPLOT normal kapanışta geri yüklenir.
 Zaman aşımında yalnız kendi Python alt süreci durdurulur; AutoCAD'e toplu taskkill,

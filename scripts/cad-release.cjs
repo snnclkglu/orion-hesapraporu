@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { createClient } = require('@supabase/supabase-js');
 const file = 'desktop/cad/dist/OrionCadYardimcisi.exe';
-const object = 'releases/1.0.1/OrionCadYardimcisi.exe';
+const object = 'releases/1.0.2/OrionCadYardimcisi.exe';
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 (async () => {
   const bytes = fs.readFileSync(file);
