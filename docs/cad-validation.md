@@ -184,3 +184,12 @@ değişmedi. Bulut iş kaydı ve orijinal dosya değiştirilmedi; işlem sonras�
 18 yardımcı testi ve EXE self-test geçti. Kaynak motor değiştirilmedi.
 0063-00-0804 antet/çerçeve ölçek farkı bulgusu korunuyor; bu baskı hatası değildir.
 Yeni sürümde başarısız iş mesajı varsa üretilen pafta sayısını da belirtir.
+
+## 12 Eylül 2026 — İşlem geçmişi filtreleri ve yazdırma
+
+36 CAD testi ve TypeScript kontrolü geçti. Filtre/sahiplik birlikteliği,
+100'den eski sayfaya erişim, tarih sınırı, özel arama karakterleri, güncel
+deneme PDF'si ve başarısız/eksik birleşik çıktı reddi test edildi. Tarayıcı
+önizlemesinde filtreler, sayfalama ve tamamlanan DWG satırındaki birleşik PDF
+bağlantısı doğrulandı. Fiziksel yazıcıya çıktı gönderilmedi. Yardımcı sürümü
+1.0.4 olarak kalır; yeniden indirme gerekmez.

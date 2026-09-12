@@ -7,14 +7,20 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { CAD_BUCKET, deviceAvailability, displayCell, stateLabels, type CadArtifact, type CadDevice, type CadJob, type CadOptions } from "@/lib/cad/contracts";
 import { selectCadFiles } from "@/lib/cad/selection";
+import { emptyHistory, historySchema, HISTORY_PAGE_SIZE, type CadHistoryFilter } from "@/lib/cad/history";
 import { cadAction, cadSnapshot } from "./actions";
 import { cadExportStart, cadExportFile, cadExportFinish, cadItemOptions } from "./export-actions";
 import "./workspace.css";
 
-export interface CadSnapshot { canWrite: boolean; devices: CadDevice[]; jobs: CadJob[]; selected: CadJob | null; artifacts: CadArtifact[] }
+export interface CadSnapshot { canWrite: boolean; devices: CadDevice[]; jobs: CadJob[]; total?: number; selected: CadJob | null; artifacts: CadArtifact[] }
 const inputClass = "cad-input";
 export function CadWorkspace({ initial, preview = false }: { initial: CadSnapshot; preview?: boolean }) {
   const [state, setState] = useState(initial);
+  const [history, setHistory] = useState(emptyHistory);
+  const [draftHistory, setDraftHistory] = useState(emptyHistory);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const historyRef = useRef(emptyHistory);
+  const historyLoading = useRef(false);
   const [selectedId, setSelectedId] = useState<string | undefined>(initial.selected?.id);
   const [deviceId, setDeviceId] = useState(initial.devices.find(d => !d.revoked_at)?.id ?? "");
   const [name, setName] = useState("");
@@ -40,11 +46,11 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
   const uploadIds = useRef(new Map<string, string>());
   const localBusy = useRef(false);
   const refresh = useCallback(async (id = selectedRef.current) => {
-    if (preview || refreshing.current) return;
+    if (preview || refreshing.current || historyLoading.current) return;
     refreshing.current = true;
     const sequence = ++refreshedAt.current;
     try {
-      const result = await cadSnapshot(id);
+      const result = await cadSnapshot(id, historyRef.current);
       if (sequence === refreshedAt.current && id === selectedRef.current) {
         if (result.ok) {
           setState(result.data);
@@ -83,9 +89,26 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
     selectedRef.current = job.id; setSelectedId(job.id); setReviewed(false); setSearch(""); setLimit(50); setTab("sheets");
     setFolderName(job.source_name.replace(/\.dwg$/i, ""));
     if (preview) return;
-    const response = await cadSnapshot(job.id);
-    if (response.ok && selectedRef.current === job.id) setState(response.data);
+    const sequence = ++refreshedAt.current;
+    const response = await cadSnapshot(job.id, historyRef.current);
+    if (response.ok && selectedRef.current === job.id && sequence === refreshedAt.current) setState(response.data);
     else if (!response.ok) setError(response.error);
+  };
+  const loadHistory = async (next: CadHistoryFilter) => {
+    const parsed = historySchema.safeParse(next);
+    if (!parsed.success) { setError(parsed.error.issues[0].message); return; }
+    if (preview) { setHistory(next); setDraftHistory(next); return; }
+    historyLoading.current = true; setHistoryBusy(true); setError("");
+    const sequence = ++refreshedAt.current;
+    const previous = historyRef.current;
+    historyRef.current = next;
+    try {
+      const response = await cadSnapshot(selectedRef.current, next);
+      if (sequence !== refreshedAt.current) return;
+      if (!response.ok) { historyRef.current = previous; setError(response.error); return; }
+      setState(response.data); setHistory(next); setDraftHistory(next);
+    } catch { historyRef.current = previous; setError("İşlem geçmişi alınamadı. Yeniden deneyin."); }
+    finally { historyLoading.current = false; setHistoryBusy(false); }
   };
   const chooseFiles = (list: FileList | null) => {
     if (!list?.length) return;
@@ -191,7 +214,21 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
         <small>Yükleme tamamlanana kadar sekmeyi açık tutun. İşlem, seçtiğiniz bilgisayar açık ve yardımcı hazırken yürür.</small>
       </div> : <p className="cad-muted">Yeni işlem için Yönetici, Mühendis veya Teknik Ressam yetkisi gerekir. Hazır paketleri Teknik Resimler bölümünden görüntüleyebilirsiniz.</p>}</section>
     </div>
-    <section className="cad-card"><div className="cad-section-title"><h2>İşlem geçmişim</h2><small>Son 100 işlem</small></div>{state.jobs.length === 0 ? <div className="cad-empty"><FileText size={30} /><p>İlk çiziminizi gönderdiğinizde işlem burada görünecek.</p></div> : <div className="cad-job-list">{state.jobs.map(job => <button disabled={!!busy} className={`cad-job oc-tap ${selectedId === job.id ? "cad-job-selected" : ""}`} key={job.id} onClick={() => void chooseJob(job)}><span><strong>{job.source_name}</strong><small>{new Date(job.created_at).toLocaleString("tr-TR")} · {state.devices.find(d => d.id === job.device_id)?.name ?? "Bilgisayar"}</small></span><span className={`cad-badge cad-state-${job.status}`}>{stateLabels[job.status]}</span></button>)}</div>}</section>
+    <section className="cad-card" aria-busy={historyBusy}>
+      <div className="cad-section-title"><h2>İşlem geçmişim</h2><small>{state.total ?? state.jobs.length} işlem</small></div>
+      <form className="cad-history-filters" onSubmit={e => { e.preventDefault(); void loadHistory({ ...draftHistory, page: 0 }); }}>
+        <label>DWG adında ara<input className={inputClass} maxLength={120} value={draftHistory.search} onChange={e => setDraftHistory({ ...draftHistory, search: e.target.value })} placeholder="Dosya adı veya resim numarası" /></label>
+        <label>Durum<select className={inputClass} value={draftHistory.status} onChange={e => setDraftHistory({ ...draftHistory, status: e.target.value as CadHistoryFilter["status"] })}><option value="">Tüm durumlar</option>{Object.entries(stateLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>Bilgisayar<select className={inputClass} value={draftHistory.device} onChange={e => setDraftHistory({ ...draftHistory, device: e.target.value })}><option value="">Tüm bilgisayarlar</option>{state.devices.map(d => <option key={d.id} value={d.id}>{d.name}{d.revoked_at ? " (bağlantısı kaldırıldı)" : ""}</option>)}</select></label>
+        <label>Başlangıç tarihi<input type="date" className={inputClass} value={draftHistory.from} onChange={e => setDraftHistory({ ...draftHistory, from: e.target.value })} /></label>
+        <label>Bitiş tarihi<input type="date" className={inputClass} value={draftHistory.to} min={draftHistory.from || undefined} onChange={e => setDraftHistory({ ...draftHistory, to: e.target.value })} /></label>
+        <div className="cad-actions"><Button type="submit" disabled={historyBusy || !!busy}>{historyBusy ? "Aranıyor…" : "Filtrele"}</Button><Button type="button" variant="outline" disabled={historyBusy || !!busy} onClick={() => void loadHistory(emptyHistory)}>Temizle</Button></div>
+      </form>
+      {state.jobs.length === 0 ? <div className="cad-empty"><FileText size={30} /><p>{history.search || history.status || history.device || history.from || history.to ? "Bu filtrelerle eşleşen işlem bulunamadı." : "Henüz işlem yok."}</p></div> : <div className="cad-job-list">{state.jobs.map(job => <div className="cad-history-row" key={job.id}><button disabled={!!busy || historyBusy} className={`cad-job oc-tap ${selectedId === job.id ? "cad-job-selected" : ""}`} onClick={() => void chooseJob(job)}><span><strong>{job.source_name}</strong><small>{new Date(job.created_at).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" })} · {state.devices.find(d => d.id === job.device_id)?.name ?? "Bilgisayar"}</small></span><span className={`cad-badge cad-state-${job.status}`}>{stateLabels[job.status]}</span></button>{["review","approved"].includes(job.status) && <a className="oc-tap cad-print-link" href={`/cad/file?job=${job.id}&combined=1`} target="_blank" rel="noreferrer" aria-label={`${job.source_name} birleşik PDF aç ve yazdır`}>Birleşik PDF / Yazdır</a>}</div>)}</div>}
+      <div className="cad-history-footer"><small>Sayfa {history.page + 1} · En yeni işlemler önce · Tarihler Türkiye saatine göre</small><div className="cad-actions"><Button variant="outline" disabled={history.page === 0 || historyBusy || !!busy} onClick={() => void loadHistory({ ...history, page: history.page - 1 })}>Önceki</Button><Button variant="outline" disabled={(history.page + 1) * HISTORY_PAGE_SIZE >= (state.total ?? state.jobs.length) || historyBusy || !!busy} onClick={() => void loadHistory({ ...history, page: history.page + 1 })}>Sonraki</Button></div></div>
+      <p className="cad-muted">Birleşik PDF, yalnız ilgili DWG’nin tüm paftalarını içerir. PDF açıldığında yazıcı simgesini veya Ctrl+P’yi kullanarak tek seferde yazdırabilirsiniz.</p>
+    </section>
+
     {selected && <section className="cad-card cad-results"><div className="cad-section-title"><h2>{selected.source_name}</h2><span className={`cad-badge cad-state-${selected.status}`}>{stateLabels[selected.status]}</span></div>
       <p className="cad-muted">{selected.progress || "Bilgisayar durumu bekleniyor"} · Deneme: {selected.attempts}</p>
       {selected.error && <p className="cad-error">{selected.error}</p>}

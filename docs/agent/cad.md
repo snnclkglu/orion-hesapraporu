@@ -105,3 +105,15 @@ Her paftadan önce/sonra IsQuiescent ve CMDACTIVE=0 için en fazla 30 saniye
 bekler. Yalnız baskı COM nesnelerinde RPC_E_CALL_REJECTED / RETRYLATER
 çağrıları en fazla 30 saniye tekrar edilir. Başarılı veya farklı hatalı çağrı
 tekrarlanmaz. Kalıcı meşgul durumda iş durur; eksik PDF başarı sayılmaz.
+
+## CAD-9 — Geçmiş ve DWG başına yazdırma
+
+Geçmiş sunucuda kullanıcı sahipliğiyle filtrelenir: dosya adı (ILIKE özel
+karakterleri kaçırılır), durum, bilgisayar, Türkiye saatine göre dahil tarih
+aralığı. 20 kayıt/sayfa, kesin eşleşme sayısı, created_at/id kararlı sırası;
+son 100 kayıt sınırı yoktur. Seçili iş filtreye bağlı değildir; geç kalan
+yanıtlar seçim/sorgu sırasıyla elenir. Eski cihazlar da filtrede bulunur.
+Yazdırma her DWG için ayrıdır. combined=1 yalnız review/approved durumunda,
+sahibinin güncel denemesindeki source_BIRLESIK.pdf için kısa süreli bağlantı
+üretir; kaynak DWG veya tek pafta yerine geçmez. İndirmeye zorlamaz; PDF
+görüntüleyicisinin yazdırma akışı kullanılır. Farklı DWG'ler birleştirilmez.

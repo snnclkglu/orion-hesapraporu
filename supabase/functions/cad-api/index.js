@@ -40,8 +40,8 @@ Deno.serve(async request => {
     };
     const service = createCadService(admin, authenticate, url);
     if (input.kind === "worker") return reply(await service.workerCommand(bearer, { action: input.action, data: input.data }));
-    if (input.action === "snapshot") return reply(await service.snapshot(input.data.jobId));
-    if (input.action === "file") return reply({ url: await service.fileUrl(input.data.jobId, input.data.artifactId) });
+    if (input.action === "snapshot") return reply(await service.snapshot(input.data.jobId, input.data.history));
+    if (input.action === "file") return reply({ url: await service.fileUrl(input.data.jobId, input.data.artifactId, input.data.combined === true) });
     if (input.action === "helper") {
       await authenticate(true);
       const path = "releases/1.0.4/OrionCadYardimcisi.exe";

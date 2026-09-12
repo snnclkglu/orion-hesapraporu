@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canProcessCad } from "@/lib/roles";
 import { CadError } from "./service";
 import type { CadArtifact, CadDevice, CadJob } from "./contracts";
+import type { CadHistoryFilter } from "./history";
 export { CadError } from "./service";
 
 // Sunucu anahtarı Supabase fonksiyon ortamındadır. Vercel yalnız oturum/cihaz kimliğini iletir.
@@ -34,9 +35,9 @@ export async function browserContext(write = false) {
   if (write && !canWrite) throw new CadError("Çizim işleme yetkiniz yok.", 403);
   return { actor: user.id, db, canWrite };
 }
-export async function snapshot(jobId?: string): Promise<{ canWrite: boolean; devices: CadDevice[]; jobs: CadJob[]; selected: CadJob | null; artifacts: CadArtifact[] }> { return remote("web", "snapshot", { jobId }); }
+export async function snapshot(jobId?: string, history?: CadHistoryFilter): Promise<{ canWrite: boolean; devices: CadDevice[]; jobs: CadJob[]; total: number; selected: CadJob | null; artifacts: CadArtifact[] }> { return remote("web", "snapshot", { jobId, history }); }
 export async function webCommand(action: string, payload: unknown) { return remote("web", action, payload); }
-export async function fileUrl(jobId: string, artifactId?: string): Promise<string> { return (await remote("web", "file", { jobId, artifactId })).url; }
+export async function fileUrl(jobId: string, artifactId?: string, combined = false): Promise<string> { return (await remote("web", "file", { jobId, artifactId, combined })).url; }
 export async function helperUrl(): Promise<string> { return (await remote("web", "helper", {})).url; }
 export async function workerCommand(bearer: string | null, payload: unknown) {
   const { z } = await import("zod");

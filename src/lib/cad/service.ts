@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { canProcessCad } from "@/lib/roles";
+import { historySchema, HISTORY_PAGE_SIZE, escapeHistorySearch } from "./history";
 import { CAD_BUCKET, CAD_PROTOCOL, MAX_RESULT_BYTES, artifactSchema, sourceSchema, validateCadResult, type CadArtifact, type CadDevice, type CadJob } from "./contracts";
 
 type Admin = SupabaseClient;
@@ -47,11 +48,18 @@ async function listArtifacts(admin: Admin, job: CadJob): Promise<CadArtifact[]> 
   return rows;
 }
 
-async function snapshot(jobId?: string) {
+async function snapshot(jobId?: string, history: unknown = {}) {
   const { actor, db, canWrite } = await browserContext();
+  const filter = historySchema.parse(history);
+  let query = db.from("cad_jobs").select("id,device_id,source_name,source_size,source_sha256,status,progress,error,created_at,attempt_id,lease_until,attempts,package_id,options", { count: "exact" }).eq("owner_id", actor);
+  if (filter.search) query = query.ilike("source_name", `%${escapeHistorySearch(filter.search)}%`);
+  if (filter.status) query = query.eq("status", filter.status);
+  if (filter.device) query = query.eq("device_id", filter.device);
+  if (filter.from) query = query.gte("created_at", `${filter.from}T00:00:00+03:00`);
+  if (filter.to) query = query.lt("created_at", new Date(Date.parse(`${filter.to}T00:00:00+03:00`) + 86400000).toISOString());
   const [devices, jobs] = await Promise.all([
     db.from("cad_devices").select("id,name,state,autocad_version,helper_version,protocol,last_seen_at,revoked_at,message").eq("owner_id", actor).order("created_at", { ascending: false }),
-    db.from("cad_jobs").select("id,device_id,source_name,source_size,source_sha256,status,progress,error,created_at,attempt_id,lease_until,attempts,package_id,options").eq("owner_id", actor).order("created_at", { ascending: false }).limit(100),
+    query.order("created_at", { ascending: false }).order("id", { ascending: false }).range(filter.page * HISTORY_PAGE_SIZE, (filter.page + 1) * HISTORY_PAGE_SIZE - 1),
   ]);
   if (devices.error || jobs.error) throw new CadError("Çizim İşleme altyapısına ulaşılamıyor. Kurulum veya bağlantı kontrol edilmeli.", 503);
   let selected: CadJob | null = null;
@@ -61,7 +69,7 @@ async function snapshot(jobId?: string) {
     selected = await ownedJob(admin, actor, jobId);
     artifacts = await listArtifacts(admin, selected);
   }
-  return { canWrite, devices: devices.data as CadDevice[], jobs: jobs.data as CadJob[], selected, artifacts };
+  return { canWrite, devices: devices.data as CadDevice[], jobs: jobs.data as CadJob[], total: jobs.count ?? 0, selected, artifacts };
 }
 
 async function webCommand(action: string, payload: unknown) {
@@ -102,19 +110,20 @@ async function webCommand(action: string, payload: unknown) {
   return mutate(admin, actor, action, input);
 }
 
-async function fileUrl(jobId: string, artifactId?: string) {
+async function fileUrl(jobId: string, artifactId?: string, combined = false) {
   const { actor } = await browserContext();
   const admin = createAdminClient();
   const job = await ownedJob(admin, actor, jobId);
   let path = job.source_path;
   let name = job.source_name;
-  if (artifactId) {
+  if (artifactId || combined) {
     const artifacts = await listArtifacts(admin, job);
-    const file = artifacts.find(a => a.id === z.uuid().parse(artifactId));
+    const file = combined ? artifacts.find(a => a.kind === "pdf" && a.name === "source_BIRLESIK.pdf") : artifacts.find(a => a.id === z.uuid().parse(artifactId));
+    if (combined && !file) throw new CadError("Bu işlemin birleşik PDF’si bulunamadı. İşlem ayrıntısından pafta PDF’lerini açabilirsiniz.", 404);
     if (!file || !["review", "approved"].includes(job.status)) throw new CadError("Çıktı henüz hazır değil.", 404);
     path = file.storage_path; name = file.name;
   }
-  const { data, error } = await admin.storage.from(CAD_BUCKET).createSignedUrl(path, 60, { download: name });
+  const { data, error } = await admin.storage.from(CAD_BUCKET).createSignedUrl(path, 60, combined ? undefined : { download: name });
   if (error || !data) throw new CadError("Dosya açılamadı.", 503);
   return data.signedUrl;
 }
