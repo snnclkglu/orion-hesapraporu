@@ -18,6 +18,13 @@ uyumsuz yardımcı yeni iş alamaz. İlk sürüm dış referanssız tek DWG, 100
 1000 pafta ve 2 MB yapısal sonuç sınırıyla çalışır. Kâğıt A3/AUTO; revizyon
 varsayılanı tüm kopyaları incelemeye getirmektir. Seçim kullanıcıya aittir.
 
+Web birden fazla dosya veya alt klasörleriyle klasör seçebilir; her DWG ayrı
+iş olur. Bir seçim en fazla 30 DWG, dosya başına 100 MB. DWG olmayan dosyalar
+seçime alınmaz ve sayıları gösterilir; Xref paketi desteği anlamına gelmez.
+Dosya seçimi AutoCAD hazır değilken de açıktır; yalnız işleme gönderme hazır
+cihaz ve çalışma onayı gerektirir. Yarım toplu yüklemede tamamlananlar listeden
+çıkar, kalanlar ve aynı isteğin kimliği korunur; yeniden deneme kopya iş açmaz.
+
 ## CAD-2 — Yetki ve cihaz sahipliği
 
 İşleme `canProcessCad` sorusuyla Yönetici/Mühendis/Teknik Ressam'a açıktır.
@@ -29,6 +36,9 @@ iddia etmez; kullanıcı hedef bilgisayarı seçer.
 Eşleştirme 256 bit kod, 10 dakika süre ve atomik tek kullanım taşır. Yardımcı
 256 bit anahtarı kendisi üretir. Sunucuda hash, Windows'ta DPAPI saklanır.
 Anahtar yalnız `/api/cad/worker` içindir; şifre veya service-role dağıtılmaz.
+Eşleştirme bir kez yapılır; yardımcı sonraki açılışlarda DPAPI kaydını kullanır.
+Bağlı bilgisayarda yeni kod formu "Başka bilgisayar bağla" altında tutulur;
+eşleşen kod ekrandan kalkar. "Bağlantı kayıtlı" ile AutoCAD hazırlığı farklıdır.
 Bu tek rota proxy'nin çerez yönlendirmesinden muaftır; diğer CAD rotaları muaf değildir.
 RLS açıktır; tablo yazması istemcilere kapalı, RPC çalıştırması yalnız service_role'a açıktır.
 

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Monitor, RefreshCw, Upload, FileText, CheckCircle2, Loader2, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { CAD_BUCKET, MAX_SOURCE_BYTES, deviceAvailability, displayCell, stateLabels, type CadArtifact, type CadDevice, type CadJob, type CadOptions } from "@/lib/cad/contracts";
+import { CAD_BUCKET, deviceAvailability, displayCell, stateLabels, type CadArtifact, type CadDevice, type CadJob, type CadOptions } from "@/lib/cad/contracts";
+import { selectCadFiles } from "@/lib/cad/selection";
 import { cadAction, cadSnapshot } from "./actions";
 import { cadExportStart, cadExportFile, cadExportFinish, cadItemOptions } from "./export-actions";
 import "./workspace.css";
@@ -17,8 +18,8 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
   const [selectedId, setSelectedId] = useState<string | undefined>(initial.selected?.id);
   const [deviceId, setDeviceId] = useState(initial.devices.find(d => !d.revoked_at)?.id ?? "");
   const [name, setName] = useState("");
-  const [pair, setPair] = useState<{ code: string; expiresAt: string } | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [pair, setPair] = useState<{ code: string; deviceId: string; expiresAt: string } | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [paper, setPaper] = useState<CadOptions["paper"]>("A3");
   const [duplicates, setDuplicates] = useState<CadOptions["duplicates"]>("hepsi");
   const [ack, setAck] = useState(false);
@@ -36,7 +37,7 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
   const selectedRef = useRef(selectedId);
   const refreshedAt = useRef(0);
   const refreshing = useRef(false);
-  const uploadId = useRef<{ signature: string; id: string } | null>(null);
+  const uploadIds = useRef(new Map<string, string>());
   const localBusy = useRef(false);
   const refresh = useCallback(async (id = selectedRef.current) => {
     if (preview || refreshing.current) return;
@@ -45,7 +46,10 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
     try {
       const result = await cadSnapshot(id);
       if (sequence === refreshedAt.current && id === selectedRef.current) {
-        if (result.ok) setState(result.data);
+        if (result.ok) {
+          setState(result.data);
+          setPair(current => current && result.data.devices.some(d => d.id === current.deviceId && d.state !== "unpaired" && !d.revoked_at) ? null : current);
+        }
         else setError(result.error);
       }
     } finally { refreshing.current = false; }
@@ -83,20 +87,41 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
     if (response.ok && selectedRef.current === job.id) setState(response.data);
     else if (!response.ok) setError(response.error);
   };
-  const upload = () => run("DWG yükleniyor", async () => {
-    if (!file) throw new Error("Bir DWG dosyası seçin.");
-    if (file.size > MAX_SOURCE_BYTES) throw new Error("İlk sürümde dosya sınırı 100 MB.");
-    const signature = `${file.name}:${file.size}:${file.lastModified}:${deviceId}:${paper}:${duplicates}`;
-    if (uploadId.current?.signature !== signature) uploadId.current = { signature, id: crypto.randomUUID() };
-    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer()))).map(v => v.toString(16).padStart(2, "0")).join("");
-    const data = await command("create", { id: uploadId.current.id, deviceId, name: file.name, size: file.size, sha256: hash, options: { paper, duplicates }, acknowledged: ack });
-    if (!data.alreadyQueued && !data.upload.exists) {
-      const result = await createClient().storage.from(CAD_BUCKET).uploadToSignedUrl(data.upload.path, data.upload.token, file, { contentType: "application/octet-stream" });
-      if (result.error) throw new Error("DWG yüklenemedi. Dosyayı seçili bırakıp yeniden deneyebilirsiniz.");
+  const chooseFiles = (list: FileList | null) => {
+    if (!list?.length) return;
+    try {
+      const chosen = selectCadFiles(Array.from(list));
+      setFiles(chosen.files); uploadIds.current.clear(); setError("");
+      setNotice(`${chosen.files.length} DWG seçildi.${chosen.ignored ? ` DWG olmayan ${chosen.ignored} dosya seçime alınmadı.` : ""}`);
+    } catch (error) { setError(error instanceof Error ? error.message : "Dosyalar seçilemedi."); }
+  };
+  const upload = () => run("DWG dosyaları yükleniyor", async () => {
+    if (!files.length) throw new Error("DWG dosyaları veya bir klasör seçin.");
+    if (!deviceAvailability(state.devices.find(d => d.id === deviceId)).ready || !ack) throw new Error("İşleme göndermeden önce AutoCAD'i hazır duruma getirin ve çalışma onayını işaretleyin.");
+    let completed = 0;
+    for (const file of files) {
+      setBusy(`DWG yükleniyor · ${completed + 1}/${files.length} · ${file.name}`);
+      const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer()))).map(v => v.toString(16).padStart(2, "0")).join("");
+      const signature = JSON.stringify([file.webkitRelativePath || file.name, hash, deviceId, paper, duplicates]);
+      let id = uploadIds.current.get(signature);
+      if (!id) { id = crypto.randomUUID(); uploadIds.current.set(signature, id); }
+      try {
+        const data = await command("create", { id, deviceId, name: file.name, size: file.size, sha256: hash, options: { paper, duplicates }, acknowledged: ack });
+        if (!data.alreadyQueued) {
+          if (!data.upload.exists) {
+            const result = await createClient().storage.from(CAD_BUCKET).uploadToSignedUrl(data.upload.path, data.upload.token, file, { contentType: "application/octet-stream" });
+            if (result.error) throw new Error("Dosya yüklenemedi; yeniden deneyebilirsiniz.");
+          }
+          await command("queue", { jobId: data.jobId });
+        }
+        selectedRef.current = data.jobId; setSelectedId(data.jobId);
+        completed++; setFiles(current => current.filter(item => item !== file));
+        setNotice(`${completed} DWG sıraya alındı. Her çizim ayrı iş olarak sırayla işlenecek.`);
+      } catch (error) {
+        throw new Error(`${file.name}: ${error instanceof Error ? error.message : "Yüklenemedi."} Kalan dosyalar seçili; yeniden göndererek devam edebilirsiniz.`);
+      }
     }
-    await command("queue", { jobId: data.jobId });
-    selectedRef.current = data.jobId; setSelectedId(data.jobId); setNotice("DWG sıraya alındı. Yardımcı işi aldığında tarayıcıyı kapatabilirsiniz.");
-    uploadId.current = null; setFile(null);
+    uploadIds.current.clear();
   });
   const exportJob = () => run("Paket aktarılıyor", async () => {
     const job = state.selected;
@@ -127,6 +152,7 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
     if (!finish.ok) throw new Error(finish.error);
     setNotice("Sonuçlar Teknik Resimler paketine aktarıldı. Paketteki eşleştirmeleri kontrol edebilirsiniz.");
   });
+  const hasPairedDevice = state.devices.some(d => !d.revoked_at && d.state !== "unpaired");
   const currentDevice = state.devices.find(d => d.id === deviceId);
   const available = deviceAvailability(currentDevice, now);
   const selected = state.selected;
@@ -145,17 +171,23 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
           const availability = deviceAvailability(d, now);
           return <div key={d.id} className="cad-device"><div><strong>{d.name}</strong><p>{availability.label}</p>{d.message && <small>{d.message}</small>}</div>{state.canWrite && <Button variant="ghost" disabled={!!busy} onClick={() => void run("Bağlantı kaldırılıyor", async () => { await command("revoke", { deviceId: d.id }); })}>Bağlantıyı kaldır</Button>}</div>;
         })}</div> : <p className="cad-muted">Henüz bilgisayar bağlanmadı. Yardımcıyı kurup bu hesabınızla eşleştirin.</p>}
-        {state.canWrite && <><div className="cad-pair-form"><label>Bilgisayar adı<input className={inputClass} value={name} onChange={e => setName(e.target.value)} maxLength={80} /></label><Button disabled={!!busy || !name.trim()} onClick={() => void run("Bağlantı kodu hazırlanıyor", async () => { setPair(await command("pair", { name })); })}><Link2 size={16} />Bağlantı kodu oluştur</Button></div>
+        {state.canWrite && <>{hasPairedDevice && <p className="cad-message">Bilgisayar bağlantınız kayıtlı. Her kullanımda yeniden kod girmeniz gerekmez; yardımcıyı açmanız yeterli.</p>}<details className="cad-help" open={!hasPairedDevice || !!pair}><summary>{hasPairedDevice ? "Başka bilgisayar bağla" : "Bilgisayarı ilk kez bağla"}</summary><div className="cad-pair-form"><label>Bilgisayar adı<input className={inputClass} value={name} onChange={e => setName(e.target.value)} maxLength={80} /></label><Button disabled={!!busy || !name.trim()} onClick={() => void run("Bağlantı kodu hazırlanıyor", async () => { setPair(await command("pair", { name })); })}><Link2 size={16} />Bağlantı kodu oluştur</Button></div>
           {pair && <div className="cad-pair-code"><strong>Yardımcıdaki bağlantı ekranına yapıştırın</strong><p>Uygulama adresi: {typeof window !== "undefined" ? window.location.origin : ""}</p><code>{pair.code}</code><small>10 dakika geçerlidir. Yalnız kendi bilgisayarınızdaki yardımcıda kullanın.</small><Button variant="outline" onClick={() => void navigator.clipboard.writeText(pair.code).then(() => setNotice("Bağlantı kodu kopyalandı.")).catch(() => setError("Kodu seçip elle kopyalayabilirsiniz."))}>Kodu kopyala</Button></div>}
-          <details className="cad-help"><summary>Yardımcı nasıl kurulur?</summary><ol><li><a href="/cad/helper" className="underline">ORION Yardımcısını indir</a> ve Windows’ta açın.</li><li>Bu sayfadaki uygulama adresini ve bağlantı kodunu yardımcıya girin.</li><li>AutoCAD’deki çizimlerinizi kaydedip kapatın. Yardımcıdan kontrolü başlatın.</li><li>Bağlantı “İşleme hazır” olduğunda DWG yükleyin.</li></ol><p>AutoCAD LT ve macOS bu sürümde desteklenmiyor. Yardımcı çalışırken AutoCAD’de başka çizim açmayın.</p></details></>}
+          </details><details className="cad-help"><summary>Yardımcı nasıl kurulur?</summary><ol><li><a href="/cad/helper" className="underline">ORION Yardımcısını indir</a> ve Windows’ta açın.</li><li>Bu sayfadaki uygulama adresini ve bağlantı kodunu yardımcıya girin.</li><li>AutoCAD’deki çizimlerinizi kaydedip kapatın. Yardımcıdan kontrolü başlatın.</li><li>DWG dosyalarını veya klasörü seçin. AutoCAD “İşleme hazır” olduğunda işleme gönderin.</li></ol><p>AutoCAD LT ve macOS bu sürümde desteklenmiyor. Yardımcı çalışırken AutoCAD’de başka çizim açmayın.</p></details></>}
       </section>
       <section className="cad-card"><h2><Upload size={18} /> Yeni işlem</h2>{state.canWrite ? <div className="cad-form">
-        <label>İşlemi yapacak bilgisayar<select className={inputClass} value={deviceId} onChange={e => setDeviceId(e.target.value)}><option value="">Bilgisayar seçin</option>{state.devices.filter(d => !d.revoked_at).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+        <label>İşlemi yapacak bilgisayar<select className={inputClass} value={deviceId} disabled={!!busy} onChange={e => setDeviceId(e.target.value)}><option value="">Bilgisayar seçin</option>{state.devices.filter(d => !d.revoked_at).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
         <p className="cad-muted" aria-live="polite">{available.label}</p>
-        <label className="cad-file">DWG dosyası<input type="file" accept=".dwg" disabled={!!busy || !available.ready} onChange={e => { setFile(e.target.files?.[0] ?? null); uploadId.current = null; }} /><small>En fazla 100 MB. İlk sürüm, dış referans gerektirmeyen tek DWG içindir.</small></label>
-        <div className="cad-two"><label>Kâğıt<select className={inputClass} value={paper} onChange={e => setPaper(e.target.value as CadOptions["paper"])}><option value="A3">A3</option><option value="AUTO">Çerçeveden belirle</option></select></label><label>Tekrarlanan paftalar<select className={inputClass} value={duplicates} onChange={e => setDuplicates(e.target.value as CadOptions["duplicates"])}><option value="hepsi">Tümünü incelemeye getir</option><option value="dur">İşlemi durdur</option><option value="alt">Alttaki kopyayı kullan</option><option value="ust">Üstteki kopyayı kullan</option></select></label></div>
-        <label className="cad-check"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} />Seçtiğim bilgisayarda AutoCAD çizimlerimi kapattım; işlem sırasında AutoCAD’i kullanmayacağım.</label>
-        <Button disabled={!!busy || !available.ready || !file || !ack} onClick={upload}><Upload size={16} />İşleme gönder</Button>
+        <div className="cad-file">
+          <label>DWG dosyaları seç<input type="file" accept=".dwg" multiple disabled={!!busy} onChange={e => { chooseFiles(e.target.files); e.target.value = ""; }} /></label>
+          <label>Klasör seç<input type="file" multiple {...{ webkitdirectory: "", directory: "" }} disabled={!!busy} onChange={e => { chooseFiles(e.target.files); e.target.value = ""; }} /></label>
+          <small>Klasörün alt klasörlerindeki DWG’ler de seçilir. Her DWG ayrı işlenir. En fazla 30 dosya; dosya başına 100 MB. Xref ve diğer destek dosyaları aktarılmaz.</small>
+          {files.length > 0 && <div className="cad-selected-files"><strong>{files.length} DWG seçili</strong><ul>{files.map((file, i) => <li key={i}>{file.webkitRelativePath || file.name} <small>({(file.size / 1024 / 1024).toLocaleString("tr-TR", { maximumFractionDigits: 1 })} MB)</small></li>)}</ul><Button variant="outline" disabled={!!busy} onClick={() => { setFiles([]); uploadIds.current.clear(); }}>Seçimi temizle</Button></div>}
+        </div>
+        {!available.ready && <p className="cad-muted">Dosya ve klasör seçebilirsiniz. İşleme göndermek için AutoCAD’deki çizimleri kaydedip kapatın; yardımcıda “Kontrol et ve başlat” düğmesine basın. Yeniden bağlantı kodu gerekmez.</p>}
+        <div className="cad-two"><label>Kâğıt<select className={inputClass} value={paper} disabled={!!busy} onChange={e => setPaper(e.target.value as CadOptions["paper"])}><option value="A3">A3</option><option value="AUTO">Çerçeveden belirle</option></select></label><label>Tekrarlanan paftalar<select className={inputClass} value={duplicates} disabled={!!busy} onChange={e => setDuplicates(e.target.value as CadOptions["duplicates"])}><option value="hepsi">Tümünü incelemeye getir</option><option value="dur">İşlemi durdur</option><option value="alt">Alttaki kopyayı kullan</option><option value="ust">Üstteki kopyayı kullan</option></select></label></div>
+        <label className="cad-check"><input type="checkbox" disabled={!!busy} checked={ack} onChange={e => setAck(e.target.checked)} />Seçtiğim bilgisayarda AutoCAD çizimlerimi kapattım; işlem sırasında AutoCAD’i kullanmayacağım.</label>
+        <Button disabled={!!busy || !available.ready || !files.length || !ack} onClick={upload}><Upload size={16} />{files.length > 1 ? `${files.length} DWG’yi işleme gönder` : "İşleme gönder"}</Button>
         <small>Yükleme tamamlanana kadar sekmeyi açık tutun. İşlem, seçtiğiniz bilgisayar açık ve yardımcı hazırken yürür.</small>
       </div> : <p className="cad-muted">Yeni işlem için Yönetici, Mühendis veya Teknik Ressam yetkisi gerekir. Hazır paketleri Teknik Resimler bölümünden görüntüleyebilirsiniz.</p>}</section>
     </div>

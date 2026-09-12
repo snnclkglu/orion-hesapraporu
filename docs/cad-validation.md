@@ -2,6 +2,18 @@
 
 Tarih: 12 Eylül 2026. Hedef: HESAP RAPORU KOD / orion-hesapraporu.
 
+## Kullanıcı kontrolü sonrası — dosya seçimi ve kalıcı bağlantı
+
+AutoCAD hazırlık uyarısında dosya girdisinin disabled olması seçim penceresini
+engelliyordu. Seçim bu koşuldan ayrıldı; işleme gönderme koşulu korundu.
+Birden çok DWG ve alt klasörleriyle klasör seçimi eklendi. Her DWG ayrı iş,
+seçim başına 30 dosya, dosya başına 100 MB; destek dosyaları aktarılmaz.
+Yarım yüklemede tamamlananlar seçili listeden çıkar, kalanlar tekrar edilebilir.
+Bağlantı bir kez kurulur; kayıtlı bilgisayarda yeniden kod formu katlanır ve
+başarılı eşleştirmeden sonra kod ekrandan kalkar. Windows yardımcısı değişmedi.
+Dosya ve klasör girdilerinin attention/autocad_missing/unpaired durumlarında
+açık olması, gönderimin kilitli kalması ve klasör filtreleri otomatik sınandı.
+
 ## Teslim durumu
 
 Kaynak motor kopyalandı; `/cad` web bölümü, yerel Windows yardımcısı, özel
