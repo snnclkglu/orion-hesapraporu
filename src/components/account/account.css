@@ -220,6 +220,59 @@
 .ac-danger {
   color: var(--destructive);
 }
+.ac-card label,
+.ac-page h1 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ac-card input[type="date"] {
+  appearance: none;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.ac-card input[type="date"]::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: left;
+}
+.ac-card input,
+.ac-card textarea,
+.ac-card select {
+  scroll-margin-block: 100px;
+}
+.ac-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-self: end;
+  gap: 8px;
+}
+.ac-filter-actions > * {
+  flex: 1;
+}
+.ac-phone {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--background);
+  min-width: 0;
+}
+.ac-phone-prefix {
+  padding-left: 12px;
+  font-weight: 500;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.ac-card .ac-phone input {
+  border: 0;
+  background: transparent;
+}
+.ac-phone:focus-within {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.ac-phone input:focus-visible {
+  outline: none;
+}
 @media (max-width: 767px) {
   .ac-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -241,7 +294,15 @@
   }
   .ac-filters {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ac-filters > label,
+  .ac-filter-actions {
+    width: 100%;
+  }
+  .ac-row.ac-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (prefers-reduced-motion: reduce) {

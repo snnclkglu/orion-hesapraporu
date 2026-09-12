@@ -8,6 +8,7 @@
 | [007 — Uygulama ve kontrol kaydı](007-profil-ekip-uygulama-kontrol.md) | 005/006 faz sonuçları, kanıtlar, kurulum ve pilot kapanış adımları | Güncel teslim kaydı |
 | [008 — Asana karşılaştırması ve iyileştirme](008-asana-karsilastirma-ve-iyilestirme.md) | Resmi web/mobil kanıtları; mobil filtre, kişisel görünüm, haftalık ajanda, tekrar, kontrol listesi ve beklenen görevler | S0/U1–U3 uygulandı; otomatik kontroller geçti, saha/pilot/yayın kapıları açık |
 | [010 — Panel kalan fazlar ve yayın](010-panel-kalan-fazlar-ve-yayin.md) | Telefon erişimi, gerçek fotoğraf/geri bildirim, fiziksel mobil kabul, bakım, ekip pilotu ve yayın; aralarda kontrol fazları | Plan hazır; cihaz ve pilot bilgisi bekleniyor, teknik hazırlık bağımsız ilerleyebilir |
+| [011 — Panel mobil sadeleştirme ve klavye](011-panel-mobil-sadelestirme-ve-klavye.md) | Gerçek iPhone bulguları: klavye, yatay taşma, dört sekmeli navigasyon, kompakt kartlar ve +90 telefon maskesi | Uygulandı; otomatik mobil ve SQL kontrolleri geçti, fiziksel iPhone kabulü açık |
 
 ## Animation plans
 

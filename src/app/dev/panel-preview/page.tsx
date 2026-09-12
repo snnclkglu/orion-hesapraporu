@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 import { TaskWorkspace } from "@/app/(app)/panel/task-workspace";
-import { todayIstanbul, type Task, type Workspace } from "@/lib/tasks/model";
+import {
+  todayIstanbul,
+  filtersSchema,
+  type Task,
+  type Workspace,
+} from "@/lib/tasks/model";
 const me = "10000000-0000-4000-8000-000000000001",
   other = "10000000-0000-4000-8000-000000000002",
   team = "20000000-0000-4000-8000-000000000001",
@@ -102,8 +107,17 @@ const initial: Workspace = {
   jobs: [],
   inbox: [],
 };
-export default function Preview() {
+export default async function Preview({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   if (process.env.NODE_ENV !== "development") notFound();
+  const params = await searchParams;
+  const parsed = filtersSchema.safeParse({
+    view: params.view,
+    period: params.period,
+  });
   return (
     <main className="mx-auto w-full min-w-0 max-w-[1440px] p-4 sm:p-8">
       <TaskWorkspace
@@ -112,6 +126,7 @@ export default function Preview() {
         role="admin"
         name="Deniz"
         preview
+        initialFilters={parsed.success ? parsed.data : {}}
       />
     </main>
   );

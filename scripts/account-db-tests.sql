@@ -10,7 +10,7 @@ begin
  perform set_config('request.jwt.claim.sub',a::text,true);
  set local role authenticated;
  select account_version into v from profiles where id=a;
- perform account_save('PROFİL DOĞRULAMA','555','Özel doğrulama notu',v);
+ perform account_save('PROFİL DOĞRULAMA','2121234567','Özel doğrulama notu',v);
  begin perform account_save('ESKİ SÜRÜM','','',v); raise exception using errcode='Z0001',message='Profil sürümü korunmadı'; exception when serialization_failure then null; end;
  begin update profiles set title='Yetkisiz unvan' where id=a; raise exception using errcode='Z0001',message='Unvan değiştirilebildi'; exception when insufficient_privilege then null; end;
  begin perform team_manage('create','{"name":"Yetkisiz ekip"}',null); raise exception using errcode='Z0001',message='Üye ekip oluşturdu'; exception when insufficient_privilege then null; end;

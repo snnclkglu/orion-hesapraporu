@@ -49,7 +49,7 @@ export function TaskSavedViews({
         Görünümler
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="tw-filter-dialog">
+        <DialogContent mobileKeyboardSafe className="tw-filter-dialog">
           <DialogTitle>Kayıtlı görünümler</DialogTitle>
           <DialogDescription>
             Seçtiğiniz filtreleri size özel bir kısayol olarak saklayın.

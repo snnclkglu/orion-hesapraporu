@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizePhone, phoneError } from "./phone";
 export const profileSchema = z
   .object({
     name: z.string().trim().min(1, "Ad soyad gerekli").max(120),
@@ -7,6 +8,23 @@ export const profileSchema = z
     version: z.number().int().positive(),
   })
   .strict();
+/** Eski numarayı yalnız DB'den okunan değerle birebir aynıysa korur. */
+export function profileUpdateSchema(previousPhone: string) {
+  return profileSchema.extend({
+    phone: z
+      .string()
+      .max(40)
+      .transform((value, context) => {
+        if (value === previousPhone) return value;
+        const normalized = normalizePhone(value);
+        if (normalized === null) {
+          context.addIssue({ code: "custom", message: phoneError });
+          return z.NEVER;
+        }
+        return normalized;
+      }),
+  });
+}
 export const feedbackCategories = {
   general: "Genel",
   bug: "Hata",

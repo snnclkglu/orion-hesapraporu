@@ -198,7 +198,10 @@ export const commentSchema = z
   .strict();
 export const filtersSchema = z
   .object({
-    view: z.enum(["mine", "team", "boards", "inbox", "menu"]).default("mine"),
+    view: z
+      .enum(["mine", "team", "boards", "inbox", "menu"])
+      .default("mine")
+      .transform((view) => (view === "menu" ? ("mine" as const) : view)),
     period: z
       .enum(["all", "today", "week", "overdue", "upcoming", "done", "archived"])
       .default("all"),

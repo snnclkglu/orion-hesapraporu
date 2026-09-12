@@ -7,7 +7,7 @@ import {
   normalizeImage,
   uploadPrivate,
 } from "@/lib/account/server";
-import { profileSchema } from "@/lib/account/model";
+import { profileSchema, profileUpdateSchema } from "@/lib/account/model";
 import { adBuyuk } from "@/lib/tr-text";
 import sharp from "sharp";
 export async function prepareAvatar(form: FormData) {
@@ -32,8 +32,19 @@ export async function saveAccount(input: unknown) {
     const parsed = profileSchema.safeParse(input);
     if (!parsed.success)
       throw new Error("Ad soyad ve alan uzunluklarını kontrol edin.");
-    const { db } = await accountContext();
-    const p = parsed.data;
+    const { db, user } = await accountContext();
+    const { data: previous, error: previousError } = await db
+      .from("profile_private_details")
+      .select("phone")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    checkDb(previousError);
+    const checked = profileUpdateSchema(previous?.phone ?? "").safeParse(input);
+    if (!checked.success)
+      throw new Error(
+        checked.error.issues[0]?.message ?? "Telefonu kontrol edin.",
+      );
+    const p = checked.data;
     const { error, data } = await db.rpc("account_save", {
       p_name: adBuyuk(p.name),
       p_phone: p.phone,
@@ -42,7 +53,7 @@ export async function saveAccount(input: unknown) {
     });
     checkDb(error);
     revalidatePath("/", "layout");
-    return { version: data as number, name: adBuyuk(p.name) };
+    return { version: data as number, name: adBuyuk(p.name), phone: p.phone };
   } catch (e) {
     return { error: accountError(e) };
   }

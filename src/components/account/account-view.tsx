@@ -23,6 +23,9 @@ import {
   prepareAvatar,
 } from "@/app/(app)/profile/actions";
 import "./account.css";
+import { PhoneInput } from "./phone-input";
+import { normalizePhone, phoneError } from "@/lib/account/phone";
+import { useMobileFormViewport } from "@/components/ui/mobile-form-viewport";
 import { useUnsavedForm } from "./use-unsaved-form";
 import { prepareImageTransport } from "@/lib/account/image-transport";
 export function AccountView({
@@ -32,6 +35,8 @@ export function AccountView({
   initial: AccountData;
   preview?: boolean;
 }) {
+  const [formNode, setFormNode] = useState<HTMLDivElement | null>(null);
+  useMobileFormViewport(formNode);
   const [data, setData] = useState(initial),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
@@ -92,6 +97,7 @@ export function AccountView({
       version?: number;
       avatar?: string | null;
       name?: string;
+      phone?: string;
     }>,
     success: string,
   ) {
@@ -109,6 +115,7 @@ export function AccountView({
         ...d,
         version: r.version ?? d.version,
         name: r.name ?? d.name,
+        phone: r.phone ?? d.phone,
         avatar: r.avatar === undefined ? d.avatar : r.avatar,
       }));
       setMessage(preview ? "Önizleme: değişiklik kaydedilmedi." : success);
@@ -140,7 +147,7 @@ export function AccountView({
   }
   const scale = (220 / Math.min(dimensions.w, dimensions.h)) * crop.zoom;
   return (
-    <div className="ac-page">
+    <div className="ac-page" ref={setFormNode}>
       <Link href="/" className="ac-button w-fit">
         <ArrowLeft size={16} /> Çalışma alanına dön
       </Link>
@@ -186,6 +193,14 @@ export function AccountView({
             className="ac-card"
             onSubmit={(e) => {
               e.preventDefault();
+              if (
+                data.phone !== initial.phone &&
+                normalizePhone(data.phone) === null
+              ) {
+                setMessage(phoneError);
+                setError(true);
+                return;
+              }
               void run(
                 () =>
                   saveAccount({
@@ -216,16 +231,11 @@ export function AccountView({
             <p className="ac-muted">
               E-posta, unvan ve uygulama rolünü yönetiminiz düzenler.
             </p>
-            <label>
-              Telefon · isteğe bağlı
-              <input
-                value={data.phone}
-                maxLength={40}
-                autoComplete="tel"
-                type="tel"
-                onChange={(e) => setData({ ...data, phone: e.target.value })}
-              />
-            </label>
+            <PhoneInput
+              value={data.phone}
+              original={initial.phone}
+              onChange={(phone) => setData({ ...data, phone })}
+            />
             <label>
               Özel not · isteğe bağlı
               <textarea
@@ -269,7 +279,10 @@ export function AccountView({
             {file && (
               <>
                 <div className="ac-crop">
-                  <Image unoptimized width={dimensions.w} height={dimensions.h}
+                  <Image
+                    unoptimized
+                    width={dimensions.w}
+                    height={dimensions.h}
                     src={url}
                     alt="Fotoğraf kırpma önizlemesi"
                     onLoad={(e) =>

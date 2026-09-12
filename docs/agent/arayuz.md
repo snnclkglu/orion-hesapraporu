@@ -1,5 +1,28 @@
 # Dokunmatik ve dar ekran
 
+## MOBIL-34 — Gerçek iPhone geri bildirimi sonrası Panel düzeltmesi
+
+Panel alt gezinmesi dört bölümdür: Görevlerim/Ekip/Panolar/Gelen. Menü ve
+ekip yönetimi kısayolu Panel'de gösterilmez; genel kabuk ve Yönetim/Ekipler kalır.
+Mobil dönem kısayolları 2×2 düzen kullanır; Tamamlanan/Arşiv Filtrele içindedir.
+Yaklaşan yeni sekme değildir; eski bağlantının sorgusu filtre özetiyle korunur.
+Mobilde yerel yatay kaydırma veya gizleyerek kesme çözüm değildir; tarih
+alanlarının kendi hücre sınırları da denetlenir.
+
+Panel Dialog çağrıları `mobileKeyboardSafe` seçeneğiyle görünür ekranın
+yüksekliğine ve üst ofsetine uyar. Mobilde metin alanına kendiliğinden odak
+verilmez; kullanıcı dokunur. Ortak Dialog'un diğer modüllerdeki davranışı
+değişmez. Sorumlu/tarih hızlı seçicisi mobilde aynı Dialog, masaüstünde Popover'dır.
+Safari odak kaydırması sonrası sınırlı yeniden ölçüm vardır; kullanıcı dokunup
+kaydırmaya başladığında bekleyen düzeltmeler iptal edilir. Form verisi loglanmaz.
+`dvh` tek başına fiziksel klavye kabul kanıtı değildir.
+
+Telefon +90 önekiyle sunulur; maske kullanıcı talebiyle bu alana özgüdür.
+Yazma sırasında imleç doğal davranır; alandan çıkınca maske uygulanır. Boş değer
+boş kaydedilir. Sunucu ve `account_save` değişen numarayı doğrular; eski
+biçimsiz kayıt değişmeden kalabilir. Fotoğraf akışı yeniden kurulmaz.
+Kontroller: `scripts/panel-mobile-revision-check.cjs`, `account-phone-db-tests.sql`.
+
 ## MOBIL-33 — Profil, geri bildirim ve ekip akışları
 
 Üst şeritte zil/tema/avatar ayrı 44px hedeflerdir. Avatar doğrudan Profilim'i
@@ -15,9 +38,9 @@ tarayıcı emülasyonundan ayrı raporlanır.
 
 ## MOBIL-32 — Görev alanı (12.09.2026)
 
-PANEL-24 telefonda Görevlerim/Ekip/Panolar/Gelen/Menü alt gezinmesini kullanır;
+PANEL-24 telefonda Görevlerim/Ekip/Panolar/Gelen alt gezinmesini kullanır;
 bu bar başka modüllerin editörlerine yayılmaz. Hızlı görevde yalnız başlık
-zorunludur; diğer alanlar açılır ayrıntılardadır. Detay mobilde tam dvh, geniş
+zorunludur; diğer alanlar açılır ayrıntılardadır. Detay mobilde görünür alana uyar, geniş
 ekranda sağ paneldir. Tailwind'in ayrı `translate` özelliği de sıfırlanmalıdır;
 yalnız `transform:none` kullanmak diyaloğu yarım ekran kaydırır.
 Sütun taşıması durum seçicisiyle klavye ve dokunmada mümkündür. Renk yanında

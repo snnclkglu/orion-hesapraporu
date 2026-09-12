@@ -27,7 +27,7 @@ export function ResponsiveTaskFilters({
         <SlidersHorizontal size={17} /> Filtrele {count > 0 && <b>{count}</b>}
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="tw-filter-dialog">
+        <DialogContent mobileKeyboardSafe className="tw-filter-dialog">
           <DialogTitle>Görev filtreleri</DialogTitle>
           <DialogDescription>Seçimleriniz listeye uygulanır.</DialogDescription>
           <div className="tw-filters">{children}</div>

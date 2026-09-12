@@ -423,25 +423,6 @@
   right: 20px;
   color: var(--muted-foreground);
 }
-.tw-menu-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-}
-.tw-menu-list a {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  background: var(--card);
-  padding: 18px;
-  font-size: 14px;
-}
-.tw-menu-list a:hover {
-  color: var(--primary);
-}
 .tw-kanban {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -988,7 +969,7 @@
     gap: 5px;
     min-width: 54px;
     padding: 9px 3px;
-    font-size: 10px;
+    font-size: 11px;
     border: 0;
     min-height: 54px;
   }
@@ -1053,12 +1034,12 @@
   }
   .tw-select select {
     min-height: 44px;
-    font-size: 12px;
+    font-size: 16px;
     padding-left: 7px;
   }
   .tw-task {
-    padding: 15px 12px;
-    gap: 13px;
+    padding: 9px 12px;
+    gap: 12px;
     align-items: flex-start;
   }
   .tw-check {
@@ -1068,9 +1049,9 @@
     font-size: 15px;
   }
   .tw-task-meta {
-    gap: 7px;
+    gap: 4px 7px;
     font-size: 11px;
-    margin-top: 7px;
+    margin-top: 4px;
   }
   .tw-task-trailing {
     flex-direction: column;
@@ -1119,9 +1100,6 @@
   .tw-board-arrow {
     right: 12px;
     top: 18px;
-  }
-  .tw-menu-list {
-    grid-template-columns: 1fr;
   }
   .tw-mobile-column {
     display: block;
@@ -1316,9 +1294,9 @@
   .tw-periods {
     flex: 0 0 100%;
     min-width: 0;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
   }
   .tw-periods button {
     flex-shrink: 0;
@@ -1496,4 +1474,123 @@
 }
 .tw-inbox-row .tw-inbox-item {
   width: 100%;
+}
+
+/* İçerik kendi sütununa sığar; yatay taşma gizlenerek kesilmez. */
+.tw-active-period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.tw-active-period button {
+  min-height: 44px;
+  padding: 8px;
+  color: var(--primary);
+}
+.tw-task-meta > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tw-task-meta > .tw-mobile-date {
+  display: none;
+}
+.tw-heading h1,
+.tw-board-card h2,
+.tw-inbox-item {
+  overflow-wrap: anywhere;
+}
+.tw-search,
+.tw-heading > div,
+.tw-form-grid > *,
+.tw-team-summary > * {
+  min-width: 0;
+}
+.tw-workspace input[type="date"],
+[data-mobile-form] input[type="date"] {
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.tw-workspace input[type="date"]::-webkit-date-and-time-value,
+[data-mobile-form] input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
+}
+@media (max-width: 767px) {
+  .tw-periods .tw-period-secondary {
+    display: none;
+  }
+  .tw-periods button {
+    width: 100%;
+    white-space: normal;
+    font-size: 13px;
+  }
+  .tw-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tw-navigation button {
+    flex: 1;
+    min-width: 0;
+  }
+  .tw-task-title {
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .tw-task-body {
+    min-height: 44px;
+  }
+  .tw-task .tw-check {
+    margin: 12px 0 0 12px;
+  }
+  .tw-task-trailing {
+    gap: 0;
+  }
+  .tw-task-trailing > .tw-date,
+  .tw-task-meta > .tw-task-board {
+    display: none;
+  }
+  .tw-task-meta > .tw-mobile-date {
+    display: inline-flex;
+  }
+  .tw-task-trailing > button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .tw-detail-dialog {
+    padding: 16px !important;
+  }
+  .tw-team-summary {
+    flex-wrap: wrap;
+  }
+  .tw-team-summary .tw-select {
+    flex-basis: 100%;
+  }
+  .tw-comment-actions {
+    flex-wrap: wrap;
+  }
+  .tw-comment-actions .tw-select {
+    max-width: 100%;
+  }
+  .tw-job-picker {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tw-tabs {
+    flex-wrap: wrap;
+  }
+  .tw-tabs button {
+    min-height: 44px;
+  }
+}
+@media (max-width: 360px) {
+  .tw-detail-fields,
+  .tw-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

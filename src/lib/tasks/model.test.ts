@@ -11,6 +11,11 @@ import {
   filtersSchema,
 } from "./model";
 describe("Görev sözleşmesi", () => {
+  it("eski Menü bağlantısını normalleştirir, Yaklaşan sorgusunu korur", () => {
+    const result=filtersSchema.parse({view:"menu",period:"upcoming"});
+    expect(result.view).toBe("mine");
+    expect(result.period).toBe("upcoming");
+  });
   it("sayfa imlecindeki zaman ve kimliği veritabanından önce doğrular", () => {
     expect(filtersSchema.safeParse({ cursor: "bozuk|kimlik" }).success).toBe(
       false,

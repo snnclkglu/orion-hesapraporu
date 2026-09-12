@@ -9,7 +9,6 @@ import {
   Users,
   LayoutGrid,
   Inbox,
-  Menu,
   CheckCheck,
   Lock,
   ArrowUpRight,
@@ -31,14 +30,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
+import { TaskQuickPicker } from "@/components/account/task-quick-picker";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { WORKSPACE_SECTIONS } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import {
   statuses,
@@ -78,7 +72,6 @@ const nav = [
   { id: "team", label: "Ekip", icon: Users },
   { id: "boards", label: "Panolar", icon: LayoutGrid },
   { id: "inbox", label: "Gelen", icon: Inbox },
-  { id: "menu", label: "Menü", icon: Menu },
 ] as const;
 type View = (typeof nav)[number]["id"];
 const empty: Workspace = {
@@ -151,7 +144,9 @@ export function TaskWorkspace({
   initialFilters?: TaskFilters;
 }) {
   const [data, setData] = useState(initial),
-    [view, setView] = useState<View>(initialFilters.view ?? "mine"),
+    [view, setView] = useState<View>(
+      initialFilters.view === "menu" ? "mine" : (initialFilters.view ?? "mine"),
+    ),
     [period, setPeriod] = useState<string>(initialFilters.period ?? "all"),
     [query, setQuery] = useState(initialFilters.q ?? ""),
     [boardId, setBoardId] = useState(initialFilters.board ?? ""),
@@ -522,7 +517,6 @@ export function TaskWorkspace({
       team: "Ekibin işleri",
       boards: "Panolar",
       inbox: "Gelen kutusu",
-      menu: "Çalışma alanı",
     }[view];
   const unread = data.inbox.filter((n) => !n.read_at).length;
   function renderRow(t: Task) {
@@ -550,7 +544,11 @@ export function TaskWorkspace({
             ) : null}
           </button>
         )}
-        <button className="tw-task-body" onClick={() => openTask(t.id)}>
+        <button
+          className="tw-task-body"
+          aria-label={t.title}
+          onClick={() => openTask(t.id)}
+        >
           <span className="tw-task-title">{t.title}</span>
           <span className="tw-task-meta">
             {t.job_no && <span className="tw-code">{t.job_no}</span>}
@@ -564,11 +562,24 @@ export function TaskWorkspace({
               <span>{personName(t.assignee)}</span>
             )}
             {t.board_id && (
-              <span>{data.boards.find((b) => b.id === t.board_id)?.name}</span>
+              <span className="tw-task-board">
+                {data.boards.find((b) => b.id === t.board_id)?.name}
+              </span>
             )}
             {t.status !== "todo" && (
               <span className={`tw-mobile-status tw-status status-${t.status}`}>
                 {statuses[t.status]}
+              </span>
+            )}
+            {t.due_date && (
+              <span
+                className={cn(
+                  "tw-mobile-date",
+                  isOverdue(t, today) && "tw-overdue-label",
+                )}
+              >
+                <CalendarDays size={11} />
+                {dateLabel(t.due_date, today)}
               </span>
             )}
             {isOverdue(t, today) && (
@@ -695,13 +706,17 @@ export function TaskWorkspace({
                 ["today", "Bugün"],
                 ["week", "Bu hafta"],
                 ["overdue", "Geciken"],
-                ["upcoming", "Yaklaşan"],
                 ["done", "Tamamlanan"],
                 ["archived", "Arşiv"],
               ].map(([id, label]) => (
                 <button
                   key={id}
-                  className={cn("oc-tap", period === id && "active")}
+                  className={cn(
+                    "oc-tap",
+                    period === id && "active",
+                    ["done", "archived"].includes(id) && "tw-period-secondary",
+                  )}
+                  aria-pressed={period === id}
                   onClick={() => setPeriod(id)}
                 >
                   {label}
@@ -709,8 +724,30 @@ export function TaskWorkspace({
               ))}
             </div>
             <ResponsiveTaskFilters
-              count={[person, status, priority].filter(Boolean).length}
+              count={
+                [
+                  person,
+                  status,
+                  priority,
+                  period !== "all" ? period : "",
+                ].filter(Boolean).length
+              }
             >
+              <Select
+                label="Dönem filtresi"
+                value={period}
+                onChange={setPeriod}
+              >
+                <option value="all">Tüm tarihler</option>
+                <option value="today">Bugün</option>
+                <option value="week">Bu hafta</option>
+                <option value="overdue">Geciken</option>
+                {period === "upcoming" && (
+                  <option value="upcoming">Yaklaşan · kayıtlı filtre</option>
+                )}
+                <option value="done">Tamamlanan</option>
+                <option value="archived">Arşiv</option>
+              </Select>
               <Select
                 label="Sorumlu filtresi"
                 value={person}
@@ -752,7 +789,7 @@ export function TaskWorkspace({
               preview={preview}
               filters={filters}
               onApply={(f) => {
-                setView(f.view ?? "mine");
+                setView(f.view === "menu" ? "mine" : (f.view ?? "mine"));
                 setPeriod(f.period ?? "all");
                 setQuery(f.q ?? "");
                 setBoardId(f.board ?? "");
@@ -765,6 +802,20 @@ export function TaskWorkspace({
               }}
             />
           </div>
+          {["done", "archived", "upcoming"].includes(period) && (
+            <div className="tw-active-period" role="status">
+              <span>
+                {period === "done"
+                  ? "Tamamlanan görevler"
+                  : period === "archived"
+                    ? "Arşiv"
+                    : "Yaklaşan · kayıtlı filtre"}
+              </span>
+              <button className="oc-tap" onClick={() => setPeriod("all")}>
+                Filtreyi temizle
+              </button>
+            </div>
+          )}
           {view === "team" && (
             <div className="tw-team-summary">
               <Select label="Ekip filtresi" value={teamId} onChange={setTeamId}>
@@ -786,15 +837,6 @@ export function TaskWorkspace({
               >
                 Atanmamış
               </Button>
-              {role === "admin" && (
-                <Button variant="ghost" asChild>
-                  <Link
-                    href={teamId ? `/admin/teams/${teamId}` : "/admin/teams"}
-                  >
-                    Ekipleri yönet
-                  </Link>
-                </Button>
-              )}
             </div>
           )}
           {view === "mine" && (
@@ -1145,22 +1187,6 @@ export function TaskWorkspace({
           )}
         </section>
       )}
-      {view === "menu" && (
-        <div className="tw-menu-list">
-          <Link href="/profile">
-            <span>Profilim</span>
-            <ArrowUpRight size={17} />
-          </Link>
-          {WORKSPACE_SECTIONS.filter(
-            (s) => s.href !== "/" && (!s.visible || s.visible(role)),
-          ).map((s) => (
-            <Link key={s.href} href={s.href}>
-              <span>{s.label}</span>
-              <ArrowUpRight size={17} />
-            </Link>
-          ))}
-        </div>
-      )}
       <button
         className="tw-mobile-create"
         aria-label="Yeni görev oluştur"
@@ -1170,7 +1196,7 @@ export function TaskWorkspace({
         <span>Yeni görev</span>
       </button>
       <Dialog open={creating} onOpenChange={setCreating}>
-        <DialogContent className="tw-create-dialog">
+        <DialogContent mobileKeyboardSafe className="tw-create-dialog">
           <DialogTitle>
             {board?.kind === "note"
               ? "Yeni not"
@@ -1212,7 +1238,7 @@ export function TaskWorkspace({
           if (!open) openTask(null);
         }}
       >
-        <DialogContent className="tw-detail-dialog">
+        <DialogContent mobileKeyboardSafe className="tw-detail-dialog">
           <DialogTitle className="sr-only">Görev ayrıntısı</DialogTitle>
           <DialogDescription className="sr-only">
             Açıklama, sorumlu, tarih, yorumlar, ekler ve değişiklik geçmişi
@@ -1461,7 +1487,7 @@ export function TaskWorkspace({
           if (!o) setManage(null);
         }}
       >
-        <DialogContent className="tw-create-dialog">
+        <DialogContent mobileKeyboardSafe className="tw-create-dialog">
           <DialogTitle>
             {manage === "board" ? "Pano oluştur" : "Ekip yönetimi"}
           </DialogTitle>
@@ -1794,8 +1820,11 @@ function QuickTaskActions({
   );
   return (
     <div className="tw-task-trailing">
-      <Popover open={dateOpen} onOpenChange={setDateOpen}>
-        <PopoverTrigger asChild>
+      <TaskQuickPicker
+        open={dateOpen}
+        onOpenChange={setDateOpen}
+        title="Termin"
+        trigger={
           <button
             className={cn("tw-date oc-tap", isOverdue(t, today) && "overdue")}
             disabled={busy || t.can_edit === false}
@@ -1807,41 +1836,41 @@ function QuickTaskActions({
               <CalendarDays size={16} />
             )}
           </button>
-        </PopoverTrigger>
-        <PopoverContent className="tw-quick-popover" align="end">
-          <h3>Termin</h3>
-          {[
-            [today, "Bugün"],
-            [tomorrow.toISOString().slice(0, 10), "Yarın"],
-            ["", "Tarihi kaldır"],
-          ].map(([date, label]) => (
-            <button
-              className="oc-tap"
-              key={label}
-              onClick={async () => {
-                if (await onPatch({ due_date: date || null }))
-                  setDateOpen(false);
-              }}
-            >
-              {label}
-            </button>
-          ))}
-          <input
-            type="date"
-            aria-label="Başka bir tarih seç"
-            value={t.due_date ?? ""}
-            onChange={async (e) => {
-              if (await onPatch({ due_date: e.target.value || null }))
-                setDateOpen(false);
+        }
+      >
+        {[
+          [today, "Bugün"],
+          [tomorrow.toISOString().slice(0, 10), "Yarın"],
+          ["", "Tarihi kaldır"],
+        ].map(([date, label]) => (
+          <button
+            className="oc-tap"
+            key={label}
+            onClick={async () => {
+              if (await onPatch({ due_date: date || null })) setDateOpen(false);
             }}
-          />
-        </PopoverContent>
-      </Popover>
+          >
+            {label}
+          </button>
+        ))}
+        <input
+          type="date"
+          aria-label="Başka bir tarih seç"
+          value={t.due_date ?? ""}
+          onChange={async (e) => {
+            if (await onPatch({ due_date: e.target.value || null }))
+              setDateOpen(false);
+          }}
+        />
+      </TaskQuickPicker>
       <span className={`tw-status status-${t.status}`}>
         {statuses[t.status]}
       </span>
-      <Popover open={personOpen} onOpenChange={setPersonOpen}>
-        <PopoverTrigger asChild>
+      <TaskQuickPicker
+        open={personOpen}
+        onOpenChange={setPersonOpen}
+        title="Sorumlu"
+        trigger={
           <button
             className="oc-tap-square"
             aria-label={`${t.title}: sorumlu ${name}`}
@@ -1854,37 +1883,36 @@ function QuickTaskActions({
           >
             <Avatar name={name} />
           </button>
-        </PopoverTrigger>
-        <PopoverContent className="tw-quick-popover" align="end">
-          <h3>Sorumlu</h3>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Kişi ara"
-            placeholder="Kişi ara"
-          />
-          {people.map((p) => (
-            <button
-              key={p.id}
-              className="oc-tap"
-              onClick={async () => {
-                if (await onPatch({ assignee: p.id })) setPersonOpen(false);
-              }}
-            >
-              <Avatar name={p.full_name} />
-              {p.full_name}
-            </button>
-          ))}
+        }
+      >
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Kişi ara"
+          placeholder="Kişi ara"
+        />
+        {people.map((p) => (
           <button
+            key={p.id}
+            aria-label={p.full_name}
             className="oc-tap"
             onClick={async () => {
-              if (await onPatch({ assignee: null })) setPersonOpen(false);
+              if (await onPatch({ assignee: p.id })) setPersonOpen(false);
             }}
           >
-            Atamayı kaldır
+            <Avatar name={p.full_name} />
+            {p.full_name}
           </button>
-        </PopoverContent>
-      </Popover>
+        ))}
+        <button
+          className="oc-tap"
+          onClick={async () => {
+            if (await onPatch({ assignee: null })) setPersonOpen(false);
+          }}
+        >
+          Atamayı kaldır
+        </button>
+      </TaskQuickPicker>
     </div>
   );
 }
@@ -1944,7 +1972,6 @@ function TaskForm({
       }}
     >
       <input
-        autoFocus
         name="title"
         required
         maxLength={300}

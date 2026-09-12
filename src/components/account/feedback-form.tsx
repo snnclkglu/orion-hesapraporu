@@ -10,10 +10,19 @@ import {
 } from "@/app/(app)/profile/feedback/actions";
 import { feedbackCategories } from "@/lib/account/model";
 import "./account.css";
+import { useMobileFormViewport } from "@/components/ui/mobile-form-viewport";
 import { useUnsavedForm } from "./use-unsaved-form";
 import { useFeedbackDraft } from "./use-feedback-draft";
 import { prepareImageTransport } from "@/lib/account/image-transport";
-export function FeedbackForm({ preview = false, userId }: { preview?: boolean; userId?: string }) {
+export function FeedbackForm({
+  preview = false,
+  userId,
+}: {
+  preview?: boolean;
+  userId?: string;
+}) {
+  const [formNode, setFormNode] = useState<HTMLDivElement | null>(null);
+  useMobileFormViewport(formNode);
   const [body, setBody] = useState(""),
     [category, setCategory] = useState("general"),
     [section, setSection] = useState("");
@@ -83,7 +92,7 @@ export function FeedbackForm({ preview = false, userId }: { preview?: boolean; u
     }
   }
   return (
-    <div className="ac-page max-w-2xl">
+    <div className="ac-page max-w-2xl" ref={setFormNode}>
       <Link href="/profile/feedback" className="ac-button w-fit">
         <ArrowLeft size={16} /> Gönderilerim
       </Link>
@@ -99,29 +108,55 @@ export function FeedbackForm({ preview = false, userId }: { preview?: boolean; u
       <form className="ac-card" onSubmit={submit}>
         {!body && draft.raw && !locked && (
           <div className="ac-row">
-            <button type="button" className="ac-button" onClick={() => {
-              try {
-                const saved = JSON.parse(draft.raw!);
-                if (typeof saved.body !== "string") throw new Error();
-                setBody(saved.body.slice(0, 4000));
-                setCategory(Object.hasOwn(feedbackCategories, saved.category) ? saved.category : "general");
-                setSection(typeof saved.section === "string" ? saved.section.slice(0, 60) : "");
-                setMessage("Metin taslağı geri getirildi. Varsa görselleri yeniden seçin.");
-              } catch { draft.write(null); }
-            }}>Metin taslağını geri getir</button>
-            <button type="button" className="ac-button" onClick={() => draft.write(null)}>Taslağı sil</button>
+            <button
+              type="button"
+              className="ac-button"
+              onClick={() => {
+                try {
+                  const saved = JSON.parse(draft.raw!);
+                  if (typeof saved.body !== "string") throw new Error();
+                  setBody(saved.body.slice(0, 4000));
+                  setCategory(
+                    Object.hasOwn(feedbackCategories, saved.category)
+                      ? saved.category
+                      : "general",
+                  );
+                  setSection(
+                    typeof saved.section === "string"
+                      ? saved.section.slice(0, 60)
+                      : "",
+                  );
+                  setMessage(
+                    "Metin taslağı geri getirildi. Varsa görselleri yeniden seçin.",
+                  );
+                } catch {
+                  draft.write(null);
+                }
+              }}
+            >
+              Metin taslağını geri getir
+            </button>
+            <button
+              type="button"
+              className="ac-button"
+              onClick={() => draft.write(null)}
+            >
+              Taslağı sil
+            </button>
           </div>
         )}
         <label>
           Geri bildirimin
           <textarea
             value={body}
-            onChange={(e) => { setBody(e.target.value); draft.write({ body: e.target.value, category, section }); }}
+            onChange={(e) => {
+              setBody(e.target.value);
+              draft.write({ body: e.target.value, category, section });
+            }}
             required
             maxLength={4000}
             rows={7}
             disabled={busy || locked}
-            autoFocus
           />
         </label>
         <p className="ac-muted text-right">{body.length}/4000</p>
@@ -130,7 +165,10 @@ export function FeedbackForm({ preview = false, userId }: { preview?: boolean; u
             Tür
             <select
               value={category}
-              onChange={(e) => { setCategory(e.target.value); draft.write({ body, category: e.target.value, section }); }}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                draft.write({ body, category: e.target.value, section });
+              }}
               disabled={busy || locked}
             >
               {Object.entries(feedbackCategories).map(([v, l]) => (
@@ -144,7 +182,10 @@ export function FeedbackForm({ preview = false, userId }: { preview?: boolean; u
             İlgili bölüm · isteğe bağlı
             <select
               value={section}
-              onChange={(e) => { setSection(e.target.value); draft.write({ body, category, section: e.target.value }); }}
+              onChange={(e) => {
+                setSection(e.target.value);
+                draft.write({ body, category, section: e.target.value });
+              }}
               disabled={busy || locked}
             >
               <option value="">Seçilmedi</option>

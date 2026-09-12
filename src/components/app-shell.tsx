@@ -633,7 +633,7 @@ export function AppShell({
               bölüm adı tek kimliktir.
               `min-w-0 truncate`: uzun ad sağdaki içeriğin üstüne binmesin.
             */}
-            <div className="oc-kicker min-w-0 truncate text-foreground/80 lg:hidden">
+            <div className={`oc-kicker min-w-0 truncate text-foreground/80 ${pathname === "/" || pathname === "/panel" ? "hidden" : "lg:hidden"}`}>
               {sectionLabel(pathname)}
             </div>
             {/*

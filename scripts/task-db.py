@@ -29,6 +29,7 @@ elif mode in ('test','migrate','benchmark'):
    db.run(Path('scripts/account-db-tests.sql').read_text(encoding='utf-8'))
    db.run(Path('scripts/task-workflow-db-tests.sql').read_text(encoding='utf-8'))
    db.run(Path('scripts/account-maintenance-db-tests.sql').read_text(encoding='utf-8'))
+   db.run(Path('scripts/account-phone-db-tests.sql').read_text(encoding='utf-8'))
    if mode=='benchmark':
     actor=db.run("select id from profiles where role='admin' limit 1")[0][0]
     db.run("select set_config('request.jwt.claim.sub',:a,true),set_config('request.jwt.claim.role','authenticated',true)",a=str(actor))

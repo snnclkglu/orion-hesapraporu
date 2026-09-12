@@ -39,7 +39,7 @@ export function TaskReminders({ preview }: { preview: boolean }) {
         Hatırlatma tercihleri
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="tw-filter-dialog">
+        <DialogContent mobileKeyboardSafe className="tw-filter-dialog">
           <DialogTitle>Görev hatırlatmaları</DialogTitle>
           <DialogDescription>
             Uygulama açıkken termini yaklaşan görevler Gelen kutusuna eklenir.

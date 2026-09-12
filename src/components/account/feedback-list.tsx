@@ -95,12 +95,14 @@ export function FeedbackList({
             Bitiş
             <input name="to" type="date" defaultValue={filters.to} />
           </label>
-          <button className="ac-button" type="submit">
-            Süz
-          </button>
-          <Link href={base} className="ac-button">
-            Temizle
-          </Link>
+          <div className="ac-filter-actions">
+            <button className="ac-button" type="submit">
+              Süz
+            </button>
+            <Link href={base} className="ac-button">
+              Temizle
+            </Link>
+          </div>
         </div>
       </form>
       <p className="ac-muted" role="status">

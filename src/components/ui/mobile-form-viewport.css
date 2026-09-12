@@ -1,0 +1,31 @@
+@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) {
+  [data-mobile-form="true"][data-slot="dialog-content"] {
+    top: var(--form-viewport-top, 0px) !important;
+    bottom: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: var(--form-viewport-height, 100dvh) !important;
+    translate: none !important;
+    transform: none !important;
+    border-radius: 0 0 16px 16px;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    scroll-padding-block: 24px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom)) !important;
+  }
+  [data-mobile-form="true"] input,
+  [data-mobile-form="true"] textarea,
+  [data-mobile-form="true"] select {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px;
+    scroll-margin-block: 24px;
+  }
+  [data-mobile-form="true"] .tw-form-footer {
+    position: static;
+    flex-wrap: wrap;
+  }
+}
