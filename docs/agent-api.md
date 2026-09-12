@@ -1,5 +1,10 @@
 # ORION Agent API v1
 
+Görev alanı `tasks:*` yetkileriyle aynı kapıdadır. Görev oluşturma, güncelleme,
+yorum ve iş/pano eşleştirmesi için [Görev/Grokbot rehberini](task-workspace.md)
+ve [OpenAPI sözleşmesini](task-api.openapi.json) kullanın. Bu scope'lar mevcut
+ajanlara otomatik eklenmez; e-posta veya personel yetkisi sağlamaz.
+
 E-posta yönetimi de bu kapının ayrı yetkileridir. Şablon, yayın, kural,
 önizleme ve gönderim işlemleri için [E-posta Merkezi yönergesini](email-center-agent.md)
 okuyun. Aşağıdaki yayımlama kısıtları Teklif modülüne aittir.

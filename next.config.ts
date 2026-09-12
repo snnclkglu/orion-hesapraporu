@@ -97,6 +97,9 @@ const PDF_ASSETS = [
 ];
 
 const nextConfig: NextConfig = {
+  // Eşzamanlı çalışma sırasında kabul derlemesi ayrı çıktıda sınanabilir.
+  distDir: process.env.ORION_ISOLATED_BUILD === "1" ? ".next-task-check" : ".next",
+  experimental: { serverActions: { bodySizeLimit: "22mb" } },
   // EK-F katalog sayfalarını küçülten canvas yerel (native) ikili taşır.
   // Turbopack bunu ESM chunk'ına gömmeye kalkarsa "non-ecmascript
   // placeable asset" ile derleme düşer; Node çalışma zamanında paket olarak

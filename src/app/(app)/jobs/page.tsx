@@ -98,6 +98,9 @@ export default async function JobsPage({
           .select("id, title, due_date, job_id, jobs(job_no, title)")
           .eq("assignee", user.id)
           .is("done_at", null)
+          .is("archived_at", null)
+          .eq("kind", "task")
+          .not("job_id", "is", null)
           .order("due_date", { ascending: true, nullsFirst: false })
           .limit(6)
       : Promise.resolve({ data: null }),
@@ -156,7 +159,9 @@ export default async function JobsPage({
     const { data: acikGorevler } = await supabase
       .from("job_tasks")
       .select("job_id, title, due_date")
-      .is("done_at", null);
+      .is("done_at", null)
+      .is("archived_at", null)
+      .eq("kind", "task");
     const bugun = new Date();
     const p2 = (n: number) => String(n).padStart(2, "0");
     const bugunIso = `${bugun.getFullYear()}-${p2(bugun.getMonth() + 1)}-${p2(bugun.getDate())}`;

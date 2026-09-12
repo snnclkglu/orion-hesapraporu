@@ -212,13 +212,13 @@ export async function deleteTask(
   // görünmesin diye satır sayısı okunur (deleteJob kalıbı).
   const { data, error } = await supabase
     .from("job_tasks")
-    .delete()
+    .update({ archived_at: new Date().toISOString() })
     .eq("id", taskId)
     .eq("job_id", jobId)
     .select("id");
   if (error) return { error: error.message };
   if (!data || data.length === 0) {
-    return { error: "Görev silinemedi — silme görevi açana ve yöneticiye açıktır." };
+    return { error: "Görev arşivlenemedi veya erişiminiz bulunmuyor." };
   }
 
   tazele(jobId);

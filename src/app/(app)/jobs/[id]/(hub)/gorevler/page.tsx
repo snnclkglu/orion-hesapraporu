@@ -34,6 +34,8 @@ export default async function JobGorevlerPage({
            kapatan:profiles!job_tasks_done_by_fkey(full_name)`
         )
         .eq("job_id", id)
+        .is("archived_at", null)
+        .eq("kind", "task")
         .order("sort", { ascending: true }),
       supabase.from("profiles").select("id, full_name, title").order("full_name"),
       supabase

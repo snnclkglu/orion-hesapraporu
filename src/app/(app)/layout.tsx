@@ -25,6 +25,8 @@ export default async function AppLayout({
         role={profile.role}
         displayName={profile.fullName || profile.email || "Kullanıcı"}
         email={profile.email}
+        userId={profile.userId}
+        avatarPath={profile.avatarPath}
       >
         {/* main app-shell içinde; atlama hedefi bu sarmalayıcıdır */}
         {/* Yükseklik zinciri: sabit çerçeveli sayfalarda (revizyon editörü)

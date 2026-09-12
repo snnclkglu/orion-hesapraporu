@@ -1,5 +1,56 @@
 # Açılış Panosu
 
+## PANEL-27 — Görsel bakım sınırı
+
+`account-maintenance` kullanıcı görsel yükleme fonksiyonundan ayrıdır. Supabase içinde dar zamanlayıcı anahtarıyla çalışır; yerel geniş anahtar alınmaz. 25 saatlik referans dışı dosyalar, en fazla 500 aday ve 50'lik yeniden kontrol gruplarıyla işlenir. Profilin iki avatar boyutu da son bir saatte yüklenmiş olmalıdır; eski küçük boyut yeni büyük boyuta bağlanamaz. Kiralama, hata ve çalışma sayıları DB'de tutulur; yalnız Yönetici okur. Dosyası duran taslak silinmez, kesinleşmiş geri bildirim korunur. İşletim: `docs/account-maintenance.md`; gerçek kurulum durumu: plan 010.
+
+## PANEL-26 — Görev akışı, tekrar ve kişisel görünümler
+
+`workflow` komutu sürüm ve tekrar anahtarını mevcut `task_command` geçidinde korur. Kontrol listesi en fazla 30 adım; gerçek alt görev veya kapasite ölçüsü değildir. Tekrar, tamamlanma tetikleyicisinde tek bir sonraki kayıt oluşturur; `recurrence_parent` benzersizdir. Ay sonu özgün gün çapası korunur; kullanıcı termini değiştirirse çapa yeni güne geçer. Yorum/ek/bekleme bağlantısı kopyalanmaz. Arşiv/erişim kaybında yeni kayıt açılmaz.
+
+Beklenen görevler aynı paylaşım kapsamında olmalıdır; private/direct sahip ve sorumlu, job iş kimliği de eşleşir. Döngü ve eski `done_at` tamamlama yolu DB'de korunur. Akış değişiklikleri ortak işlem kilidi kullanır; olası kilit çakışması yeniden denenebilir 409'dur. Ekip içi sorumlu değişimi bağlı görevleri bozmaz. API yetkisi görev okuma/yazma kapsamlarına bağlıdır; Grokbot bağlantısı bu kodda kurulmaz.
+
+Hafta Türkiye tarihine göre pazartesi–pazardır; sunucu filtreler, UI yüklenen/toplam sayısını gösterir. Görünümler kullanıcıya özeldir. Termin hatırlatması uygulama yenilenirken çalışır; arka plan push değildir. Aynı termin veya görev hazır bildirimi çoğaltılmaz. Kanıtlar: `scripts/task-workflow-db-tests.sql`, `scripts/task-workflow-mobile-check.cjs`, `plans/008-asana-karsilastirma-ve-iyilestirme.md`.
+
+## PANEL-25 — Ekip yönetimi ve kişiye özel atama
+
+Ekip yapısı `team_manage` üzerinden yalnız Yönetici tarafından düzenlenir;
+eski Panel komutu aynı geçide yönlenir, eski çekirdek dışarıya kapalıdır.
+Genel pano ekip başına tektir. Üye çıkarma ve açık görev devri atomiktir;
+görev yazmaları aynı ekip kilidini kullanır. Arşiv okumayı korur, yazmayı kapatır.
+`direct` katılımcıları oluşturan ve güncel sorumludur; yeniden atama oluşturana
+aittir. API, liste, yorum, ek ve bildirim aynı sınırı kullanır. `private`
+genişletilmez; eski `job` korunur. Kullanım/işletim: `docs/account-teams.md`.
+
+## PANEL-24 — Görev çalışma alanı (12.09.2026)
+
+Yeni kullanıcı talebiyle Panel görev odaklıdır. Aşağıdaki tarihsel PANEL-23
+notlarındaki “Panel'den görev açılmaz”, yalnız açık/kapalı durum ve büyük arama
+kahramanı kararları bu bölüm için geçerli değildir. Kök `/` ve `LANDING_PATH`
+korunur. `task-workspace.tsx` aynı görünümü gerçek sayfa ve development
+önizlemesinde kullanır. `model.ts` saf kurallar, `service.ts` sunucu servisidir.
+
+Ortak kaynak `job_tasks`; özel yapılacaklar kimlikleri korunarak taşınmıştır.
+`user_todos` güvenli uyumluluk görünümü, `user_todos_legacy` salt okunur yedektir.
+Yeni görev, ekip ve pano yazmaları `task_command` RPC'sinde atomiktir. Durum ile
+tamamlanma damgası birlikte değişir; sürüm eskiyse yazma reddedilir. Ajan tekrar
+anahtarı ve başarılı yanıt aynı transaction içindedir. Kayıt yetkisi kaldırılmışsa
+eski tekrar yanıtı da görev içeriğini vermez.
+
+Görevlerim bir görünüm, Bana özel bir gizlilik sınırıdır. Yönetici özel kayıtları
+okuyamaz. Ekip yetkisi üyelikten gelir; rol hiyerarşisi uydurulmaz. İş kodu eklemek
+tek başına özel görevi paylaşmaz. Dosyalar özel bucket'ta ve görevin yetkisindedir.
+Mobil alt gezinme yalnız görev alanındadır; rapor editörüne taşınmaz.
+
+Sorgu önce uygun kimlikleri sayfalar, sonra 50 kaydın ayrıntısını hesaplar.
+Hedef toplamlarını tüm defter için hesaplamak 10.000 kayıt ölçümünü 7,3 saniyeye
+çıkardı; sayfalama sonrası hesaplama aynı ölçümde 417 ms verdi. Bu tek ölçümdür,
+üretim p95 veya mobil LCP ölçümü değildir. Kaynak referansı ve Türkçe arama sunucuda
+süzülür. Ayrıntı URL'si, ekran ve süzgeçler yenilemede korunur.
+
+Kullanım/API: `docs/task-workspace.md`, `docs/task-api.openapi.json`.
+Plan ve kontrol kaydı: `plans/004-panel-gorev-yonetimi.md`.
+
 > ORION Cranes — İş Yönetim Sistemi · alan dokümanı.
 > Kök kurallar ve harita: `AGENTS.md`. Bu dosya ELLE düzenlenir;
 > `.claude/rules/panel.md` ve haritadaki satır ondan ÜRETİLİR

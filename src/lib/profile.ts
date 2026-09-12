@@ -14,6 +14,7 @@ export interface SessionProfile {
   email: string;
   fullName: string;
   role: string;
+  avatarPath?: string | null;
 }
 
 export const getSessionProfile = cache(
@@ -28,7 +29,7 @@ export const getSessionProfile = cache(
     // düşürüldüğünden (12.08.2026) zengin sorguya gerek yok.
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, role")
+      .select("full_name, role, avatar_path")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -37,6 +38,7 @@ export const getSessionProfile = cache(
       email: user.email ?? "",
       fullName: profile?.full_name ?? "",
       role: profile?.role ?? "engineer",
+      avatarPath: profile?.avatar_path ?? null,
     };
   }
 );

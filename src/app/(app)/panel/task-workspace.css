@@ -1,0 +1,1499 @@
+.tw-workspace {
+  --tw-blue: 234;
+  --tw-amber: 78;
+  --tw-green: 159;
+  --tw-red: 27;
+  max-width: 1500px;
+  margin: auto;
+  min-width: 0;
+  padding-bottom: 7rem;
+}
+.tw-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0 26px;
+}
+.tw-heading h1 {
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+}
+.tw-eyebrow {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-bottom: 8px;
+}
+.tw-subtitle {
+  font-size: 14px;
+  color: var(--muted-foreground);
+  margin-top: 7px;
+}
+.tw-preview {
+  font-size: 12px;
+  background: var(--muted);
+  padding: 10px;
+  margin-bottom: 12px;
+}
+.tw-navigation {
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 26px;
+}
+.tw-navigation button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  padding: 13px 3px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  border-bottom: 2px solid transparent;
+}
+.tw-navigation button.active {
+  color: var(--foreground);
+  border-color: var(--primary);
+  font-weight: 600;
+}
+.tw-navigation b {
+  font-size: 10px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  padding: 1px 5px;
+  border-radius: 10px;
+}
+.tw-toolbar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.tw-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted-foreground);
+  min-width: 0;
+  width: 340px;
+  border: 1px solid var(--border);
+  padding: 9px 12px;
+  background: var(--card);
+}
+.tw-search input {
+  background: none;
+  border: 0;
+  outline: 0;
+  min-width: 0;
+  width: 100%;
+  font-size: 14px;
+  color: var(--foreground);
+}
+.tw-search:focus-within {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.tw-view-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  padding: 3px;
+  gap: 3px;
+}
+.tw-view-toggle button {
+  padding: 8px;
+  color: var(--muted-foreground);
+}
+.tw-view-toggle button[aria-pressed="true"] {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.tw-filterbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.tw-periods {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.tw-periods button {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  padding: 7px 10px;
+}
+.tw-periods button.active {
+  background: var(--secondary);
+  color: var(--foreground);
+  font-weight: 600;
+}
+.tw-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tw-select {
+  display: flex;
+  align-items: center;
+  position: relative;
+  max-width: 220px;
+  min-width: 0;
+}
+.tw-select select {
+  width: 100%;
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 7px 25px 7px 9px;
+  font-size: 12px;
+  color: var(--foreground);
+  text-overflow: ellipsis;
+}
+.tw-select svg {
+  position: absolute;
+  right: 7px;
+  pointer-events: none;
+}
+.tw-select option {
+  background: var(--popover);
+  color: var(--popover-foreground);
+}
+.tw-content {
+  background: var(--card);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+.tw-content.is-loading {
+  opacity: 0.65;
+}
+.tw-list-caption {
+  display: flex;
+  justify-content: space-between;
+  padding: 13px 18px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklch, var(--muted) 30%, transparent);
+}
+.tw-task {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+  transition: background-color 0.12s;
+}
+.tw-task:hover {
+  background: color-mix(in oklch, var(--muted) 42%, transparent);
+}
+.tw-task:last-child {
+  border-bottom: 0;
+}
+.tw-check {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--muted-foreground);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--muted-foreground);
+  margin-right: 2px;
+}
+.tw-check.checked {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--card);
+}
+.tw-kind {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+.tw-task-body {
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+  padding: 2px 0;
+}
+.tw-task-title {
+  display: block;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.tw-task-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  margin-top: 5px;
+}
+.tw-task-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.tw-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.035em;
+  color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 7%, transparent);
+  padding: 1px 5px;
+}
+.tw-task-trailing {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-shrink: 0;
+}
+.tw-date {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.tw-date.overdue {
+  color: oklch(0.52 0.16 var(--tw-red));
+  font-weight: 600;
+}
+.dark .tw-date.overdue {
+  color: oklch(0.78 0.13 var(--tw-red));
+}
+.tw-status {
+  font-size: 11px;
+  padding: 3px 7px;
+  white-space: nowrap;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.status-doing {
+  --oc-hue: 234;
+}
+.status-waiting {
+  --oc-hue: 78;
+}
+.status-done {
+  --oc-hue: 159;
+}
+.tw-status.status-doing,
+.tw-status.status-waiting,
+.tw-status.status-done {
+  background: oklch(0.94 0.03 var(--oc-hue));
+  color: oklch(0.4 0.09 var(--oc-hue));
+}
+.dark .tw-status.status-doing,
+.dark .tw-status.status-waiting,
+.dark .tw-status.status-done {
+  background: oklch(0.32 0.035 var(--oc-hue));
+  color: oklch(0.85 0.07 var(--oc-hue));
+}
+.priority-urgent,
+.priority-high {
+  color: var(--primary);
+}
+.tw-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  background: var(--secondary);
+  border: 1px solid var(--border);
+}
+.tw-completed .tw-task-title {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+.tw-add-inline {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 16px 18px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  width: 100%;
+  text-align: left;
+}
+.tw-add-inline:hover {
+  color: var(--primary);
+  background: var(--muted);
+}
+.tw-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
+  text-align: center;
+  padding: 65px 20px;
+  color: var(--muted-foreground);
+}
+.tw-empty h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.tw-empty p {
+  max-width: 350px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.tw-team-summary {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  font-size: 14px;
+}
+.tw-team-summary small {
+  color: var(--muted-foreground);
+}
+.tw-team-summary button {
+  margin-left: auto;
+}
+.tw-section-heading,
+.tw-board-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.tw-board-context > button {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.tw-boards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.tw-board-card {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 24px;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+.tw-board-card:hover {
+  border-color: var(--primary);
+}
+.tw-board-card h2 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 20px 0 8px;
+  overflow-wrap: anywhere;
+}
+.tw-board-card p,
+.tw-board-card small {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.tw-board-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  background: var(--muted);
+  color: var(--primary);
+}
+.tw-board-arrow {
+  position: absolute;
+  top: 24px;
+  right: 20px;
+  color: var(--muted-foreground);
+}
+.tw-menu-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.tw-menu-list a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  padding: 18px;
+  font-size: 14px;
+}
+.tw-menu-list a:hover {
+  color: var(--primary);
+}
+.tw-kanban {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px;
+  background: var(--background);
+}
+.tw-column {
+  min-width: 0;
+}
+.tw-column h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 0 18px;
+}
+.tw-column h2 i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted-foreground);
+}
+.tw-column h2 i:not(.status-todo) {
+  background: oklch(0.65 0.12 var(--oc-hue));
+}
+.tw-column h2 span {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+.tw-kanban-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+  padding: 12px;
+}
+.tw-kanban-card .tw-task {
+  padding: 0;
+  border: 0;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.tw-kanban-card .tw-task-body {
+  flex-basis: calc(100% - 40px);
+}
+.tw-kanban-card .tw-task-trailing {
+  justify-content: space-between;
+  width: 100%;
+  padding-top: 10px;
+}
+.tw-kanban-card .tw-status {
+  display: none;
+}
+.tw-kanban-card > .tw-select {
+  margin-top: 12px;
+  max-width: none;
+}
+.tw-mobile-column {
+  display: none;
+}
+.tw-inbox {
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.tw-inbox-item {
+  display: flex;
+  width: 100%;
+  text-align: left;
+  gap: 14px;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.tw-inbox-item > div {
+  flex: 1;
+  min-width: 0;
+}
+.tw-inbox-item p {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.tw-inbox-item strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+}
+.tw-inbox-item small {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.tw-inbox-dot {
+  height: 7px;
+  width: 7px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.tw-inbox-item.unread .tw-inbox-dot {
+  background: var(--primary);
+}
+.tw-inbox-item.unread {
+  background: color-mix(in oklch, var(--primary) 3%, var(--card));
+}
+.tw-mobile-create {
+  display: none;
+}
+.tw-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--destructive);
+  padding: 14px;
+  margin-bottom: 18px;
+  color: var(--destructive);
+  font-size: 13px;
+}
+.tw-create-dialog {
+  border-radius: 0 !important;
+}
+.tw-task-form,
+.tw-management {
+  display: grid;
+  gap: 18px;
+}
+.tw-task-form label,
+.tw-management label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.tw-task-form input,
+.tw-task-form select,
+.tw-task-form textarea,
+.tw-management input,
+.tw-management select,
+.tw-sharing select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  padding: 10px;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 14px;
+}
+.tw-task-form .tw-title-input {
+  font-size: 20px;
+  border: 0;
+  padding: 10px 0;
+  font-weight: 500;
+}
+.tw-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.tw-task-form summary,
+.tw-sharing summary {
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  padding: 8px 0;
+}
+.tw-task-form details textarea,
+.tw-task-form details input {
+  margin-top: 10px;
+}
+.tw-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.tw-form-footer span {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.tw-detail-dialog {
+  top: 0 !important;
+  left: auto !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: min(580px, 100%) !important;
+  max-width: 100% !important;
+  max-height: 100dvh !important;
+  height: 100dvh !important;
+  transform: none !important;
+  border-radius: 0 !important;
+  padding: 30px !important;
+  display: block !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  padding-bottom: calc(30px + env(safe-area-inset-bottom)) !important;
+}
+.tw-detail-top {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-right: 24px;
+  margin-bottom: 24px;
+}
+.tw-detail-top > span {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.tw-detail-title {
+  width: 100%;
+  resize: none;
+  background: transparent;
+  border: 0;
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.4;
+  min-height: 72px;
+  padding: 0;
+}
+.tw-detail-fields {
+  display: grid;
+  gap: 14px;
+  margin: 22px 0;
+}
+.tw-detail-fields > label {
+  display: grid;
+  grid-template-columns: 95px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.tw-detail-fields .tw-select {
+  max-width: none;
+}
+.tw-job-picker {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.tw-detail-fields .tw-select select {
+  border-color: transparent;
+  font-size: 13px;
+}
+.tw-detail-fields input {
+  background: transparent;
+  padding: 6px;
+  border: 1px solid transparent;
+  color: var(--foreground);
+  font-size: 13px;
+  width: 100%;
+  min-width: 0;
+}
+.tw-detail-fields input:hover,
+.tw-detail-fields select:hover {
+  border-color: var(--border);
+}
+.tw-description-label {
+  display: grid;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.tw-description-label textarea {
+  background: transparent;
+  width: 100%;
+  border: 1px solid var(--border);
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.7;
+  resize: vertical;
+}
+.tw-task-editor form > button {
+  margin-top: 10px;
+}
+.tw-sharing {
+  margin-top: 15px;
+}
+.tw-sharing p {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  line-height: 1.6;
+  margin: 10px 0;
+}
+.tw-sharing button {
+  margin: 10px 10px 0 0;
+}
+.tw-detail-extras {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  margin: 15px 0;
+}
+.tw-detail-extras a {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.tw-attachments {
+  padding: 20px 0;
+  border-block: 1px solid var(--border);
+}
+.tw-attachments h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.tw-attachments h3 span {
+  color: var(--muted-foreground);
+}
+.tw-attachments > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.tw-attachments small {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.tw-attachments > small {
+  display: block;
+  margin-top: 8px;
+}
+.tw-attachments > button small {
+  margin-left: auto;
+}
+.tw-upload {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.tw-detail-tabs {
+  display: flex;
+  gap: 22px;
+  border-bottom: 1px solid var(--border);
+  margin: 15px 0;
+}
+.tw-detail-tabs button {
+  font-size: 13px;
+  padding: 12px 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted-foreground);
+}
+.tw-detail-tabs button.active {
+  color: var(--foreground);
+  border-color: var(--primary);
+}
+.tw-muted {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  line-height: 1.7;
+}
+.tw-comments article {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+}
+.tw-comments article > div {
+  min-width: 0;
+  flex: 1;
+}
+.tw-comments header {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 12px;
+}
+.tw-comments time {
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.tw-comments p {
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin-top: 7px;
+}
+.tw-comment-form {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 9px;
+}
+.tw-comment-form textarea {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.tw-history li {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--border);
+}
+.tw-history-changes {
+  width: 100%;
+  font-size: 12px;
+  min-width: 0;
+}
+.tw-history-changes > div {
+  margin-top: 8px;
+}
+.tw-history-changes dt {
+  color: var(--muted-foreground);
+}
+.tw-history-changes dd {
+  margin: 3px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.tw-conflict {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0;
+}
+.tw-conflict p {
+  margin: 8px 0;
+  font-size: 13px;
+}
+.tw-conflict-note {
+  max-height: 150px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+.tw-history time,
+.tw-history small {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  width: 100%;
+}
+.tw-detail-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding-top: 100px;
+  font-size: 13px;
+}
+.tw-team-editor {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.tw-team-editor h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.tw-team-editor > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  margin: 8px 0;
+}
+.tw-workspace button:focus-visible,
+.tw-detail-dialog button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+@media (max-width: 1100px) {
+  .tw-kanban {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tw-boards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tw-task-trailing {
+    gap: 10px;
+  }
+  .tw-task-trailing .tw-status {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+  .tw-heading {
+    padding: 4px 0 22px;
+  }
+  .tw-heading h1 {
+    font-size: 27px;
+  }
+  .tw-heading .tw-subtitle {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .tw-eyebrow {
+    font-size: 11px;
+  }
+  .tw-desktop-create {
+    display: none !important;
+  }
+  .tw-navigation {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 35;
+    justify-content: space-around;
+    gap: 0;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    border-bottom: 0;
+    padding: 5px 4px calc(5px + env(safe-area-inset-bottom));
+    margin: 0;
+  }
+  .tw-navigation button {
+    flex-direction: column;
+    gap: 5px;
+    min-width: 54px;
+    padding: 9px 3px;
+    font-size: 10px;
+    border: 0;
+    min-height: 54px;
+  }
+  .tw-navigation button.active {
+    color: var(--primary);
+  }
+  .tw-navigation b {
+    position: absolute;
+    right: 4px;
+    top: 2px;
+  }
+  .tw-mobile-create {
+    position: fixed;
+    z-index: 34;
+    right: 18px;
+    bottom: calc(83px + env(safe-area-inset-bottom));
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    padding: 13px 17px;
+    box-shadow: 0 4px 15px
+      color-mix(in oklch, var(--foreground) 12%, transparent);
+    font-size: 13px;
+    min-height: 46px;
+  }
+  .tw-workspace {
+    padding-bottom: 150px;
+  }
+  .tw-toolbar {
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .tw-search {
+    flex: 1;
+    width: auto;
+  }
+  .tw-search input {
+    font-size: 16px;
+  }
+  .tw-periods {
+    gap: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+  .tw-periods button {
+    padding: 8px 6px;
+    font-size: 12px;
+    min-height: 44px;
+  }
+  .tw-filterbar {
+    gap: 10px;
+  }
+  .tw-filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+  .tw-select {
+    max-width: none;
+  }
+  .tw-select select {
+    min-height: 44px;
+    font-size: 12px;
+    padding-left: 7px;
+  }
+  .tw-task {
+    padding: 15px 12px;
+    gap: 13px;
+    align-items: flex-start;
+  }
+  .tw-check {
+    margin-top: 3px;
+  }
+  .tw-task-title {
+    font-size: 15px;
+  }
+  .tw-task-meta {
+    gap: 7px;
+    font-size: 11px;
+    margin-top: 7px;
+  }
+  .tw-task-trailing {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 11px;
+    padding-top: 3px;
+  }
+  .tw-task-trailing .tw-avatar {
+    width: 23px;
+    height: 23px;
+    font-size: 9px;
+  }
+  .tw-task-trailing .tw-date {
+    font-size: 11px;
+    min-width: 35px;
+  }
+  .tw-list-caption {
+    padding-inline: 12px;
+  }
+  .tw-team-summary {
+    padding: 12px;
+    font-size: 13px;
+    gap: 9px;
+  }
+  .tw-team-summary small {
+    display: block;
+    font-size: 10px;
+  }
+  .tw-team-summary button {
+    font-size: 11px;
+  }
+  .tw-boards {
+    gap: 12px;
+  }
+  .tw-board-card {
+    padding: 17px;
+  }
+  .tw-board-card h2 {
+    font-size: 15px;
+    margin-top: 15px;
+  }
+  .tw-board-card p {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .tw-board-arrow {
+    right: 12px;
+    top: 18px;
+  }
+  .tw-menu-list {
+    grid-template-columns: 1fr;
+  }
+  .tw-mobile-column {
+    display: block;
+    padding: 12px;
+  }
+  .tw-kanban {
+    display: block;
+    padding: 12px;
+  }
+  .tw-column {
+    display: none;
+  }
+  .tw-column.mobile-active {
+    display: block;
+  }
+  .tw-kanban-card .tw-task-trailing {
+    flex-direction: row;
+  }
+  .tw-kanban-card .tw-select select {
+    font-size: 16px;
+  }
+  .tw-detail-dialog {
+    padding: 20px !important;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
+  }
+  .tw-detail-title {
+    font-size: 22px;
+  }
+  .tw-task-form input,
+  .tw-task-form select,
+  .tw-task-form textarea,
+  .tw-management input,
+  .tw-management select,
+  .tw-detail-fields input,
+  .tw-detail-fields .tw-select select,
+  .tw-description-label textarea,
+  .tw-comment-form textarea,
+  .tw-sharing select {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .tw-detail-fields > label {
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 10px;
+  }
+  .tw-detail-top {
+    gap: 10px;
+  }
+  .tw-form-grid {
+    gap: 12px;
+  }
+  .tw-inbox-item {
+    padding: 16px 12px;
+  }
+  .tw-empty {
+    padding: 45px 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tw-workspace * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+.tw-quick-popover {
+  display: grid;
+  gap: 6px;
+  max-height: 350px;
+  overflow-y: auto;
+  border-radius: 0 !important;
+}
+.tw-quick-popover h3 {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-bottom: 7px;
+}
+.tw-quick-popover button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 7px;
+  font-size: 13px;
+  text-align: left;
+}
+.tw-quick-popover button:hover {
+  background: var(--muted);
+}
+.tw-quick-popover input {
+  font-size: 16px;
+  width: 100%;
+  padding: 9px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.tw-task-form details[open] {
+  display: grid;
+  gap: 16px;
+}
+.tw-form-footer {
+  position: sticky;
+  bottom: 0;
+  background: var(--popover);
+  padding-bottom: 8px;
+}
+.tw-task-form details > .tw-form-grid {
+  margin-top: 10px;
+}
+.tw-task-meta > .tw-mobile-status {
+  display: none;
+}
+.tw-overdue-label {
+  color: var(--primary);
+}
+@media (max-width: 1100px) {
+  .tw-task-meta > .tw-mobile-status {
+    display: inline-flex;
+  }
+}
+.tw-detail-dialog {
+  translate: none !important;
+}
+.tw-comment-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+.tw-comment-actions .tw-select {
+  max-width: 230px;
+}
+.tw-filter-trigger {
+  display: none;
+}
+.tw-jump-comments {
+  color: var(--primary);
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+#task-discussion {
+  scroll-margin-top: 16px;
+}
+.tw-filter-dialog .tw-filters {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.tw-filter-dialog select {
+  min-height: 44px;
+  font-size: 16px;
+  width: 100%;
+}
+.tw-filter-dialog button,
+.tw-workflow button {
+  min-height: 44px;
+}
+.tw-filter-dialog button[data-slot="dialog-close"],
+.tw-workflow button[data-size="icon"] {
+  min-width: 44px;
+}
+.tw-filter-dialog h2 {
+  padding-right: 36px;
+}
+@media (max-width: 767px) {
+  .tw-filter-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    min-height: 44px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .tw-filters-desktop {
+    display: none;
+  }
+  .tw-heading {
+    padding: 8px 0 14px;
+  }
+  .tw-heading h1 {
+    font-size: 26px;
+  }
+  .tw-subtitle {
+    display: none;
+  }
+  .tw-filterbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .tw-periods {
+    flex: 0 0 100%;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+  .tw-periods button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .tw-detail-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .tw-detail-fields > label {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
+    min-width: 0;
+    font-size: 12px;
+  }
+  .tw-detail-fields > label:nth-child(n + 5) {
+    grid-column: 1/-1;
+  }
+  .tw-detail-fields .tw-select,
+  .tw-detail-fields input {
+    width: 100%;
+    min-width: 0;
+  }
+  .tw-detail-fields input,
+  .tw-detail-fields .tw-select select {
+    padding: 4px 0;
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .tw-job-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .tw-detail-title {
+    margin-top: 0;
+    font-size: 22px;
+  }
+}
+.tw-workflow {
+  display: grid;
+  gap: 8px;
+  margin-block: 16px;
+}
+.tw-workflow details {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  min-width: 0;
+}
+.tw-workflow summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.tw-workflow summary span {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.tw-workflow p {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin-block: 8px 12px;
+}
+.tw-check-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+.tw-check-item > label {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+}
+.tw-check-item input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.tw-check-item span,
+.tw-check-item > button:first-child {
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.tw-check-item input:checked + span {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
+.tw-flow-add {
+  display: flex;
+  gap: 8px;
+  margin-block: 12px;
+  min-width: 0;
+}
+.tw-flow-add input {
+  min-width: 0;
+}
+.tw-flow-field {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  margin-block: 12px;
+  font-size: 13px;
+}
+.tw-flow-field select {
+  min-width: 0;
+  width: 100%;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 44px;
+  padding: 8px;
+  font-size: 16px;
+}
+.tw-flow-results {
+  display: grid;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.tw-flow-results button {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 767px) {
+  .tw-flow-field {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .tw-workflow input {
+    font-size: 16px;
+  }
+}
+.tw-agenda {
+  padding: 12px;
+}
+.tw-agenda-day {
+  margin-block: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.tw-agenda-day h3 {
+  padding: 12px;
+  font-weight: 600;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: var(--muted);
+}
+.tw-agenda-day h3 span {
+  font-size: 12px;
+  color: var(--primary);
+}
+.tw-agenda-day > p {
+  padding: 12px;
+}
+.tw-inbox-row {
+  border-bottom: 1px solid var(--border);
+  padding-block: 8px;
+}
+.tw-inbox-row .tw-inbox-item {
+  width: 100%;
+}

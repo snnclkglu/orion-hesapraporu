@@ -1,0 +1,2 @@
+import { AccountView } from "@/components/account/account-view";
+export default function AccountPreview() { return <div className="p-4"><p className="mb-4 text-sm text-muted-foreground">Etkileşimli önizleme · Örnek bilgiler, değişiklikler kaydedilmez.</p><AccountView preview initial={{ id: "00000000-0000-4000-8000-000000000001", name: "DENİZ YILMAZ", email: "deniz@example.invalid", title: "Mühendis", role: "engineer", phone: "", note: "", avatar: null, version: 1, teams: [{ id: "00000000-0000-4000-8000-000000000002", name: "MÜHENDİSLİK EKİBİ" }] }} /></div>; }

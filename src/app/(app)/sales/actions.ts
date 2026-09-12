@@ -137,7 +137,7 @@ async function sevkSonrasiIsiTamamla(
   // Bildirim: elle durum değişikliğiyle AYNI kitle (favori ∪ açık görevli).
   const [favlar, gorevliler] = await Promise.all([
     supabase.rpc("job_favorite_user_ids", { p_job_id: jobId }),
-    supabase.from("job_tasks").select("assignee").eq("job_id", jobId).is("done_at", null),
+    supabase.from("job_tasks").select("assignee").eq("job_id", jobId).is("done_at", null).is("archived_at", null).eq("kind", "task"),
   ]);
   await bildirimYaz(supabase, {
     targets: notifyTargets({

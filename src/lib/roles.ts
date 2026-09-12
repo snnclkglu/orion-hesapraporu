@@ -422,7 +422,7 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     href: LANDING_PATH,
     label: "Panel",
     icon: "console",
-    hint: "Arama, dikkat isteyenler ve yaklaşan tarihler",
+    hint: "Görevler, ekip panoları, notlar ve hedefler",
     kime: "Herkes",
   },
   {

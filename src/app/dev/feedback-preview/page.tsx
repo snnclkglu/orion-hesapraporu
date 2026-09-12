@@ -1,0 +1,4 @@
+import { FeedbackForm } from "@/components/account/feedback-form";
+import { FeedbackList } from "@/components/account/feedback-list";
+import { MaintenanceStatus } from "@/components/account/maintenance-status";
+export default function Page() { return <div className="p-4"><p className="mb-4 text-sm">Önizleme · Gönderiler kaydedilmez.</p><FeedbackForm preview /><div className="mt-12"><FeedbackList admin total={1} unread={1} items={[{ id: "00000000-0000-4000-8000-000000000001", user_id: "00000000-0000-4000-8000-000000000002", full_name: "DENİZ YILMAZ", category: "idea", body: "Telefonda ekip görevlerini tarih sırasıyla görmek işimi kolaylaştırır.", section: "Panel", submitted_at: "2026-09-12T10:00:00Z", read_at: null }]} /><MaintenanceStatus now={Date.parse("2026-09-12T12:00:00Z")} run={{ started_at: "2026-09-12T10:00:00Z", mode: "dry-run", status: "completed", candidates: 0, removed: 0, failed: 0 }} /></div></div>; }

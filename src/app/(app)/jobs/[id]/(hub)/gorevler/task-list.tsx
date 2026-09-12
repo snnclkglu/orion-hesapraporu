@@ -257,7 +257,7 @@ function TaskItem({
         toast.error(res.error);
         return;
       }
-      toast.success("Görev silindi.");
+      toast.success("Görev arşivlendi.");
       router.refresh();
     });
   }
@@ -320,6 +320,9 @@ function TaskItem({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+          <DropdownMenuItem onSelect={() => router.push(`/?task=${task.id}`)}>
+            <ClipboardList className="size-3.5" /> Yorumlar ve görev ayrıntısı
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setEditing(true)}>
             <Pencil className="size-3.5" /> Düzenle
           </DropdownMenuItem>
@@ -327,7 +330,7 @@ function TaskItem({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onSelect={sil}>
-                <Trash2 className="size-3.5" /> Sil
+                <Trash2 className="size-3.5" /> Arşivle
               </DropdownMenuItem>
             </>
           )}

@@ -11,6 +11,8 @@ const ITEMS = [
   // değiştiren kişi, o değişikliğin hangi bölümü açtığını bir sonraki
   // maddeden görür.
   { href: "/admin/access", label: "Yetkiler" },
+  { href: "/admin/teams", label: "Ekipler" },
+  { href: "/admin/feedback", label: "Geri Bildirimler" },
   { href: "/admin/email-center", label: "E-posta Merkezi" },
   { href: "/admin/deletion-requests", label: "Silme Onayları" },
   { href: "/admin/customers", label: "Müşteriler" },
@@ -34,7 +36,7 @@ const ITEMS = [
   { href: "/admin/settings", label: "Rapor Ayarları" },
 ];
 
-export function AdminNav() {
+export function AdminNav({ feedbackCount = 0 }: { feedbackCount?: number }) {
   const pathname = usePathname() ?? "";
   const activeHref = ITEMS.find((item) => pathname.startsWith(item.href))?.href ?? ITEMS[0].href;
 
@@ -43,7 +45,7 @@ export function AdminNav() {
       <MobileRouteGrid
         className="lg:hidden"
         value={activeHref}
-        options={ITEMS}
+        options={ITEMS.map(item => item.href === "/admin/feedback" && feedbackCount ? { ...item, label: `${item.label} (${feedbackCount})` } : item)}
         label="Yönetim bölümü"
       />
       <nav className="hidden gap-1 lg:flex lg:flex-col lg:self-start" aria-label="Yönetim bölümleri">
@@ -62,6 +64,7 @@ export function AdminNav() {
               )}
             >
               {item.label}
+              {item.href === "/admin/feedback" && feedbackCount > 0 && <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{feedbackCount}</span>}
             </Link>
           );
         })}

@@ -11,7 +11,7 @@ import "server-only";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { canEditOffers, canSeeOffers, isAdminRole } from "@/lib/roles";
+import { canEditOffers, canSeeOffers, isAdminRole, USER_ROLES } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { OfferMutationError } from "@/app/(app)/offers/mutations";
 
@@ -29,7 +29,7 @@ const RESPONSE_HEADERS = {
 } as const;
 
 /** Her yeni bölüm burada kapalı bir scope olarak tanımlanır. */
-export const AGENT_SCOPES = ["offers:read", "offers:draft:write", "email:read", "email:draft:write", "email:publish", "email:test:send", "email:send"] as const;
+export const AGENT_SCOPES = ["offers:read", "offers:draft:write", "email:read", "email:draft:write", "email:publish", "email:test:send", "email:send", "tasks:read", "tasks:write", "tasks:comment", "tasks:context:read"] as const;
 export type AgentScope = (typeof AGENT_SCOPES)[number];
 
 const agentClientSchema = z
@@ -123,7 +123,7 @@ export function agentOptions(): Response {
     headers: {
       ...RESPONSE_HEADERS,
       "Access-Control-Allow-Headers": "Authorization, Content-Type, Idempotency-Key",
-      "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, OPTIONS",
       "Access-Control-Expose-Headers": "Idempotency-Replayed, X-Request-Id",
       "Access-Control-Max-Age": "600",
     },
@@ -230,6 +230,7 @@ function rateLimitResponse(request: Request, agent: ConfiguredAgent): Response |
 }
 
 function profileCanUseScope(role: string | null, scope: AgentScope): boolean {
+  if (scope.startsWith("tasks:")) return USER_ROLES.some(value => value === role);
   if (scope.startsWith('email:')) return isAdminRole(role);
   switch (scope) {
     case "offers:read":
@@ -323,6 +324,8 @@ async function claimIdempotency(
   request: Request,
   context: AgentApiContext
 ): Promise<IdempotencyClaim> {
+  // Görev komutlarında tekrar kaydı mutasyonla aynı SQL transaction içindedir.
+  if (new URL(request.url).pathname.startsWith("/api/agent/tasks")) return null;
   if (request.method !== "POST") return null;
   const key = request.headers.get("idempotency-key")?.trim();
   if (!key) return null;

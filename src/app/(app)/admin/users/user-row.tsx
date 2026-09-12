@@ -141,6 +141,7 @@ export function UserRow({
         {/* Profil ve Kaydet tek eylem kümesidir. Dar kipte iki düğme aynı
             satıra sığar; profil yalnız okumadır, değişiklikleri kaydetmez. */}
         <div className="grid grid-cols-2 gap-2 xl:flex xl:items-center">
+          <Button asChild size="sm" variant="ghost"><Link href={`/admin/users/${profile.id}/teams`}>Ekipler</Link></Button>
           <Button asChild size="sm" variant="ghost" className="gap-1.5">
             <Link href={`/admin/users/${profile.id}`} aria-label={`${profile.full_name || "Kullanıcı"} profilini aç`}>
               <Eye className="size-4" /> Profil

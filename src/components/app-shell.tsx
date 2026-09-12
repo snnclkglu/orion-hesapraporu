@@ -27,7 +27,13 @@ import { PageActionsHost, PageHeaderHost } from "@/components/page-header";
 import { NotificationBell } from "@/components/notification-bell";
 import { CommandPalette } from "@/components/command-palette";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { LANDING_PATH, WORKSPACE_SECTIONS, roleLabel, visibleSections } from "@/lib/roles";
+import { UserAvatar } from "@/components/user-avatar";
+import {
+  LANDING_PATH,
+  WORKSPACE_SECTIONS,
+  roleLabel,
+  visibleSections,
+} from "@/lib/roles";
 import { APP_NAME, COMPANY_NAME } from "@/lib/app";
 import { UploadIndicator } from "@/app/(app)/drawings/new/upload-indicator";
 
@@ -35,6 +41,8 @@ interface AppShellProps {
   role: string;
   displayName: string;
   email: string;
+  userId?: string;
+  avatarPath?: string | null;
   children: React.ReactNode;
 }
 
@@ -70,6 +78,8 @@ const SIDEBAR_W_EXPANDED = "15rem";
  */
 function sectionLabel(pathname: string | null): string {
   if (!pathname) return "";
+  if (pathname.startsWith("/profile/feedback")) return "Geri Bildirim";
+  if (pathname.startsWith("/profile")) return "Profilim";
   let en = "";
   for (const s of WORKSPACE_SECTIONS) {
     if (pathname.startsWith(s.href) && s.href.length > en.length) en = s.href;
@@ -77,19 +87,12 @@ function sectionLabel(pathname: string | null): string {
   return WORKSPACE_SECTIONS.find((s) => s.href === en)?.label ?? "";
 }
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join("");
-}
-
 function SidebarContent({
   role,
   displayName,
   email,
+  userId,
+  avatarPath,
   pathname,
   collapsed,
   onNavigate,
@@ -98,6 +101,8 @@ function SidebarContent({
   role: string;
   displayName: string;
   email: string;
+  userId?: string;
+  avatarPath?: string | null;
   pathname: string | null;
   /** Dar kip: yalnız ikonlar, metinler gizlenir */
   collapsed?: boolean;
@@ -126,7 +131,11 @@ function SidebarContent({
             ve dar rayda büyütülebiliyor. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={collapsed ? "/brand/orion-symbol-white.svg" : "/brand/orion-logo-white.svg"}
+          src={
+            collapsed
+              ? "/brand/orion-symbol-white.svg"
+              : "/brand/orion-logo-white.svg"
+          }
           alt="Orion Cranes"
           className={cn("w-auto", collapsed ? "mx-auto h-6" : "h-[18px]")}
         />
@@ -137,7 +146,12 @@ function SidebarContent({
         )}
       </Link>
 
-      <div className={cn("border-t border-sidebar-border", collapsed ? "mx-2" : "mx-4")} />
+      <div
+        className={cn(
+          "border-t border-sidebar-border",
+          collapsed ? "mx-2" : "mx-4",
+        )}
+      />
 
       {/* Navigasyon */}
       <nav className="flex-1 overflow-y-auto px-2 py-3">
@@ -151,7 +165,9 @@ function SidebarContent({
             // KÖK ADRES TAM EŞLEŞİR. `startsWith("/")` her yolu doğrular ve
             // Panel satırı bütün bölümlerde birden aktif görünürdü.
             const active =
-              item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href);
+              item.href === "/"
+                ? pathname === "/"
+                : pathname?.startsWith(item.href);
             return (
               <li key={item.href}>
                 <Link
@@ -169,7 +185,7 @@ function SidebarContent({
                     collapsed ? "justify-center px-0 py-2.5" : "px-2.5",
                     active
                       ? "border-l-primary bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                   )}
                 >
                   <BrandIcon
@@ -195,12 +211,14 @@ function SidebarContent({
           <button
             type="button"
             onClick={onToggleCollapse}
-            title={collapsed ? "Menüyü genişlet (Ctrl+B)" : "Menüyü daralt (Ctrl+B)"}
+            title={
+              collapsed ? "Menüyü genişlet (Ctrl+B)" : "Menüyü daralt (Ctrl+B)"
+            }
             aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
             aria-pressed={collapsed}
             className={cn(
               "flex w-full items-center gap-2.5 rounded-md py-2 text-xs text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-              collapsed ? "justify-center px-0 py-2.5" : "px-2.5"
+              collapsed ? "justify-center px-0 py-2.5" : "px-2.5",
             )}
           >
             <BrandIcon
@@ -213,19 +231,41 @@ function SidebarContent({
       )}
 
       {/* Kullanıcı kartı */}
-      <div className={cn("border-t border-sidebar-border py-3", collapsed ? "px-2" : "px-3")}>
-        <div className={cn("flex items-center gap-2.5", collapsed && "flex-col gap-2")}>
-          <span
-            title={collapsed ? `${displayName} · ${email}` : undefined}
-            className="flex size-8 shrink-0 items-center justify-center bg-sidebar-primary/30 font-mono text-xs font-semibold text-sidebar-accent-foreground"
+      <div
+        className={cn(
+          "border-t border-sidebar-border py-3",
+          collapsed ? "px-2" : "px-3",
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center gap-2.5",
+            collapsed && "flex-col gap-2",
+          )}
+        >
+          <Link
+            href="/profile"
+            onClick={onNavigate}
+            aria-label="Profilim"
+            className="inline-flex size-11 shrink-0 items-center justify-center"
           >
-            {initials(displayName) || "?"}
-          </span>
+            <UserAvatar
+              name={displayName}
+              userId={userId}
+              photo={!!avatarPath}
+              version={avatarPath ?? ""}
+              size={32}
+            />
+          </Link>
           {!collapsed && (
             <div className="min-w-0 flex-1 leading-tight">
-              <div className="truncate text-sm font-medium text-sidebar-accent-foreground">
+              <Link
+                href="/profile"
+                onClick={onNavigate}
+                className="block truncate text-sm font-medium text-sidebar-accent-foreground"
+              >
                 {displayName}
-              </div>
+              </Link>
               <div className="truncate text-[11px] text-sidebar-foreground/60">
                 {roleLabel(role)} · {email}
               </div>
@@ -238,7 +278,14 @@ function SidebarContent({
   );
 }
 
-export function AppShell({ role, displayName, email, children }: AppShellProps) {
+export function AppShell({
+  role,
+  displayName,
+  email,
+  userId,
+  avatarPath,
+  children,
+}: AppShellProps) {
   const pathname = usePathname();
 
   // Revizyon ekranı: hesap raporu editörü ve onun alt sayfaları (ekipman
@@ -256,7 +303,9 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
   // uzun oturum. Kalıba eklenmeseydi menü daralmaz ve sayfa çerçeve kipine
   // girmezdi: editör 1000 px'e büyür, `main` onu kırpar ve kaydırılamazdı
   // (TEKLIF-17'de iki kez yaşanan hatanın aynısı).
-  const isRevisionScreen = /\/revisions\/[^/]+|\/costs\/[^/]+/.test(pathname ?? "");
+  const isRevisionScreen = /\/revisions\/[^/]+|\/costs\/[^/]+/.test(
+    pathname ?? "",
+  );
 
   const [open, setOpen] = useState(false);
   /**
@@ -273,19 +322,24 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
    * normal sayfalardaki tercihi bozulmaz. Kalıcı yazılsaydı editörde bir kez
    * genişletmek bütün uygulamanın tercihini değiştirirdi.
    */
-  const [revisionOverride, setRevisionOverride] = useState<boolean | null>(null);
+  const [revisionOverride, setRevisionOverride] = useState<boolean | null>(
+    null,
+  );
   /**
    * Rota sınıfı değişince ziyarete özel geçersiz kılma sıfırlanır. Efekt
    * değil, RENDER SIRASINDA düzeltme: efektle yapılsaydı menü bir kare yanlış
    * genişlikte boyanırdı (React'in "bir prop değişince state'i ayarlama"
    * kalıbı).
    */
-  const [prevIsRevisionScreen, setPrevIsRevisionScreen] = useState(isRevisionScreen);
+  const [prevIsRevisionScreen, setPrevIsRevisionScreen] =
+    useState(isRevisionScreen);
   if (prevIsRevisionScreen !== isRevisionScreen) {
     setPrevIsRevisionScreen(isRevisionScreen);
     setRevisionOverride(null);
   }
-  const collapsed = isRevisionScreen ? (revisionOverride ?? true) : storedCollapsed;
+  const collapsed = isRevisionScreen
+    ? (revisionOverride ?? true)
+    : storedCollapsed;
   /**
    * Mobil çekmece açıkken ARKA SAYFA KAYMAZ, Esc kapatır ve Tab çekmecenin
    * İÇİNDE döner.
@@ -318,7 +372,7 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
     const write = () =>
       document.documentElement.style.setProperty(
         "--app-header-h",
-        `${Math.round(el.getBoundingClientRect().height)}px`
+        `${Math.round(el.getBoundingClientRect().height)}px`,
       );
     // ÜÇ TETİKLEYİCİ, çünkü hiçbiri tek başına yetmiyor:
     //
@@ -376,7 +430,9 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
   // ekran yüksekliğinden taşan kısım KESİLİYOR ve kaydırılamıyordu
   // (ekipman listesi hatası, madde 35). Çerçeve kipini hak eden sayfa kendi
   // içinde kayan bölgeler kurar; alt sayfalar doğal sayfa kaydırmasını ister.
-  const isFrame = /(\/revisions\/[^/]+|\/costs\/[^/]+)\/?$/.test(pathname ?? "");
+  const isFrame = /(\/revisions\/[^/]+|\/costs\/[^/]+)\/?$/.test(
+    pathname ?? "",
+  );
   // Liste sayfaları ekranın TAMAMINI kullanır. Okuma genişliği kuralı (max-w-6xl)
   // metin için doğrudur ama çok sütunlu tabloda ters teper: sütunlar sıkışır,
   // durum menüsü kırpılır. Form ve rapor sayfaları dar kalmaya devam eder.
@@ -423,7 +479,10 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
       // adres çubuğu gizliyken ölçülen BÜYÜK görünür alandır, çubuk açıkken
       // sayfa her zaman ~60-90px fazladan kaydırılabilir kalıyordu ("hayalet
       // kaydırma"). Kenar çubuğu zaten `h-dvh` kullanıyordu — ikisi ayrışmıştı.
-      className={cn("flex", isFrame ? "min-h-dvh lg:h-dvh lg:overflow-hidden" : "min-h-dvh")}
+      className={cn(
+        "flex",
+        isFrame ? "min-h-dvh lg:h-dvh lg:overflow-hidden" : "min-h-dvh",
+      )}
     >
       {/* Masaüstü sidebar */}
       {/* Kırmızı omurga: kılavuzda her yüzeyin solunda 14px, hiçbir şey üzerine taşmaz */}
@@ -436,13 +495,15 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
         // içsel en küçük genişliğine göre şişiyordu.
         style={{ width: sidebarW, minWidth: sidebarW, maxWidth: sidebarW }}
         className={cn(
-          "sticky top-0 z-40 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-l-[14px] border-sidebar-border border-l-primary bg-sidebar text-sidebar-foreground lg:flex"
+          "sticky top-0 z-40 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-l-[14px] border-sidebar-border border-l-primary bg-sidebar text-sidebar-foreground lg:flex",
         )}
       >
         <SidebarContent
           role={role}
           displayName={displayName}
           email={email}
+          userId={userId}
+          avatarPath={avatarPath}
           pathname={pathname}
           collapsed={collapsed}
           onToggleCollapse={toggleCollapsed}
@@ -488,6 +549,8 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
               role={role}
               displayName={displayName}
               email={email}
+              userId={userId}
+              avatarPath={avatarPath}
               pathname={pathname}
               onNavigate={() => setOpen(false)}
             />
@@ -497,10 +560,7 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
 
       {/* İçerik */}
       <div
-        className={cn(
-          "flex min-w-0 flex-1 flex-col",
-          isFrame && "lg:min-h-0"
-        )}
+        className={cn("flex min-w-0 flex-1 flex-col", isFrame && "lg:min-h-0")}
       >
         {/*
           ÜST ŞERİT — `lg` üstünde TEK satır (48 px), `lg` altında İKİ satır.
@@ -552,7 +612,11 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
               type="button"
               onClick={toggleCollapsed}
               aria-pressed={collapsed}
-              title={collapsed ? "Menüyü genişlet (Ctrl+B)" : "Menüyü daralt (Ctrl+B)"}
+              title={
+                collapsed
+                  ? "Menüyü genişlet (Ctrl+B)"
+                  : "Menüyü daralt (Ctrl+B)"
+              }
               aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
               className="hidden rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:inline-flex"
             >
@@ -585,9 +649,22 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
                 eylem şeridi sayfadan sayfaya değişir, bildirim ise kişiye
                 aittir ve sayfayla ilgisizdir. Satır 48px kalır — zil kutu
                 büyütmez, dokunma payını `.oc-tap-square` tamamlar. */}
-            <div className="ml-auto flex shrink-0 items-center gap-0.5 lg:ml-0">
+            <div className="ml-auto flex shrink-0 items-center gap-0.5 lg:ml-0 [&>button]:inline-flex [&>button]:size-11 [&>button]:items-center [&>button]:justify-center">
               <ThemeToggle />
               <NotificationBell />
+              <Link
+                href="/profile"
+                aria-label="Profilim"
+                title="Profilim"
+                className="inline-flex size-11 shrink-0 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <UserAvatar
+                  name={displayName}
+                  userId={userId}
+                  photo={!!avatarPath}
+                  version={avatarPath ?? ""}
+                />
+              </Link>
             </div>
             {/* Komut paleti görünmez; Ctrl/⌘+K dinleyicisini taşır. */}
             <CommandPalette />
@@ -611,13 +688,17 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
             "relative min-w-0 flex-1",
             isFrame
               ? "px-3 py-3 sm:px-4 lg:min-h-0 lg:overflow-hidden lg:px-6"
-              : "px-3 py-4 sm:px-4 sm:py-6 lg:px-8"
+              : "px-3 py-4 sm:px-4 sm:py-6 lg:px-8",
           )}
         >
           <div
             className={cn(
               "mx-auto w-full",
-              isFrame ? "max-w-none lg:h-full" : isWide ? "max-w-none" : "max-w-6xl"
+              isFrame
+                ? "max-w-none lg:h-full"
+                : isWide
+                  ? "max-w-none"
+                  : "max-w-6xl",
             )}
           >
             {children}

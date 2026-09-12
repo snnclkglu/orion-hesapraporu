@@ -1,5 +1,16 @@
 # İşler ve iş kalemleri
 
+## IS-38 — Panel ile ortak görev kaynağı (12.09.2026)
+
+`job_tasks` artık yalnız işe zorunlu bağlı açık/kapalı görev değildir. PANEL-24
+ile özel, ekip ve eski kurumsal iş kapsamını; durum/öncelik, pano, not/hedef,
+yorum/geçmiş/ek ve arşivi taşır. İş hub'ı aynı tabloyu kullanır. Eski hub yazması
+görünürlük göndermese de iş kapsamı DB tarafından korunur. `done_at` ile `status`
+birlikte değişir. Açık iş görevi sayaçları `archived_at IS NULL`, `kind='task'`
+ve `done_at IS NULL` koşullarını kullanır. Görev arşivlemesi fiziksel silme değildir.
+Göreve iş kodu bağlamak özel kaydı kurumsal hale getirmez; RLS aynen geçerlidir.
+Kaynak: `docs/task-workspace.md`, `src/lib/tasks/**`.
+
 > ORION Cranes — İş Yönetim Sistemi · alan dokümanı.
 > Kök kurallar ve harita: `AGENTS.md`. Bu dosya ELLE düzenlenir;
 > `.claude/rules/isler.md` ve haritadaki satır ondan ÜRETİLİR

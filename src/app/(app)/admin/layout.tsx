@@ -21,6 +21,7 @@ export default async function AdminLayout({
     .eq("id", user.id)
     .single();
   if (profile?.role !== "admin") redirect("/projects");
+  const { data: feedbackCount } = await supabase.rpc("feedback_unread_count");
 
   return (
     <div className="grid min-w-0 max-w-full gap-4 overflow-x-clip">
@@ -35,7 +36,7 @@ export default async function AdminLayout({
           tabletin içerik alanının üçte birini yiyordu. Altında ray yatay
           şerittir (bkz. admin-nav.tsx). */}
       <div className="grid min-w-0 gap-4 lg:grid-cols-[200px_1fr] lg:gap-6">
-        <AdminNav />
+        <AdminNav feedbackCount={Number(feedbackCount ?? 0)} />
         <div className="min-w-0">{children}</div>
       </div>
     </div>

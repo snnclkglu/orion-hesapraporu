@@ -1,5 +1,29 @@
 # Dokunmatik ve dar ekran
 
+## MOBIL-33 — Profil, geri bildirim ve ekip akışları
+
+Üst şeritte zil/tema/avatar ayrı 44px hedeflerdir. Avatar doğrudan Profilim'i
+açar; fotoğraf ve geri bildirim kısayolları üsttedir. Yeni formlarda 16px girdi,
+44px eylem, tek kolon dar ekran ve güvenli alt boşluk kullanılır. Ekip kişi
+seçimi arama değişince seçilenleri korur; görev listeleri ortak kayıt kullanır.
+Fotoğraf kırpma klavyeyle yakınlaştırma/yatay/dikey kaydırıcı sunar. 3,5 MB üstü
+görseller Vercel istek sınırından önce cihazda en fazla 1800px'e küçültülür;
+tarayıcı büyük HEIC'i açamazsa mevcut libheif çözümleyicisi dinamik yüklenir.
+Sunucu bütün görselleri yine doğrular ve yeniden kodlar. Önizlemeler `account-preview`,
+`feedback-preview`, `teams-preview`; fiziksel cihaz ve ekran okuyucu kabulü
+tarayıcı emülasyonundan ayrı raporlanır.
+
+## MOBIL-32 — Görev alanı (12.09.2026)
+
+PANEL-24 telefonda Görevlerim/Ekip/Panolar/Gelen/Menü alt gezinmesini kullanır;
+bu bar başka modüllerin editörlerine yayılmaz. Hızlı görevde yalnız başlık
+zorunludur; diğer alanlar açılır ayrıntılardadır. Detay mobilde tam dvh, geniş
+ekranda sağ paneldir. Tailwind'in ayrı `translate` özelliği de sıfırlanmalıdır;
+yalnız `transform:none` kullanmak diyaloğu yarım ekran kaydırır.
+Sütun taşıması durum seçicisiyle klavye ve dokunmada mümkündür. Renk yanında
+durum/öncelik/gecikme metni bulunur. Taslaklar bağlantı hatasında temizlenmez;
+eski sürüm üzerine kayıt için kullanıcı güncel metni gözden geçirir.
+
 > ORION Cranes — İş Yönetim Sistemi · alan dokümanı.
 > Kök kurallar ve harita: `AGENTS.md`. Bu dosya ELLE düzenlenir;
 > `.claude/rules/arayuz.md` ve haritadaki satır ondan ÜRETİLİR

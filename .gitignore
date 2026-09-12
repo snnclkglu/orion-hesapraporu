@@ -58,3 +58,7 @@ scratch-dump.txt
 
 # ajan dokumanlari bolme provasi
 .tmp-agent-docs/
+.next-task-check/
+
+# Yerel ekran görüntüleri, derleme çıktıları ve deneme yayın kayıtları
+/artifacts/

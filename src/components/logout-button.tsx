@@ -12,6 +12,9 @@ export function LogoutButton({ className }: { className?: string }) {
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
+    try {
+      Object.keys(sessionStorage).filter((key) => key.startsWith("orion:feedback-draft:")).forEach((key) => sessionStorage.removeItem(key));
+    } catch { /* Kapalı depolama oturum kapatmayı engellemez. */ }
     router.replace("/login");
     router.refresh();
   }

@@ -1,5 +1,26 @@
 # Roller ve yetki
 
+## ROL-20 — Profil öz-servisi ve ekip yönetimi
+
+Admin'in görünen adı Yönetici; Müdür ayrı roldür. Ekip adı/üyeliği uygulama
+rolü vermez. Ekip oluşturma, üyelik, sahiplik devri ve arşiv Yönetici işidir.
+Profil öz-servisi ad/fotoğraf/telefon/özel not ile sınırlıdır; rol, unvan ve
+kimlik alanları korunur. Telefon/not `profile_private_details` içindedir;
+genel kullanıcı rehberi veya Agent context'e eklenmez. Geri bildirim sahibi
+kendi gönderisini, Yönetici yalnız kesinleşmiş gönderileri okur. Yönetim
+okundu/arşiv alanları kullanıcıya durum takibi olarak sunulmaz.
+
+## ROL-19 — Görev gizliliği ve ekip üyeliği (12.09.2026)
+
+PANEL-24 rol hiyerarşisi oluşturmaz. Bana özel görev yalnız sahibinindir;
+Yönetici dahil başka profil içeriğini/yorumunu/ekini okuyamaz. Yönetici ekip
+görevlerini görebilir. Diğer ekip erişimleri manager/editor/viewer üyeliğine
+bağlıdır; bunlar uygulama rolü değildir. Paylaşım kapsamını yalnız görev sahibi
+değiştirir. Agent erişimi token scope ∩ profil ∩ görev eylem yetkisidir.
+`tasks:*` yalnız görev uçlarıdır; başka modüllerin yetkisini genişletmez.
+Service-role kullanılan API de doğrulanmış aktörü görev RPC'sine taşımak zorundadır.
+Kaynak: `docs/task-workspace.md`, `supabase/migrations/20260912*_task_*.sql`.
+
 > ORION Cranes — İş Yönetim Sistemi · alan dokümanı.
 > Kök kurallar ve harita: `AGENTS.md`. Bu dosya ELLE düzenlenir;
 > `.claude/rules/roller.md` ve haritadaki satır ondan ÜRETİLİR
