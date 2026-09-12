@@ -49,6 +49,8 @@ import {
   type WorkPart,
 } from "@/lib/work-log";
 import { cn } from "@/lib/utils";
+import { BottomToolPanel } from "@/components/bottom-bar-tools";
+import { useBottomBarGuard } from "@/components/section-bottom-bar";
 import { createWorkPart, saveWorkDay } from "./actions";
 import type { RecentCombo } from "./data";
 
@@ -281,17 +283,17 @@ export function DayEntry({
     return { manHours, people, invalid };
   }, [rows]);
 
-  const save = useCallback(async () => {
-    if (saving) return;
+  const save = useCallback(async (): Promise<boolean> => {
+    if (saving) return false;
     const payload = [];
     for (const r of rows) {
       const people = parseNum(r.people);
       const hours = parseNum(r.hours);
-      if (!r.itemNo.trim()) return toast.error("Her satırda iş kalemi seçilmeli.");
-      if (!r.partId) return toast.error("Her satırda parça seçilmeli.");
-      if (!r.categoryId) return toast.error("Her satırda imalat türü seçilmeli.");
-      if (!people || people <= 0) return toast.error("Kişi sayısı sıfırdan büyük olmalı.");
-      if (!hours || hours <= 0) return toast.error("Saat sıfırdan büyük olmalı.");
+      if (!r.itemNo.trim()) { toast.error("Her satırda iş kalemi seçilmeli."); return false; }
+      if (!r.partId) { toast.error("Her satırda parça seçilmeli."); return false; }
+      if (!r.categoryId) { toast.error("Her satırda imalat türü seçilmeli."); return false; }
+      if (!people || people <= 0) { toast.error("Kişi sayısı sıfırdan büyük olmalı."); return false; }
+      if (!hours || hours <= 0) { toast.error("Saat sıfırdan büyük olmalı."); return false; }
       payload.push({
         id: r.id,
         itemNo: r.itemNo.trim(),
@@ -305,18 +307,21 @@ export function DayEntry({
     }
 
     setSaving(true);
-    const res = await saveWorkDay({ date, rows: payload });
+    const res = await saveWorkDay({ date, rows: payload }).catch(() => ({error:"Gün kaydedilemedi. Yeniden deneyin."}));
     setSaving(false);
     if (res.error) {
       toast.error(res.error);
-      return;
+      return false;
     }
     setBaseline(fingerprint(rows));
     toast.success(
       payload.length === 0 ? "Gün boşaltıldı." : `${payload.length} satır kaydedildi.`
     );
     router.refresh();
+    return true;
   }, [date, rows, router, saving]);
+
+  useBottomBarGuard(dirty, save);
 
   // Ctrl/⌘ + S — çizelge ekranında en çok istenen kısayol.
   useEffect(() => {
@@ -387,6 +392,7 @@ export function DayEntry({
           </div>
         </div>
 
+        <BottomToolPanel id="worklog-period" title="Gün seç">
         <Input
           type="date"
           value={date}
@@ -394,6 +400,7 @@ export function DayEntry({
           className="h-8 w-[10.5rem] pointer-coarse:h-10"
           aria-label="Tarih seç"
         />
+        </BottomToolPanel>
         {date !== today && (
           <Button variant="ghost" size="sm" className="text-xs" onClick={() => goto(today)}>
             Bugüne dön

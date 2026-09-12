@@ -133,3 +133,11 @@ için siyah 0.13 mm kullanır. 0.25/0.50 alternatifleri karşılaştırma içind
 Kullanıcının mevcut CTB dosyasına yazılmaz; hash içeren ayrı ad kullanılır. PDFSHX
 2 (desteklenmeyen sürümde 0) SHX yorum simgelerini önler, önceki değer normal
 kapanışta geri yüklenir. Eski bulut PDF dosyaları kendiliğinden yeniden üretilmez.
+
+
+## Mobil ve tablet alt erişimi — Plan 013
+
+12.09.2026 kullanıcı onayıyla bu alan ortak alt barı kullanır: **İşlemler · Hazırla · Sonuçlar · Bağlantı**.
+Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
+`arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
+ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.

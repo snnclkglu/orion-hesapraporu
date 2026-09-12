@@ -1,3 +1,4 @@
+import { NotificationsBottomBar } from "./bottom-bar";
 // BİLDİRİM DEFTERİ — zilin ve paneldeki bölümün "Tümünü Gör" hedefi.
 //
 // Son 100 satır; okunmamışlar kendi bloklarında ÖNCE gelir. Yazma yolu
@@ -70,6 +71,7 @@ export default async function NotificationsPage() {
 
   return (
     <div className="grid gap-6 pb-4">
+      <NotificationsBottomBar unread={okunmamis.length} />
       <PageHeader
         title="Bildirimler"
         hint="Görev atamaları, anılmalar ve izlenen işlerin durum değişiklikleri"
@@ -94,7 +96,7 @@ export default async function NotificationsPage() {
         />
       ) : (
         <div className="grid gap-6">
-          <Blok baslik={`Okunmamış · ${okunmamis.length}`} rows={okunmamis} />
+          <div id="notifications-unread" className="scroll-mt-20"><Blok baslik={`Okunmamış · ${okunmamis.length}`} rows={okunmamis} />{okunmamis.length===0 && <p className="text-sm text-muted-foreground">Okunmamış bildirim yok.</p>}</div>
           <Blok baslik="Okunmuş" rows={okunmus} />
           {rows.length === 100 && (
             <p className="text-[12px] text-muted-foreground">

@@ -59,3 +59,11 @@ Gün şeridi yatay kaymaz; yedi sütunlu iki satıra katlanır ve bütün günle
 anda görünür. Dönem Karşılaştırması listesi mobil karttır. Sayfa gövdesi yatay
 taşmaz; yalnız ay eksenli gerçek grafikler ve çapraz ısı matrisi karşılaştırma
 anlamını korumak için kendi sınırları içinde gezilebilir.
+
+
+## Mobil ve tablet alt erişimi — Plan 013
+
+12.09.2026 kullanıcı onayıyla bu alan ortak alt barı kullanır: **Günlük · Kayıtlar · Analiz · Dönem**.
+Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
+`arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
+ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.

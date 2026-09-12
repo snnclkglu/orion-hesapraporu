@@ -1,4 +1,5 @@
 "use client";
+import { ListBottomTools } from "@/components/bottom-bar-tools";
 
 // İşler GÖRÜNÜM KABUĞU — süzgeç şeridi + görünüm anahtarı, bütün
 // görünümlerin ORTAK üstü.
@@ -225,7 +226,7 @@ export function JobsViews({
         })}
       </div>
 
-      <FilterBar
+      <ListBottomTools label="İşler" more={canEdit ? [{id:"new",label:"Yeni İş",href:"/jobs/new",icon:"file"}] : []}><FilterBar
         gorunen={filtered.length}
         toplam={jobs.length}
         temiz={temiz}
@@ -277,7 +278,7 @@ export function JobsViews({
             <FileDown className="size-3.5" /> Excel
           </a>
         </Button>
-      </FilterBar>
+      </FilterBar></ListBottomTools>
 
       {view === "pano" ? (
         <BoardView rows={filtered} grup={state.grup} extras={extras} canEdit={canEdit} />

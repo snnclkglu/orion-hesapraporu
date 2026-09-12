@@ -31,6 +31,7 @@
 // tek çizgidir.
 
 import Link from "next/link";
+import { RouteBottomBar } from "@/components/section-bottom-bar";
 import { usePathname } from "next/navigation";
 import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,8 @@ export function PersonnelNav() {
 
   return (
     <>
+      <RouteBottomBar label="Personel" options={TABS} primary={["/personnel","/personnel/maas","/personnel/harcirah","/personnel/ozet"]} value={activeHref} />
+      <div className="oc-section-desktop">
       <MobileRouteGrid
         className="md:hidden"
         value={activeHref}
@@ -85,6 +88,7 @@ export function PersonnelNav() {
           );
         })}
       </nav>
+      </div>
     </>
   );
 }

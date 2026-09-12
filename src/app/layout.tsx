@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { APP_SHORT_NAME, APP_TAGLINE, APP_TITLE } from "@/lib/app";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
+import { SectionBottomBarHost } from "@/components/section-bottom-bar";
 
 // Orion Cranes marka tipografisi (Marka Kimliği Kılavuzu REV 01):
 // Archivo — display & metin; IBM Plex Mono — teknik etiket/veri.
@@ -115,6 +116,7 @@ export default function RootLayout({
             },
           }}
         />
+        <SectionBottomBarHost />
         </ThemeProvider>
       </body>
     </html>

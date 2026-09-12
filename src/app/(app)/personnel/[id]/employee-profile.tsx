@@ -81,6 +81,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { TAM_BOY_PENCERE } from "@/components/pencere";
+import { SectionBottomBar } from "@/components/section-bottom-bar";
 import { BolumRayi, type BolumOgesi } from "@/components/bolum-rayi";
 import { capaKimligi, capayaGit, useAktifCapa } from "@/lib/bolum-capa";
 
@@ -265,6 +266,8 @@ export function EmployeeProfile({
     // 1280px'te ölçüldü: kaydırınca şeridin üstü 956 → −544'e gidiyordu.
     // Varsayılan `stretch` ile sarmalayıcı 1655px olur ve ray 48'e yapışır.
     <div className="flex min-w-0 gap-2 lg:gap-4">
+      <SectionBottomBar label="Personel ayrıntısı" priority={30} items={PROFIL_BOLUMLERI.map(b=>({id:b.id,label:({kimlik:"Kimlik",donem:"Dönemler",maas:"Maaş",ozluk:"Dosyalar"} as Record<string,string>)[b.id]??b.baslik,active:aktifBolum===b.id,onSelect:()=>{bolumIsaretle(b.id);capayaGit(b.id);},icon:"person"}))} />
+      <div className="oc-section-desktop">
       <BolumRayi
         etiket="Profil bölümleri"
         depoAnahtari="orion.personel.ray.daraltildi"
@@ -277,6 +280,7 @@ export function EmployeeProfile({
           capayaGit(id);
         }}
       />
+      </div>
       <div className="grid min-w-0 flex-1 gap-4">
       {/* ══════════════════════════════════════════════════ 1) kimlik kartı */}
       <section id={capaKimligi("kimlik")} className="oc-capa border bg-card">

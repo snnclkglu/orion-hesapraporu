@@ -49,6 +49,8 @@ import {
   registerEquipmentAttachment,
 } from "./attachment-actions";
 import { Button } from "@/components/ui/button";
+import { SectionBottomBar } from "@/components/section-bottom-bar";
+import { BottomToolPanel, openBottomTool } from "@/components/bottom-bar-tools";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PdfDownloadLink } from "@/components/pdf-download-link";
@@ -209,6 +211,7 @@ export function EquipmentPanel({
         ? "elektrik"
         : "mekanik"
   );
+  const [equipmentSearch, setEquipmentSearch] = useState("");
   const [scope, setScope] = useState<Scope>("customer");
   const [pending, startTransition] = useTransition();
   /**
@@ -231,10 +234,10 @@ export function EquipmentPanel({
       ...section,
       groups: section.groups.map((group) => ({
         ...group,
-        rows: group.rows.map((row) => ({ row, number: ++sequence })),
+        rows: group.rows.map((row) => ({ row, number: ++sequence })).filter(({row}) => !equipmentSearch.trim() || [group.name, ...Object.values(row).filter(v=>typeof v === "string")].join(" ").toLocaleLowerCase("tr").includes(equipmentSearch.trim().toLocaleLowerCase("tr"))),
       })),
     }));
-  }, [visibleSections]);
+  }, [visibleSections, equipmentSearch]);
   const hasMechanical = visibleSections.some((section) => section.key === "mechanical");
   const listTitle = equipmentListTitle(visibleSections);
 
@@ -529,8 +532,12 @@ export function EquipmentPanel({
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4" id="equipment-list">
+      <SectionBottomBar label="Ekipman" priority={40} items={[{id:"list",label:"Liste",icon:"list",active:true,onSelect:()=>document.getElementById("equipment-list")?.scrollIntoView({block:"start"})},{id:"search",label:"Ara",icon:"search",onSelect:()=>openBottomTool("equipment-search")},{id:"groups",label:"Gruplar",icon:"boxes",onSelect:()=>openBottomTool("equipment-groups")},{id:"documents",label:"Belgeler",icon:"file",onSelect:()=>openBottomTool("equipment-documents")}]} />
+      <BottomToolPanel id="equipment-search" title="Ekipmanda ara"><label className="grid gap-2 text-sm">Ekipman, marka, model veya grup<Input value={equipmentSearch} onChange={event=>setEquipmentSearch(event.target.value)} placeholder="Ekipmanda ara" /></label></BottomToolPanel>
+      <BottomToolPanel desktop={false} id="equipment-groups" title="Ekipman grupları"><div className="flex flex-wrap gap-2">{(["tumu","mekanik","elektrik"] as const).filter(value=>value==="tumu" || sections.some(section=>section.key===(value==="mekanik"?"mechanical":"electrical"))).map(value=><Button key={value} variant={part===value?"default":"outline"} onClick={()=>choosePart(value)}>{value==="tumu"?"Tümü":value==="mekanik"?"Mekanik":"Elektrik"}</Button>)}</div></BottomToolPanel>
       {/* İndirme çubuğu */}
+      <BottomToolPanel id="equipment-documents" title="Ekipman belgeleri">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-card p-3">
         {sections.length > 1 && (
           <div className="grid w-full grid-cols-3 gap-1 rounded-md border bg-muted/30 p-1 sm:w-auto">
@@ -666,6 +673,7 @@ export function EquipmentPanel({
         </div>
       </div>
 
+      </BottomToolPanel>
       <Tabs defaultValue="equipment">
         <TabsList>
           <TabsTrigger value="equipment">Ekipman Listesi</TabsTrigger>

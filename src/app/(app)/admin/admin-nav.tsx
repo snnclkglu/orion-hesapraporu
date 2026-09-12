@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { RouteBottomBar } from "@/components/section-bottom-bar";
 import { usePathname } from "next/navigation";
 import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,8 @@ export function AdminNav({ feedbackCount = 0 }: { feedbackCount?: number }) {
 
   return (
     <>
+      <RouteBottomBar label="Yönetim" options={ITEMS.map(item=>item.href==="/admin/feedback"?{...item,badge:feedbackCount || undefined}:item)} primary={["/admin/users","/admin/teams","/admin/access","/admin/feedback"]} value={activeHref} />
+      <div className="oc-section-desktop">
       <MobileRouteGrid
         className="lg:hidden"
         value={activeHref}
@@ -69,6 +72,7 @@ export function AdminNav({ feedbackCount = 0 }: { feedbackCount?: number }) {
           );
         })}
       </nav>
+      </div>
     </>
   );
 }

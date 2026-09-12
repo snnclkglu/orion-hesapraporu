@@ -77,6 +77,7 @@
 //    yapışacak yol sıfır olur ve yapışma SESSİZCE ölür.
 
 import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { useBottomNavigation } from "@/components/section-bottom-bar";
 import { Input } from "@/components/ui/input";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { useRaySabitlenebilir } from "@/lib/use-breakpoint";
@@ -141,6 +142,7 @@ export function BolumRayi({
   panelId: panelIdDisari,
   depoAnahtari,
   className,
+  bottomDirectory = false,
 }: {
   /**
    * Şeridin çentikleri ve erişilebilir adı buradan okunur. `govde` verilse bile
@@ -178,19 +180,21 @@ export function BolumRayi({
    */
   depoAnahtari?: string;
   className?: string;
+  bottomDirectory?: boolean;
 }) {
   const otoId = useId();
   const panelId = panelIdDisari ?? `bolum-rayi-${otoId}`;
   const [icAcik, setIcAcik] = useState(false);
   const tabakaAcik = acikDisari ?? icAcik;
 
+  const bottomNavigation = useBottomNavigation();
   const genisEkran = useRaySabitlenebilir();
   // Kanca KOŞULSUZ çağrılır; `depoAnahtari` yoksa değeri kullanılmaz.
   const [daraltildi, daraltmayiDegistir] = useStoredFlag(
     depoAnahtari ?? "orion.ray.daraltildi"
   );
   /** Bu sayfa+genişlik sabitlenmeye izin veriyor mu (şerit ne yapacak?). */
-  const sabitlenebilirSayfa = genisEkran && depoAnahtari !== undefined;
+  const sabitlenebilirSayfa = genisEkran && depoAnahtari !== undefined && !(bottomDirectory && bottomNavigation);
   /** Sabit sütun ŞU AN görünür mü. */
   const sabit = sabitlenebilirSayfa && !daraltildi;
 
@@ -503,6 +507,7 @@ export function BolumRayi({
       // sekmesi, gizli panel) genişlik BAŞLANGIÇ değerinde ASILI KALIYOR —
       // sütun 16px olarak çiziliyor ve içeriğin üstüne biniyordu. Marka
       // dili de ekran yüzeylerinden animasyonu zaten sökmüştü.
+      data-bottom-directory={bottomDirectory ? (tabakaAcik ? "open" : "closed") : undefined}
       className={cn("relative shrink-0 print:hidden", className)}
     >
       {/*

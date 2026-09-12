@@ -61,7 +61,7 @@ export function UploadIndicator() {
       role="status"
       aria-live="polite"
       // `dvh` değil sabit alt boşluk: gösterge kısa ve alt kenara sabit.
-      className="fixed bottom-3 right-3 z-40 w-[min(22rem,calc(100vw-1.5rem))] border bg-card p-3 shadow-lg"
+      className="oc-bottom-upload-indicator fixed bottom-3 right-3 z-40 w-[min(22rem,calc(100vw-1.5rem))] border bg-card p-3 shadow-lg"
     >
       <div className="flex items-start gap-2">
         {calisiyor ? (

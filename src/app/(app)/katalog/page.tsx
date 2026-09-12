@@ -1,3 +1,4 @@
+import { CatalogBottomTools } from "@/components/catalog-bottom-tools";
 // Katalog sayfası görüntüleyici — ekipman listesindeki (uygulama · Excel · PDF)
 // ekipman adına tıklandığında açılan sayfa.
 //
@@ -64,7 +65,7 @@ export default async function CatalogSheetPage({
   const images = catalogSheetImages(sheet);
 
   return (
-    <div className="grid gap-4">
+    <CatalogBottomTools pages={images.length} downloadUrl={catalogSheetDownloadUrl(kind, brand || null, model, "", { inputRpm })}><div className="grid gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <div className="oc-kicker text-muted-foreground">Katalog Sayfası</div>
@@ -107,7 +108,7 @@ export default async function CatalogSheetPage({
           → Katalog sayfasını yana ve aşağı kaydırarak inceleyin.
         </p>
         {images.map((image, i) => (
-          <figure key={image} className="grid gap-1.5">
+          <figure id={`catalog-page-${i}`} key={image} className="grid gap-1.5">
             {images.length > 1 && (
               <figcaption className="oc-kicker text-muted-foreground">
                 Sayfa {i + 1} / {images.length}
@@ -137,6 +138,6 @@ export default async function CatalogSheetPage({
           </figure>
         ))}
       </div>
-    </div>
+    </div></CatalogBottomTools>
   );
 }

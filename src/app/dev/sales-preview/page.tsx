@@ -1,3 +1,4 @@
+import { SalesNav } from "@/app/(app)/sales/sales-nav";
 // Sadece development: Satış Takibi ekranını auth olmadan görsel test etmek
 // için. Production'da 404 döner. (jobs-preview ile aynı desen.)
 //
@@ -132,7 +133,8 @@ export default function SalesPreviewPage() {
       <div className="grid w-full flex-1 gap-8 px-4 py-6 lg:px-8">
         {/* Başlık yuvası bu bağlamda YOKTUR: `PageHeader` yerinde çizilir ve
             İş Listesi düğmesi de auth'suz görülebilir. */}
-        <PageHeader
+        <SalesNav />
+      <PageHeader
           title="Satış Takibi"
           hint="İş kalemi başına fiyat, termin ve sevk takibi"
         >

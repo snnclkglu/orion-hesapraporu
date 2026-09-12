@@ -79,7 +79,7 @@ function DialogContent({
             !event.defaultPrevented &&
             mobileKeyboardSafe &&
             window.matchMedia(
-              "(max-width: 767px), (pointer: coarse) and (max-height: 500px)",
+              "(max-width: 767px), (pointer: coarse)",
             ).matches
           ) {
             event.preventDefault();

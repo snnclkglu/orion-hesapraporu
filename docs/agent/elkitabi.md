@@ -885,3 +885,11 @@ bölüm gizleme düğmesi ve dört durumlu doluluk noktası. Ölçüm: 1440 px't
 **TELEFON/TABLET DEĞİŞMEDİ.** `lg` altında Harita · Belge · Kâğıt kutu ızgarası
 (KITAP-26, MOBIL-21) aynen durur; ray orada gizlidir — üç çalışma yüzü sekizin
 altındadır ve ızgara oradaki doğru biçimdir.
+
+
+## Mobil ve tablet alt erişimi — Plan 013
+
+12.09.2026 kullanıcı onayıyla bu alan ortak alt barı kullanır: **İçerik · Kapsam · Künye · Kontrol · Diğer; belge haritası ve çalışma yüzleri Diğer içinde**.
+Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
+`arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
+ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.

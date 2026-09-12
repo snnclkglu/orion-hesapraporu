@@ -586,3 +586,11 @@ bir özet kartıdır ve boş sütun üretmez. Parça ayrıntısı açıldığın
 sütun önceliğini kullanır. Nesting çizimi uzamsal bir istisnadır: sayfayı
 değil yalnız çizim kabını kaydırır. Hammadde talebi ve kesim planı PDF'leri
 mobil dosya indirme/paylaşma akışını kullanır.
+
+
+## Mobil ve tablet alt erişimi — Plan 013
+
+12.09.2026 kullanıcı onayıyla bu alan ortak alt barı kullanır: **Havuz · Yerleşim · Teklifler · Siparişler · Diğer**.
+Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
+`arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
+ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.

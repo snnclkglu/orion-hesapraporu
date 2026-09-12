@@ -1,3 +1,5 @@
+import { BottomToolPanel } from "@/components/bottom-bar-tools";
+import { FeedbackBottomBar } from "./feedback-bottom-bar";
 import Link from "next/link";
 import { ArrowLeft, Plus, Paperclip } from "lucide-react";
 import { feedbackCategories, type FeedbackItem } from "@/lib/account/model";
@@ -22,6 +24,7 @@ export function FeedbackList({
   }
   return (
     <div className="ac-page">
+      <FeedbackBottomBar admin={admin} />
       <div className="ac-row justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -44,7 +47,7 @@ export function FeedbackList({
           <ArrowLeft size={16} /> Profilim
         </Link>
       )}
-      <form className="ac-card" action={base}>
+      <BottomToolPanel id="feedback-filters" title="Geri bildirim filtreleri"><form className="ac-card" action={base}>
         <label>
           Ara
           <input
@@ -104,7 +107,7 @@ export function FeedbackList({
             </Link>
           </div>
         </div>
-      </form>
+      </form></BottomToolPanel>
       <p className="ac-muted" role="status">
         {total} gönderi
       </p>

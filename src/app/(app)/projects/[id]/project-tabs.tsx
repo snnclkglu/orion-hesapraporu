@@ -1,3 +1,5 @@
+"use client";
+import { LocalTabsBottomBar } from "@/components/local-bottom-bar";
 // Proje detayının BÖLÜM RAYI — "Hesap Raporu" · "Elektrik Projesi" ·
 // "Ekipman Listeleri" · "Elektrik Projesi" · "Teknik Resim Takibi" ·
 // "İşletme ve Bakım El Kitabı" · "Vinç Kimliği".
@@ -88,7 +90,11 @@ export function ProjectTabsNav({
     // aktif sekmenin kırmızı çizgisi negatif kenar boşluğu olmadan onun
     // üstüne oturur. Taşma kabı kalktığı için `overflow-y-hidden` emniyet
     // kemerine de gerek kalmadı — kaydırma çubuğu doğuracak bir kap yok.
-    <div className="w-full shadow-[inset_0_-1px_0_var(--border)]">
+    <><LocalTabsBottomBar label="Proje bölümleri" options={[
+      {value:"report",label:"Hesap"},{value:"equipment",label:"Ekipman"},
+      ...(!compact ? [{value:"electrical",label:"Elektrik"},{value:"drawings",label:"Resimler"},{value:"manual",label:"El Kitabı"},...(showProductPortal ? [{value:"product-portal",label:"Vinç Kimliği"}] : [])] : [])
+    ]} primary={compact ? ["report","equipment"] : ["report","equipment","electrical","drawings"]} extraItems={compact ? [{id:"projects",label:"Projeler",href:"/offers/hesap-raporlari",icon:"folder"},{id:"offers",label:"Teklifler",href:"/offers",icon:"back"}] : []} />
+    <div className="oc-section-desktop w-full shadow-[inset_0_-1px_0_var(--border)]">
       <TabsList
         variant="line"
         // Taban şerit yüksekliğini `group-data-horizontal/tabs:h-9` ile
@@ -140,6 +146,6 @@ export function ProjectTabsNav({
           </>
         )}
       </TabsList>
-    </div>
+    </div></>
   );
 }

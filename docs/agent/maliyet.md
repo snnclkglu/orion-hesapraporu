@@ -1153,3 +1153,11 @@ sütunda da tek düzey kalır.
 **GÖVDE İÇİ KATLAMA RAYA GİRMEZ.** PROJE MALİYETİ, YÜRÜTME VE TEKER gibi alt
 başlıkların katlanması (`Katlama`, MALIYET-31) ayrı bir şeydir ve durumu ekranda
 yaşar; ray tek düzeydir (*"çok alt başlık var, çok yer kaplıyor"*).
+
+
+## Mobil ve tablet alt erişimi — Plan 013
+
+12.09.2026 kullanıcı onayıyla bu alan ortak alt barı kullanır: **Özet · Ağırlıklar · Hesaplar · Maliyetler · Diğer**.
+Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
+`arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
+ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.

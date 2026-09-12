@@ -12,6 +12,7 @@
 // sekmesi kendi fazında araya girer.
 
 import Link from "next/link";
+import { RouteBottomBar } from "@/components/section-bottom-bar";
 import { usePathname } from "next/navigation";
 import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,8 @@ export function JobNav({
 
   return (
     <>
+      <RouteBottomBar label="İş ayrıntısı" options={sekmeler} primary={[kok, `${kok}/gorevler`, `${kok}/akis`, `${kok}/baglantilar`]} value={aktifHref} priority={25} />
+      <div className="oc-section-desktop">
       <MobileRouteGrid
         className="md:hidden"
         value={aktifHref}
@@ -70,6 +73,7 @@ export function JobNav({
           );
         })}
       </nav>
+      </div>
     </>
   );
 }

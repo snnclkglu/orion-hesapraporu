@@ -14,6 +14,7 @@
 // sayısı değişir ve zincir yine kopardı.
 
 import Link from "next/link";
+import { RouteBottomBar } from "@/components/section-bottom-bar";
 import { usePathname } from "next/navigation";
 import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,8 @@ export function OffersNav() {
 
   return (
     <>
+      <RouteBottomBar label="Teklif" options={TABS} primary={TABS.slice(0,3).map(t => t.href)} value={aktifSekme} />
+      <div className="oc-section-desktop">
       <MobileRouteGrid
         className="md:hidden"
         value={aktifSekme}
@@ -71,6 +74,7 @@ export function OffersNav() {
           );
         })}
       </nav>
+      </div>
     </>
   );
 }

@@ -1282,3 +1282,11 @@ genişletilirken 0019'un dağılımı satır satır karşılaştırıldı ve de�
 denenen ve GERİ ALINAN ek `STAY PUT` oldu — 0019'un `XB4BD21` kapak seçici
 şalteri de "2-position stay put" diyor ve o terim mandallı/yaylı ayrımıdır,
 sınır şalteri işareti değil (PANO-25).
+
+
+## Mobil ve tablet alt erişimi — Plan 013
+
+12.09.2026 kullanıcı onayıyla bu alan ortak alt barı kullanır: **Özet · Dizilim · Panolar · İç Yerleşim · Diğer; iç yerleşimde Panolar · Yerleşim · Denetim · Diğer**.
+Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
+`arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
+ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.

@@ -280,3 +280,11 @@ göre gizlenen bütün doğrudan giriş alanları telefonda `data-mobile-show` i
 geri açılır: SGK günü, net ücret, iki mesai saati, izin, rapor, prim, harcırah,
 avans ve kesinti aynı kişi kartından düzenlenir. Yatay tablo kaydırması yoktur;
 yalnız gerçek zaman serisi grafikleri kendi veri yoğunluğu sınırını korur.
+
+
+## Mobil ve tablet alt erişimi — Plan 013
+
+12.09.2026 kullanıcı onayıyla bu alan ortak alt barı kullanır: **Personel · Maaş · Harcirah · Özet · Diğer; kişi ayrıntısında Kimlik · Dönemler · Maaş · Dosyalar**.
+Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
+`arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
+ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.

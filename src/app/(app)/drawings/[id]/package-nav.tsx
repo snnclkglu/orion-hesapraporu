@@ -15,6 +15,7 @@
 // arasına bırakırdı (kabuk kuralı 14).
 
 import Link from "next/link";
+import { RouteBottomBar } from "@/components/section-bottom-bar";
 import { usePathname } from "next/navigation";
 import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,8 @@ export function PackageNav({ packageId }: { packageId: string }) {
 
   return (
     <>
+      <RouteBottomBar label="Teknik resim paketi" options={sekmeler} primary={[`${kok}/files`, `${kok}/parts`, `${kok}/progress`, `${kok}/versions`]} value={aktifHref} priority={25} />
+      <div className="oc-section-desktop">
       <MobileRouteGrid
         className="md:hidden"
         value={aktifHref}
@@ -90,6 +93,7 @@ export function PackageNav({ packageId }: { packageId: string }) {
           );
         })}
       </nav>
+      </div>
     </>
   );
 }

@@ -1,15 +1,17 @@
-@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) {
+@media (max-width: 767px), (pointer: coarse) {
   [data-mobile-form="true"][data-slot="dialog-content"] {
     top: var(--form-viewport-top, 0px) !important;
     bottom: auto !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
+    left: var(--form-viewport-left, 0px) !important;
+    right: auto !important;
+    width: var(--form-viewport-width, 100%) !important;
     max-width: 100% !important;
     height: auto !important;
     max-height: var(--form-viewport-height, 100dvh) !important;
     translate: none !important;
     transform: none !important;
+    /* duration-100 tek başına varsayılan all geçişiyle konumu kaydırıyordu. */
+    transition-property: opacity !important;
     border-radius: 0 0 16px 16px;
     overflow-y: auto !important;
     overscroll-behavior: contain;
@@ -27,5 +29,15 @@
   [data-mobile-form="true"] .tw-form-footer {
     position: static;
     flex-wrap: wrap;
+  }
+}
+@media (min-width: 768px) and (pointer: coarse) {
+  [data-mobile-form="true"][data-slot="dialog-content"] {
+    top: calc(var(--form-viewport-top, 0px) + 12px) !important;
+    left: calc(var(--form-viewport-left, 0px) + var(--form-viewport-width, 100vw) / 2) !important;
+    width: min(600px, calc(var(--form-viewport-width, 100vw) - 24px)) !important;
+    max-height: calc(var(--form-viewport-height, 100dvh) - 24px) !important;
+    translate: -50% 0 !important;
+    border-radius: 12px;
   }
 }

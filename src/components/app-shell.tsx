@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { AppBottomFallback } from "@/components/app-bottom-fallback";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useOverlay } from "@/lib/use-overlay";
@@ -481,7 +482,7 @@ export function AppShell({
       // kaydırma"). Kenar çubuğu zaten `h-dvh` kullanıyordu — ikisi ayrışmıştı.
       className={cn(
         "flex",
-        isFrame ? "min-h-dvh lg:h-dvh lg:overflow-hidden" : "min-h-dvh",
+        isFrame ? "oc-app-frame min-h-dvh lg:h-dvh lg:overflow-hidden" : "min-h-dvh",
       )}
     >
       {/* Masaüstü sidebar */}
@@ -495,7 +496,7 @@ export function AppShell({
         // içsel en küçük genişliğine göre şişiyordu.
         style={{ width: sidebarW, minWidth: sidebarW, maxWidth: sidebarW }}
         className={cn(
-          "sticky top-0 z-40 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-l-[14px] border-sidebar-border border-l-primary bg-sidebar text-sidebar-foreground lg:flex",
+          "oc-app-sidebar sticky top-0 z-40 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-l-[14px] border-sidebar-border border-l-primary bg-sidebar text-sidebar-foreground lg:flex",
         )}
       >
         <SidebarContent
@@ -512,7 +513,7 @@ export function AppShell({
 
       {/* Mobil çekmece */}
       {open && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="oc-app-menu-drawer fixed inset-0 z-50 lg:hidden">
           <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setOpen(false)}
@@ -594,7 +595,7 @@ export function AppShell({
               // Orion kırmızısı yüzey + beyaz marka sembolü olarak görünür.
               // Görsel kutu 40px, `.oc-tap-square` kaba işaretleyicide hedefi
               // görünmez biçimde 44px'e tamamlar; üst şeridin ritmi büyümez.
-              className="oc-tap-square -ml-2 inline-flex size-10 items-center justify-center bg-sidebar-primary text-sidebar-primary-foreground shadow-sm transition-colors hover:bg-sidebar-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:hidden"
+              className="oc-app-menu-open oc-tap-square -ml-2 inline-flex size-10 items-center justify-center bg-sidebar-primary text-sidebar-primary-foreground shadow-sm transition-colors hover:bg-sidebar-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:hidden"
               aria-label="Menüyü aç"
               aria-expanded={open}
             >
@@ -618,7 +619,7 @@ export function AppShell({
                   : "Menüyü daralt (Ctrl+B)"
               }
               aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
-              className="hidden rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:inline-flex"
+              className="oc-app-collapse hidden rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:inline-flex"
             >
               <BrandIcon
                 name={collapsed ? "sidebarExpand" : "sidebarCollapse"}
@@ -710,6 +711,7 @@ export function AppShell({
           görünmeyen bir iş olmayan bir iştir ve kullanıcı sekmeyi kapatıp
           kendi yüklemesini keser. Gösterge iş yokken hiçbir şey çizmez. */}
       <UploadIndicator />
+      <AppBottomFallback role={role} />
     </div>
   );
 }

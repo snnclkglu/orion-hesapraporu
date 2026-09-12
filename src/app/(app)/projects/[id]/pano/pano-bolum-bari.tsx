@@ -21,6 +21,7 @@
 // Panolar tablosundaki pano koduydu ve altı yalnız fareyle üstüne gelince
 // çiziliyordu. Dokunmatikte hiçbir işareti yoktu.
 import Link from "next/link";
+import { SectionBottomBar } from "@/components/section-bottom-bar";
 
 import { Badge } from "@/components/ui/badge";
 
@@ -61,9 +62,13 @@ export function PanoBolumBari({
     // DAR EKRANDA IZGARA, GENİŞTE ŞERİT (MOBIL-21 · MOBIL-14): şeride
     // `overflow-x` VERİLMEZ — yatay kaydırma kutusu dikeyi de kaydırılabilir
     // yapar ve yapışkanlık sessizce ölür.
+    <><SectionBottomBar label="Pano Yerleşimi" priority={35} items={[
+      ...PANO_BOLUMLERI.slice(0,3).map(b=>({id:b.id,label:b.ad,active:bolum===b.id,onSelect:()=>onBolum(b.id)})),
+      ...(icHref ? [{id:"inner",label:"İç Yerleşim",icon:"grid" as const,href:icHref}] : [])
+    ]} more={PANO_BOLUMLERI.slice(3).map(b=>({id:b.id,label:b.ad,active:bolum===b.id,onSelect:()=>onBolum(b.id),badge:sayaclar[b.id] || undefined}))} />
     <nav
       aria-label="Pano bölümleri"
-      className="oc-scroll-none sticky top-[var(--app-header-h,48px)] z-20 -mx-4 border-b bg-background px-4 md:-mx-6 md:px-6"
+      className="oc-section-desktop oc-scroll-none sticky top-[var(--app-header-h,48px)] z-20 -mx-4 border-b bg-background px-4 md:-mx-6 md:px-6"
     >
       <div className="grid grid-cols-3 gap-1 py-2 min-[560px]:flex min-[560px]:gap-0 min-[560px]:py-0">
         {PANO_BOLUMLERI.map((b) => {
@@ -102,6 +107,6 @@ export function PanoBolumBari({
           </Link>
         )}
       </div>
-    </nav>
+    </nav></>
   );
 }

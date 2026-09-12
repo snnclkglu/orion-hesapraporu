@@ -250,3 +250,11 @@ Panonun *"PENCERE DEĞİLDİR"* ilkesi korunur: ≥1440 px'te ray zaten modal
 olmayan bir sütundur. 1440 altında tabaka modaldır ve bu bilinçli bir
 istisnadır — gezinme açıkça istenen bir eylemdir, arama gibi sayfanın kendi
 yüzeyi değil.
+
+
+## Mobil ve tablet alt erişimi — Plan 013
+
+12.09.2026 kullanıcı onayıyla bu alan ortak alt barı kullanır: **Görevlerim · Ekip · Panolar · Gelen**.
+Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
+`arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
+ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.

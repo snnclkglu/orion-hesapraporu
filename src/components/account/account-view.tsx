@@ -1,4 +1,6 @@
 "use client";
+import { AnchorBottomBar } from "@/components/anchor-bottom-bar";
+import { NavigationAppearanceControl } from "@/components/section-bottom-bar";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -148,6 +150,7 @@ export function AccountView({
   const scale = (220 / Math.min(dimensions.w, dimensions.h)) * crop.zoom;
   return (
     <div className="ac-page" ref={setFormNode}>
+      <AnchorBottomBar label="Profilim" sections={[{id:"profile-info",label:"Bilgiler",icon:"person"},{id:"profil-fotografi",label:"Fotoğraf",icon:"grid"},{id:"profile-teams",label:"Ekipler",icon:"team"}]} more={[{id:"appearance",label:"Görünüm",onSelect:()=>document.getElementById("profile-appearance")?.scrollIntoView({block:"start"}),icon:"settings"},{id:"feedback",label:"Gönderilerim",href:"/profile/feedback",icon:"inbox"},{id:"new-feedback",label:"Geri bildirim gönder",href:"/profile/feedback/new",icon:"file"}]} />
       <Link href="/" className="ac-button w-fit">
         <ArrowLeft size={16} /> Çalışma alanına dön
       </Link>
@@ -168,7 +171,7 @@ export function AccountView({
           </p>
         </div>
       </header>
-      <nav className="ac-row ac-actions" aria-label="Profil kısayolları">
+      <nav className="oc-section-desktop ac-row ac-actions" aria-label="Profil kısayolları">
         <a className="ac-button" href="#profil-fotografi">
           <Camera size={16} /> Fotoğrafı düzenle
         </a>
@@ -190,7 +193,7 @@ export function AccountView({
       <div className="ac-grid">
         <div className="ac-stack">
           <form
-            className="ac-card"
+            id="profile-info" className="ac-card scroll-mt-20"
             onSubmit={(e) => {
               e.preventDefault();
               if (
@@ -394,7 +397,7 @@ export function AccountView({
               Gönderilerinizi yalnız siz ve yönetim görebilir.
             </p>
           </section>
-          <section className="ac-card">
+          <section className="ac-card scroll-mt-20" id="profile-teams">
             <h2 className="ac-row">
               <Users size={18} /> Ekiplerim
             </h2>
@@ -414,8 +417,9 @@ export function AccountView({
             )}
             <p className="ac-muted">Ekip üyeliklerini yönetiminiz düzenler.</p>
           </section>
-          <section className="ac-card">
+          <section className="ac-card scroll-mt-20" id="profile-appearance">
             <h2>Görünüm</h2>
+            <NavigationAppearanceControl />
             <label>
               Bu cihazdaki tema
               <select

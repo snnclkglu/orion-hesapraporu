@@ -1,0 +1,50 @@
+.oc-bottom-bar{position:fixed;inset:auto 0 0;z-index:35;background:var(--card);border-top:1px solid var(--border);padding:4px max(4px,env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left))}
+.oc-bottom-bar[hidden]{display:none}
+.oc-bottom-items{display:grid;max-width:640px;margin-inline:auto}
+.oc-bottom-item{position:relative;display:flex;min-width:0;min-height:60px;align-items:center;justify-content:center;flex-direction:column;gap:5px;padding:5px 3px;color:var(--muted-foreground);font-size:12px;line-height:1.2;text-align:center;overflow-wrap:anywhere}
+.oc-bottom-item[aria-current=page]{color:var(--primary);font-weight:600}
+.oc-bottom-item:focus-visible,.oc-bottom-more-item:focus-visible{outline:2px solid var(--ring);outline-offset:-2px}
+.oc-bottom-badge{position:absolute;top:1px;right:12%;font-size:11px;color:var(--primary);font-weight:600}
+.oc-bottom-more-item{display:flex;gap:12px;align-items:center;min-height:48px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;text-align:left}
+.oc-bottom-more-item[aria-current=page]{color:var(--primary);background:var(--muted)}
+.oc-bottom-sheet{padding-bottom:calc(1.5rem + env(safe-area-inset-bottom))}
+html[data-bottom-bar=visible] body{padding-bottom:var(--app-bottom-bar-h,0px)}
+html[data-navigation=bottom] .oc-section-desktop{display:none!important}
+html[data-navigation=desktop] .oc-section-bottom-only{display:none!important}
+html[data-navigation=bottom] .oc-section-bottom-only{display:block}
+html[data-navigation=bottom] .tw-navigation{display:none!important}
+html[data-navigation=bottom] .tw-mobile-create{display:flex;bottom:calc(var(--app-bottom-bar-h,72px) + 16px)!important}
+html[data-navigation=bottom] .tw-desktop-create{display:none}
+html[data-navigation=bottom] .tw-workspace{padding-bottom:88px}
+html[data-navigation=bottom] .oc-app-sidebar{display:none!important}
+html[data-navigation=bottom] .oc-app-menu-open{display:inline-flex!important}
+html[data-navigation=bottom] .oc-app-menu-drawer{display:block!important}
+html[data-navigation=bottom] .oc-app-collapse{display:none!important}
+html[data-navigation=bottom] .oc-app-frame{height:calc(100dvh - var(--app-bottom-bar-h,0px))}
+html[data-navigation=desktop] .tw-navigation{position:static;flex-direction:row;padding:0;border-top:0}
+@media print{.oc-bottom-bar{display:none!important}html[data-bottom-bar=visible] body{padding-bottom:0}}
+
+html[data-navigation=bottom] [data-bottom-directory]{width:0!important;min-width:0!important;max-width:0!important}
+html[data-navigation=bottom] [data-bottom-directory=closed]{display:none}
+html[data-navigation=bottom] [data-bottom-directory=open]>div{position:fixed;inset:var(--app-header-h,48px) auto 0 0;height:auto;max-height:none;width:0;z-index:50}
+html[data-navigation=bottom] [data-bottom-directory]>div>button{display:none}
+html[data-navigation=bottom] .oc-bottom-content-grid{grid-template-columns:minmax(0,1fr)!important}
+html[data-navigation=bottom] .oc-app-frame{min-height:calc(100dvh - var(--app-bottom-bar-h,0px))}
+
+html[data-navigation=bottom] .cad-setup-grid{display:contents}
+html[data-navigation=bottom] [data-cad-panel]{display:none}
+html[data-navigation=bottom] [data-cad-view=jobs] [data-cad-panel=jobs],html[data-navigation=bottom] [data-cad-view=prepare] [data-cad-panel=prepare],html[data-navigation=bottom] [data-cad-view=results] [data-cad-panel=results],html[data-navigation=bottom] [data-cad-view=connection] [data-cad-panel=connection]{display:block}
+
+html[data-navigation=bottom] .oc-local-work-controls{position:static;display:block}
+
+.oc-catalog-fit figure img{width:var(--catalog-scale)!important;max-width:none!important}
+.oc-catalog-fit figure>div{overflow:auto!important}
+
+html[data-navigation=bottom] [data-bottom-directory=open]{display:block!important}
+
+html[data-bottom-bar=visible]{scroll-padding-bottom:var(--app-bottom-bar-h,0px)}
+
+html[data-navigation=bottom] .oc-bottom-aware-footer{bottom:var(--app-bottom-bar-h,0px)}
+html[data-navigation=bottom] .oc-local-step-controls{position:static}
+html[data-navigation=bottom] .oc-bottom-upload-indicator{bottom:calc(var(--app-bottom-bar-h,0px) + 12px)}
+.oc-bottom-more-item .oc-bottom-badge{position:static;margin-left:auto}

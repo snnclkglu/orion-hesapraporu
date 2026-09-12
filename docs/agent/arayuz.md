@@ -1,3 +1,37 @@
+## MOBIL-35 — Bütün bölümlerde mobil ve tablet alt barı (12.09.2026)
+
+Kullanıcının onayladığı `plans/013-tum-bolumler-mobil-tablet-alt-bar.md` uygulanır.
+Kökte tek `SectionBottomBarHost` vardır; sayfa `SectionBottomBar`, `RouteBottomBar`,
+`LocalTabsBottomBar` veya `AnchorBottomBar` ile kendi hedeflerini bildirir. En özel
+kayıt önceliklidir; iç ekranlarda 4 veya 5 hedef çizilir. Yetki kararları mevcut
+çağırandan gelir, bu yüzey yeni sunucu yetkisi veya sorgu üretmez. Genel menü üsttedir.
+
+Otomatik görünüm <1024px'te alt bar, 1024–1366px'te ana işaretleyicisi dokunmatik
+olan cihazda alt bar, diğer genişliklerde mevcut masaüstüdür. Profil/Görünüm'deki
+Otomatik / Alt bar / Masaüstü tercihi yereldir. Aynı hedefleri tekrarlayan üst ray
+`oc-section-desktop` ile gizlenir. Editör bölüm dizini `bottomDirectory` ile alttaki
+Bölümler/Kalemler/Belge haritası düğmesinden açılır; tam hiyerarşi ve gizleme eylemleri
+korunur. Gömülü teklif ön hesabı `bottomBar={false}` ile ana barı devralmaz.
+
+`--app-bottom-bar-h` gerçek ölçüdür. Gövde alt dolgusu, belge çerçevesi, yapışkan
+form eylemleri ve yükleme göstergesi bunu kullanır. Yerel hesap adım kumandası alt
+bar kipinde ikinci yapışkan gezinme olmaz. Sanal klavye yalnız odak + görünür alan
+küçülmesiyle saptanır; donanım klavyesi için bar saklanmaz. Yazdırmada bar yoktur.
+Modal kapanışında odak açan düğmeye döner; mobil pencerede ayrı CSS `translate`
+özelliği de doğru telefon/tablet konumuyla yönetilir.
+
+Ara/Filtrele mevcut kontrollü alanları tek kopya halinde açar. Proje ve paket liste
+filtreleri sekme belleğinde saklanır; İşler mevcut URL durumunu kullanır. Salt yerel
+sekme seçimi sunucu gezinmesi değildir. `useBottomBarGuard` kaydet fonksiyonundan
+`true` almadan yönlendirme yapmaz; hata halinde ekran/taslak korunur. Otomatik
+Gönder/Yayımla/Sil gibi işlemler bara eklenmez. Korumalı çizim araçları mevcut
+indirme/yazdırma kısıtını genişletmez, dış paylaşımda iç bölüm barı çizilmez.
+
+Kontroller: `scripts/bottom-bar-check.cjs`, `bottom-bar-fixtures.cjs`,
+`bottom-bar-interactions.cjs`, `bottom-bar-extra-check.cjs`, `bottom-bar-edge-check.cjs`,
+`bottom-bar-content-check.cjs`; saf kurallar `src/lib/bottom-bar.test.ts`.
+Gerçek iPhone/iPad, fiziksel klavye ve ekran okuyucu kabulü tarayıcı emülasyonundan ayrıdır.
+
 # Dokunmatik ve dar ekran
 
 ## MOBIL-34 — Gerçek iPhone geri bildirimi sonrası Panel düzeltmesi
@@ -39,7 +73,7 @@ tarayıcı emülasyonundan ayrı raporlanır.
 ## MOBIL-32 — Görev alanı (12.09.2026)
 
 PANEL-24 telefonda Görevlerim/Ekip/Panolar/Gelen alt gezinmesini kullanır;
-bu bar başka modüllerin editörlerine yayılmaz. Hızlı görevde yalnız başlık
+Bu ilk kapsam sınırı, kullanıcının bütün bölümlere yayma talebiyle MOBIL-35 tarafından genişletildi. Hızlı görevde yalnız başlık
 zorunludur; diğer alanlar açılır ayrıntılardadır. Detay mobilde görünür alana uyar, geniş
 ekranda sağ paneldir. Tailwind'in ayrı `translate` özelliği de sıfırlanmalıdır;
 yalnız `transform:none` kullanmak diyaloğu yarım ekran kaydırır.

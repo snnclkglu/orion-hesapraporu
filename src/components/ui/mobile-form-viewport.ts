@@ -10,7 +10,7 @@ export function useMobileFormViewport(
   useEffect(() => {
     if (!node) return;
     const media = window.matchMedia(
-      "(max-width: 767px), (pointer: coarse) and (max-height: 500px)",
+      "(max-width: 767px), (pointer: coarse)",
     );
     const viewport = window.visualViewport;
     let frame = 0;
@@ -62,6 +62,8 @@ export function useMobileFormViewport(
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         if (dialog && media.matches) {
+          // Safari ve Tailwind'in ayrı translate özelliği aynı anda sıfırlanır.
+          node.style.setProperty("translate", window.matchMedia("(min-width: 768px) and (pointer: coarse)").matches ? "-50% 0" : "none", "important");
           node.style.setProperty(
             "--form-viewport-top",
             `${viewport?.offsetTop ?? 0}px`,
@@ -70,6 +72,10 @@ export function useMobileFormViewport(
             "--form-viewport-height",
             `${viewport?.height ?? window.innerHeight}px`,
           );
+          node.style.setProperty("--form-viewport-left", `${viewport?.offsetLeft ?? 0}px`);
+          node.style.setProperty("--form-viewport-width", `${viewport?.width ?? window.innerWidth}px`);
+        } else if (dialog) {
+          node.style.removeProperty("translate");
         }
         cancelAnimationFrame(revealFrame);
         revealFrame = requestAnimationFrame(reveal);

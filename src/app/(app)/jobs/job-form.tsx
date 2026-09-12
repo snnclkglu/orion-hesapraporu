@@ -13,6 +13,7 @@
 //   · Montaj adresi       — sevk adresinin aynısı (ikisi genelde aynı yerdir)
 //   · Revizyon harfi      — düzenlemede bir sonrakine ilerler (A → B → C)
 
+import { useBottomBarGuard } from "@/components/section-bottom-bar";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -342,6 +343,9 @@ export function JobForm({
   // Otomatik anahtarlar. Düzenlemede, kayıtlı değerler zaten türetilenle
   // örtüşüyorsa açık başlar; mühendisin elle yazdığı numaralar/adet korunsun
   // diye örtüşmüyorsa kapalı başlar.
+  const [bottomBaseline] = useState(() => JSON.stringify(form));
+  useBottomBarGuard(JSON.stringify(form) !== bottomBaseline);
+
   const [autoNos, setAutoNos] = useState(() => {
     if (mode === "create") return true;
     const included = initial.items.filter((it) => it.included !== false);
@@ -956,7 +960,7 @@ export function JobForm({
           kullanıcı her küçük düzeltmeden sonra sonuna kadar kaydırmak zorunda
           kalıyordu. Mobilde şerit alta yapışır, `sm`den itibaren eski akış.
           Negatif kenar boşluğu kabuğun `px-3` iç boşluğunu kenara taşır. */}
-      <div className="sticky bottom-0 z-20 -mx-3 flex items-center gap-2 border-t bg-background px-3 py-3 sm:static sm:mx-0 sm:border-0 sm:p-0">
+      <div className="oc-bottom-aware-footer sticky bottom-0 z-20 -mx-3 flex items-center gap-2 border-t bg-background px-3 py-3 sm:static sm:mx-0 sm:border-0 sm:p-0">
         <Button
           type="submit"
           disabled={

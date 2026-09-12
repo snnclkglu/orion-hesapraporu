@@ -1,5 +1,8 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+import { SectionBottomBar } from "@/components/section-bottom-bar";
+import { BottomToolPanel, openBottomTool } from "@/components/bottom-bar-tools";
 import { useEffect, useRef, useState } from "react";
 import type {
   PDFDocumentLoadingTask,
@@ -34,6 +37,8 @@ export function ProtectedPdfViewer({
   /** Dış paylaşım kabuğunda görüntüleyiciyi kalan ekran yüksekliğine yayar. */
   fillHeight?: boolean;
 }) {
+  const pathname = usePathname() ?? "";
+  const internalTools = pathname.startsWith("/drawing-viewer/") || pathname === "/dev/drawing-viewer-preview";
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState("");
   const [zoom, setZoom] = useState(1);
@@ -181,6 +186,8 @@ export function ProtectedPdfViewer({
 
   return (
     <>
+      {internalTools && !fullscreen && <SectionBottomBar label="Teknik resim" priority={50} items={[{id:"pages",label:"Sayfalar",icon:"file",onSelect:()=>openBottomTool("drawing-pages")},{id:"zoom",label:"Yakınlaştır",icon:"zoom",onSelect:()=>openBottomTool("drawing-zoom")},{id:"fit",label:"Sığdır",icon:"grid",onSelect:()=>setZoom(1)}]} more={[{id:"fullscreen",label:"Tam ekran",icon:"grid",onSelect:()=>void toggleFullscreen()}]} />}
+      {internalTools && <><BottomToolPanel desktop={false} id="drawing-pages" title="Sayfalar"><div className="grid grid-cols-4 gap-2">{pages.map(page=><Button key={page} variant="outline" onClick={()=>globalThis.document.getElementById(`drawing-page-${page}`)?.scrollIntoView({block:"start"})}>{page}</Button>)}</div></BottomToolPanel><BottomToolPanel desktop={false} id="drawing-zoom" title="Yakınlaştır"><label className="grid gap-2">Görünüm %{Math.round(zoom*100)}<input type="range" min={MIN_ZOOM} max={MAX_ZOOM} step={ZOOM_STEP} value={zoom} onChange={event=>setZoom(Number(event.target.value))} className="min-h-11" /></label></BottomToolPanel></>}
       <p className="hidden border p-4 text-sm print:block">
         Bu teknik resim yalnız korumalı uygulama görüntüleyicisinde gösterilir.
       </p>
@@ -199,7 +206,7 @@ export function ProtectedPdfViewer({
               {notice}
             </span>
           </span>
-          <span className="flex items-center gap-1">
+          <span className={cn("flex items-center gap-1", internalTools && !fullscreen && "oc-section-desktop")}>
             <Button
               type="button"
               size="icon-sm"
@@ -342,7 +349,7 @@ function LazyPdfPage({
   const placeholderHeight = Math.round(availableWidth * zoom * ratio);
 
   return (
-    <div ref={holderRef} style={visible ? undefined : { height: placeholderHeight }}>
+    <div id={`drawing-page-${pageNumber}`} ref={holderRef} style={visible ? undefined : { height: placeholderHeight }}>
       {visible ? (
         <PdfCanvas
           document={pdfDocument}

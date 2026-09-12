@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SectionBottomBar } from "@/components/section-bottom-bar";
 import { usePathname } from "next/navigation";
 import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,8 @@ export function ToolsNav() {
 
   return (
     <>
+      <SectionBottomBar label="Teknik Araçlar" items={[...ROUTES.slice(1,5), {href:"/tools",label:"Tümü"}].map(r => ({id:r.href,href:r.href,label:r.label,icon:"tools",active:r.href===activeHref || (r.href==="/tools" && !ROUTES.slice(1,5).some(t=>t.href===activeHref))}))} />
+      <div className="oc-section-desktop">
       <MobileRouteGrid
         className="md:hidden"
         value={activeHref}
@@ -54,6 +57,7 @@ export function ToolsNav() {
           );
         })}
       </nav>
+      </div>
     </>
   );
 }

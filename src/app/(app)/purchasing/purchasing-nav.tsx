@@ -26,6 +26,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
+import { RouteBottomBar } from "@/components/section-bottom-bar";
+import { HammaddeNav } from "./hammadde/hammadde-nav";
+import { useSearchParams } from "next/navigation";
 
 // TALEP HAVUZU İKİYE BÖLÜNDÜ (kullanıcı kararı, 15.08.2026): *"Satın alma
 // bölümü talep havuzuna ikiye ayırmak istiyorum … ilk kısım talep havuzunun
@@ -58,6 +61,7 @@ export function PurchasingNav({
   gecikmis?: number;
 }) {
   const pathname = usePathname() ?? "";
+  const search = useSearchParams();
   const activeHref =
     TABS.find((t) => (t.exact ? pathname === t.href : pathname.startsWith(t.href)))
       ?.href ?? TABS[0].href;
@@ -73,6 +77,8 @@ export function PurchasingNav({
 
   return (
     <>
+      {pathname === "/purchasing/siparisler" && search.get("tur") === "hammadde" ? <HammaddeNav bottomOnly /> : pathname.startsWith("/purchasing/sarf") ? <RouteBottomBar label="Sarf" options={TABS.filter(t => t.sarf)} primary={TABS.filter(t => t.sarf).map(t => t.href)} value={activeHref} extra={[{ id: "purchasing", label: "Satın Alma", href: "/purchasing", icon: "back" }]} /> : <RouteBottomBar label="Satın Alma" options={TABS.map(t => ({...t, badge: t.href === "/purchasing/teslimat" ? gecikmeRozeti() : undefined}))} primary={TABS.slice(0,4).map(t => t.href)} value={activeHref} />}
+      <div className="oc-section-desktop">
       <MobileRouteGrid
         className="md:hidden"
         value={activeHref}
@@ -109,6 +115,7 @@ export function PurchasingNav({
           );
         })}
       </nav>
+      </div>
     </>
   );
 }

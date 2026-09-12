@@ -1,4 +1,6 @@
 "use client";
+import { useRememberedListState } from "@/lib/use-remembered-list-state";
+import { ListBottomTools } from "@/components/bottom-bar-tools";
 
 // Paket listesi — arama, süzgeç, sıralama.
 //
@@ -14,7 +16,7 @@
 // hücrenin alt satırına iner. İki yerde görünen öğe (`Tanima`, `BulguRozetleri`)
 // TEK bileşendir — iki yazım, birinde düzeltilen etiketin ötekinde kalmasıydı.
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo } from "react";
 import Link from "next/link";
 import {
   Select,
@@ -63,7 +65,7 @@ const SUTUN = 8;
 const GRUP_BASLIK_ESIGI = 2;
 
 export function PackagesTable({ packages }: { packages: PackageRow[] }) {
-  const [f, setF] = useState<PackageFilters>(EMPTY_PACKAGE_FILTERS);
+  const [f, setF] = useRememberedListState<PackageFilters>("packages-filters", EMPTY_PACKAGE_FILTERS);
   // GRUPLAMA ÖNTANIMLI AÇIKTIR ve bedeli ÖNTANIMLI SIRALAMADIR.
   //
   // Gruplama yazılmıştı ama liste tarihe göre açılıyordu; kullanıcı "Kalem No"
@@ -92,8 +94,8 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
   // gizlemek değil GÖRÜNÜR kılmaktır; listenin başında durmaları bu kurala
   // aykırı değildir. (Sona alınmaları istenirse yeri burası değil
   // `filters.ts`teki `PACKAGE_SORTS.kalem` karşılaştırıcısıdır.)
-  const [sortKey, setSortKey] = useState<PackageSortKey>("kalem");
-  const [desc, setDesc] = useState(false);
+  const [sortKey, setSortKey] = useRememberedListState<PackageSortKey>("packages-sort", "kalem");
+  const [desc, setDesc] = useRememberedListState("packages-desc", false);
 
   const gorunen = useMemo(
     () => sortPackages(packages.filter((p) => matchesPackage(p, f)), sortKey, desc),
@@ -119,7 +121,7 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
 
   return (
     <div className="grid gap-3">
-      <FilterBar
+      <ListBottomTools label="Paketler" more={[{id:"stages",label:"Üretim aşamaları",href:"/drawings/stages",icon:"tasks"}]}><FilterBar
         gorunen={gorunen.length}
         toplam={packages.length}
         temiz={temiz}
@@ -154,7 +156,7 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
             <SelectItem value="eslesmemis">Eşleşmemiş</SelectItem>
           </SelectContent>
         </Select>
-      </FilterBar>
+      </FilterBar></ListBottomTools>
 
       {gorunen.length === 0 ? (
         <StatePanel

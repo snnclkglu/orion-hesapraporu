@@ -6,6 +6,7 @@
 // müşteri, iş, parça ve tür listelenir. Böylece "hiçbir sonuç vermeyen
 // süzgeç" seçilemez ve liste kendiliğinden güncel kalır.
 
+import { BottomToolPanel } from "@/components/bottom-bar-tools";
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -106,7 +107,7 @@ export function FilterBar({
     // Beş sabit genişlikli süzgeç 735px istiyordu; 360px'te şerit altı satıra
     // dağılıp ekranın dörtte birini yiyordu. Telefonda süzgeçler üçlü bir
     // ızgaradır, `sm` üstünde eski sarmalı şerit geri gelir.
-    <div className="grid grid-cols-3 items-center gap-2 rounded-lg border bg-card px-2 py-2 sm:flex sm:flex-wrap sm:px-3">
+    <BottomToolPanel id="worklog-period" title="Dönem ve süzgeçler"><div className="grid grid-cols-3 items-center gap-2 rounded-lg border bg-card px-2 py-2 sm:flex sm:flex-wrap sm:px-3">
       <span className="oc-kicker col-span-3 text-muted-foreground sm:mr-1">Filtre</span>
 
       <Select
@@ -262,6 +263,6 @@ export function FilterBar({
         )}
         {extra}
       </div>
-    </div>
+    </div></BottomToolPanel>
   );
 }

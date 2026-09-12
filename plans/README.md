@@ -1,5 +1,7 @@
 # Uygulama geliştirme planları
 
+- [013 — Tüm bölümlerde mobil ve tablet alt barı](013-tum-bolumler-mobil-tablet-alt-bar.md) — 12 ana bölüm, kayıt ayrıntıları ve editörler için 4–5 öğeli bar önerileri; tablet/klavye davranışı, uygulama fazları ve kabul ölçütleri. Uygulandı; bölüm bazlı barlar, kayıt koruması ve mobil/tablet kontrol kanıtları planın uygulama kaydında.
+
 | Plan | Kapsam | Durum |
 | --- | --- | --- |
 | [004 — Panel görev yönetimi](004-panel-gorev-yonetimi.md) | Görev/ekip/pano ve güvenli Agent API | Çekirdek uygulandı; fiziksel cihaz ve yayın kabulü açık |

@@ -27,6 +27,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { AnchorBottomBar } from "@/components/anchor-bottom-bar";
 import { BriefcaseBusiness, Download, Eye, FilePlus2, Lock, LockOpen, Pencil, Send, Trash2 } from "lucide-react";
 import { CustomerTag } from "@/components/tags";
 import { Button } from "@/components/ui/button";
@@ -161,8 +162,9 @@ export function OfferPanel({
 
   return (
     <div className="grid gap-3">
+      <AnchorBottomBar label="Teklif" sections={[{id:"offer-summary",label:"Özet",icon:"grid"},{id:"offer-revisions",label:"Revizyon",icon:"file"},{id:"offer-cost",label:"Maliyet",icon:"records"}]} more={[{id:"offers",label:"Teklifler",href:"/offers",icon:"back"}]} />
       {/* ————————————————————————————————————————————— künye */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border bg-card p-3 lg:grid-cols-4 lg:gap-3 lg:p-4">
+      <div id="offer-summary" className="scroll-mt-20 grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border bg-card p-3 lg:grid-cols-4 lg:gap-3 lg:p-4">
         <Kunye etiket="Teklif No">
           <span className="font-mono">{offerDocLine(offer.offer_no, guncel?.rev_no ?? 0)}</span>
         </Kunye>
@@ -272,7 +274,7 @@ export function OfferPanel({
       </div>
 
       {/* ————————————————————————————————————————————— revizyonlar */}
-      <div className="rounded-lg border">
+      <div id="offer-revisions" className="scroll-mt-20 rounded-lg border">
         <Table className="oc-mobile-table oc-compact-mobile-table" containerClassName="oc-mobile-table-wrap">
           <TableHeader>
             <TableRow>

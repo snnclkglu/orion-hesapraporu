@@ -1,5 +1,6 @@
 "use client";
 
+import { SectionBottomBar, useBottomBarGuard } from "@/components/section-bottom-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Monitor, RefreshCw, Upload, FileText, CheckCircle2, Loader2, Link2 } from "lucide-react";
@@ -198,7 +199,10 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
   const result = selected?.result;
   const visibleRows = (tab === "sheets" ? result?.paftalar ?? [] : result?.malzeme ?? []).filter(row => !search || Object.values(row).some(v => typeof v === "string" && v.toLocaleLowerCase("tr").includes(search.toLocaleLowerCase("tr"))));
 
-  return <div className="cad-workspace">
+  useBottomBarGuard(files.length > 0 || !!busy);
+  const mobileView = { new: "prepare", history: "jobs", results: "results", devices: "connection" }[section];
+  return <div className="cad-workspace" data-cad-view={mobileView}>
+    <SectionBottomBar label="CAD" priority={25} items={([{id:"history",label:"İşlemler",icon:"list"},{id:"new",label:"Hazırla",icon:"tools"},{id:"results",label:"Sonuçlar",icon:"file"},{id:"devices",label:"Bağlantı",icon:"settings"}] as const).map(item=>({...item,active:section===item.id,onSelect:()=>setSection(item.id)}))} />
     <div className="cad-intro"><div><span className="cad-eyebrow">ÇİZİMDEN PAFTAYA</span><h1>Çizimleriniz, kendi AutoCAD’inizle.</h1><p>DWG içindeki paftaları ayırın, PDF’leri ve malzeme listesini inceleyin. Onayladığınız sonuçları Teknik Resimler’e aktarın.</p></div><div className="cad-local"><Monitor size={20} /><span>İşlem sizin bilgisayarınızda<br /><small>Windows · Tam AutoCAD · ORION Yardımcısı</small></span></div></div>
     {preview && <p className="cad-message">Görsel önizleme · Buradaki düğmeler gerçek işlem başlatmaz.</p>}
     {error && <div role="alert" className="cad-error">{error}<Button variant="ghost" onClick={() => void refresh()}>Yeniden kontrol et</Button></div>}
@@ -206,7 +210,7 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
     {busy && <p role="status" className="cad-message"><Loader2 className="animate-spin" size={16} />{busy} · Yükleme ve aktarım sırasında bu sekmeyi açık tutun.</p>}
     <nav className="cad-page-tabs" aria-label="Çizim İşleme bölümleri">{([["new","Yeni işlem"],["history","İşlem geçmişi"],["results","Sonuçlar"],["devices","Bilgisayarlar"]] as const).map(([key,label]) => <Button key={key} variant={section === key ? "default" : "outline"} disabled={key === "results" && !selected} aria-pressed={section === key} onClick={() => setSection(key)}>{label}</Button>)}</nav>
     <div className="cad-pages">
-      <section hidden={section !== "devices"} className="cad-card"><div className="cad-section-title"><h2><Monitor size={18} /> Bilgisayar bağlantısı</h2><Button variant="ghost" disabled={!!busy} onClick={() => void refresh()} aria-label="Bağlantıyı yenile"><RefreshCw size={16} /></Button></div>
+      <section hidden={section !== "devices"} data-cad-panel="connection" className="cad-card"><div className="cad-section-title"><h2><Monitor size={18} /> Bilgisayar bağlantısı</h2><Button variant="ghost" disabled={!!busy} onClick={() => void refresh()} aria-label="Bağlantıyı yenile"><RefreshCw size={16} /></Button></div>
         {state.devices.filter(d => !d.revoked_at).length ? <div className="cad-devices">{state.devices.filter(d => !d.revoked_at).map(d => {
           const availability = deviceAvailability(d, now);
           return <div key={d.id} className="cad-device"><div><strong>{d.name}</strong><p>{availability.label}</p>{d.message && <small>{d.message}</small>}</div>{state.canWrite && <Button variant="ghost" disabled={!!busy} onClick={() => void run("Bağlantı kaldırılıyor", async () => { await command("revoke", { deviceId: d.id }); })}>Bağlantıyı kaldır</Button>}</div>;
@@ -215,7 +219,7 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
           {pair && <div className="cad-pair-code"><strong>Yardımcıdaki bağlantı ekranına yapıştırın</strong><p>Uygulama adresi: {typeof window !== "undefined" ? window.location.origin : ""}</p><code>{pair.code}</code><small>10 dakika geçerlidir. Yalnız kendi bilgisayarınızdaki yardımcıda kullanın.</small><Button variant="outline" onClick={() => void navigator.clipboard.writeText(pair.code).then(() => setNotice("Bağlantı kodu kopyalandı.")).catch(() => setError("Kodu seçip elle kopyalayabilirsiniz."))}>Kodu kopyala</Button></div>}
           </details><details className="cad-help"><summary>Yardımcı nasıl kurulur?</summary><ol><li><a href="/cad/helper" className="underline">ORION Yardımcısını indir</a> ve Windows’ta açın.</li><li>Bu sayfadaki uygulama adresini ve bağlantı kodunu yardımcıya girin.</li><li>AutoCAD’deki çizimlerinizi kaydedip kapatın. Yardımcıdan kontrolü başlatın.</li><li>DWG dosyalarını veya klasörü seçin. AutoCAD “İşleme hazır” olduğunda işleme gönderin.</li></ol><p>AutoCAD LT ve macOS bu sürümde desteklenmiyor. Yardımcı çalışırken AutoCAD’de başka çizim açmayın.</p></details></>}
       </section>
-      <section hidden={section !== "new"} className="cad-card"><h2><Upload size={18} /> Yeni işlem</h2>{state.canWrite ? <div className="cad-form">
+      <section hidden={section !== "new"} data-cad-panel="prepare" className="cad-card"><h2><Upload size={18} /> Yeni işlem</h2>{state.canWrite ? <div className="cad-form">
         <label>İşlemi yapacak bilgisayar<select className={inputClass} value={deviceId} disabled={!!busy} onChange={e => setDeviceId(e.target.value)}><option value="">Bilgisayar seçin</option>{state.devices.filter(d => !d.revoked_at).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
         <p className="cad-muted" aria-live="polite">{available.label}</p>
         <div className="cad-file" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); if (!busy) chooseFiles(e.dataTransfer.files); }}>
@@ -232,7 +236,7 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
         <small>Yükleme tamamlanana kadar sekmeyi açık tutun. İşlem, seçtiğiniz bilgisayar açık ve yardımcı hazırken yürür.</small>
       </div> : <p className="cad-muted">Yeni işlem için Yönetici, Mühendis veya Teknik Ressam yetkisi gerekir. Hazır paketleri Teknik Resimler bölümünden görüntüleyebilirsiniz.</p>}</section>
     </div>
-    <section hidden={section !== "history"} className="cad-card" aria-busy={historyBusy}>
+    <section hidden={section !== "history"} data-cad-panel="jobs" className="cad-card" aria-busy={historyBusy}>
       <div className="cad-section-title"><h2>İşlem geçmişim</h2><small>{state.total ?? state.jobs.length} işlem</small></div>
       <div className="cad-quick-dates">{[["all","Tüm zamanlar"],["today","Bugün"],["week","Son 7 gün"],["month","Bu ay"],["previous","Geçen ay"],["year","Bu yıl"]].map(([key,label]) => <Button variant={draftHistory.from === quickHistoryRange(key).from && draftHistory.to === quickHistoryRange(key).to ? "default" : "outline"} key={key} onClick={() => setDraftHistory(current => ({ ...current, ...quickHistoryRange(key), page: 0 }))}>{label}</Button>)}<label>Ay seç<input className={inputClass} type="month" value={draftHistory.from.endsWith("-01") && draftHistory.to === monthRange(draftHistory.from.slice(0,7)).to ? draftHistory.from.slice(0,7) : ""} onChange={e => setDraftHistory(current => ({ ...current, ...monthRange(e.target.value), page: 0 }))} /></label></div>
       <form className="cad-history-filters" onSubmit={e => { e.preventDefault(); void loadHistory({ ...draftHistory, page: 0 }); }}>
@@ -248,7 +252,7 @@ export function CadWorkspace({ initial, preview = false }: { initial: CadSnapsho
       <p className="cad-muted">Birleşik PDF, yalnız ilgili DWG’nin tüm paftalarını içerir. PDF açıldığında yazıcı simgesini veya Ctrl+P’yi kullanarak tek seferde yazdırabilirsiniz.</p>
     </section>
 
-    {selected && <section hidden={section !== "results"} className="cad-card cad-results"><div className="cad-section-title"><h2>{selected.source_name}</h2><span className={`cad-badge cad-state-${selected.status}`}>{stateLabels[selected.status]}</span></div>
+    {selected && <section hidden={section !== "results"} data-cad-panel="results" className="cad-card cad-results"><div className="cad-section-title"><h2>{selected.source_name}</h2><span className={`cad-badge cad-state-${selected.status}`}>{stateLabels[selected.status]}</span></div>
       <p className="cad-muted">{selected.progress || "Bilgisayar durumu bekleniyor"} · Deneme: {selected.attempts}</p>
       {selected.error && <p className="cad-error">{selected.error}</p>}
       {selected.status === "processing" && selected.lease_until && Date.parse(selected.lease_until) < now && <p className="cad-error">İşleme bağlantısı kesildi. Yardımcıyı kontrol edin; eski işlem otomatik olarak başarılı sayılmaz.</p>}

@@ -24,7 +24,7 @@
 // kaydedilmez; belirsizlik yoktur. Ama yerinde düzenleme kayıp riskini
 // artırdığı için sekme kazayla kapanırsa yazdıkları geri getirilebilir.
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   BookOpen,
   Columns2,
@@ -53,6 +53,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LocalTabsBottomBar } from "@/components/local-bottom-bar";
+import { useBottomBarGuard, useBottomNavigation } from "@/components/section-bottom-bar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MobileSectionGrid } from "@/components/mobile-nav-grid";
 import { useIsWide } from "@/lib/use-breakpoint";
@@ -182,6 +184,7 @@ export function ManualEditor({
   const doc = useManualDoc(initialPayload, ilkSecili);
   const [imageRows, setImageRows] = useState<ManualImageRow[]>(images);
   const [etiket, setEtiket] = useState(label);
+  const [savedLabel, setSavedLabel] = useState(label);
   const [sekme, setSekme] = useState<Sekme>("icerik");
   const [darPanel, setDarPanel] = useState<DarPanel>("tomar");
   /**
@@ -220,7 +223,9 @@ export function ManualEditor({
    * ikinci kez basıp `hidden` ile saklamak A4 önizlemesinin bedelini iki
    * katına çıkarırdı.
    */
-  const genis = useIsWide();
+  const wide = useIsWide();
+  const bottomNavigation = useBottomNavigation();
+  const genis = wide && !bottomNavigation;
   const mufettisKabi = useRef<HTMLElement | null>(null);
   // Tabaka açıkken: gövde kaymaz · Esc kapatır · Tab içeride döner · kapanınca
   // odak tetikleyiciye döner. `xl`de tabaka yok, kanca da devrede değil.
@@ -429,9 +434,13 @@ export function ManualEditor({
 
   // ————————————————————————————————————————————— kaydet / yayımla
 
+  const currentDocument = useRef({ payload: doc.payload, label: etiket });
+  useLayoutEffect(() => { currentDocument.current = { payload: doc.payload, label: etiket }; }, [doc.payload, etiket]);
+
   const kaydet = useCallback(
-    (sonra?: () => void) => {
-      kaydetBasla(async () => {
+    (sonra?: () => void): Promise<boolean> => {
+      return new Promise(resolve => kaydetBasla(async () => {
+        try {
         const r = await saveManualRevision(projectId, {
           revisionId,
           payload: doc.payload,
@@ -439,9 +448,11 @@ export function ManualEditor({
         });
         if (r.error) {
           toast.error(r.error);
-          return;
+          resolve(false); return;
         }
+        if (currentDocument.current.payload !== doc.payload || currentDocument.current.label !== etiket) { toast.info("Yeni değişiklikler var; onları da kaydedin."); resolve(false); return; }
         doc.temizle();
+        setSavedLabel(etiket);
         try {
           window.localStorage.removeItem(kurtarmaAnahtari(revisionId));
         } catch {
@@ -449,10 +460,14 @@ export function ManualEditor({
         }
         toast.success("Kaydedildi.");
         sonra?.();
-      });
+        resolve(true);
+        } catch { toast.error("El kitabı kaydedilemedi."); resolve(false); }
+      }));
     },
     [doc, etiket, projectId, revisionId]
   );
+
+  useBottomBarGuard((doc.kirli || etiket !== savedLabel) && yazilabilir, () => kaydet());
 
   // Ctrl/⌘ + S — yerinde düzenlemede en sık istenen kısayol.
   useEffect(() => {
@@ -773,7 +788,8 @@ export function ManualEditor({
 
       {/* ————————————————————————————————————————————— sekmeler */}
       <Tabs value={sekme} onValueChange={(v) => setSekme(v as Sekme)}>
-        <TabsList className={SEKME_RAYI}>
+        <LocalTabsBottomBar label="El kitabı" options={[{value:"icerik",label:"İçerik"},{value:"kapsam",label:"Kapsam"},{value:"kunye",label:"Künye"},{value:"kalite",label:"Kontrol"},{value:"kaynak",label:"Kaynaklar"}]} primary={["icerik","kapsam","kunye","kalite"]} more={[{id:"map",label:"Belge haritası",icon:"list",onSelect:()=>{setSekme("icerik");setDarPanel("tomar");setRayAcik(true);}},{id:"document",label:"Belgeyi düzenle",icon:"file",onSelect:()=>{setSekme("icerik");setDarPanel("tomar");}},{id:"paper",label:"Kâğıt görünümü",icon:"file",onSelect:()=>{setSekme("icerik");setDarPanel("kagit");}},...(yazilabilir?[{id:"save",label:"Kaydet",icon:"file" as const,onSelect:()=>void kaydet()}]:[])]} />
+        <TabsList className={`oc-section-desktop ${SEKME_RAYI}`}>
           <TabsTrigger value="icerik" className={SEKME}>
             İçerik
           </TabsTrigger>
@@ -799,8 +815,8 @@ export function ManualEditor({
               rayın kendisi söyler. Orta sütun 1024 px'lik kapta 447
               px'ten ~660 px'e çıkar ve MOBIL-26'nın ≥380 px ölçütü rahatlar.
               Harita KAYBOLMAZ, rayın tabaka GÖVDESİNE taşınır (KITAP-27). */}
-          <div className="mt-3 grid gap-4 lg:grid-cols-[auto_minmax(0,1fr)] xl:grid-cols-[auto_minmax(0,1fr)_19rem]">
-            <BolumRayi
+          <div className="oc-bottom-content-grid mt-3 grid gap-4 lg:grid-cols-[auto_minmax(0,1fr)] xl:grid-cols-[auto_minmax(0,1fr)_19rem]">
+            <BolumRayi bottomDirectory
               className="hidden lg:block"
               etiket="Belge bölümleri"
               depoAnahtari="orion.elkitabi.ray.daraltildi"
@@ -1082,7 +1098,7 @@ export function ManualEditor({
        * iki sütuna iner ve çubuk iki satıra çıkardı — MOBIL-24 tek satır ister.
        */}
       {(sekme === "icerik" || yazilabilir) && (
-        <div className="sticky bottom-0 z-20 shrink-0 border bg-card px-2 py-2 lg:hidden">
+        <div className="oc-section-desktop oc-local-work-controls sticky bottom-0 z-20 shrink-0 border bg-card px-2 py-2 lg:hidden">
           <div className="flex items-center gap-2">
             {sekme === "icerik" && (
               <MobileSectionGrid<DarPanel>

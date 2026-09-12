@@ -22,11 +22,12 @@
 // YAYIMLANMIŞ MALİYET SALT OKUNURDUR. Kilit veritabanındaki tetikleyicidedir
 // (`guard_issued_offer_cost`); buradaki `readOnly` yalnız görgü kuralıdır.
 
-import { useMemo, useState, useTransition } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Download, FileText, RefreshCw, RotateCcw, Save, Send, Sheet, Trash2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SectionBottomBar, useBottomBarGuard } from "@/components/section-bottom-bar";
 import { MobileSectionGrid } from "@/components/mobile-nav-grid";
 import { PdfDownloadLink, downloadPdfFromApp } from "@/components/pdf-download-link";
 import { Textarea } from "@/components/ui/textarea";
@@ -180,6 +181,7 @@ export function CostEditor({
     setKirli(true);
   }
 
+
   const models = useMemo(() => costModels(payload), [payload]);
   const weights = useMemo(() => costWeights(models), [models]);
   const totals = useMemo(() => costTotals(payload, weights), [payload, weights]);
@@ -223,21 +225,29 @@ export function CostEditor({
     guncelle((p) => ({ ...p, removedOfferItemIds: [] }));
   }
 
-  function kaydet(sonra?: () => void) {
-    startTransition(async () => {
+  const currentPayload = useRef(payload);
+  useLayoutEffect(() => { currentPayload.current = payload; }, [payload]);
+
+  function kaydet(sonra?: () => void): Promise<boolean> {
+    return new Promise(resolve => startTransition(async () => {
+      try {
       const res = await saveOfferCostRevision(offerId, costRevId, {
         payload: payload as unknown as Record<string, unknown>,
         notes: "",
       });
       if (res.error) {
         toast.error(res.error);
-        return;
+        resolve(false); return;
       }
+      if (currentPayload.current !== payload) { toast.info("Yeni değişiklikler var; onları da kaydedin."); resolve(false); return; }
       setKirli(false);
       toast.success("Maliyet kaydedildi.");
       sonra?.();
-    });
+      resolve(true);
+      } catch { toast.error("Maliyet kaydedilemedi."); resolve(false); }
+    }));
   }
+  useBottomBarGuard(kirli && !readOnly, () => kaydet());
 
   function tekliftenTazele() {
     startTransition(async () => {
@@ -434,10 +444,11 @@ export function CostEditor({
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[auto_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 oc-bottom-content-grid lg:grid-cols-[auto_minmax(0,1fr)]">
         {/* ————————————————————————————————————————————— bölüm rayı */}
-        <div className="grid min-w-0 gap-1.5 lg:hidden">
+        <div className="oc-section-desktop grid min-w-0 gap-1.5 lg:hidden">
           <p className="text-sm font-medium">Maliyet Bölümü</p>
+          <SectionBottomBar label="Maliyet çalışması" priority={40} items={BOLUMLER.slice(0,4).map(b=>({id:b.key,label:b.label,active:aktif===b.key,onSelect:()=>setAktif(b.key),icon:"file"}))} more={BOLUMLER.slice(4).map(b=>({id:b.key,label:b.label,active:aktif===b.key,onSelect:()=>setAktif(b.key)}))} />
           <MobileSectionGrid
             value={aktif}
             options={BOLUMLER.map((b) => ({ value: b.key, label: b.label }))}
@@ -451,7 +462,7 @@ export function CostEditor({
             sınırının altındadır, yani kutu ızgarası orada DOĞRU biçimdir ve
             ray yalnız masaüstü çalışma alanını geri kazanmak için vardır. */}
         <BolumRayi
-          className="hidden lg:block"
+          className="oc-section-desktop hidden lg:block"
           etiket="Maliyet bölümleri"
           depoAnahtari="orion.maliyet.ray.daraltildi"
           ogeler={RAY_OGELERI}

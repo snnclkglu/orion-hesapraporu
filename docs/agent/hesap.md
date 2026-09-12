@@ -1914,3 +1914,11 @@ eski seçenek geçersizleşince yeni adedin varsayılanına geçilir; geçerli i
 seçimi korunur. PDF, ekipman listesi ve kayıt aynı değeri taşır; manyetik
 frende alan gösterilmez. Eski snapshot yüklemesine yeni boş anahtar eklenmez:
 seçim izinin sonuç hash'i sırf yükleme yüzünden değişmemelidir.
+
+
+## Mobil ve tablet alt erişimi — Plan 013
+
+12.09.2026 kullanıcı onayıyla bu alan ortak alt barı kullanır: **Veriler · Bölümler · Kontrol · Ekipman · Diğer**.
+Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
+`arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
+ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.

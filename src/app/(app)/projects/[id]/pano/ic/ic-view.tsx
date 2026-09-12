@@ -12,6 +12,8 @@
 // hesaptan değil: iki paralel geometri bir gün ayrışır ve baloncuk YANLIŞ
 // cihazı anlatırdı.
 
+import { SectionBottomBar } from "@/components/section-bottom-bar";
+import { BottomToolPanel, openBottomTool } from "@/components/bottom-bar-tools";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -268,10 +270,11 @@ export function IcYerlesimView({
 
   return (
     <main className="grid gap-5 p-4 md:p-6">
+      <SectionBottomBar label="Pano iç yerleşimi" priority={40} items={[{id:"panels",label:"Panolar",icon:"boxes",onSelect:()=>openBottomTool("pano-controls")},{id:"layout",label:"Yerleşim",icon:"grid",active:true,onSelect:()=>svgRef.current?.scrollIntoView({block:"center"})},{id:"check",label:"Denetim",icon:"tasks",onSelect:()=>document.getElementById("pano-inner-check")?.scrollIntoView({block:"start"})}]} more={[{id:"settings",label:"Ölçek ve dışa aktarım",icon:"settings",onSelect:()=>openBottomTool("pano-controls")},{id:"back",label:"Pano Yerleşimi",href:`/projects/${projectId}/pano`,icon:"back"}]} />
       <Baslik docNo={docNo} projectName={projectName} projectId={projectId} />
 
       {/* ————————————————————————————————————— üst bar */}
-      <div className="sticky top-[var(--app-header-h,48px)] z-20 -mx-4 flex flex-wrap items-center gap-2 border-b bg-background px-4 py-2 md:-mx-6 md:px-6">
+      <BottomToolPanel id="pano-controls" title="Panolar ve görünüm"><div className="sticky top-[var(--app-header-h,48px)] z-20 -mx-4 flex flex-wrap items-center gap-2 border-b bg-background px-4 py-2 md:-mx-6 md:px-6">
         <Button size="sm" variant="ghost" asChild>
           <Link href={`/projects/${projectId}/pano`}>
             <ArrowLeft className="size-3.5" /> Pano Yerleşimi
@@ -317,9 +320,9 @@ export function IcYerlesimView({
             </a>
           </Button>
         </div>
-      </div>
+      </div></BottomToolPanel>
 
-      <div>
+      <div id="pano-inner-check" className="scroll-mt-20">
         <h2 className="text-base font-semibold">{aktif.code} iç yerleşimi</h2>
         <p className="mt-1 text-xs text-muted-foreground">
           {sayi(aktif.widthMm)} × {sayi(aktif.heightMm)} × {sayi(aktif.depthMm)} mm ·{" "}

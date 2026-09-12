@@ -149,3 +149,11 @@ Müşteri Bazında Ciro ekranında üst toplam, müşteri ciro satırı ve pay y
 en yakın tam sayıya yuvarlanarak, Türkçe binlik ayıracıyla gösterilir. Bu yalnız
 sunum kuralıdır; müşteri sıralaması, pay çubuğu ve toplam hesabı ham Avro
 değerini kullanmaya devam eder.
+
+
+## Mobil ve tablet alt erişimi — Plan 013
+
+12.09.2026 kullanıcı onayıyla bu alan ortak alt barı kullanır: **Satış · Faturalar · Ciro · İş Listesi**.
+Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
+`arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
+ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.

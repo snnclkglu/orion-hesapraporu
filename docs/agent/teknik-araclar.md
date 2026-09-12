@@ -95,3 +95,11 @@ EN ISO 14122 ölçüleri ön tasarım kontrol kartlarıdır. EN ISO 13857 emniye
 mesafeleri açıklık şekli, uzuv yönü, koruyucu yüksekliği ve risk birlikte
 değerlendirilmeden otomatik seçilmez. Vinç erişimi EN 13586:2026 kapsam notuyla
 ayrılır. Lisanslı güncel standart ve risk değerlendirmesi nihai kaynaktır.
+
+
+## Mobil ve tablet alt erişimi — Plan 013
+
+12.09.2026 kullanıcı onayıyla bu alan ortak alt barı kullanır: **Ağırlık · Profiller · Kama · Tolerans · Tümü**.
+Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
+`arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
+ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.

@@ -1,4 +1,5 @@
 "use client";
+import { ListBottomTools } from "@/components/bottom-bar-tools";
 
 // Mühendislik listesi — hızlı filtreler + arama + satır eylemleri.
 //
@@ -16,7 +17,8 @@
 // projeleri nerede görüyoruz?" sorusunun cevabı bu yüzden ayrı bir ekran değil,
 // buradaki Durum süzgecidir (kullanıcı sorusu, 11.08.2026).
 
-import { useMemo, useState } from "react";
+import { useRememberedListState } from "@/lib/use-remembered-list-state";
+import { useMemo } from "react";
 import Link from "next/link";
 import {
   ChevronDown,
@@ -168,11 +170,11 @@ export function ProjectsTable({
   jobGroupBasePath?: string;
   defaultSort?: { key: ProjectListSortKey; dir: "asc" | "desc" };
 }) {
-  const [year, setYear] = useState(ALL);
-  const [customer, setCustomer] = useState(ALL);
-  const [status, setStatus] = useState(ALL);
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState(defaultSort);
+  const [year, setYear] = useRememberedListState("projects-year", ALL);
+  const [customer, setCustomer] = useRememberedListState("projects-customer", ALL);
+  const [status, setStatus] = useRememberedListState("projects-status", ALL);
+  const [query, setQuery] = useRememberedListState("projects-query", "");
+  const [sort, setSort] = useRememberedListState("projects-sort", defaultSort);
 
   const entries = useMemo(
     () => buildProjectListEntries(projects, groupByJob),
@@ -246,7 +248,7 @@ export function ProjectsTable({
       {/* Hızlı filtreler — İşler listesindeki şeridin aynısı; sabit genişlikli
           tetikleyiciler telefonda yan yana sığmadığı için mobilde ikişerli
           ızgaraya girerler. */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
+      <ListBottomTools label={reportContext === OFFER_REPORT_CONTEXT ? "Hesaplar" : "Projeler"} more={reportContext === OFFER_REPORT_CONTEXT ? [{id:"offers",label:"Teklifler",href:"/offers",icon:"back"}] : []}><div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
         <span className="oc-kicker mr-1 hidden text-muted-foreground sm:inline">Filtre</span>
 
         <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center">
@@ -333,6 +335,7 @@ export function ProjectsTable({
         </div>
       </div>
 
+      </ListBottomTools>
       {/* Telefonda her proje kendi kartına katlanır; proje adı artık dört dar
           sütun arasına sıkışmaz. Masaüstünde aynı işaretleme tablo ve yapışkan
           başlık olarak çalışmayı sürdürür. */}

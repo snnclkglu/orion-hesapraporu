@@ -61,7 +61,7 @@ export function OfferCalculation({ item, offerRevisionId, beforeOpen, onChange }
     <Dialog open={open} onOpenChange={value => { if (!value && reportDirty) { toast.error("Hesapta kaydedilmemiş değişiklikler var."); return; } setOpen(value); }}><DialogContent className="flex h-[92dvh] max-w-[98vw] flex-col gap-2 p-3 sm:max-w-[98vw] sm:p-3">
       <DialogHeader><DialogTitle>Teklif ön hesabı</DialogTitle><DialogDescription>Teknik özellikleri kontrol edin, hızlı seçimle markaları belirleyin. Düzenlemelerinizi Kaydet ile sakladıktan sonra teklif tablosuna aktarın.</DialogDescription></DialogHeader>
       {syncNotice && <p role="status" className="rounded-md border bg-muted/30 p-3 text-sm">{syncNotice}</p>}
-      {report && <div className="min-h-0 flex-1 overflow-y-auto"><RevisionEditor key={`${report.revisionId}:${report.updatedAt}`} projectId={report.projectId} revisionId={report.revisionId}
+      {report && <div className="min-h-0 flex-1 overflow-y-auto"><RevisionEditor bottomBar={false} key={`${report.revisionId}:${report.updatedAt}`} projectId={report.projectId} revisionId={report.revisionId}
         initial={report.full} initialDisabled={report.inputs.disabledModules ?? undefined} initialHidden={report.inputs.hiddenSections ?? undefined}
         initialHiddenDiagrams={report.inputs.hiddenDiagrams ?? undefined} initialAlts={report.selections.alts ?? undefined} initialSectionNotes={report.selections.sectionNotes ?? undefined}
         initialWeightBreakdown={weightBreakdownFromRevision(report.inputs)} initialSourceWarnings={report.inputs.offerTechnicalSource?.warnings}

@@ -94,7 +94,7 @@ export function CostPanel({
   }
 
   return (
-    <div className="grid gap-3">
+    <div id="offer-cost" className="scroll-mt-20 grid gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-sm font-semibold tracking-wide">MALİYET ÇALIŞMASI</h2>
         <p className="text-xs text-muted-foreground">

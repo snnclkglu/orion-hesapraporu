@@ -548,3 +548,11 @@ Teklif karşılaştırma matrisi ve zaman grafikleri bu kuralın istisnasıdır 
 kendi görünür kaydırma kabında kalır. Talep, sipariş onayı, hammadde ve kesim
 planı PDF'leri gerçek dosya olarak indirilir ve destekleyen telefonda yerel
 paylaşım menüsüne verilir.
+
+
+## Mobil ve tablet alt erişimi — Plan 013
+
+12.09.2026 kullanıcı onayıyla bu alan ortak alt barı kullanır: **Ekipman · Hammadde · Siparişler · Teslim · Diğer**.
+Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
+`arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
+ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.

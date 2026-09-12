@@ -11,6 +11,7 @@
 // köke de uyar ve iki sekme birden aktif görünürdü (Sarf Girişi'nde yaşanmış).
 
 import Link from "next/link";
+import { RouteBottomBar } from "@/components/section-bottom-bar";
 import { usePathname } from "next/navigation";
 import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
@@ -33,7 +34,7 @@ const TABS = [
   { href: "/purchasing/hammadde/analiz", eslesme: "/purchasing/hammadde/analiz", label: "Alım Analizi", exact: false },
 ];
 
-export function HammaddeNav() {
+export function HammaddeNav({ bottomOnly = false }: { bottomOnly?: boolean }) {
   const pathname = usePathname() ?? "";
   const activeHref =
     TABS.find((t) => (t.exact ? pathname === t.eslesme : pathname.startsWith(t.eslesme)))
@@ -41,6 +42,8 @@ export function HammaddeNav() {
 
   return (
     <>
+      <RouteBottomBar label="Hammadde" priority={20} options={TABS} primary={TABS.slice(0,4).map(t => t.href)} value={activeHref} extra={[{ id: "purchasing", label: "Satın Alma", href: "/purchasing", icon: "back" }]} />
+      <div className="oc-section-desktop" hidden={bottomOnly}>
       <MobileRouteGrid
         className="md:hidden"
         value={activeHref}
@@ -70,6 +73,7 @@ export function HammaddeNav() {
           );
         })}
       </nav>
+      </div>
     </>
   );
 }

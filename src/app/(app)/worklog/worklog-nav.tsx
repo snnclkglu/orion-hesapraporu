@@ -9,6 +9,8 @@
 // ile işaretlenir.
 
 import Link from "next/link";
+import { SectionBottomBar } from "@/components/section-bottom-bar";
+import { openBottomTool } from "@/components/bottom-bar-tools";
 import { usePathname } from "next/navigation";
 import { MobileRouteGrid } from "@/components/mobile-nav-grid";
 import { cn } from "@/lib/utils";
@@ -27,6 +29,8 @@ export function WorkLogNav() {
 
   return (
     <>
+      <SectionBottomBar label="İş Takibi" items={[...[TABS[0],TABS[2],TABS[1]].map(t => ({id:t.href,href:t.href,label:t.href==="/worklog"?"Günlük":t.label,active:t.href===activeHref})),{id:"period",label:"Dönem",icon:"calendar",action:true,onSelect:()=>openBottomTool("worklog-period")}]} />
+      <div className="oc-section-desktop">
       <MobileRouteGrid
         className="md:hidden"
         value={activeHref}
@@ -56,6 +60,7 @@ export function WorkLogNav() {
           );
         })}
       </nav>
+      </div>
     </>
   );
 }

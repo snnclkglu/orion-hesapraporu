@@ -62,6 +62,7 @@ import {
   searchTaskJobs,
 } from "./workspace-actions";
 import "./task-workspace.css";
+import { SectionBottomBar } from "@/components/section-bottom-bar";
 import { ResponsiveTaskFilters } from "@/components/account/responsive-task-filters";
 import { TaskWorkflow } from "@/components/account/task-workflow";
 import { TaskSavedViews } from "@/components/account/task-saved-views";
@@ -661,6 +662,7 @@ export function TaskWorkspace({
           </button>
         ))}
       </nav>
+      <SectionBottomBar label="Panel gezinme" items={nav.map(n => ({ id: n.id, label: n.label, icon: n.icon, active: view === n.id, onSelect: () => navigate(n.id), badge: n.id === "inbox" && unread > 0 ? unread : undefined }))} />
       {error && (
         <div className="tw-error" role="alert">
           {error}

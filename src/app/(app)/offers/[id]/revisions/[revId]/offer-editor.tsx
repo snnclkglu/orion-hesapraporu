@@ -120,6 +120,7 @@ import { ItemEditor } from "./item-editor";
 import { KalemEkleDialog } from "./kalem-ekle-dialog";
 import { RowEditor, type OptionBook } from "./row-editor";
 import { SignatureUpload } from "./signature-upload";
+import { SectionBottomBar, useBottomBarGuard } from "@/components/section-bottom-bar";
 import { BolumRayi, type BolumOgesi } from "@/components/bolum-rayi";
 
 type BolumKey = string;
@@ -195,6 +196,7 @@ export function OfferEditor({
   const [aktif, setAktif] = useState<BolumKey>("kapak");
   const [pending, startTransition] = useTransition();
   const [onizleme, setOnizleme] = useState(false);
+  const [bottomSectionsOpen, setBottomSectionsOpen] = useState(false);
   const [kalemEkle, setKalemEkle] = useState(false);
 
   // ————————————————————————————————————————————— otomatik kayıt
@@ -409,6 +411,7 @@ export function OfferEditor({
     zincir.current = calisma;
     return calisma;
   }, [offerId, revisionId]);
+  useBottomBarGuard(!readOnly && durum !== "temiz", kaydet);
 
   /**
    * OTOMATİK KAYIT — yazma duraklaması.
@@ -622,7 +625,13 @@ export function OfferEditor({
             GÖZ DÜĞMESİ RAYDA KALIR (TEKLIF-75): gizlemek silmez, yalnız
             PDF kararını değiştirir ve gizli bölüme ulaşmanın tek yolu
             listedir. */}
-        <BolumRayi
+        <SectionBottomBar label="Teklif metni" priority={40} items={[
+          {id:"cover",label:"Kapak",icon:"file",active:aktif==="kapak",onSelect:()=>setAktif("kapak")},
+          {id:"items",label:"Kalemler",icon:"boxes",active:aktif.startsWith("item:"),onSelect:()=>setBottomSectionsOpen(true)},
+          {id:"price",label:"Fiyat",icon:"records",active:aktif==="fiyat",onSelect:()=>setAktif("fiyat")},
+          {id:"terms",label:"Şartlar",icon:"book",active:aktif==="ticari"||aktif==="sartlar",onSelect:()=>setAktif("ticari")}
+        ]} more={bolumler.filter(b=>!["kapak","fiyat","ticari"].includes(b.key)&&!b.key.startsWith("item:")).map(b=>({id:b.key,label:b.label,active:aktif===b.key,onSelect:()=>setAktif(b.key)}))} />
+        <BolumRayi bottomDirectory acik={bottomSectionsOpen} onAcikDegisti={setBottomSectionsOpen}
           etiket="Teklif bölümleri"
           depoAnahtari="orion.teklif.ray.daraltildi"
           ogeler={rayOgeleri}

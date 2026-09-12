@@ -160,6 +160,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { SectionBottomBar, useBottomBarGuard } from "@/components/section-bottom-bar";
+import { usePathname } from "next/navigation";
 import { BolumRayi, type BolumOgesi } from "@/components/bolum-rayi";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { buildEquipmentGroups, ropeCatalogModelOf } from "@/lib/equipment-list";
@@ -1401,11 +1403,12 @@ function StatusSlot({ children }: { children: React.ReactNode }) {
 /** Sabit çerçevenin açıldığı genişlik (app-shell `lg` üstünde çerçeve kurar). */
 
 export function RevisionEditor({
-  projectId, revisionId, readOnly, initial, initialAlts, initialSectionNotes, initialDisabled,
+  projectId, revisionId, readOnly, bottomBar = true, initial, initialAlts, initialSectionNotes, initialDisabled,
   initialHidden, initialHiddenDiagrams, initialWeightBreakdown, craneType, initialAutoSelection, initialSourceWarnings, initialUpdatedAt, previewCatalog,
 }: {
   projectId: string;
   revisionId: string;
+  bottomBar?: boolean;
   initialAutoSelection?: SelectionTrace;
   initialSourceWarnings?: string[];
   initialUpdatedAt?: string;
@@ -1468,6 +1471,7 @@ export function RevisionEditor({
   const [hiddenDiagrams, setHiddenDiagrams] = useState<Set<string>>(
     () => new Set(initialHiddenDiagrams ?? [])
   );
+  const navigationPath = usePathname() ?? "";
   const [stepIndex, setStepIndex] = useState(0);
   /**
    * Kayan gövde. Bölüm değişince başa sarılır: aksi hâlde uzun bir bölümün
@@ -1527,7 +1531,7 @@ export function RevisionEditor({
     };
     const onDocClick = (e: MouseEvent) => {
       const anchor = (e.target as HTMLElement | null)?.closest?.("a[href]");
-      if (!anchor) return;
+      if (!anchor || anchor.closest(".oc-bottom-bar,.oc-bottom-sheet")) return;
       const href = anchor.getAttribute("href") ?? "";
       if (href.startsWith("#")) return;
       if (
@@ -2033,9 +2037,10 @@ export function RevisionEditor({
   const currentFingerprint = useRef(editorFingerprint);
   useEffect(() => { currentFingerprint.current = editorFingerprint; }, [editorFingerprint]);
   useEffect(() => { window.dispatchEvent(new CustomEvent("orion:revision-dirty", { detail: { revisionId, dirty } })); }, [revisionId, dirty]);
-  function handleSave() {
+  function handleSave(): Promise<boolean> {
     const savingFingerprint = editorFingerprint;
-    startTransition(async () => {
+    return new Promise(resolve => { startTransition(async () => {
+      try {
       const res = await saveRevision(
         projectId,
         revisionId,
@@ -2058,14 +2063,18 @@ export function RevisionEditor({
         autoSelection ?? null,
         savedAt
       );
-      if (res.error) toast.error(res.error);
+      if (res.error) { toast.error(res.error); resolve(false); }
       else {
         if (currentFingerprint.current === savingFingerprint) setDirty(false);
         if (res.updatedAt) setSavedAt(res.updatedAt);
         toast.success("Revizyon kaydedildi.");
+        resolve(currentFingerprint.current === savingFingerprint);
       }
-    });
+      } catch { toast.error("Kaydedilemedi; değişiklikler korunuyor."); resolve(false); }
+    }); });
   }
+
+  useBottomBarGuard(dirty && !readOnly, handleSave);
 
   function toggleModule(key: ModuleKey, on: boolean) {
     setEnabled((m) => ({ ...m, [key]: on }));
@@ -3978,6 +3987,12 @@ export function RevisionEditor({
     // bölgelerinde kayar; adım şeridi çerçevenin gerçek alt kenarıdır.
     // Eskiden üstte bir durum çubuğu daha vardı; o artık sayfa başlığında.
     <div className="oc-engineering-editor flex min-h-0 flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row lg:gap-5">
+      {bottomBar && <SectionBottomBar label="Hesap raporu" priority={40} items={[
+        {id:"specs",label:"Veriler",icon:"settings",active:activeStepIndex===0,onSelect:()=>setStepIndex(0)},
+        {id:"sections",label:"Bölümler",icon:"list",active:step.kind==="module",onSelect:()=>setRayAcik(true)},
+        {id:"checks",label:"Kontrol",icon:"tasks",active:step.kind==="summary",onSelect:()=>setStepIndex(STEPS.length-1)},
+        {id:"equipment",label:"Ekipman",icon:"boxes",href:navigationPath.includes("/revisions/") ? `${navigationPath}/equipment` : `/projects/${projectId}/revisions/${revisionId}/equipment`}
+      ]} more={[...(!readOnly ? [{id:"save",label:"Kaydet",icon:"file" as const,action:true,onSelect:()=>void handleSave()}] : []),{id:"back",label:"Proje ayrıntısı",icon:"back",href:navigationPath.includes("/offers/")?`/offers/hesap-raporlari/${projectId}`:`/projects/${projectId}`}]} />}
       <StatusSlot>{statusStrip}</StatusSlot>
 
       {/* RAY + İÇERİK TEK SATIR. Sarmalayıcı YÜKSEKLİK GEÇİRİR
@@ -3985,7 +4000,7 @@ export function RevisionEditor({
           bulunan hatası tam böyle bir yerde, AUTO yükseklikli bir sarmalayıcıda
           doğmuştu ve taşan içerik kaydırılamadan kırpılıyordu. */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-row items-stretch gap-2 lg:gap-4">
-        <BolumRayi
+        <BolumRayi bottomDirectory={bottomBar}
           etiket="Hesap bölümleri"
           panelId={NAV_PANEL_ID}
           depoAnahtari="orion.hesap.ray.daraltildi"
@@ -4051,7 +4066,7 @@ export function RevisionEditor({
             yoktur: şerit uzun bölüm kartının en dibinde kalıyor ve her geçişte
             sayfanın sonuna kaydırmak gerekiyordu; orada ekranın altına
             SABİTLENİR. */}
-        <div className="sticky bottom-0 z-20 shrink-0 overflow-hidden rounded-lg border bg-card px-1.5 py-1.5 sm:px-4 sm:py-2.5 lg:static">
+        <div className="oc-local-step-controls sticky bottom-0 z-20 shrink-0 overflow-hidden rounded-lg border bg-card px-1.5 py-1.5 sm:px-4 sm:py-2.5 lg:static">
           {/* Telefonda bölüm gezgini ve Geri/Kaydet/İleri aynı sabit sıradadır.
               İlerleme çizgisi alan çalmadan çubuğun üst kenarında durur. */}
           <div className="absolute inset-x-0 top-0 h-0.5 bg-muted sm:hidden">
