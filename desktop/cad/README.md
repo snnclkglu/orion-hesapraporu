@@ -24,7 +24,9 @@ yalnız kullanıcının oturumu açıkken çalıştırma seçilir; ilk sürüm y
 Bağlantı anahtarı `%LOCALAPPDATA%/OrionCad/connection.dat` içinde Windows DPAPI ile
 korunur. Dosya başka bilgisayara kopyalanarak kullanılamaz. Bağlantıyı iptal etmek
 için webde Bilgisayar bağlantısı → Bağlantıyı kaldır kullanılır. Yeniden eşleştirmede
-yardımcı kapatılır; eski connection.dat kullanıcı tarafından kaldırılır ve yeni kod üretilir.
+yeni iş alımını durdurun, işin bitmesini bekleyin ve webden aldığınız yeni kodla
+Bilgisayarı bağla düğmesini kullanın. 1.0.3 eski bağlantıyı durdurup kaydı
+başarılı eşleşmeden sonra değiştirir; dosya silmek gerekmez.
 
 İşler `%LOCALAPPDATA%/OrionCad/jobs/<iş>/<deneme>/` altındadır. Kaynak kopyası,
 engine.log, JSON ve PDF'ler saklanır. Ağ hatasında dosyalar silinmez. İş
@@ -63,7 +65,7 @@ yapılır; geniş dağıtımda kurumun kod imzalama sertifikasıyla imzalanmalı
    `--check` dahi Supabase'e kaynak yükler; açık dağıtım yetkisi olmadan çalıştırılmaz.
    Yetki sonrasında `node scripts/cad-deploy.cjs` yalnız `cad-api` dağıtır.
 3. `node scripts/cad-release.cjs --prepare` EXE hash'ini gösterir. Yetki sonrası
-   `--upload` özel `cad-private/releases/1.0.2/` yoluna yükler ve indirdiği kopyanın
+   `--upload` özel `cad-private/releases/1.0.3/` yoluna yükler ve indirdiği kopyanın
    hash'ini doğrular. Yönetici anahtarı geçici olarak bellekte kullanılır;
    istemciye, EXE'ye veya dosyaya konulmaz. Var olan farklı sürüm ezilmez.
 4. Web uygulaması normal Vercel yayın sürecinden geçirilir. Bu depo başka

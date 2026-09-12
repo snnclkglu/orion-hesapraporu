@@ -89,3 +89,11 @@ Plan `plans/009-cizim-isleme-autocad.md`, test sonucu `docs/cad-validation.md`.
 Önizleme `/dev/cad-preview`; production'da 404. Yardımcı dağıtımı ve imza durumu
 `desktop/cad/README.md` içinde belirtilir. Canlı web yayını ile yerel kod teslimi
 ayrı kontrol noktalarıdır. Eski engine/entegrasyon yardımcısı çalıştırılmaz.
+
+## CAD-7 — Bağlantıyı yenileme
+
+Yardımcı 1.0.3 kayıt varken de yeni kodu kabul eder. Aktif veya devam eden iş
+varsa önce duraklatma/tamamlanma gerekir. Eski kuyruk ve heartbeat iş parçacıkları
+sonlanmadan yeni eşleştirme yapılmaz. Yalnız başarılı pair yanıtından sonra DPAPI
+kaydı atomik değiştirilir; hatalı kod eski kaydı silmez. Yerel iş dosyalarına
+dokunulmaz. Bağlantıyı yenilemek için kullanıcının connection.dat silmesi istenmez.

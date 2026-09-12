@@ -163,3 +163,12 @@ gerçek DWG açma anında aynı koruma çalışır. Geçici RPC reddi sınırlı
 - AutoCAD PDF'lerinin PageMode yinelenme uyarıları ölümcül değil; tüm sayfalar okunabildi.
 - Kullanıcı mevcut 1.0.1 yardımcısını kapatıp webden 1.0.2 indirmeli. Aynı
   Windows hesabının DPAPI bağlantı kaydı korunur; yeniden eşleştirme gerekmez.
+
+## 12 Eylül 2026 — Yardımcı 1.0.3 / yeniden eşleştirme
+
+Eski cihaz kaydı olan yardımcı yeni kodu denemeden engelliyordu. Pair akışı
+eski iş parçacıklarını durdurup yeni kodu doğrular, başarılı yanıttan sonra
+kaydı değiştirir. Hatalı kodda kayıt korunur; eski süreçler sonlanmışsa kayıtlı
+bağlantı duraklatılmış olarak yeniden açılır. İşler/çıktılar silinmez.
+15 yardımcı testi geçti: yeniden bağlantı sırası, başarısız kodda kayıt koruma,
+aktif iş engeli ve eski iş parçacıklarını bekleme dahil. AutoCAD motoru değişmedi.

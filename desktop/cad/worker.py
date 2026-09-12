@@ -15,7 +15,7 @@ import time
 from urllib.parse import urlparse
 import uuid
 
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 PROTOCOL = 1
 MAX_BYTES = 100 * 1024 * 1024
 MAX_RESULT = 2 * 1024 * 1024
@@ -366,6 +366,21 @@ class Worker:
         self.job: dict | None = None
         self.progress = ""
         self.lock = threading.Lock()
+        self.thread = None
+        self.heartbeat_thread = None
+
+    def stop_for_pairing(self) -> None:
+        with self.lock:
+            if self.job or self.active.is_set():
+                raise RuntimeError("Önce yeni iş alımını durdurun ve devam eden çizimin tamamlanmasını bekleyin.")
+            self.stop.set()
+        deadline = time.monotonic() + 100
+        for name in ("thread", "heartbeat_thread"):
+            thread = getattr(self, name)
+            if thread:
+                thread.join(timeout=max(0, deadline - time.monotonic()))
+                if thread.is_alive():
+                    raise RuntimeError("Eski bağlantının yanıtı bekleniyor. Biraz sonra Bilgisayarı bağla düğmesini yeniden deneyin.")
 
     def status(self, state: str, message: str) -> None:
         with self.lock:
@@ -451,7 +466,8 @@ class Worker:
                 self.status("attention", "Yeni iş alımı duraklatıldı.")
 
     def run(self) -> None:
-        threading.Thread(target=self.heartbeat, daemon=True).start()
+        self.heartbeat_thread = threading.Thread(target=self.heartbeat, daemon=True)
+        self.heartbeat_thread.start()
         while not self.stop.is_set():
             if not self.active.wait(1):
                 continue
@@ -465,6 +481,8 @@ class Worker:
                 # Claim öncesinde hazır durumu sunucuda görünür olmalı.
                 self.api.call("heartbeat", {"state": state, "autocadVersion": version, "helperVersion": VERSION, "protocol": PROTOCOL, "message": message})
                 job = self.api.call("claim").get("job")
+                if self.stop.is_set():
+                    return
                 if job:
                     self.process(job)
                 else:
@@ -472,6 +490,19 @@ class Worker:
             except Exception as error:
                 self.status("attention", str(error))
                 self.active.clear()
+
+
+def pair_connection(existing, url: str, pairing_code: str) -> dict:
+    value = {"origin": validate_origin(url), "token": secrets.token_hex(32)}
+    if not re.fullmatch("[a-f0-9]{64}", pairing_code):
+        raise ValueError("Web uygulamasındaki bağlantı kodunun tamamını yapıştırın.")
+    if existing:
+        existing.stop_for_pairing()
+    api = Api(value)
+    result = api.call("pair", {"code": pairing_code, "token": value["token"]}, paired=False)
+    value.update(deviceId=result["deviceId"], storageOrigin=result["storageOrigin"])
+    save_credentials(value)
+    return value
 
 
 def main() -> int:
@@ -526,8 +557,9 @@ def main() -> int:
     busy = threading.Event()
 
     def attach(value):
-        w = Worker(value, events); worker.append(w)
-        threading.Thread(target=w.run, daemon=True).start()
+        w = Worker(value, events); worker[:] = [w]
+        w.thread = threading.Thread(target=w.run, daemon=True)
+        w.thread.start()
 
     if config.get("token"):
         attach(config)
@@ -547,22 +579,23 @@ def main() -> int:
         threading.Thread(target=run, daemon=True).start()
 
     def pair():
-        if worker:
-            messagebox.showinfo("ORION", "Yeniden eşleştirmek için bağlantıyı webden kaldırıp yardımcının bağlantı dosyasını sıfırlayın.")
-            return
         url, pairing_code = origin.get(), code.get().strip()
         def work():
-            value = {"origin": validate_origin(url), "token": secrets.token_hex(32)}
-            if not re.fullmatch("[a-f0-9]{64}", pairing_code):
-                raise ValueError("Web uygulamasındaki bağlantı kodunun tamamını yapıştırın.")
-            api = Api(value)
-            result = api.call("pair", {"code": pairing_code, "token": value["token"]}, paired=False)
-            value.update(deviceId=result["deviceId"], storageOrigin=result["storageOrigin"])
-            save_credentials(value); attach(value)
+            events.put("Bağlantı kontrol ediliyor; yerel çizim dosyaları korunuyor.")
+            try:
+                value = pair_connection(worker[0] if worker else None, url, pairing_code)
+            except Exception:
+                # Hatalı/süresi dolmuş kod eski bağlantı kaydını silmez.
+                if worker and worker[0].stop.is_set() and all(not t or not t.is_alive() for t in (worker[0].thread, worker[0].heartbeat_thread)):
+                    attach(worker[0].api.config)
+                raise
+            attach(value)
             events.put("Bağlantı kuruldu. Kontrol et ve başlat düğmesini kullanın.")
         background(work)
 
     def start():
+        if busy.is_set():
+            return
         if not worker:
             status.set("Önce bilgisayarı web hesabınızla bağlayın."); return
         if worker[0].job:

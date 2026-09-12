@@ -5,6 +5,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
+from unittest.mock import Mock
+import queue
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -12,6 +14,37 @@ import worker
 
 
 class WorkerSafetyTests(unittest.TestCase):
+    def test_repair_replaces_credentials_only_after_valid_pair(self):
+        existing = Mock()
+        order = []
+        existing.stop_for_pairing.side_effect = lambda: order.append('stopped')
+        with patch.object(worker.Api, 'call', side_effect=lambda *a, **k: (order.append('paired') or {'deviceId':'new-device','storageOrigin':'https://data.supabase.co'})), patch.object(worker, 'save_credentials', side_effect=lambda value: order.append('saved')):
+            value = worker.pair_connection(existing, 'https://example.com', 'a'*64)
+        self.assertEqual(order, ['stopped','paired','saved'])
+        self.assertEqual(value['deviceId'], 'new-device')
+
+    def test_repair_failure_never_overwrites_credentials(self):
+        existing = Mock()
+        with patch.object(worker, 'save_credentials') as save, patch.object(worker.Api, 'call', side_effect=worker.ApiError('expired',400)):
+            with self.assertRaises(ValueError): worker.pair_connection(existing,'https://example.com','bad')
+            existing.stop_for_pairing.assert_not_called()
+            with self.assertRaises(worker.ApiError): worker.pair_connection(existing,'https://example.com','a'*64)
+            save.assert_not_called()
+
+    def test_repair_blocks_active_work_and_waits_for_old_threads(self):
+        w = worker.Worker({'origin':'https://example.com'}, queue.Queue())
+        w.active.set()
+        with self.assertRaises(RuntimeError): w.stop_for_pairing()
+        self.assertFalse(w.stop.is_set())
+        w.active.clear(); w.job = {'id':'test'}
+        with self.assertRaises(RuntimeError): w.stop_for_pairing()
+        w.job = None
+        w.thread = Mock(); w.thread.is_alive.return_value = True
+        with self.assertRaises(RuntimeError): w.stop_for_pairing()
+        w.thread.is_alive.return_value = False
+        w.stop_for_pairing()
+        self.assertTrue(w.stop.is_set())
+
     def collection(self, values):
         return SimpleNamespace(Count=len(values), Item=lambda i: values[i])
 
