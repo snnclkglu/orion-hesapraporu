@@ -250,6 +250,15 @@ Panonun *"PENCERE DEĞİLDİR"* ilkesi korunur: ≥1440 px'te ray zaten modal
 olmayan bir sütundur. 1440 altında tabaka modaldır ve bu bilinçli bir
 istisnadır — gezinme açıkça istenen bir eylemdir, arama gibi sayfanın kendi
 yüzeyi değil.
+## PANEL-25 — Görev etiketleri, dokunmatik işlemler ve kontrollü iptal
+
+12.09.2026, plan 014: Görev çalışma alanında basılı tutma hızlı menüyü, sağa kaydırma arşivi, sola kaydırma tarih seçimini açar. Arşiv 10 saniyelik Geri al bildirimiyle ve sürüm denetimiyle geri alınır. Hareketler `TaskTouchSurface` içinde dikey kaydırmadan ayrılır; üç nokta eşdeğer erişilebilir işlemleri sunar. Gelen bölümünde sağ/sol okundu/okunmadı anlamındadır.
+
+Etiketler kişisel/ekip/genel kapsam taşır; adlar Türkçe `adBuyuk`, renkler sınırlı OKLCH hue paletidir. Görev başına en fazla 10 etiket. `tag_ids` tam değiştirme, `add_tag_ids`/`remove_tag_ids` koruyarak değiştirmedir; iki kip karıştırılmaz. `task_tags`, türetilen `task_tag_links`, kapsam tetikleyicisi ve atomik `task_command` birlikte çalışır. Katalog yazması ajanda `tasks:tags:manage` ister.
+
+Kullanıcı tercihi **İptal et / İptal edilenler**: kalıcı silme eklenmez. `cancel` komutu neden/sürüm ister; kişisel ve direct oluşturan, ekip yöneticisi/sahibi/admin, job admin yetkilidir. Atanan çalışan tek başına iptal edemez. `task_cancellation_events` eklemeli/değiştirilemez geçmiş ve önceki kayıt kopyası tutar. `reactivate` eski arşiv durumunu geri getirir. Ajan iptali ayrı `tasks:cancel` iznidir. Korunan alanlar doğrudan yazılamaz; iptal kayıtları normal güncelleme ile değiştirilemez.
+
+Dokunmatik form görünür viewport koordinatlarına bağlanır; konuma CSS geçişi uygulanmaz (`transition-property: opacity`), aksi halde ilk açılışta ekran dışından animasyon oluşur. Tablet merkezleme ile telefon tam genişliği farklıdır. Ayrıntılar ve Grokbot sözleşmesi `docs/task-workspace.md`, `docs/task-api.openapi.json`, `docs/grokbot-task-tags.md` içindedir.
 
 
 ## Mobil ve tablet alt erişimi — Plan 013

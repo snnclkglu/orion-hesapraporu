@@ -10,6 +10,7 @@ import {
   taskSnapshot,
   taskDetail,
   taskCommand,
+  taskTagCatalog,
   TaskError,
 } from "@/lib/tasks/service";
 export const runtime = "nodejs";
@@ -22,7 +23,7 @@ async function handle(request: Request, ctx: Context) {
   const [id, child] = segments;
   const read = request.method === "GET";
   const scope: AgentScope =
-    id === "context"
+    !read && (child === "cancel" || child === "reactivate") ? "tasks:cancel" : id === "tags" && !read ? "tasks:tags:manage" : id === "context"
       ? "tasks:context:read"
       : read
         ? "tasks:read"
@@ -45,6 +46,10 @@ async function handle(request: Request, ctx: Context) {
       try {
         if (segments.length > 2) return agentError("Uç bulunamadı.", 404);
         if (read) {
+          if (id === "tags") {
+            if (child) return agentError("Uç bulunamadı.", 404);
+            return agentJson(await taskTagCatalog(supabase, actorId, Object.fromEntries(new URL(request.url).searchParams)));
+          }
           if (id === "context") {
             const q = new URL(request.url).searchParams.get("q") ?? "";
             const data = await taskSnapshot(supabase, actorId, {
@@ -97,6 +102,7 @@ async function handle(request: Request, ctx: Context) {
             ...(params.unassigned !== undefined
               ? { unassigned: params.unassigned === "true" }
               : {}),
+            ...(params.untagged !== undefined ? {untagged: params.untagged === "true"} : {}),
           });
           const last = data.tasks.at(-1);
           return agentJson({
@@ -121,7 +127,9 @@ async function handle(request: Request, ctx: Context) {
           return agentError("JSON nesnesi gerekli.", 422);
         const input = body.data as Record<string, unknown>;
         const operation =
-          !id && request.method === "POST"
+          id && (child === "cancel" || child === "reactivate") && request.method === "POST" ? child : id === "tags" && !child && request.method === "POST" ? "tag.create"
+            : id === "tags" && child && request.method === "PATCH" ? "tag.update"
+            : !id && request.method === "POST"
             ? "create"
             : id && !child && request.method === "PATCH"
               ? "update"
@@ -135,12 +143,12 @@ async function handle(request: Request, ctx: Context) {
           supabase,
           actorId,
           operation,
-          id ? { ...input, id } : input,
+          id === "tags" ? (child ? {...input,id:child} : input) : id ? { ...input, id } : input,
           principal.id,
           key,
         );
         return agentJson(result, {
-          status: operation === "create" ? 201 : 200,
+          status: operation === "create" || operation === "tag.create" ? 201 : 200,
           headers: result.replayed ? { "Idempotency-Replayed": "true" } : {},
         });
       } catch (e) {

@@ -12,7 +12,12 @@ import {
 } from "./model";
 
 const uuid = z.uuid();
+import { createTagSchema, updateTagSchema, type TaskTag } from "./tags";
 const schemas = {
+  cancel: z.object({id:z.uuid(),version:z.number().int().positive(),reason:z.string().trim().min(3,"İptal nedeni en az 3 karakter olmalı").max(500)}).strict(),
+  reactivate: z.object({id:z.uuid(),version:z.number().int().positive()}).strict(),
+  "tag.create": createTagSchema,
+  "tag.update": updateTagSchema,
   workflow: workflowSchema,
   create: createTaskSchema,
   update: updateTaskSchema,
@@ -59,6 +64,11 @@ function dbError(error: { code?: string; message?: string }) {
     "Tekrar için görev türü ve termin gerekli",
     "Ön koşul aynı paylaşım kapsamında olmalı",
     "Döngü oluşturan bağlantı",
+    "Etiket paylaşım kapsamıyla uyuşmuyor",
+    "Arşiv etiketini yeni göreve ekleyemezsiniz",
+    "En fazla 10 benzersiz etiket seçin",
+    "İptal etmeden önce bağlı görevleri ve bekleme bağlantılarını düzenleyin",
+    "Önce görevi İptal edilenler bölümünden geri yükleyin",
   ];
   if (
     error.code === "23514" &&
@@ -108,6 +118,7 @@ export async function taskCommand(
   });
   if (error) throw dbError(error);
   return data as {
+    tag?: TaskTag;
     task?: TaskDetail["task"];
     board?: Workspace["boards"][number];
     team?: Workspace["teams"][number];
@@ -124,7 +135,7 @@ export async function taskSnapshot(
   if (!parsed.success) throw new TaskError("Geçersiz süzgeç");
   const { data, error } = await db.rpc("task_snapshot", {
     p_actor: actor,
-    p_filters: parsed.data,
+    p_filters: {...parsed.data, ...(parsed.data.tagIds ? {tagIds:parsed.data.tagIds.split(",").filter(Boolean)} : {})},
   });
   if (error) throw dbError(error);
   return data;
@@ -141,4 +152,12 @@ export async function taskDetail(
   });
   if (error) throw dbError(error);
   return data;
+}
+
+export async function taskTagCatalog(db: SupabaseClient, actor: string, input: unknown) {
+  const parsed = z.object({q: z.string().max(100).optional(), scope: z.enum(["global","team","personal"]).optional(), team: z.uuid().optional(), archived: z.enum(["true","false"]).optional(), updatedSince: z.iso.datetime({offset:true}).optional(), cursor: z.string().max(100).regex(/^[0-9T:.+ Z-]+\|[0-9a-f-]{36}$/i).optional()}).strict().safeParse(input);
+  if (!parsed.success) throw new TaskError("Geçersiz etiket süzgeci");
+  const { data, error } = await db.rpc("task_tag_catalog", {p_actor:actor,p_filters:parsed.data});
+  if (error) throw dbError(error);
+  return data as {tags: TaskTag[]; total:number; nextCursor:string|null};
 }

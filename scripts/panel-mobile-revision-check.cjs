@@ -29,6 +29,7 @@ const {
       hasTouch: width < 1024,
     });
     const page = await context.newPage();
+    page.on("dialog", dialog => dialog.accept());
     page.on("pageerror", (e) => errors.push(e.message));
     for (const route of [
       "panel-preview",
@@ -96,6 +97,7 @@ const {
         );
         await page.getByRole("button", { name: "Filtreyi temizle" }).click();
       }
+      await expect(page.getByRole("heading", { name: "Panel", exact: true })).toBeVisible({ timeout: 20000 });
       await expect(
         page
           .getByRole("navigation", { name: "Panel gezinme" })

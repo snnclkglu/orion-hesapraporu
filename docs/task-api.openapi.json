@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "ORION Görev API",
-    "version": "1.1.0",
+    "version": "1.3.0",
     "description": "Grokbot ve diğer harici ajanlar için görev yönetimi. E-posta/AI analizi bu API'nin parçası değildir."
   },
   "servers": [
@@ -206,7 +206,8 @@
                 "overdue",
                 "upcoming",
                 "done",
-                "archived"
+                "archived",
+                "cancelled"
               ]
             }
           },
@@ -300,6 +301,34 @@
               "type": "boolean"
             },
             "description": "Atanmamış ekip görevleri"
+          },
+          {
+            "name": "tagIds",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Virgülle ayrılan en fazla 10 etiket UUID"
+          },
+          {
+            "name": "tagMatch",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "any",
+                "all"
+              ]
+            },
+            "description": "Herhangi biri veya tümü"
+          },
+          {
+            "name": "untagged",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Yalnız etiketsiz; tagIds ile birlikte kullanılamaz"
           }
         ]
       },
@@ -998,6 +1027,391 @@
           }
         ]
       }
+    },
+    "/tasks/tags": {
+      "get": {
+        "summary": "Etiket kataloğunu oku",
+        "description": "tasks:read gerekir. Kişisel/ekip görünürlüğü uygulanır; en fazla 50 kayıt. updatedSince arşivleri de içerir. Katalog adı/renk değişikliklerini görevlerden ayrı eşitleyin.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "description": "Türkçe ad araması"
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "global",
+                "team",
+                "personal"
+              ]
+            },
+            "description": "Katalog kapsamı"
+          },
+          {
+            "name": "team",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Ekip kimliği"
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "true arşivleri de dahil eder"
+          },
+          {
+            "name": "updatedSince",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Değişiklik zamanı"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Önceki nextCursor değerini aynen kullanın"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Yetkili katalog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TaskTag"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kapsam veya kayıt yetkisi yok"
+          },
+          "409": {
+            "description": "Sürüm, normalize ad veya tekrar anahtarı çakışması"
+          },
+          "422": {
+            "description": "Geçersiz alan veya kapsam"
+          },
+          "429": {
+            "description": "Retry-After süresini bekleyin"
+          },
+          "503": {
+            "description": "Hizmete ulaşılamadı"
+          }
+        }
+      },
+      "post": {
+        "summary": "Yeni etiket oluştur",
+        "description": "tasks:tags:manage gerekir; ayrıca kapsamın yazma yetkisi kontrol edilir. Aynı normalize ad aynı kapsamda benzersizdir.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTag"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Etiket kaydı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tag": {
+                      "$ref": "#/components/schemas/TaskTag"
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kapsam veya kayıt yetkisi yok"
+          },
+          "409": {
+            "description": "Sürüm, normalize ad veya tekrar anahtarı çakışması"
+          },
+          "422": {
+            "description": "Geçersiz alan veya kapsam"
+          },
+          "429": {
+            "description": "Retry-After süresini bekleyin"
+          },
+          "503": {
+            "description": "Hizmete ulaşılamadı"
+          }
+        }
+      }
+    },
+    "/tasks/tags/{tagId}": {
+      "parameters": [
+        {
+          "name": "tagId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "patch": {
+        "summary": "Etiketi düzenle veya arşivle",
+        "description": "tasks:tags:manage gerekir; kişisel sahip, ekip yöneticisi veya genel katalog yöneticisi düzenler. Mevcut sürümü gönderin.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTag"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Etiket kaydı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tag": {
+                      "$ref": "#/components/schemas/TaskTag"
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kapsam veya kayıt yetkisi yok"
+          },
+          "409": {
+            "description": "Sürüm, normalize ad veya tekrar anahtarı çakışması"
+          },
+          "422": {
+            "description": "Geçersiz alan veya kapsam"
+          },
+          "429": {
+            "description": "Retry-After süresini bekleyin"
+          },
+          "503": {
+            "description": "Hizmete ulaşılamadı"
+          }
+        }
+      }
+    },
+    "/tasks/{id}/cancel": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Görevi neden belirterek iptal et",
+        "description": "tasks:cancel gerekir. Kişisel/kişiye özel görevde oluşturan; ekip görevinde ekip yöneticisi veya sistem yöneticisi; iş görevinde sistem yöneticisi yetkilidir. Kalıcı veri silinmez, aktör/zaman/neden geçmişi korunur.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "version",
+                  "reason"
+                ],
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Güncel task ve isteğe bağlı replayed"
+          },
+          "403": {
+            "description": "İptal yetkisi yok"
+          },
+          "409": {
+            "description": "Sürüm veya tekrar anahtarı çakışması"
+          },
+          "422": {
+            "description": "Neden eksik, geçersiz durum veya bağlı görev var"
+          },
+          "429": {
+            "description": "Retry-After süresini bekleyin"
+          }
+        }
+      }
+    },
+    "/tasks/{id}/reactivate": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "summary": "İptal edilen görevi yeniden aç",
+        "description": "tasks:cancel gerekir. Kişisel/kişiye özel görevde oluşturan; ekip görevinde ekip yöneticisi veya sistem yöneticisi; iş görevinde sistem yöneticisi yetkilidir. Kalıcı veri silinmez, aktör/zaman/neden geçmişi korunur.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "version"
+                ],
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Güncel task ve isteğe bağlı replayed"
+          },
+          "403": {
+            "description": "İptal yetkisi yok"
+          },
+          "409": {
+            "description": "Sürüm veya tekrar anahtarı çakışması"
+          },
+          "422": {
+            "description": "Neden eksik, geçersiz durum veya bağlı görev var"
+          },
+          "429": {
+            "description": "Retry-After süresini bekleyin"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1191,6 +1605,15 @@
           "source_ref": {
             "type": "string",
             "maxLength": 500
+          },
+          "tag_ids": {
+            "type": "array",
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -1287,8 +1710,36 @@
           },
           "archived": {
             "type": "boolean"
+          },
+          "tag_ids": {
+            "type": "array",
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "add_tag_ids": {
+            "type": "array",
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "remove_tag_ids": {
+            "type": "array",
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
-        }
+        },
+        "description": "tag_ids tam listeyi değiştirir; add_tag_ids/remove_tag_ids diğer etiketleri korur. İki kip birlikte kullanılamaz, aynı kimlik eklenip çıkarılamaz. Gönderilmeyen alan değişmez; [] temizler; null kabul edilmez."
       },
       "Comment": {
         "type": "object",
@@ -1477,6 +1928,38 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "tag_ids": {
+            "type": "array",
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "cancelled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "cancelled_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "cancellation_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "can_cancel": {
+            "type": "boolean"
           }
         }
       },
@@ -1595,6 +2078,147 @@
             }
           }
         }
+      },
+      "TaskTag": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "color_hue": {
+            "type": "integer",
+            "enum": [
+              300,
+              250,
+              65,
+              155,
+              200,
+              20
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "team",
+              "personal"
+            ]
+          },
+          "team_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "owner_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "archived_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "can_edit": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CreateTag": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "color_hue",
+          "scope"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "color_hue": {
+            "type": "integer",
+            "enum": [
+              300,
+              250,
+              65,
+              155,
+              200,
+              20
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "team",
+              "personal"
+            ]
+          },
+          "team_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "description": "team kapsamında team_id gerekir; diğer kapsamlarda null/boş. Kişisel sahip aktördür. Ortak katalog yazması yöneticiye, ekip oluşturma ekip yazma yetkisine bağlıdır."
+      },
+      "UpdateTag": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "color_hue": {
+            "type": "integer",
+            "enum": [
+              300,
+              250,
+              65,
+              155,
+              200,
+              20
+            ]
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        },
+        "description": "Kapsam ve sahip değiştirilemez. Kullanılmış etiket arşivlenebilir; geçmiş görev ilişkileri korunur."
       }
     }
   }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { tagIdsSchema, type TaskTag } from "./tags";
 
 export const statuses = {
   todo: "Yapılacak",
@@ -65,6 +66,11 @@ export type TaskFlow = {
   next_task: string | null;
 };
 export interface Task {
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
+  cancellation_reason?: string | null;
+  can_cancel?: boolean;
+  tag_ids?: string[];
   checklist?: z.infer<typeof checklistSchema>;
   recurrence?: z.infer<typeof recurrenceSchema> | null;
   recurrence_parent?: string | null;
@@ -114,6 +120,7 @@ export interface Team {
   owner_id: string;
 }
 export interface Workspace {
+  tags?: TaskTag[];
   tasks: Task[];
   goals?: Task[];
   total: number;
@@ -132,6 +139,7 @@ export interface Workspace {
   }[];
 }
 export interface TaskDetail {
+  cancellations?: {id:string;actor_id:string;agent_name:string|null;event:string;reason:string;created_at:string}[];
   task: Task;
   comments: {
     id: string;
@@ -162,6 +170,7 @@ export const dateSchema = z
     return !Number.isNaN(d.valueOf()) && d.toISOString().slice(0, 10) === v;
   }, "Geçersiz tarih");
 const fields = {
+  tag_ids: tagIdsSchema,
   title: z.string().trim().min(1, "Başlık gerekli").max(300),
   note: z.string().max(20000),
   assignee: z.uuid().nullable(),
@@ -187,8 +196,11 @@ export const updateTaskSchema = z
     version: z.number().int().positive(),
     status: z.enum(["todo", "doing", "waiting", "done"]).optional(),
     archived: z.boolean().optional(),
+    add_tag_ids: tagIdsSchema.optional(),
+    remove_tag_ids: tagIdsSchema.optional(),
   })
-  .strict();
+  .strict().refine((v) => !(v.tag_ids !== undefined && (v.add_tag_ids !== undefined || v.remove_tag_ids !== undefined)), "Etiket listesini değiştirme ve ekle/çıkar birlikte kullanılamaz")
+  .refine((v) => !v.add_tag_ids?.some((id) => v.remove_tag_ids?.includes(id)), "Aynı etiket eklenip çıkarılamaz");
 export const commentSchema = z
   .object({
     id: z.uuid(),
@@ -203,7 +215,7 @@ export const filtersSchema = z
       .default("mine")
       .transform((view) => (view === "menu" ? ("mine" as const) : view)),
     period: z
-      .enum(["all", "today", "week", "overdue", "upcoming", "done", "archived"])
+      .enum(["all", "today", "week", "overdue", "upcoming", "done", "archived", "cancelled"])
       .default("all"),
     q: z.string().max(100).default(""),
     team: z.uuid().optional(),
@@ -214,6 +226,9 @@ export const filtersSchema = z
     job: z.uuid().optional(),
     status: z.enum(["todo", "doing", "waiting", "done"]).optional(),
     priority: z.enum(["none", "low", "medium", "high", "urgent"]).optional(),
+    tagIds: z.string().min(1).max(400).refine((v) => !!v.split(",").filter(Boolean).length && tagIdsSchema.safeParse(v.split(",").filter(Boolean)).success, "Geçersiz etiket süzgeci").optional(),
+    tagMatch: z.enum(["any", "all"]).optional(),
+    untagged: z.boolean().optional(),
     cursor: z
       .string()
       .max(100)
@@ -229,7 +244,7 @@ export const filtersSchema = z
     sourceRef: z.string().max(500).optional(),
     updatedSince: z.iso.datetime().optional(),
   })
-  .strict();
+  .strict().refine((v) => !(v.untagged && v.tagIds), "Etiketsiz ve etiket seçimi birlikte kullanılamaz");
 export type TaskFilters = z.input<typeof filtersSchema>;
 export type TaskInput = z.input<typeof createTaskSchema>;
 export type TaskPatch = z.input<typeof updateTaskSchema>;

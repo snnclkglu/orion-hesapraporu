@@ -1,6 +1,13 @@
 import { it, expect, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { taskCommand, taskSnapshot, TaskError } from "./service";
+it("iptal nedenini, sürümü ve sunucuda belirlenen aktörü zorunlu tutar", async () => {
+  const rpc=vi.fn(), db={rpc} as unknown as SupabaseClient, actor=crypto.randomUUID(), id=crypto.randomUUID();
+  for(const input of [{id,version:1},{id,version:1,reason:"  "},{id,reason:"Yanlışlıkla açıldı"},{id,version:1,reason:"Yanlışlıkla açıldı",cancelled_by:actor}]) {
+    await expect(taskCommand(db,actor,"cancel",input)).rejects.toBeInstanceOf(TaskError);
+  }
+  expect(rpc).not.toHaveBeenCalled();
+});
 it("geçersiz veri veritabanına gitmez", async () => {
   const rpc = vi.fn();
   await expect(

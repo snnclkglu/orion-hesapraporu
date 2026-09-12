@@ -11,6 +11,13 @@
 | [008 — Asana karşılaştırması ve iyileştirme](008-asana-karsilastirma-ve-iyilestirme.md) | Resmi web/mobil kanıtları; mobil filtre, kişisel görünüm, haftalık ajanda, tekrar, kontrol listesi ve beklenen görevler | S0/U1–U3 uygulandı; otomatik kontroller geçti, saha/pilot/yayın kapıları açık |
 | [010 — Panel kalan fazlar ve yayın](010-panel-kalan-fazlar-ve-yayin.md) | Telefon erişimi, gerçek fotoğraf/geri bildirim, fiziksel mobil kabul, bakım, ekip pilotu ve yayın; aralarda kontrol fazları | Plan hazır; cihaz ve pilot bilgisi bekleniyor, teknik hazırlık bağımsız ilerleyebilir |
 | [011 — Panel mobil sadeleştirme ve klavye](011-panel-mobil-sadelestirme-ve-klavye.md) | Gerçek iPhone bulguları: klavye, yatay taşma, dört sekmeli navigasyon, kompakt kartlar ve +90 telefon maskesi | Uygulandı; otomatik mobil ve SQL kontrolleri geçti, fiziksel iPhone kabulü açık |
+| [014 — Görev etkileşimleri, etiketler ve detay](014-panel-gorev-etkilesimleri-etiketler-ve-detay.md) | Basılı tutma/kaydırma, geri alınabilir arşiv, renkli etiketler ve Grokbot API, mobil pencere, anlaşılır detay ve denetimli iptal | Kod ve Supabase şeması uygulandı; Chromium/WebKit, SQL, 49 kod/API testi ve derleme geçti; kullanıcı onayıyla canlıda yayınlandı; canlı erişim kontrolleri geçti, fiziksel cihaz/Grokbot saha kabulü açık |
+
+## API ve entegrasyon yönetimi
+
+| Plan | Kapsam | Durum |
+| --- | --- | --- |
+| [012 — API ve Entegrasyonlar](012-api-ve-entegrasyon-yonetimi.md) | Yönetim bağlantı/izin paneli, uç nokta kataloğu, Grokbot teşhisi, mevcut token'ı koruyan anahtar yönetimi, istek ölçümü ve mobil kontrol fazları | Uygulandı ve canlıda yayınlandı; otomatik kontroller geçti, Grokbot aktarım onayı ve fiziksel pilot açık |
 
 ## Animation plans
 

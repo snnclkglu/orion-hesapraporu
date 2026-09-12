@@ -196,3 +196,13 @@ Rol veya erişilebilen bölüm sayısı puana girmez; aksi, dar yetkili bir rol�
 tasarım gereği cezalandırırdı. Ekran formülü ve tavanları açıkça gösterir,
 kullanıcıları sıralamaz. Veri yoksa `0` hükmü üretmek yerine skor `—` görünür;
 takip öncesi geçmiş geriye dönük uydurulmaz.
+
+
+## API yönetim sınırı
+
+`/admin/integrations`, indirme ve bütün yönetim işlemleri Yönetici kontrolü
+ister. `agent_*` yönetim/ölçüm tabloları anon/authenticated erişimine kapalıdır.
+Ajan scope'ları `lib/integrations/model.ts` sözlüğünden gelir; uygulama rolü
+ve kayıt erişimini genişletmez. Aktarılan ajan için eski env fallback kapalıdır.
+Anahtar yenileme/iptal ve sürüm kontrollü değişiklik izi aynı transaction'dır.
+Ayrıntı: `docs/integrations-admin.md`, `plans/012-api-ve-entegrasyon-yonetimi.md`.

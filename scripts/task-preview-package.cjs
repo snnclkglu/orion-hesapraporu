@@ -11,7 +11,7 @@ if(baseline&&!baseline.startsWith(path.resolve(root,'tmp')+path.sep))throw Error
 function walk(dir,prefix=''){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(entry=>entry.isDirectory()?walk(path.join(dir,entry.name),prefix+entry.name+'/'):[prefix+entry.name]);}
 const overlay=['src/lib/account/image-transport.ts','src/types/libheif.d.ts','src/components/account/account-view.tsx','src/components/account/feedback-form.tsx'];
 const files = [...new Set(baseline?[...walk(baseline),...overlay]:[...git('ls-files','-z').split('\0'), ...git('ls-files','--others','--exclude-standard','-z').split('\0')])]
- .filter(p => /^(src\/|public\/|catalog-sheets\/)/.test(p) || /^(package(-lock)?\.json|next\.config\.ts|tsconfig\.json|postcss\.config\.mjs|vercel\.json)$/.test(p))
+ .filter(p => p === 'docs/task-api.openapi.json' || /^(src\/|public\/|catalog-sheets\/)/.test(p) || /^(package(-lock)?\.json|next\.config\.ts|tsconfig\.json|postcss\.config\.mjs|vercel\.json)$/.test(p))
  .filter(p => !/(^|\/)(__tests__|__fixtures__|fixtures)(\/|$)|\.test\.[cm]?[jt]sx?$|^src\/app\/dev\//.test(p));
 const target=path.resolve('tmp',`panel-preview-${Date.now()}`);
 fs.mkdirSync(target,{recursive:false});

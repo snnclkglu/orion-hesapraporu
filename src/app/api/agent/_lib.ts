@@ -10,12 +10,10 @@ import "server-only";
 
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { z } from "zod";
-import { canEditOffers, canSeeOffers, isAdminRole, USER_ROLES } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { USER_ROLES } from "@/lib/roles";
 import type { OfferMutationError } from "@/app/(app)/offers/mutations";
 
-const DEFAULT_RATE_LIMIT = 60;
 const RATE_WINDOW_MS = 60_000;
 const MAX_JSON_BYTES = 2_000_000;
 const IDEMPOTENCY_KEY = /^[\x21-\x7e]{8,128}$/;
@@ -28,81 +26,18 @@ const RESPONSE_HEADERS = {
   "X-Orion-Agent-Api-Version": "1",
 } as const;
 
-/** Her yeni bölüm burada kapalı bir scope olarak tanımlanır. */
-export const AGENT_SCOPES = ["offers:read", "offers:draft:write", "email:read", "email:draft:write", "email:publish", "email:test:send", "email:send", "tasks:read", "tasks:write", "tasks:comment", "tasks:context:read"] as const;
-export type AgentScope = (typeof AGENT_SCOPES)[number];
-
-const agentClientSchema = z
-  .object({
-    id: z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{1,63}$/),
-    name: z.string().trim().min(2).max(120),
-    token: z.string().min(32).max(512),
-    actorId: z.uuid(),
-    scopes: z.array(z.enum(AGENT_SCOPES)).min(1),
-    rateLimitPerMinute: z.number().int().min(1).max(600).optional(),
-  })
-  .strict()
-  .superRefine((client, context) => {
-    if (new Set(client.scopes).size !== client.scopes.length) {
-      context.addIssue({ code: "custom", message: "Scope tekrarı var.", path: ["scopes"] });
-    }
-  });
-
-const agentClientsSchema = z
-  .array(agentClientSchema)
-  .min(1)
-  .max(50)
-  .superRefine((clients, context) => {
-    const ids = new Set<string>();
-    const tokens = new Set<string>();
-    clients.forEach((client, index) => {
-      if (ids.has(client.id)) {
-        context.addIssue({ code: "custom", message: "Agent kimliği tekrarı var.", path: [index, "id"] });
-      }
-      if (tokens.has(client.token)) {
-        context.addIssue({ code: "custom", message: "Agent token tekrarı var.", path: [index, "token"] });
-      }
-      ids.add(client.id);
-      tokens.add(client.token);
-    });
-  });
-
-// Mevcut gizli kayıt yeniden okunamadığında yalnız seçilmiş token'a görev
-// kapsamı ekler. Yeni kimlik/token oluşturmaz; profil ve kayıt yetkileri aynıdır.
-const taskScopeGrantsSchema = z.array(z.object({
-  tokenSha256: z.string().regex(/^[a-f0-9]{64}$/),
-  scopes: z.array(z.enum(["tasks:context:read", "tasks:read", "tasks:write", "tasks:comment"]))
-    .min(1).max(4).refine(scopes => new Set(scopes).size === scopes.length),
-}).strict()).max(50).refine(grants => new Set(grants.map(grant => grant.tokenSha256)).size === grants.length);
-
-function applyTaskScopeGrants(clients: ConfiguredAgent[]): ConfiguredAgent[] | null {
-  const raw = process.env.AGENT_TASK_SCOPE_GRANTS?.trim();
-  if (!raw) return clients;
-  try {
-    const parsed = taskScopeGrantsSchema.safeParse(JSON.parse(raw));
-    if (!parsed.success) return null;
-    return clients.map(client => {
-      const digest = createHash("sha256").update(client.token).digest("hex");
-      const grant = parsed.data.find(value => value.tokenSha256 === digest);
-      return grant ? { ...client, scopes: [...new Set([...client.scopes, ...grant.scopes])] } : client;
-    });
-  } catch {
-    return null;
-  }
-}
-
-export interface AgentPrincipal {
-  id: string;
-  name: string;
-  actorId: string;
-  scopes: readonly AgentScope[];
-  rateLimitPerMinute: number;
-}
-
-interface ConfiguredAgent extends AgentPrincipal {
-  token: string;
-}
-
+export { AGENT_SCOPES } from "@/lib/integrations/model";
+export type { AgentScope, AgentPrincipal } from "@/lib/integrations/model";
+import {
+  type AgentScope,
+  type AgentPrincipal,
+  principalSchema,
+  profileCanUseScope,
+} from "@/lib/integrations/model";
+import {
+  configuredAgents,
+  type ConfiguredAgent,
+} from "@/lib/integrations/config";
 interface RateBucket {
   count: number;
   resetAt: number;
@@ -111,7 +46,10 @@ interface RateBucket {
 const agentGlobal = globalThis as typeof globalThis & {
   __orionAgentRateBuckets?: Map<string, RateBucket>;
 };
-const rateBuckets = (agentGlobal.__orionAgentRateBuckets ??= new Map<string, RateBucket>());
+const rateBuckets = (agentGlobal.__orionAgentRateBuckets ??= new Map<
+  string,
+  RateBucket
+>());
 
 export interface AgentApiContext {
   supabase: SupabaseClient;
@@ -122,7 +60,7 @@ export interface AgentApiContext {
 
 export interface AgentRequestDefinition {
   action: string;
-  scope: AgentScope;
+  scope: AgentScope | null;
   detail?: Record<string, unknown>;
 }
 
@@ -137,7 +75,11 @@ export function agentJson(data: unknown, init: ResponseInit = {}): Response {
   });
 }
 
-export function agentError(message: string, status: number, headers?: HeadersInit): Response {
+export function agentError(
+  message: string,
+  status: number,
+  headers?: HeadersInit,
+): Response {
   return agentJson({ error: message }, { status, headers });
 }
 
@@ -146,7 +88,8 @@ export function agentOptions(): Response {
     status: 204,
     headers: {
       ...RESPONSE_HEADERS,
-      "Access-Control-Allow-Headers": "Authorization, Content-Type, Idempotency-Key",
+      "Access-Control-Allow-Headers":
+        "Authorization, Content-Type, Idempotency-Key",
       "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, OPTIONS",
       "Access-Control-Expose-Headers": "Idempotency-Replayed, X-Request-Id",
       "Access-Control-Max-Age": "600",
@@ -161,56 +104,17 @@ export function secureTokenEquals(received: string, expected: string): boolean {
   return timingSafeEqual(receivedHash, expectedHash);
 }
 
-function defaultRateLimit(): number {
-  const value = Number(process.env.AGENT_API_RATE_LIMIT ?? DEFAULT_RATE_LIMIT);
-  return Number.isInteger(value) && value >= 1 && value <= 600 ? value : DEFAULT_RATE_LIMIT;
-}
-
-/**
- * Tercih edilen ayar TEK secret içindeki JSON dizisidir: AGENT_API_CLIENTS.
- * Eski AGENT_API_TOKEN + AGENT_USER_ID ikilisi ilk kurulumları bozmamak için
- * aynı iki teklif scope'uyla geriye dönük olarak kabul edilir.
- */
-function configuredAgents(): ConfiguredAgent[] | null {
-  const registry = process.env.AGENT_API_CLIENTS?.trim();
-  const emailRegistry = process.env.EMAIL_AGENT_CLIENTS?.trim();
-  const token = process.env.AGENT_API_TOKEN?.trim() ?? "";
-  const actorId = process.env.AGENT_USER_ID?.trim() ?? "";
-  const legacy = token.length >= 32 && z.uuid().safeParse(actorId).success
-    ? [{id:'offers-v1',name:'Teklif Agentı',token,actorId,scopes:['offers:read','offers:draft:write']}]
-    : [];
-  if (registry || emailRegistry) {
-    try {
-      const parsed = agentClientsSchema.safeParse([...(registry ? JSON.parse(registry) : legacy), ...(emailRegistry ? JSON.parse(emailRegistry) : [])]);
-      if (!parsed.success) return null;
-      return applyTaskScopeGrants(parsed.data.map((client) => ({
-        ...client,
-        rateLimitPerMinute: client.rateLimitPerMinute ?? defaultRateLimit(),
-      })));
-    } catch {
-      return null;
-    }
-  }
-
-  if (token.length < 32 || !z.uuid().safeParse(actorId).success) return null;
-  return applyTaskScopeGrants([
-    {
-      id: "offers-v1",
-      name: "Teklif Agentı",
-      token,
-      actorId,
-      scopes: ["offers:read", "offers:draft:write"],
-      rateLimitPerMinute: defaultRateLimit(),
-    },
-  ]);
-}
-
 function bearerToken(request: Request): string {
-  const match = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization")?.trim() ?? "");
+  const match = /^Bearer\s+(.+)$/i.exec(
+    request.headers.get("authorization")?.trim() ?? "",
+  );
   return match?.[1]?.trim() ?? "";
 }
 
-function matchingAgent(request: Request, agents: readonly ConfiguredAgent[]): ConfiguredAgent | null {
+function matchingAgent(
+  request: Request,
+  agents: readonly ConfiguredAgent[],
+): ConfiguredAgent | null {
   const received = bearerToken(request);
   if (!received) return null;
 
@@ -223,12 +127,18 @@ function matchingAgent(request: Request, agents: readonly ConfiguredAgent[]): Co
 }
 
 function clientKey(request: Request, agentId: string): string {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const forwarded = request.headers
+    .get("x-forwarded-for")
+    ?.split(",")[0]
+    ?.trim();
   const ip = forwarded || request.headers.get("x-real-ip") || "unknown";
   return createHash("sha256").update(`${agentId}:${ip}`).digest("hex");
 }
 
-function rateLimitResponse(request: Request, agent: ConfiguredAgent): Response | null {
+function rateLimitResponse(
+  request: Request,
+  agent: AgentPrincipal,
+): Response | null {
   const now = Date.now();
   const key = clientKey(request, agent.id);
   let bucket = rateBuckets.get(key);
@@ -248,21 +158,13 @@ function rateLimitResponse(request: Request, agent: ConfiguredAgent): Response |
 
   if (bucket.count <= agent.rateLimitPerMinute) return null;
   const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1_000));
-  return agentError("Çok fazla istek gönderildi; lütfen kısa süre sonra tekrar deneyin.", 429, {
-    "Retry-After": String(retryAfter),
-  });
-}
-
-function profileCanUseScope(role: string | null, scope: AgentScope): boolean {
-  if (scope.startsWith("tasks:")) return USER_ROLES.some(value => value === role);
-  if (scope.startsWith('email:')) return isAdminRole(role);
-  switch (scope) {
-    case "offers:read":
-      return canSeeOffers(role);
-    case "offers:draft:write":
-      return canEditOffers(role);
-    default: return false;
-  }
+  return agentError(
+    "Çok fazla istek gönderildi; lütfen kısa süre sonra tekrar deneyin.",
+    429,
+    {
+      "Retry-After": String(retryAfter),
+    },
+  );
 }
 
 export function resetAgentRateLimitForTests(): void {
@@ -271,31 +173,59 @@ export function resetAgentRateLimitForTests(): void {
 
 export async function authorizeAgent(
   request: Request,
-  requiredScope: AgentScope
+  requiredScope: AgentScope | null,
 ): Promise<AgentAuthorization> {
   const agents = configuredAgents();
-  if (!agents) return { response: agentError("Agent API yapılandırılmamış.", 503) };
-
-  const agent = matchingAgent(request, agents);
-  if (!agent) {
+  const received = bearerToken(request);
+  if (!received || received.length > 512)
     return {
       response: agentError("Yetkilendirme başarısız.", 401, {
         "WWW-Authenticate": "Bearer",
       }),
     };
-  }
-  if (!agent.scopes.includes(requiredScope)) {
-    return { response: agentError("Agent bu işlem için yetkili değil.", 403) };
-  }
-
-  const limited = rateLimitResponse(request, agent);
-  if (limited) return { response: limited };
-
+  const legacy = matchingAgent(request, agents ?? []);
   let supabase: SupabaseClient;
+  let agent: AgentPrincipal | null = null;
+  let managed = false;
+  let registryConfigured = false;
   try {
     supabase = createAdminClient();
+    const { data, error } = await supabase.rpc("agent_resolve", {
+      p_digest: createHash("sha256").update(received).digest("hex"),
+      p_env_id: legacy?.id ?? null,
+    });
+    if (error || !data || typeof data.managed !== "boolean")
+      return { response: agentError("Ajan kayıtları doğrulanamadı.", 503) };
+    managed = data.managed;
+    registryConfigured = data.configured === true;
+    if (managed) {
+      if (data.principal) {
+        const parsed = principalSchema.safeParse(data.principal);
+        if (!parsed.success)
+          return {
+            response: agentError("Ajan yapılandırması doğrulanamadı.", 503),
+          };
+        agent = parsed.data;
+      }
+    } else agent = legacy;
   } catch {
     return { response: agentError("Agent API şu anda kullanılamıyor.", 503) };
+  }
+  if (!agent)
+    return {
+      response: agentError(
+        !agents && !registryConfigured
+          ? "Agent API yapılandırılmamış veya anahtar geçersiz."
+          : "Yetkilendirme başarısız.",
+        !agents && !managed && !registryConfigured ? 503 : 401,
+      ),
+    };
+  const trace = requestTraces.get(request);
+  if (trace) trace.agentId = agent.id;
+  const limited = rateLimitResponse(request, agent);
+  if (limited) return { response: limited };
+  if (requiredScope && !agent.scopes.includes(requiredScope)) {
+    return { response: agentError("Agent bu işlem için yetkili değil.", 403) };
   }
 
   const { data: profile, error } = await supabase
@@ -303,9 +233,17 @@ export async function authorizeAgent(
     .select("id, role")
     .eq("id", agent.actorId)
     .maybeSingle();
-  if (error) return { response: agentError("Agent yetkisi doğrulanamadı.", 503) };
-  if (!profile || !profileCanUseScope(profile.role as string | null, requiredScope)) {
-    return { response: agentError("Agent profili bu işlem için yetkili değil.", 403) };
+  if (error)
+    return { response: agentError("Agent yetkisi doğrulanamadı.", 503) };
+  if (
+    !profile ||
+    (requiredScope
+      ? !profileCanUseScope(profile.role as string | null, requiredScope)
+      : !USER_ROLES.some((role) => role === profile.role))
+  ) {
+    return {
+      response: agentError("Agent profili bu işlem için yetkili değil.", 403),
+    };
   }
 
   const principal: AgentPrincipal = {
@@ -320,7 +258,7 @@ export async function authorizeAgent(
       supabase,
       actorId: agent.actorId,
       principal,
-      requestId: randomUUID(),
+      requestId: requestTraces.get(request)?.id ?? randomUUID(),
     },
   };
 }
@@ -346,7 +284,7 @@ function requestPath(request: Request): string {
 
 async function claimIdempotency(
   request: Request,
-  context: AgentApiContext
+  context: AgentApiContext,
 ): Promise<IdempotencyClaim> {
   // Görev komutlarında tekrar kaydı mutasyonla aynı SQL transaction içindedir.
   if (new URL(request.url).pathname.startsWith("/api/agent/tasks")) return null;
@@ -355,7 +293,10 @@ async function claimIdempotency(
   if (!key) return null;
   if (!IDEMPOTENCY_KEY.test(key)) {
     return {
-      response: agentError("Idempotency-Key 8-128 görünür ASCII karakter olmalı.", 422),
+      response: agentError(
+        "Idempotency-Key 8-128 görünür ASCII karakter olmalı.",
+        422,
+      ),
     };
   }
 
@@ -382,26 +323,34 @@ async function claimIdempotency(
     .update(Buffer.from(body))
     .digest("hex");
 
-  const { error: insertError } = await context.supabase.from("agent_api_idempotency").insert({
-    agent_id: context.principal.id,
-    idempotency_key: key,
-    method: request.method,
-    path,
-    request_hash: requestHash,
-  });
+  const { error: insertError } = await context.supabase
+    .from("agent_api_idempotency")
+    .insert({
+      agent_id: context.principal.id,
+      idempotency_key: key,
+      method: request.method,
+      path,
+      request_hash: requestHash,
+    });
   if (!insertError) return { key, requestHash };
   if (insertError.code !== "23505") {
-    return { response: agentError("İstek tekrar güvenliği doğrulanamadı.", 503) };
+    return {
+      response: agentError("İstek tekrar güvenliği doğrulanamadı.", 503),
+    };
   }
 
   const { data, error } = await context.supabase
     .from("agent_api_idempotency")
-    .select("method, path, request_hash, response_status, response_body, completed_at")
+    .select(
+      "method, path, request_hash, response_status, response_body, completed_at",
+    )
     .eq("agent_id", context.principal.id)
     .eq("idempotency_key", key)
     .maybeSingle();
   if (error || !data) {
-    return { response: agentError("İstek tekrar güvenliği doğrulanamadı.", 503) };
+    return {
+      response: agentError("İstek tekrar güvenliği doğrulanamadı.", 503),
+    };
   }
 
   const existing = data as IdempotencyRecord;
@@ -411,11 +360,16 @@ async function claimIdempotency(
     existing.request_hash !== requestHash
   ) {
     return {
-      response: agentError("Aynı Idempotency-Key farklı bir istek için kullanılamaz.", 409),
+      response: agentError(
+        "Aynı Idempotency-Key farklı bir istek için kullanılamaz.",
+        409,
+      ),
     };
   }
   if (!existing.completed_at || existing.response_status === null) {
-    return { response: agentError("Aynı anahtarlı istek halen işleniyor.", 409) };
+    return {
+      response: agentError("Aynı anahtarlı istek halen işleniyor.", 409),
+    };
   }
 
   return {
@@ -429,7 +383,7 @@ async function claimIdempotency(
 async function completeIdempotency(
   context: AgentApiContext,
   claim: Exclude<IdempotencyClaim, null | { response: Response }>,
-  response: Response
+  response: Response,
 ): Promise<void> {
   try {
     let body: unknown;
@@ -460,41 +414,154 @@ function withRequestId(response: Response, requestId: string): Response {
   return response;
 }
 
+// Yol sözlüğü dışındaki parçalar kaydedilmez; arama metni ve kayıt kimliği yoktur.
+const routeWords = new Set([
+  "tasks",
+  "context",
+  "comments",
+  "events",
+  "workflow",
+  "offers",
+  "revisions",
+  "items",
+  "customers",
+  "offer-options",
+  "offer-templates",
+  "email-center",
+  "me",
+]);
+export function safeAgentRoute(url: string): string {
+  const parts = new URL(url).pathname
+    .replace(/^\/api\/agent\/?/, "")
+    .split("/")
+    .filter(Boolean);
+  return (
+    "/api/agent/" +
+    parts
+      .slice(0, 6)
+      .map((p) => (routeWords.has(p) ? p : ":id"))
+      .join("/")
+  );
+}
+const requestTraces = new WeakMap<
+  Request,
+  { id: string; agentId: string | null; scope: AgentScope | null }
+>();
+export async function observeAgentRequest(
+  request: Request,
+  handler: () => Promise<Response>,
+): Promise<Response> {
+  if (requestTraces.has(request)) return handler();
+  const trace = {
+    id: randomUUID(),
+    agentId: null as string | null,
+    scope: null as AgentScope | null,
+  };
+  requestTraces.set(request, trace);
+  const started = Date.now();
+  let response: Response;
+  try {
+    response = await handler();
+  } catch {
+    response = agentError("İstek işlenemedi.", 500);
+  }
+  response.headers.set("X-Request-Id", trace.id);
+  let reasonCode: string | null =
+    (
+      {
+        401: "auth_failed",
+        403: "access_denied",
+        404: "not_found",
+        409: "conflict",
+        422: "validation",
+        429: "limited",
+        500: "internal",
+        503: "unavailable",
+      } as Record<number, string>
+    )[response.status] ?? null;
+  if (response.status === 403) {
+    try {
+      const body = await response.clone().json();
+      if (body.error === "Agent bu işlem için yetkili değil.")
+        reasonCode = "scope_denied";
+      if (body.error === "Agent profili bu işlem için yetkili değil.")
+        reasonCode = "profile_denied";
+    } catch {
+      /* İçerik saklanmaz; yalnız bilinen sabit neden kodları seçilir. */
+    }
+  }
+  try {
+    await createAdminClient()
+      .rpc("agent_record_request", {
+        p_event: {
+          reason_code: reasonCode,
+          request_id: trace.id,
+          agent_id: trace.agentId,
+          scope: trace.scope,
+          method: request.method,
+          route: safeAgentRoute(request.url),
+          status: response.status,
+          duration_ms: Math.min(3600000, Math.max(0, Date.now() - started)),
+          replayed: response.headers.get("Idempotency-Replayed") === "true",
+        },
+      })
+      .abortSignal(AbortSignal.timeout(1500));
+  } catch {
+    /* Sonuç ölçümü işin sonucunu değiştirmez; zorunlu audit ayrı kalır. */
+  }
+  requestTraces.delete(request);
+  return response;
+}
 export async function runAgentRequest(
   request: Request,
   definition: AgentRequestDefinition,
-  handler: (context: AgentApiContext) => Promise<Response>
+  handler: (context: AgentApiContext) => Promise<Response>,
+): Promise<Response> {
+  return observeAgentRequest(request, () => {
+    const trace = requestTraces.get(request);
+    if (trace) trace.scope = definition.scope;
+    return runAuthorizedRequest(request, definition, handler);
+  });
+}
+
+async function runAuthorizedRequest(
+  request: Request,
+  definition: AgentRequestDefinition,
+  handler: (context: AgentApiContext) => Promise<Response>,
 ): Promise<Response> {
   const authorized = await authorizeAgent(request, definition.scope);
   if (authorized.response) return authorized.response;
 
   const { context } = authorized;
-  const { error: auditError } = await context.supabase.from("audit_log").insert({
-    project_id: null,
-    actor: context.actorId,
-    action: definition.action,
-    detail: {
-      ...(definition.detail ?? {}),
-      actor: "agent",
-      agent_id: context.principal.id,
-      agent_name: context.principal.name,
-      scope: definition.scope,
-      request_id: context.requestId,
-      method: request.method,
-      path: new URL(request.url).pathname,
-    },
-  });
+  const { error: auditError } = await context.supabase
+    .from("audit_log")
+    .insert({
+      project_id: null,
+      actor: context.actorId,
+      action: definition.action,
+      detail: {
+        ...(definition.detail ?? {}),
+        actor: "agent",
+        agent_id: context.principal.id,
+        agent_name: context.principal.name,
+        scope: definition.scope,
+        request_id: context.requestId,
+        method: request.method,
+        path: new URL(request.url).pathname,
+      },
+    });
   // Denetim izi yazılamıyorsa işlem hiç başlamaz; özellikle yazma uçlarında
   // kayıtsız bir değişiklik bırakmak başarılı cevap vermekten daha kötüdür.
   if (auditError) {
     return withRequestId(
       agentError("İstek denetim kaydına alınamadı.", 503),
-      context.requestId
+      context.requestId,
     );
   }
 
   const claim = await claimIdempotency(request, context);
-  if (claim && "response" in claim) return withRequestId(claim.response, context.requestId);
+  if (claim && "response" in claim)
+    return withRequestId(claim.response, context.requestId);
 
   try {
     const response = await handler(context);
@@ -508,8 +575,10 @@ export async function runAgentRequest(
 }
 
 export async function readAgentJson(
-  request: Request
-): Promise<{ data: unknown; response?: never } | { data?: never; response: Response }> {
+  request: Request,
+): Promise<
+  { data: unknown; response?: never } | { data?: never; response: Response }
+> {
   const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("application/json")) {
     return { response: agentError("İstek gövdesi JSON olmalı.", 422) };

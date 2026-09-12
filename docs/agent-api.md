@@ -1,5 +1,19 @@
 # ORION Agent API v1
 
+## Yönetim paneli ve yeni ajan kayıtları
+
+`/admin/integrations` bağlantı, etkin izin, uç nokta ve hata ekranıdır.
+Yönetici mevcut ortam kaydını token ve actorId değişmeden uygulama yönetimine
+aktarabilir. Yeni anahtarlar yalnız bir kez gösterilir; veritabanında özetleri
+saklanır. Aktarılan kimlikler için veritabanı belirleyicidir; iptal veya izin
+azaltma eski env tanımına geri düşmez. Yönetim detayları:
+[integrations-admin.md](integrations-admin.md).
+
+`GET /api/agent/me` geçerli anahtarla yalnız çağıran ajanın kimliğini, etkin
+scope'larını ve API sürümünü döndürür. Başka kayıtlara erişim garantisi vermez.
+Yeni yönetim şemasının kurulması API sürümü yayınlanmadan önce tamamlanmalıdır.
+
+
 Görev alanı `tasks:*` yetkileriyle aynı kapıdadır. Görev oluşturma, güncelleme,
 yorum ve iş/pano eşleştirmesi için [Görev/Grokbot rehberini](task-workspace.md)
 ve [OpenAPI sözleşmesini](task-api.openapi.json) kullanın. Bu scope'lar mevcut

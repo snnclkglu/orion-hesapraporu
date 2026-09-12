@@ -22,6 +22,9 @@ import {
   StickyNote,
   Loader2,
   ChevronDown,
+  MoreHorizontal,
+  BriefcaseBusiness,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -67,6 +70,13 @@ import { ResponsiveTaskFilters } from "@/components/account/responsive-task-filt
 import { TaskWorkflow } from "@/components/account/task-workflow";
 import { TaskSavedViews } from "@/components/account/task-saved-views";
 import { TaskReminders } from "@/components/account/task-reminders";
+
+import { TaskTouchSurface } from "@/components/account/task-touch-surface";
+import { TaskCancelDialog } from "@/components/account/task-cancel-dialog";
+import { TaskActionMenu } from "@/components/account/task-action-menu";
+import { TaskTagChips, TaskTagPicker, type TagCommand } from "@/components/account/task-tag-picker";
+import { type TaskTag } from "@/lib/tasks/tags";
+import { adBuyuk } from "@/lib/tr-text";
 
 const nav = [
   { id: "mine", label: "Görevlerim", icon: CheckCheck },
@@ -169,7 +179,20 @@ export function TaskWorkspace({
     [detailError, setDetailError] = useState(""),
     [detailTab, setDetailTab] = useState("comments"),
     [revision, setRevision] = useState(0);
+  const [cancelTask,setCancelTask]=useState<Task|null>(null);
+  const [actionTaskId,setActionTaskId]=useState<string|null>(null);
+  const [actionMode,setActionMode]=useState<"actions"|"date">("actions");
+  const [tagFilter,setTagFilter]=useState(initialFilters.tagIds??"");
+  const [tagMatch,setTagMatch]=useState<"any"|"all">(initialFilters.tagMatch??"any");
+  const [untagged,setUntagged]=useState(initialFilters.untagged??false);
+  const [createDirty,setCreateDirty]=useState(false);
+  const [detailDirty,setDetailDirty]=useState(false);
+  const [gestureHint,setGestureHint]=useState(true);
+  function requestCreate(open:boolean){if(open||!createDirty||window.confirm("Kaydedilmemiş görevi kapatmak istiyor musun?")){setCreating(open);if(!open)setCreateDirty(false);}}
+  function showActions(t:Task,mode:"actions"|"date"="actions"){setActionMode(mode);setActionTaskId(t.id);}
   const previewDetails = useRef<Record<string, TaskDetail>>({});
+  const currentData = useRef(data);
+  useEffect(()=>{currentData.current=data;},[data]);
   const pending = useRef(false);
   // Yanıt ağda kaybolursa aynı kullanıcı denemesi ikinci bir görev üretmez.
   const retryCommand = useRef<{ signature: string; key: string } | null>(null);
@@ -179,6 +202,8 @@ export function TaskWorkspace({
   const week = weekDays(today);
   const filters: TaskFilters = {
     view,
+    ...(tagFilter ? {tagIds:tagFilter,tagMatch} : {}),
+    ...(untagged ? {untagged:true} : {}),
     period: period as TaskFilters["period"],
     q: query,
     ...(view === "mine" && sent ? { sent: true } : {}),
@@ -190,6 +215,7 @@ export function TaskWorkspace({
     ...(priority ? { priority: priority as Task["priority"] } : {}),
   };
   const serialized = JSON.stringify(filters);
+  useEffect(()=>{const frame=requestAnimationFrame(()=>{try{setGestureHint(localStorage.getItem("orion-task-gesture-hint")!=="hidden");}catch{/* Depolama kapalıysa açıklama görünür kalır. */}});return()=>cancelAnimationFrame(frame);},[]);
   useEffect(() => {
     const url = new URL(window.location.href);
     for (const key of [
@@ -202,7 +228,7 @@ export function TaskWorkspace({
       "status",
       "priority",
       "sent",
-      "unassigned",
+      "unassigned", "tagIds", "tagMatch", "untagged",
     ])
       url.searchParams.delete(key);
     for (const [key, value] of Object.entries(JSON.parse(serialized)))
@@ -281,6 +307,8 @@ export function TaskWorkspace({
     };
   }, [taskId, revision, preview, data.tasks]);
   function openTask(id: string | null) {
+    if(detailDirty && id!==taskId && !window.confirm("Kaydedilmemiş değişiklikleri bırakmak istiyor musun?"))return;
+    setDetailDirty(false);
     setTaskId(id);
     setDetailTab("comments");
     const u = new URL(window.location.href);
@@ -295,7 +323,23 @@ export function TaskWorkspace({
     try {
       if (preview) {
         const p = input as Record<string, unknown>;
-        let result: { task?: Task; board?: Board; ok?: boolean } = { ok: true };
+        let result: { task?: Task; board?: Board; tag?:TaskTag; ok?: boolean } = { ok: true };
+        if(op==="tag.create"||op==="tag.update"){
+          const old=(currentData.current.tags??[]).find(t=>t.id===p.id);
+          const tag={id:crypto.randomUUID(),scope:"personal",owner_id:userId,team_id:null,updated_at:new Date().toISOString(),...old,...p,name:adBuyuk(String(p.name??old?.name??"")),version:(old?.version??0)+1,can_edit:true,archived_at:p.archived===undefined?(old?.archived_at??null):p.archived?new Date().toISOString():null} as TaskTag;
+          setData(d=>({...d,tags:[...(d.tags??[]).filter(t=>t.id!==tag.id),tag]}));result={tag};
+        }
+        if(op==="cancel"||op==="reactivate"){
+          const old=currentData.current.tasks.find(t=>t.id===p.id);
+          if(!old||!old.can_cancel||p.version!==old.version){toast.error("Yetki veya görev sürümü değişti.");return null;}
+          const changed={...old,version:old.version+1,cancelled_at:op==="cancel"?new Date().toISOString():null,cancelled_by:op==="cancel"?userId:null,cancellation_reason:op==="cancel"?String(p.reason):null,archived_at:op==="cancel"?new Date().toISOString():null,can_edit:op!=="cancel"};
+          setData(d=>({...d,tasks:d.tasks.map(t=>t.id===old.id?changed:t)}));
+          const previous=previewDetails.current[old.id]??{task:old,comments:[],events:[],attachments:[]};
+          const updatedDetail={...previous,task:changed,cancellations:[{id:crypto.randomUUID(),actor_id:userId,agent_name:null,event:op==="cancel"?"cancelled":"reactivated",reason:String(p.reason??"Görev yeniden açıldı"),created_at:new Date().toISOString()},...(previous.cancellations??[])]};
+          previewDetails.current[old.id]=updatedDetail;
+          setDetail(d=>d?.task.id===old.id?updatedDetail:d);
+          result={task:changed};
+        }
         if (op === "create") {
           const t = {
             id: crypto.randomUUID(),
@@ -318,6 +362,7 @@ export function TaskWorkspace({
             source_ref: null,
             updated_at: new Date().toISOString(),
             can_edit: true,
+            can_cancel: true,
             ...p,
           } as Task;
           setData((d) => ({
@@ -328,6 +373,9 @@ export function TaskWorkspace({
           result = { task: t };
         }
         if (op === "update" || op === "workflow") {
+          const old=currentData.current.tasks.find(t=>t.id===p.id);
+          if(old && p.version!==old.version){toast.error("Kayıt değişti. Güncel görevi kontrol edin.");return null;}
+          if(old)result={task:{...old,...p,version:old.version+1,archived_at:p.archived===undefined?old.archived_at:p.archived?new Date().toISOString():null} as Task};
           setData((d) => ({
             ...d,
             tasks: d.tasks.map((t) =>
@@ -369,6 +417,7 @@ export function TaskWorkspace({
             owner_id: userId,
             archived_at: null,
             can_edit: true,
+            can_cancel: true,
             ...p,
           } as unknown as Board;
           setData((d) => ({ ...d, boards: [...d.boards, b] }));
@@ -422,6 +471,7 @@ export function TaskWorkspace({
         return null;
       }
       retryCommand.current = null;
+      if(r.data?.tag){const tag=r.data.tag;setData(d=>({...d,tags:[...(d.tags??[]).filter(t=>t.id!==tag.id),tag]}));}
       if (r.data?.task) {
         const changed = r.data.task;
         setData((d) => ({
@@ -449,6 +499,18 @@ export function TaskWorkspace({
   ) {
     return command("update", { id: t.id, version: t.version, ...fields });
   }
+  async function undoable(t:Task,fields:Omit<Partial<TaskPatch>,"id"|"version">,message="Görev güncellendi") {
+    const old:Record<string,unknown>={};
+    for(const key of Object.keys(fields))old[key]=key==="archived"?!!t.archived_at:t[key as keyof Task];
+    const result=await patch(t,fields);
+    if(result?.task)toast.success(message,{id:`task-undo-${t.id}-${result.task.version}`,duration:10000,description:fields.status==="done"&&t.recurrence?"Geri alma, oluşturulan sonraki tekrar görevini silmez.":undefined,action:{label:"Geri al",onClick:()=>void command("update",{id:t.id,version:result.task!.version,...old})}});
+    return result;
+  }
+  async function reactivateTask(t:Task){const r=await command("reactivate",{id:t.id,version:t.version});if(r)toast.success("Görev yeniden açıldı");return !!r;}
+  async function confirmCancellation(t:Task,reason:string){const r=await command("cancel",{id:t.id,version:t.version,reason});if(r){setActionTaskId(null);toast.success("Görev iptal edildi. İptal edilenler bölümünden yeniden açabilirsiniz.");}return !!r;}
+  async function archiveTask(t:Task){return undoable(t,{archived:!t.archived_at},t.archived_at?"Görev arşivden çıkarıldı":"Görev arşivlendi");}
+  async function archiveBoard(b:Board){const result=await command("board.archive",{id:b.id,archived:!b.archived_at});if(result)toast.success(b.archived_at?"Pano arşivden çıkarıldı":"Pano arşivlendi",{duration:10000,action:{label:"Geri al",onClick:()=>void command("board.archive",{id:b.id,archived:!!b.archived_at})}});}
+  async function markInbox(n:Workspace["inbox"][number],read:boolean){if(!preview){const r=await readWorkspaceInbox(n.id,read);if(r.error){toast.error(r.error);return;}}setData(d=>({...d,inbox:d.inbox.map(x=>x.id===n.id?{...x,read_at:read?new Date().toISOString():null}:x)}));}
   async function toggle(t: Task) {
     const result = await patch(t, {
       status: t.status === "done" ? t.previous_status : "done",
@@ -475,6 +537,7 @@ export function TaskWorkspace({
     setPriority("");
     setPeriod("all");
     setQuery("");
+    setTagFilter("");setUntagged(false);
   }
   let tasks = data.tasks;
   if (preview) {
@@ -497,7 +560,9 @@ export function TaskWorkspace({
         (!person || t.assignee === person) &&
         (!status || t.status === status) &&
         (!priority || t.priority === priority) &&
-        (period === "archived") === !!t.archived_at &&
+        (!untagged||!(t.tag_ids??[]).length)&&
+        (!tagFilter||(tagMatch==="all"?tagFilter.split(",").every(id=>(t.tag_ids??[]).includes(id)):tagFilter.split(",").some(id=>(t.tag_ids??[]).includes(id))))&&
+        (period === "cancelled" ? !!t.cancelled_at : !t.cancelled_at && (period === "archived") === !!t.archived_at) &&
         (!query ||
           `${t.title} ${t.job_no ?? ""}`
             .toLocaleLowerCase("tr")
@@ -522,6 +587,7 @@ export function TaskWorkspace({
   const unread = data.inbox.filter((n) => !n.read_at).length;
   function renderRow(t: Task) {
     return (
+      <TaskTouchSurface key={t.id} disabled={busy||t.can_edit===false} onHold={()=>showActions(t)} onRight={()=>void archiveTask(t)} onLeft={()=>showActions(t,t.kind==="note"||t.archived_at?"actions":"date")} rightLabel={t.archived_at?"Arşivden çıkar":"Arşivle"}>
       <div
         className={cn("tw-task", t.status === "done" && "tw-completed")}
         key={t.id}
@@ -535,7 +601,7 @@ export function TaskWorkspace({
               t.status === "done" && "checked",
             )}
             aria-label={`${t.title}: ${t.status === "done" ? "Yeniden aç" : "Tamamla"}`}
-            disabled={busy || t.can_edit === false}
+            disabled={busy || t.can_edit === false || !!t.archived_at}
             onClick={() => void toggle(t)}
           >
             {t.status === "done" ? (
@@ -551,6 +617,7 @@ export function TaskWorkspace({
           onClick={() => openTask(t.id)}
         >
           <span className="tw-task-title">{t.title}</span>
+          <TaskTagChips ids={t.tag_ids??[]} tags={data.tags??[]} limit={2}/>
           <span className="tw-task-meta">
             {t.job_no && <span className="tw-code">{t.job_no}</span>}
             {["private", "direct"].includes(t.visibility) && (
@@ -606,14 +673,19 @@ export function TaskWorkspace({
           data={data}
           today={today}
           busy={busy}
-          onPatch={(fields) => patch(t, fields)}
+          onPatch={(fields) => undoable(t, fields)}
         />
+        <button type="button" className="tw-row-menu oc-tap-square" aria-label={`${t.title}: hızlı işlemler`} onClick={()=>showActions(t)}><MoreHorizontal size={18}/></button>
       </div>
+      </TaskTouchSurface>
     );
   }
   return (
     <div className="tw-workspace">
+      <TaskCancelDialog key={cancelTask?.id??"closed"} task={cancelTask} onClose={()=>setCancelTask(null)} onConfirm={confirmCancellation} busy={busy}/>
+      <TaskActionMenu task={data.tasks.find(t=>t.id===actionTaskId)??null} mode={actionMode} onClose={()=>setActionTaskId(null)} onOpen={openTask} onPatch={undoable} onArchive={archiveTask} onCancel={t=>{setActionTaskId(null);setCancelTask(t);}} onReactivate={reactivateTask} onTagCommand={command} data={data} today={today} busy={busy} userId={userId}/>
       <PageHeader title="Panel" hint="Görevler, ekip ve iş akışı" />
+      {gestureHint&&<div className="tw-gesture-help"><span>Basılı tut: hızlı işlemler · Sağa: arşiv · Sola: tarih</span><button className="oc-tap" onClick={()=>{setGestureHint(false);try{localStorage.setItem("orion-task-gesture-hint","hidden");}catch{/* Tercih yalnız bu oturumda korunur. */}}}>Anladım</button></div>}
       {preview && (
         <div className="tw-preview">
           Etkileşimli önizleme · Bu ekrandaki değişiklikler kaydedilmez.
@@ -710,13 +782,14 @@ export function TaskWorkspace({
                 ["overdue", "Geciken"],
                 ["done", "Tamamlanan"],
                 ["archived", "Arşiv"],
+                ["cancelled", "İptal edilenler"],
               ].map(([id, label]) => (
                 <button
                   key={id}
                   className={cn(
                     "oc-tap",
                     period === id && "active",
-                    ["done", "archived"].includes(id) && "tw-period-secondary",
+                    ["done", "archived", "cancelled"].includes(id) && "tw-period-secondary",
                   )}
                   aria-pressed={period === id}
                   onClick={() => setPeriod(id)}
@@ -749,6 +822,7 @@ export function TaskWorkspace({
                 )}
                 <option value="done">Tamamlanan</option>
                 <option value="archived">Arşiv</option>
+                <option value="cancelled">İptal edilenler</option>
               </Select>
               <Select
                 label="Sorumlu filtresi"
@@ -786,6 +860,12 @@ export function TaskWorkspace({
                   </option>
                 ))}
               </Select>
+              <details className="tw-tag-filter"><summary>Etiket filtresi {tagFilter ? `· ${tagFilter.split(",").length}` : untagged?"· Etiketsiz":""}</summary>
+                <label><input type="checkbox" checked={untagged} onChange={e=>{setUntagged(e.target.checked);setTagFilter("");}}/>Etiketsiz görevler</label>
+                {(data.tags??[]).map(tag=><label key={tag.id}><input type="checkbox" disabled={!tagFilter.split(",").includes(tag.id)&&tagFilter.split(",").filter(Boolean).length>=10} checked={tagFilter.split(",").includes(tag.id)} onChange={e=>{setUntagged(false);const ids=tagFilter.split(",").filter(Boolean);setTagFilter((e.target.checked?[...ids,tag.id]:ids.filter(id=>id!==tag.id)).join(","));}}/><TaskTagChips ids={[tag.id]} tags={data.tags??[]}/></label>)}
+                <Select label="Etiket eşleşmesi" value={tagMatch} onChange={v=>setTagMatch(v as "any"|"all")}><option value="any">Herhangi biri</option><option value="all">Tümü</option></Select>
+                <Button variant="ghost" onClick={()=>{setTagFilter("");setUntagged(false);}}>Etiket filtresini temizle</Button>
+              </details>
             </ResponsiveTaskFilters>
             <TaskSavedViews
               preview={preview}
@@ -799,6 +879,7 @@ export function TaskWorkspace({
                 setPerson(f.assignee ?? "");
                 setStatus(f.status ?? "");
                 setPriority(f.priority ?? "");
+                setTagFilter(f.tagIds??"");setTagMatch(f.tagMatch??"any");setUntagged(f.untagged??false);
                 setSent(f.sent ?? false);
                 setUnassigned(f.unassigned ?? false);
               }}
@@ -863,10 +944,7 @@ export function TaskWorkspace({
                   variant="ghost"
                   disabled={busy}
                   onClick={() =>
-                    void command("board.archive", {
-                      id: board.id,
-                      archived: !board.archived_at,
-                    })
+                    void archiveBoard(board)
                   }
                 >
                   <Archive size={14} />
@@ -964,7 +1042,7 @@ export function TaskWorkspace({
                                 label={`${t.title}: durum değiştir`}
                                 value={t.status}
                                 onChange={(v) =>
-                                  void patch(t, { status: v as Task["status"] })
+                                  void undoable(t, { status: v as Task["status"] })
                                 }
                                 disabled={busy}
                               >
@@ -1065,6 +1143,7 @@ export function TaskWorkspace({
           </div>
           <div className="tw-boards">
             {data.boards.map((b) => (
+              <div key={b.id} className="tw-board-tile">
               <button
                 key={b.id}
                 onClick={() => {
@@ -1092,6 +1171,8 @@ export function TaskWorkspace({
                 {b.archived_at && <small>Arşivlendi</small>}
                 <ArrowUpRight className="tw-board-arrow" size={18} />
               </button>
+              <details className="tw-board-menu"><summary className="oc-tap-square" aria-label={`${b.name}: pano işlemleri`}><MoreHorizontal size={18}/></summary><div><Button variant="ghost" onClick={()=>setBoardId(b.id)}>Panoyu aç</Button>{!b.is_default&&(b.owner_id===userId||(!!b.team_id&&role==="admin"))&&<Button variant="ghost" disabled={busy} onClick={()=>void archiveBoard(b)}><Archive size={15}/>{b.archived_at?"Arşivden çıkar":"Panoyu arşivle"}</Button>}</div></details>
+              </div>
             ))}
           </div>
           {!data.boards.length && (
@@ -1109,7 +1190,7 @@ export function TaskWorkspace({
         <section className="tw-inbox">
           <TaskReminders preview={preview} />
           {data.inbox.map((n) => (
-            <div key={n.id} className="tw-inbox-row">
+            <TaskTouchSurface key={n.id} onHold={()=>openTask(n.task_id)} onRight={()=>void markInbox(n,true)} onLeft={()=>void markInbox(n,false)} rightLabel="Okundu" leftLabel="Okunmadı" rightIcon={<Check size={18}/>} leftIcon={<Inbox size={18}/>}><div className="tw-inbox-row">
               <button
                 key={n.id}
                 className={cn("tw-inbox-item", !n.read_at && "unread")}
@@ -1135,7 +1216,7 @@ export function TaskWorkspace({
                 <span className="tw-inbox-dot" />
                 <div>
                   <p>
-                    {n.event === "assigned"
+                    {n.event === "cancelled" ? "Görev neden belirtilerek iptal edildi" : n.event === "reactivated" ? "İptal edilen görev yeniden açıldı" : n.event === "assigned"
                       ? "Sana bir görev atandı"
                       : n.event === "due_soon"
                         ? "Görevin termini yaklaşıyor veya geçti"
@@ -1178,7 +1259,7 @@ export function TaskWorkspace({
               >
                 {n.read_at ? "Okunmadı işaretle" : "Okundu işaretle"}
               </Button>
-            </div>
+            </div></TaskTouchSurface>
           ))}
           {!data.inbox.length && (
             <div className="tw-empty">
@@ -1197,7 +1278,7 @@ export function TaskWorkspace({
         <Plus size={21} />
         <span>Yeni görev</span>
       </button>
-      <Dialog open={creating} onOpenChange={setCreating}>
+      <Dialog open={creating} onOpenChange={requestCreate}>
         <DialogContent mobileKeyboardSafe className="tw-create-dialog">
           <DialogTitle>
             {board?.kind === "note"
@@ -1210,6 +1291,8 @@ export function TaskWorkspace({
             Başlık yeterli. Diğer alanları sonra da ekleyebilirsin.
           </DialogDescription>
           <TaskForm
+            onDirty={setCreateDirty}
+            onTagCommand={command}
             data={data}
             userId={userId}
             board={
@@ -1227,7 +1310,7 @@ export function TaskWorkspace({
             onSubmit={async (input) => {
               const r = await command("create", input);
               if (r) {
-                setCreating(false);
+                setCreating(false);setCreateDirty(false);
                 toast.success("Kaydedildi");
               }
             }}
@@ -1265,6 +1348,7 @@ export function TaskWorkspace({
                   disabled={
                     busy ||
                     detail.task.can_edit === false ||
+                    !!detail.task.archived_at ||
                     detail.task.kind === "note"
                   }
                   onClick={() => void toggle(detail.task)}
@@ -1296,9 +1380,12 @@ export function TaskWorkspace({
               >
                 Yorumlara git · {detail.comments.length}
               </button>
+              {detail.task.cancelled_at&&<aside className="tw-cancellation-notice"><strong>Bu görev iptal edildi</strong><p>{detail.task.cancellation_reason}</p><small>{data.people.find(p=>p.id===detail.task.cancelled_by)?.full_name??"Kullanıcı"} · {new Date(detail.task.cancelled_at).toLocaleString("tr-TR")}</small></aside>}
               <TaskEditor
                 key={detail.task.id}
                 task={detail.task}
+                onDirty={setDetailDirty}
+                onTagCommand={command}
                 userId={userId}
                 data={data}
                 busy={busy}
@@ -1321,15 +1408,15 @@ export function TaskWorkspace({
                   variant="ghost"
                   disabled={busy || detail.task.can_edit === false}
                   onClick={() =>
-                    void patch(detail.task, {
-                      archived: !detail.task.archived_at,
-                    })
+                    void archiveTask(detail.task)
                   }
                 >
                   <Archive size={14} />
                   {detail.task.archived_at ? "Arşivden çıkar" : "Arşivle"}
                 </Button>
               </div>
+              {detail.task.can_cancel&&<Button variant="outline" disabled={busy} onClick={()=>detail.task.cancelled_at?void reactivateTask(detail.task):setCancelTask(detail.task)}>{detail.task.cancelled_at?"Görevi yeniden aç":"Görevi iptal et"}</Button>}
+              {!!detail.cancellations?.length&&<section className="tw-cancellation-history"><h3>İptal ve yeniden açma geçmişi</h3>{detail.cancellations.map(e=><article key={e.id}><strong>{e.event==="cancelled"?"İptal edildi":"Yeniden açıldı"}</strong><small>{data.people.find(p=>p.id===e.actor_id)?.full_name??"Kullanıcı"}{e.agent_name?` · ${e.agent_name}`:""} · {new Date(e.created_at).toLocaleString("tr-TR")}</small><p>{e.reason}</p></article>)}</section>}
               <TaskWorkflow
                 key={`flow-${detail.task.id}`}
                 task={detail.task}
@@ -1456,7 +1543,9 @@ export function TaskWorkspace({
                       <span>
                         {(
                           {
-                            created: "oluşturdu",
+                              created: "oluşturdu",
+                              cancelled: "iptal etti",
+                              reactivated: "yeniden açtı",
                             updated: "güncelledi",
                             commented: "yorum ekledi",
                             attached: "dosya ekledi",
@@ -1657,10 +1746,14 @@ function TaskHistoryChanges({
     visibility: "Paylaşım",
     board_id: "Pano",
     archived_at: "Arşiv",
+    cancelled_at: "İptal zamanı",
+    cancellation_reason: "İşlem nedeni",
+    tag_ids: "Etiketler",
     kind: "Tür",
     goal_id: "Hedef",
   };
   function value(key: string, raw: unknown): string {
+    if(key==="tag_ids"&&Array.isArray(raw))return raw.map(id=>(data.tags??[]).find(t=>t.id===id)?.name??"Önceki etiket").join(", ")||"Etiket yok";
     if (raw === null || raw === undefined || raw === "") return "Yok";
     if (key === "checklist" && Array.isArray(raw))
       return raw.length
@@ -1920,18 +2013,23 @@ function QuickTaskActions({
 }
 
 function TaskForm({
+  onDirty,
+  onTagCommand,
   data,
   userId,
   board,
   busy,
   onSubmit,
 }: {
+  onDirty:(dirty:boolean)=>void;
+  onTagCommand:TagCommand;
   data: Workspace;
   userId: string;
   board?: Board;
   busy: boolean;
   onSubmit: (input: TaskInput) => Promise<void>;
 }) {
+  const [tagIds,setTagIds]=useState<string[]>([]);
   const [selected, setSelected] = useState(board?.id ?? ""),
     [scope, setScope] = useState(board?.team_id ?? "private"),
     [assigneeQuery, setAssigneeQuery] = useState(""),
@@ -1955,10 +2053,12 @@ function TaskForm({
   return (
     <form
       className="tw-task-form"
+      onChange={()=>onDirty(true)}
       onSubmit={async (e) => {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
         await onSubmit({
+          tag_ids:tagIds,
           title: String(f.get("title")),
           note: String(f.get("note") ?? ""),
           board_id: scope === "direct" ? null : selected || null,
@@ -1981,6 +2081,7 @@ function TaskForm({
         placeholder="Ne yapılacak?"
         className="tw-title-input"
       />
+      <TaskTagPicker ids={tagIds} data={data} task={{visibility:scope==="direct"?"direct":b?.team_id?"team":"private",created_by:userId,board_id:scope==="direct"?null:selected||null}} disabled={busy} onChange={ids=>{setTagIds(ids);onDirty(true);}} onCommand={onTagCommand}/>
       <label>
         Paylaşım
         <select
@@ -2179,12 +2280,16 @@ function TaskForm({
   );
 }
 function TaskEditor({
+  onDirty,
+  onTagCommand,
   task: t,
   userId,
   data,
   busy,
   onSave,
 }: {
+  onDirty:(dirty:boolean)=>void;
+  onTagCommand:TagCommand;
   task: Task;
   userId: string;
   data: Workspace;
@@ -2197,7 +2302,8 @@ function TaskEditor({
   const [title, setTitle] = useState(t.title),
     [note, setNote] = useState(t.note),
     [selectedBoard, setSelectedBoard] = useState(t.board_id ?? "");
-  const canEdit = t.can_edit !== false;
+  const canEdit = t.can_edit !== false && !t.archived_at;
+  useEffect(()=>{onDirty(title!==t.title||note!==t.note);},[title,note,t.title,t.note,onDirty]);
   const [editVersion, setEditVersion] = useState(t.version);
   const [jobQuery, setJobQuery] = useState("");
   const [jobs, setJobs] = useState(data.jobs);
@@ -2247,16 +2353,20 @@ function TaskEditor({
       >
         <textarea
           className="tw-detail-title"
+          ref={node=>{if(node){node.style.height="auto";node.style.height=`${Math.min(144,node.scrollHeight)}px`;}}}
           aria-label="Görev başlığını düzenle"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          rows={2}
+          rows={1}
           maxLength={300}
           readOnly={!canEdit}
         />
+        <TaskTagPicker ids={t.tag_ids??[]} data={data} task={t} disabled={busy||!canEdit} onChange={ids=>onSave({tag_ids:ids})} onCommand={onTagCommand}/>
+        <div className="tw-detail-summary"><span className={`tw-status status-${t.status}`}>{statuses[t.status]}</span>{t.priority!=="none"&&<span className={`tw-priority priority-${t.priority}`}><Flag size={13}/>{priorities[t.priority]}</span>}{isOverdue(t,todayIstanbul())&&<span className="tw-overdue-label">Termin geçti</span>}</div>
+        <h3 className="tw-section-heading"><List size={16}/>Temel bilgiler</h3>
         <div className="tw-detail-fields">
           <label>
-            Sorumlu
+            <span className="tw-field-caption"><Users size={14}/>Sorumlu</span>
             <Select
               label="Görev sorumlusu"
               value={t.assignee ?? ""}
@@ -2298,7 +2408,7 @@ function TaskEditor({
             </Select>
           </label>
           <label>
-            Termin
+            <span className="tw-field-caption"><CalendarDays size={14}/>Termin</span>
             <input
               aria-label="Görev termini"
               type="date"
@@ -2310,7 +2420,7 @@ function TaskEditor({
             />
           </label>
           <label>
-            Durum
+            <span className="tw-field-caption"><CheckCheck size={14}/>Durum</span>
             <Select
               label="Görev durumu"
               value={t.status}
@@ -2325,7 +2435,7 @@ function TaskEditor({
             </Select>
           </label>
           <label>
-            Öncelik
+            <span className="tw-field-caption"><Flag size={14}/>Öncelik</span>
             <Select
               label="Görev önceliği"
               value={t.priority}
@@ -2339,8 +2449,10 @@ function TaskEditor({
               ))}
             </Select>
           </label>
+          <details className="tw-detail-links">
+          <summary><BriefcaseBusiness size={14}/>İş ve hedef bağlantıları <span>{t.job_no??"Bağlantı ekle"}</span></summary>
           <label>
-            İş kodu
+            <span className="tw-field-caption"><BriefcaseBusiness size={14}/>İş kodu</span>
             <span className="tw-job-picker">
               <input
                 aria-label="Görev için iş kodu ara"
@@ -2370,7 +2482,7 @@ function TaskEditor({
             </span>
           </label>
           <label>
-            Hedef
+            <span className="tw-field-caption"><Target size={14}/>Hedef</span>
             <Select
               label="Bağlı hedef"
               value={t.goal_id ?? ""}
@@ -2392,6 +2504,7 @@ function TaskEditor({
                 ))}
             </Select>
           </label>
+          </details>
         </div>
         {editVersion !== t.version && (
           <details className="tw-conflict" open>
@@ -2419,11 +2532,11 @@ function TaskEditor({
           </details>
         )}
         <label className="tw-description-label">
-          Açıklama
+          <span className="tw-section-heading"><FileText size={16}/>Açıklama</span>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            rows={5}
+            rows={3}
             maxLength={20000}
             readOnly={!canEdit}
             placeholder="Bu işi tamamlamak için bilinmesi gerekenler"
@@ -2437,7 +2550,7 @@ function TaskEditor({
       </form>
       {canEdit && t.created_by === userId && (
         <details className="tw-sharing">
-          <summary>Pano ve paylaşım</summary>
+          <summary><Lock size={15}/> Pano ve paylaşım</summary>
           <p>
             Ekibe taşıdığında görev içeriği, yorumlar ve ekler o ekip tarafından
             görülebilir.

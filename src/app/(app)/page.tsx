@@ -26,9 +26,9 @@ export default async function PanelPage({
           "status",
           "priority",
           "sent",
-          "unassigned",
+          "unassigned", "tagIds", "tagMatch", "untagged",
         ].includes(key),
-      ).map(([key, value]) => [key, key === "sent" || key === "unassigned" ? value === "true" : value]),
+      ).map(([key, value]) => [key, key === "sent" || key === "unassigned" || key === "untagged" ? value === "true" : value]),
     ),
   );
   const filters = parsed.success ? parsed.data : { view: "mine" as const };

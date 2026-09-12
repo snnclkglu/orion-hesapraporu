@@ -32,11 +32,13 @@ function task(id: number, title: string, extra: Partial<Task> = {}): Task {
     goal_id: null,
     source_ref: null,
     updated_at: new Date().toISOString(),
-    can_edit: true,
+    can_edit: true, can_cancel: true,
+    tag_ids: id===1?["50000000-0000-4000-8000-000000000002"]:[],
     ...extra,
   };
 }
 const initial: Workspace = {
+  tags: ["TEKLİF","PROJE","SATIN ALMA"].map((name,i)=>({id:`50000000-0000-4000-8000-${String(i+1).padStart(12,"0")}`,name,color_hue:[300,250,65][i],scope:"global",team_id:null,owner_id:null,archived_at:null,version:1,updated_at:new Date().toISOString(),can_edit:true})),
   tasks: [
     task(1, "Köprü kirişi hesap raporunu kontrol et", {
       job_no: "0065",
@@ -117,6 +119,7 @@ export default async function Preview({
   const parsed = filtersSchema.safeParse({
     view: params.view,
     period: params.period,
+    tagIds:params.tagIds,tagMatch:params.tagMatch,untagged:params.untagged==="true",
   });
   return (
     <main className="mx-auto w-full min-w-0 max-w-[1440px] p-4 sm:p-8">

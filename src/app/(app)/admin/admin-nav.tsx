@@ -15,6 +15,7 @@ const ITEMS = [
   { href: "/admin/teams", label: "Ekipler" },
   { href: "/admin/feedback", label: "Geri Bildirimler" },
   { href: "/admin/email-center", label: "E-posta Merkezi" },
+  { href: "/admin/integrations", label: "API ve Entegrasyonlar" },
   { href: "/admin/deletion-requests", label: "Silme Onayları" },
   { href: "/admin/customers", label: "Müşteriler" },
   { href: "/admin/profile-scoring", label: "Profil Puanlama" },

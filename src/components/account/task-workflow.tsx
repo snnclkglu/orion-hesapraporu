@@ -64,7 +64,7 @@ export function TaskWorkflow({
   );
   const [saving, setSaving] = useState(false);
   const [ruleVersion, setRuleVersion] = useState<number | null>(null);
-  const disabled = busy || saving || task.can_edit === false;
+  const disabled = busy || saving || task.can_edit === false || !!task.archived_at;
   useEffect(() => {
     if (preview) return;
     let active = true;

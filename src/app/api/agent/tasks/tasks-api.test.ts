@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   command: vi.fn(),
   snapshot: vi.fn(),
   detail: vi.fn(),
+  tags: vi.fn(),
 }));
 vi.mock("../_lib", () => ({
   agentJson: (d: unknown, i?: ResponseInit) => Response.json(d, i),
@@ -18,6 +19,7 @@ vi.mock("@/lib/tasks/service", () => ({
   taskCommand: mocks.command,
   taskSnapshot: mocks.snapshot,
   taskDetail: mocks.detail,
+  taskTagCatalog: mocks.tags,
   TaskError: class extends Error {
     constructor(
       message: string,
@@ -91,6 +93,13 @@ const req = (method: string, body: unknown, key = "request-0001") =>
     },
     body: JSON.stringify(body),
   });
+it.each(["cancel", "reactivate"])("%s ayrı iptal izniyle çalışır", async (operation) => {
+  const id = crypto.randomUUID();
+  const response = await POST(req("POST", { version: 3, ...(operation === "cancel" ? { reason: "Yanlışlıkla açıldı" } : {}) }), ctx(id, operation));
+  expect(response.status).toBe(200);
+  expect(mocks.run).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({scope:"tasks:cancel"}), expect.anything());
+  expect(mocks.command).toHaveBeenCalledWith(expect.anything(), "actor", operation, expect.objectContaining({id,version:3}), "grok-tasks", "request-0001");
+});
 it("anahtar yoksa yazma servisine gitmez", async () => {
   expect((await POST(req("POST", { title: "Görev" }, ""), ctx())).status).toBe(
     422,
@@ -160,4 +169,23 @@ it("bağlam uçları başka modülün verilerini döndürmez", async () => {
     "teams",
   ]);
   expect(mocks.run.mock.calls[0][1].scope).toBe("tasks:context:read");
+});
+it("etiket kataloğu görev kimliği gibi yorumlanmaz",async()=>{
+ mocks.tags.mockResolvedValue({tags:[],total:0,nextCursor:null});
+ const r=await GET(new Request("https://example.test/api/agent/tasks/tags?q=Teklif"),ctx("tags"));
+ expect(r.status).toBe(200);expect(mocks.tags).toHaveBeenCalledWith(expect.anything(),"actor",{q:"Teklif"});expect(mocks.detail).not.toHaveBeenCalled();
+ expect(mocks.run.mock.calls[0][1].scope).toBe("tasks:read");
+});
+it("etiket oluşturma ayrı katalog izni ve tekrar anahtarı kullanır",async()=>{
+ const r=await POST(req("POST",{name:"TEKLİF",scope:"global",color_hue:300}),ctx("tags"));
+ expect(r.status).toBe(201);expect(mocks.run.mock.calls[0][1].scope).toBe("tasks:tags:manage");
+ expect(mocks.command.mock.calls[0][2]).toBe("tag.create");expect(mocks.command.mock.calls[0][3]).not.toHaveProperty("id");
+});
+it("katalog güncellemesi yol kimliğini kullanır",async()=>{
+ const id=crypto.randomUUID();await PATCH(req("PATCH",{version:1,archived:true}),ctx("tags",id));
+ expect(mocks.command.mock.calls[0][2]).toBe("tag.update");expect(mocks.command.mock.calls[0][3]).toEqual({id,version:1,archived:true});
+});
+it("göreve etiket eklemek katalog yönetim izni istemez",async()=>{
+ await PATCH(req("PATCH",{version:2,add_tag_ids:[crypto.randomUUID()]}),ctx(crypto.randomUUID()));
+ expect(mocks.run.mock.calls[0][1].scope).toBe("tasks:write");
 });

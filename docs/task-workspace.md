@@ -1,6 +1,8 @@
 # Panel görev yönetimi
 
-Panel artık Görevlerim, Ekip, Panolar, Gelen kutusu ve Menü alanlarından oluşur. Telefonda bu alanlar alttadır. Yeni görev için başlık yeterlidir; tarih, kişi, iş kodu ve açıklama isteğe bağlıdır. Görev satırındaki tarih ve kişi doğrudan değiştirilebilir. Tamamlanan görev kısa bildirimdeki Geri al eylemiyle yeniden açılabilir.
+Panel Görevlerim, Ekip, Panolar ve Gelen kutusu alanlarından oluşur. Yeni görev için başlık yeterlidir; tarih, kişi, iş kodu, etiketler ve açıklama isteğe bağlıdır. Basılı tutma hızlı işlem menüsünü, sola kaydırma tarih seçimini açar. Sağa kaydırma arşivler; yaklaşık 10 saniyelik Geri al bildirimi ve sonrasında Arşiv görünümünden geri yükleme vardır. Masaüstünde üç nokta/sağ tık aynı işlemleri sunar. Gelen kutusunda kaydırma yalnız bildirimin okunma durumunu değiştirir.
+
+Etiketler yeni görev formunda ve detayda eklenir; liste/pano kartında iki etiket ve kalan sayısı görünür. Teklif, Proje ve Satın Alma ortak başlangıç kategorileridir. Kişisel/ekip etiketleri eklenebilir; mevcut etiketlerin ad/renk/arşivi yetkili kullanıcı tarafından düzenlenir. Etiket seçicisindeki Arşiv etiketlerini göster seçeneğinden geri yüklenir. Filtrele içinde herhangi biri/tümü/etiketsiz seçimi kayıtlı görünümlere ve URL'ye taşınır. Grokbot kurulumu ve örnekler: [Görev etiketleri API rehberi](grokbot-task-tags.md).
 
 ## Gizlilik ve ekip
 
@@ -107,3 +109,8 @@ Beklenen görev aynı paylaşım kapsamında olmalıdır. Özel/doğrudan görev
 Gelen kutusunda okundu/okunmadı işaretlenebilir ve görev açılabilir. Hatırlatma tercihleri termin uyarısını ve sessiz saatleri yönetir. Hatırlatıcı uygulama verisi yenilenirken çalışır; kapalı uygulamaya push bildirimi vaat etmez. Aynı kullanıcı/görev/termin için tek kayıt; görevin hazır olması bildirimi kullanıcı/görev için tek kayıt üretir.
 
 `GET /api/agent/tasks/{id}/workflow` akışı okur. `PATCH` sürüm ve Idempotency-Key ile `checklist`, `recurrence` ve/veya `waiting_for` değiştirir. Yazma `tasks:write`, okuma `tasks:read` kapsamındadır; kayıt yetkisi ayrıca doğrulanır. Grokbot bağlantısını kullanıcı kuracaktır. [OpenAPI 1.1](task-api.openapi.json) · [Uygulama/kontrol kaydı](../plans/008-asana-karsilastirma-ve-iyilestirme.md#7-uygulama-kaydı--12-eylül-2026).
+## Kontrollü iptal
+
+Yanlış açılmış görevde hızlı işlemler veya detaydan **Görevi iptal et** seçilir. En az 3 karakter neden zorunludur. Görev **İptal edilenler** filtresine taşınır; tamamlanmış sayılmaz ve kalıcı silinmez. Kim, ne zaman, hangi nedenle iptal etti ve sonradan kim yeniden açtı bilgileri detayda ayrı geçmiş bölümünde korunur. İptal kaydı önceki görev içeriğinin kopyasını da saklar; kayıtlar kullanıcılar tarafından güncellenemez veya silinemez.
+
+Kişisel/kişiye özel görevde oluşturan, ekip görevinde ekip sahibi/yöneticisi veya sistem yöneticisi, iş görevinde sistem yöneticisi iptal edebilir. Atama tek başına iptal yetkisi vermez. Paylaşılan görev işlemleri diğer yetkili yöneticilerin Gelen bölümünde görünür. İptal kaydı tekrar açılabilir; önceki arşiv durumu korunur. İptal için kaydırma kısayolu yoktur; neden ekranındaki açık işlem düğmesi kullanılır.
