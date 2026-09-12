@@ -125,6 +125,7 @@ işaretçiler aynı yönlendirmeyi otomatik yapar; harita onların yedeğidir.
 | Hammadde Havuzu | `docs/agent/hammadde.md` | Ayıklama dilbilgisi, beş sınıf, sac plaka yerleşimi, teklif partisi/talebi, alım analizi |
 | Teknik Araçlar | `docs/agent/teknik-araclar.md` | Herkese açık metrik ağırlık, profil, kama ve geçme toleransı araçları |
 | Personel | `docs/agent/personel.md` | Dönemli kayıt, fazla mesai, ücret planı, bordro, özlük dosyası, döviz kuru |
+| Çizim İşleme | `docs/agent/cad.md` | Yerel AutoCAD yardımcısı, cihaz eşleştirme, iş kuyruğu ve onaylı çıktı aktarımı |
 | Teknik Resimler | `docs/agent/resimler.md` | Paket yükleme ve tanıma, hoşgörü ilkeleri, defter/ilerleme, Teknik Resim Takibi planı |
 | İşler ve iş kalemleri | `docs/agent/isler.md` | İş emri → kalem → rapor bağı, doküman no, BÜYÜK HARF kuralı, müşteri defteri, İşler hub'ı |
 | Elektrik Projesi | `docs/agent/elektrik.md` | EPLAN PDF'inin arşivi ve okunması: malzeme listesi, sayfa dizini, künye, panel dökümü |

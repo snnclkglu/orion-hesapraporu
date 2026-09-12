@@ -32,6 +32,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  // CAD-1: yalnız cihaz ucu çerezsizdir; kendi tek-cihaz anahtarını doğrular.
+  if (request.nextUrl.pathname === "/api/cad/worker") return NextResponse.next({ request });
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

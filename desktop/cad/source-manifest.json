@@ -1,0 +1,90 @@
+[
+  {
+    "name": "1-KUR.bat",
+    "sha256": "eae25fbf571c4dcbd146b21b9b5d26502e9583eb2e47c90a9a341b39dafb7f13"
+  },
+  {
+    "name": "2-CIHAZLARI-LISTELE.bat",
+    "sha256": "e48cf23c64cd3e3b5046227cc464c34c96594f9394ca5043dc1c099fcafa2dc4"
+  },
+  {
+    "name": "3-ONIZLEME.bat",
+    "sha256": "e5b9ca65b9f950ef64856496fee04908896df5ad67a021552c399a309a6fb29b"
+  },
+  {
+    "name": "4-PDF-BAS.bat",
+    "sha256": "63cd37ed9c3df34774e4589488790c05902a21c22b8cc4d2f0cec3f597da5b84"
+  },
+  {
+    "name": "5-TANI.bat",
+    "sha256": "eb92b367bd78a11808883f7dfa42439cad3cc7bf5aa9315f606d6875b1c1c5bf"
+  },
+  {
+    "name": "6-COM-ONBELLEGI-TEMIZLE.bat",
+    "sha256": "0ce51586d13cf634e15863236f5abf5f022e668567da878ce7b9bb3062bb4e05"
+  },
+  {
+    "name": "7-KLASORDEN-AYIKLA.bat",
+    "sha256": "69b16a0effcff668347c297eee665af1ffb00b85a06faba1723293d45eed7fb5"
+  },
+  {
+    "name": "dogrula_sessiz_pdf.py",
+    "sha256": "119bd4cdce3cba1d88d75063f2ee94496cfc271d6f16b3349a55f44b469828ce"
+  },
+  {
+    "name": "dogrula_toplu_autocad.py",
+    "sha256": "8eb839676129baa83692d7511ad6597f484c2796bd70828b40e557144de50cb6"
+  },
+  {
+    "name": "KULLANIM.md",
+    "sha256": "0d97c9a791b44292f820c995307f6ca4c2ab011f90d26df98f3303ba7be608d2"
+  },
+  {
+    "name": "pafta_ayikla.py",
+    "sha256": "b9cffd7cb1c6e912855761e67e50e88f0e25a4302b82aa35df2a1db48edd511c"
+  },
+  {
+    "name": "pafta_core.py",
+    "sha256": "0cd2a7cccb9c83074e4a2457e12246a1459b1921d8cc4de8e87f616dd748beac"
+  },
+  {
+    "name": "pafta_dxf.py",
+    "sha256": "a1b1c8a03c74859b03529acb6972e1127c3dd6998fc09b2d0f7eb22fec749c0b"
+  },
+  {
+    "name": "pafta_klasor.py",
+    "sha256": "b87935d12552d8c30432887eb082542ece2e992876d7365c02798e3f2883c623"
+  },
+  {
+    "name": "pafta_plotter.py",
+    "sha256": "7d2dc4592d729f144f75f90e1c1261ed5e438b3059dcd9e1e07e0fdd5bbb7b31"
+  },
+  {
+    "name": "pafta_report.py",
+    "sha256": "bebc1374f69b9ea7a2eb142721c682f64b4b232e256525fc7e05b9424defbc1d"
+  },
+  {
+    "name": "pafta_tani.py",
+    "sha256": "09d4e9a2bfb57266d8a4060a22908e013f8647748d1ba66e2523a6b4b4b77c79"
+  },
+  {
+    "name": "pafta_toplu.py",
+    "sha256": "79923427a81df74debbd3bc7f37637dfb0d845632689b19f34375ce152a575d9"
+  },
+  {
+    "name": "tani_ozet.py",
+    "sha256": "ae7104fa536a177755f9279a902259f3dc1093cde345cd14b036156ff625b081"
+  },
+  {
+    "name": "test_pafta_klasor.py",
+    "sha256": "2f1dfd5fb76dda890c7039673529c0e0ef9ad00733ad054acdf039045baee451"
+  },
+  {
+    "name": "test_pafta_plotter.py",
+    "sha256": "2c84c3533bcabecd903f785ebb628a97baeca0d318f21a554e2b450b99b96aac"
+  },
+  {
+    "name": "test_pafta_toplu.py",
+    "sha256": "003fcf81a31b90ced5280f8e7b830f9546df265afa284d3d3621f5a96c67c268"
+  }
+]

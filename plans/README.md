@@ -15,3 +15,5 @@ These plans record the ORION motion baseline before source edits. Execute them i
 3. `003-remove-layout-motion.md`
 
 After implementation, run the motion review against the diff, the Impeccable detector against changed UI files, and the repository's type/lint checks. Mark a plan `DONE` only after both mechanical and visual verification pass.
+
+- [009 — Çizim İşleme / yerel AutoCAD](009-cizim-isleme-autocad.md) — kontrollü entegrasyon ve kabul aşamaları.

@@ -409,6 +409,11 @@ export function sectionAccess(section: WorkspaceSection, role: string): SectionA
  */
 export const LANDING_PATH = "/";
 
+/** CAD-1: bilinmeyen profil işleme yetkisi kazanmaz. */
+export function canProcessCad(value: string | null | undefined): boolean {
+  return value === "admin" || value === "engineer" || value === "draftsman";
+}
+
 export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
   // AÇILIŞ PANOSU LİSTENİN BAŞINDADIR ve adresi KÖKTÜR. Menüde ilk sırada
   // durması bir düzen tercihi değil bir gerçektir: giriş sonrası açılan
@@ -470,6 +475,15 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     hint: "Teknik resim paketleri, parça defteri ve üretim tahtası",
     kime: "Herkes",
     yazabilir: canEditDrawings,
+    yazma: "Yönetici · Mühendis · Teknik Ressam",
+  },
+  {
+    href: "/cad",
+    label: "Çizim İşleme",
+    icon: "blueprint",
+    hint: "Kendi AutoCAD’inizle pafta ve malzeme listesi hazırlama",
+    kime: "Herkes (kendi işlem geçmişi)",
+    yazabilir: canProcessCad,
     yazma: "Yönetici · Mühendis · Teknik Ressam",
   },
   {

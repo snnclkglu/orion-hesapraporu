@@ -1,0 +1,337 @@
+{
+  "arac_surum": "1.4.0",
+  "ozet": {
+    "cizim": 1,
+    "pafta": 2,
+    "malzeme_satiri": 4,
+    "pdf_basarili": 2,
+    "hata": 0
+  },
+  "paftalar": [
+    {
+      "dosya": "0026-01-0300 - BAŞKİRİŞ",
+      "sira": 1,
+      "resim_no": "0026-01-0113",
+      "proje": "KÖPRÜ YÜRÜTME GRUBU",
+      "parca": "EMNİYET PULU - 2",
+      "is_adi": "",
+      "is_no": "0026-01",
+      "musteri": "",
+      "pafta_no": "1/1",
+      "kagit": "A3",
+      "olcek": "1/1.2",
+      "olcek_antet": "1/1",
+      "olcek_uyum": "UYUSMUYOR",
+      "olcek_sapma": 20.0,
+      "olcek_std": "HAYIR",
+      "cerceve_w": 504.0,
+      "cerceve_h": 357.04,
+      "kirpma_mm": 0.535,
+      "malzeme_satiri": 1,
+      "toplam_agirlik": "0,8",
+      "pdf": "0026-01-0113.pdf",
+      "durum": "OK",
+      "uyarilar": "OLCEK: antette '1/1', cercevenin gercek olcegi 1/1.2 (%20 sapma - basilan parca nominalden %20 kucuk). Cerceve standart bir olcude degil; ANTET BLOGU elle olceklenmis gorunuyor. PDF cerceveye gore basildi. | Malzeme listesi elle cizilmis (AutoCAD tablosu degil); 1 tablo metinlerden cozuldu. | ctb=monochrome.ctb",
+      "pencere": {
+        "ll": [
+          31765252.627855983,
+          -2430525.257765444
+        ],
+        "ur": [
+          31765756.627855983,
+          -2430168.8577654436
+        ]
+      },
+      "malzeme_listesi": [
+        {
+          "poz": "13",
+          "resim_no": "0026-01-0113",
+          "adet": "1",
+          "tanim": "Ø 40 x 65",
+          "malzeme": "S235JR",
+          "notlar": "-",
+          "birim_agirlik": "0,8",
+          "toplam_agirlik": "0,8"
+        }
+      ]
+    },
+    {
+      "dosya": "0026-01-0300 - BAŞKİRİŞ",
+      "sira": 2,
+      "resim_no": "0026-01-0300-B",
+      "proje": "BAŞKİRİŞ PARÇA DETAYLARI",
+      "parca": "",
+      "is_adi": "",
+      "is_no": "0026-01",
+      "musteri": "",
+      "pafta_no": "1/1",
+      "kagit": "A3",
+      "olcek": "1/11",
+      "olcek_antet": "1/10",
+      "olcek_uyum": "UYUSMUYOR",
+      "olcek_sapma": 10.0,
+      "olcek_std": "EVET",
+      "cerceve_w": 4620.0,
+      "cerceve_h": 3272.89,
+      "kirpma_mm": 0.535,
+      "malzeme_satiri": 19,
+      "toplam_agirlik": "",
+      "pdf": "0026-01-0300-B.pdf",
+      "durum": "OK",
+      "uyarilar": "OLCEK: antette '1/10', cercevenin gercek olcegi 1/11 (%10 sapma - basilan parca nominalden %10 kucuk). Cerceve standart olcude; duzeltilmesi gereken ANTET YAZISI. PDF cerceveye gore basildi. | Malzeme listesi elle cizilmis (AutoCAD tablosu degil); 1 tablo metinlerden cozuldu. | ctb=monochrome.ctb",
+      "pencere": {
+        "ll": [
+          31760406.743546955,
+          -2433438.4797889935
+        ],
+        "ur": [
+          31765026.743546955,
+          -2430171.4797889935
+        ]
+      },
+      "malzeme_listesi": [
+        {
+          "poz": "1-4",
+          "resim_no": "0026-01-0301-4",
+          "adet": "1",
+          "tanim": "15 x 304 x 2450",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "87,3",
+          "toplam_agirlik": "87,3"
+        },
+        {
+          "poz": "1-3",
+          "resim_no": "0026-01-0301-3",
+          "adet": "1",
+          "tanim": "15 x 304 x 1460",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "46,5",
+          "toplam_agirlik": "46,5"
+        },
+        {
+          "poz": "1-2",
+          "resim_no": "0026-01-0301-2",
+          "adet": "1",
+          "tanim": "15 x 505 x 2495",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "111,0",
+          "toplam_agirlik": "111,0"
+        },
+        {
+          "poz": "1-1",
+          "resim_no": "0026-01-0301-1",
+          "adet": "1",
+          "tanim": "15 x 505 x 2495",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "108,0",
+          "toplam_agirlik": "108,0"
+        },
+        {
+          "poz": "2",
+          "resim_no": "0026-01-0302",
+          "adet": "2",
+          "tanim": "8 x 190 x 290",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "0,9",
+          "toplam_agirlik": "1,8"
+        },
+        {
+          "poz": "3",
+          "resim_no": "0026-01-0303",
+          "adet": "4",
+          "tanim": "10 x 245 x 523",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "6,4",
+          "toplam_agirlik": "25,6"
+        },
+        {
+          "poz": "4",
+          "resim_no": "0026-01-0304",
+          "adet": "4",
+          "tanim": "10 x 250 x 245",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "1,6",
+          "toplam_agirlik": "6,4"
+        },
+        {
+          "poz": "5",
+          "resim_no": "0026-01-0305",
+          "adet": "4",
+          "tanim": "55 x 345 x 390",
+          "malzeme": "St44/St52",
+          "notlar": "",
+          "birim_agirlik": "15,5",
+          "toplam_agirlik": "62,0"
+        },
+        {
+          "poz": "6",
+          "resim_no": "0026-01-0306",
+          "adet": "2",
+          "tanim": "15 x 305 x 214",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "4,3",
+          "toplam_agirlik": "8,6"
+        },
+        {
+          "poz": "7",
+          "resim_no": "0026-01-0307",
+          "adet": "1",
+          "tanim": "15 x 264 x 800",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "27,8",
+          "toplam_agirlik": "27,8"
+        },
+        {
+          "poz": "8",
+          "resim_no": "0026-01-0308",
+          "adet": "1",
+          "tanim": "15 x 402 x 700",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "36,2",
+          "toplam_agirlik": "36,2"
+        },
+        {
+          "poz": "9",
+          "resim_no": "0026-01-0309",
+          "adet": "2",
+          "tanim": "15 x 140 x 140",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "1,8",
+          "toplam_agirlik": "3,6"
+        },
+        {
+          "poz": "10",
+          "resim_no": "0026-01-0310",
+          "adet": "2",
+          "tanim": "10 x 305 x 650",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "11,5",
+          "toplam_agirlik": "11,5"
+        },
+        {
+          "poz": "11",
+          "resim_no": "0026-01-0311",
+          "adet": "1",
+          "tanim": "8 x 190 x 290",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "3,0",
+          "toplam_agirlik": "3,0"
+        },
+        {
+          "poz": "12",
+          "resim_no": "0026-01-0312",
+          "adet": "2 NPU 140 ............................................. 200",
+          "tanim": "",
+          "malzeme": "St37",
+          "notlar": "",
+          "birim_agirlik": "3,5",
+          "toplam_agirlik": "7,0"
+        },
+        {
+          "poz": "13",
+          "resim_no": "0026-01-0313",
+          "adet": "1",
+          "tanim": "8 x 160 x 160",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "1,7",
+          "toplam_agirlik": "1,7"
+        },
+        {
+          "poz": "14",
+          "resim_no": "0026-01-0314",
+          "adet": "2",
+          "tanim": "8 x 150 x 70",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "0,35",
+          "toplam_agirlik": "0,7"
+        },
+        {
+          "poz": "25",
+          "resim_no": "0026-01-0325",
+          "adet": "2",
+          "tanim": "15 x 150 x 47",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "0,8",
+          "toplam_agirlik": "1,6"
+        },
+        {
+          "poz": "26",
+          "resim_no": "0026-01-0326",
+          "adet": "2",
+          "tanim": "15 x 105 x 47",
+          "malzeme": "St52",
+          "notlar": "",
+          "birim_agirlik": "0,7",
+          "toplam_agirlik": "1,4"
+        }
+      ]
+    }
+  ],
+  "malzeme": [
+    {
+      "dosya": "0026-01-0300 - BAŞKİRİŞ",
+      "pafta": "0026-01-0113",
+      "poz": "13",
+      "resim_no": "0026-01-0113",
+      "adet": "1",
+      "tanim": "Ø 40 x 65",
+      "malzeme": "S235JR",
+      "notlar": "-",
+      "birim_agirlik": "0,8",
+      "toplam_agirlik": "0,8"
+    },
+    {
+      "dosya": "0026-01-0300 - BAŞKİRİŞ",
+      "pafta": "0026-01-0300-B",
+      "poz": "1-4",
+      "resim_no": "0026-01-0301-4",
+      "adet": "1",
+      "tanim": "15 x 304 x 2450",
+      "malzeme": "St52",
+      "notlar": "",
+      "birim_agirlik": "87,3",
+      "toplam_agirlik": "87,3"
+    },
+    {
+      "dosya": "0026-01-0300 - BAŞKİRİŞ",
+      "pafta": "0026-01-0300-B",
+      "poz": "1-3",
+      "resim_no": "0026-01-0301-3",
+      "adet": "1",
+      "tanim": "15 x 304 x 1460",
+      "malzeme": "St52",
+      "notlar": "",
+      "birim_agirlik": "46,5",
+      "toplam_agirlik": "46,5"
+    },
+    {
+      "dosya": "0026-01-0300 - BAŞKİRİŞ",
+      "pafta": "0026-01-0300-B",
+      "poz": "1-2",
+      "resim_no": "0026-01-0301-2",
+      "adet": "1",
+      "tanim": "15 x 505 x 2495",
+      "malzeme": "St52",
+      "notlar": "",
+      "birim_agirlik": "111,0",
+      "toplam_agirlik": "111,0"
+    }
+  ],
+  "tanilar": []
+}

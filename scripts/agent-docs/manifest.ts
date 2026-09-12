@@ -61,6 +61,7 @@ export const KAP_BOLUMLER = ["Mimari ilkeler"];
 export const PROSEDUR_BOLUMLER = ["Yeni bir hesap eklerken"];
 
 export const ALANLAR: Alan[] = [
+  { dosya: "cad", onek: "CAD", baslik: "Çizim İşleme", ozet: "Yerel AutoCAD, cihazlar, kuyruk ve onaylı paket aktarımı", yollar: ["src/lib/cad/**", "src/app/(app)/cad/**", "src/app/api/cad/**", "desktop/cad/**"], al: [] },
   {
     dosya: "hesap",
     onek: "HESAP",
