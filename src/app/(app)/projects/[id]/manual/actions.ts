@@ -29,6 +29,8 @@ import { applyManualPackage, suggestManualPackage } from "@/lib/manual/packages"
 import { resolveAutoTable, type ManualSourceData } from "@/lib/manual/sources";
 import { MANUAL_IMAGE_BUCKET } from "@/lib/manual/data";
 import { manualPublishReadiness } from "@/lib/manual/guide";
+import { manualWriteError, modernizeManualContent } from "@/lib/manual/rich-content";
+import { publishManualDelivery } from "@/lib/manual/delivery-server";
 import {
   applyManualIdentitySuggestion,
   resolveManualIdentity,
@@ -129,7 +131,7 @@ export async function createManual(projectId: string): Promise<ManualResult> {
     .insert({
       manual_id: manual.id,
       rev_no: 1,
-      payload: govde,
+      payload: modernizeManualContent(govde),
       created_by: izin.userId,
     })
     .select("id")
@@ -158,6 +160,9 @@ export async function saveManualRevision(
   const parsed = kaydetSemasi.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
+  const writeError = manualWriteError(parsed.data.payload);
+  if (writeError) return { error: writeError };
+
   // GELEN GÖVDE OLDUĞU GİBİ YAZILMAZ. İstemciden gelen JSON serbest biçimlidir;
   // `withManualDefaults` tanınmayan düğümü düşürür ve şekli bugüne taşır.
   // Aksi hâlde bir hata (ya da kötü niyet) veritabanına okunamayan bir belge
@@ -165,6 +170,13 @@ export async function saveManualRevision(
   const govde = withManualDefaults(parsed.data.payload);
 
   const supabase = await createClient();
+  const { data: existing } = await supabase.from("manual_revisions")
+    .select("payload, status, manuals!inner(project_id)").eq("id", parsed.data.revisionId).maybeSingle();
+  if (!existing || (existing.manuals as unknown as { project_id: string }).project_id !== projectId)
+    return { error: "Revizyon bu projeye ait değil." };
+  if (existing.status !== "draft") return { error: "Yayımlanmış revizyon değiştirilemez." };
+  if (existing.payload?.designVersion === 2 && govde.designVersion !== 2)
+    return { error: "Bu belge şematik tasarıma geçirildi. Sayfayı yenileyin; eski oturumdan üzerine yazılamaz." };
   const { error } = await supabase
     .from("manual_revisions")
     .update({
@@ -286,10 +298,11 @@ export async function issueManualRevision(
 
   const { data: rev } = await supabase
     .from("manual_revisions")
-    .select("id, status, payload")
+    .select("id, status, payload, manuals!inner(project_id)")
     .eq("id", revisionId)
     .maybeSingle();
   if (!rev) return { error: "Revizyon bulunamadı." };
+  if ((rev.manuals as unknown as { project_id: string }).project_id !== projectId) return { error: "Revizyon bu projeye ait değil." };
   if (rev.status === "issued") return { error: "Bu revizyon zaten yayımlanmış." };
 
   const govde: ManualPayload = withManualDefaults(rev.payload);
@@ -310,6 +323,14 @@ export async function issueManualRevision(
   }
   const veri = await buildManualSourceData(supabase, projectId);
   govde.sections = dondur(govde.sections, veri);
+
+  if (govde.designVersion === 2) {
+    const error = await publishManualDelivery(supabase, projectId, revisionId, rev.payload, govde);
+    if (error) return { error };
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/manual/${revisionId}`);
+    return { ok: true };
+  }
 
   const { error } = await supabase
     .from("manual_revisions")

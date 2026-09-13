@@ -191,6 +191,10 @@ export const ALANLAR: Alan[] = [
     ozet: "Paket yükleme ve tanıma, hoşgörü ilkeleri, defter/ilerleme, Teknik Resim Takibi planı",
     yollar: [
       "src/lib/drawings/**",
+      "src/lib/drawing-plan/**",
+      "src/lib/drawing-plan-service.ts",
+      "scripts/test-drawing-plan-output.ts",
+      "scripts/drawing-plan-db-*",
       "src/lib/drawing-plan.ts",
       "src/lib/drawing-plan-data.ts",
       "src/lib/drawings.ts",
@@ -379,7 +383,8 @@ export const ALANLAR: Alan[] = [
     ozet: "Bölüm ağacı, standart metin, gizleme, otomatik tablolar, ekler ve iki çıktı",
     yollar: [
       "src/lib/manual/**",
-      "src/lib/pdf/manual.tsx",
+      "src/lib/pdf/manual*.tsx",
+      "src/components/manual/**",
       "src/app/(app)/projects/[id]/manual/**",
       "scripts/test-manual-pdf.ts",
     ],

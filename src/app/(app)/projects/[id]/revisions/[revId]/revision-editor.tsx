@@ -2068,6 +2068,7 @@ export function RevisionEditor({
         if (currentFingerprint.current === savingFingerprint) setDirty(false);
         if (res.updatedAt) setSavedAt(res.updatedAt);
         toast.success("Revizyon kaydedildi.");
+        if (res.drawingPlanMessage) (res.drawingPlanWarning ? toast.warning : toast.info)(res.drawingPlanMessage, { action: { label: "Resim planı", onClick: () => { window.location.href = `/projects/${projectId}?tab=drawings`; } } });
         resolve(currentFingerprint.current === savingFingerprint);
       }
       } catch { toast.error("Kaydedilemedi; değişiklikler korunuyor."); resolve(false); }

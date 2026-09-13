@@ -22,6 +22,7 @@ import {
   type TemplateSection,
 } from "./template";
 import { MANUAL_DOC_TITLE, suggestCoverTitle } from "./naming";
+import { mediaHasContent, readRichBlock } from "./rich-content";
 import {
   MANUAL_APPENDIX_KINDS,
   MANUAL_AUTO_SOURCES,
@@ -58,7 +59,7 @@ export function makeIdFactory(prefix = "b"): () => string {
 
 // —————————————————————————————————————————————————————— şablondan kopya
 
-function templateBlockToBlock(t: TemplateBlock, id: string): ManualBlock | null {
+export function templateBlockToBlock(t: TemplateBlock, id: string): ManualBlock | null {
   const taban = { id, fromTemplate: true as const };
   switch (t.kind) {
     case "text":
@@ -115,7 +116,7 @@ function templateToSection(t: TemplateSection, id: () => string): ManualSection 
     key: t.key,
     title: t.title,
     blocks: (t.blocks ?? [])
-      .map((b) => templateBlockToBlock(b, id()))
+      .map((b, i): ManualBlock | null => { const block = templateBlockToBlock(b, id()); return block ? { ...block, templateBlockKey: `${t.key}:${i}` } : null; })
       .filter((b): b is ManualBlock => b !== null),
     children: (t.children ?? []).map((c) => templateToSection(c, id)),
     ...(t.appendix ? { appendix: t.appendix } : {}),
@@ -283,6 +284,7 @@ function blokOku(v: unknown, id: () => string): ManualBlock | null {
   const o = v as Record<string, unknown>;
   const taban = {
     id: metin(o.id) || id(),
+    ...(metin(o.templateBlockKey) ? { templateBlockKey: metin(o.templateBlockKey) } : {}),
     ...(bayrak(o.fromTemplate) ? { fromTemplate: true as const } : {}),
     ...(bayrak(o.edited) ? { edited: true as const } : {}),
     ...(bayrak(o.hidden) ? { hidden: true as const } : {}),
@@ -291,6 +293,10 @@ function blokOku(v: unknown, id: () => string): ManualBlock | null {
     ...(metin(o.derived) ? { derived: metin(o.derived) } : {}),
   };
   switch (o.kind) {
+    case "media":
+    case "procedure":
+    case "figure":
+      return readRichBlock(o, taban);
     case "text":
       return { ...taban, kind: "text", text: metin(o.text), ...(metin(o.margin) ? { margin: metin(o.margin) } : {}) };
     case "list":
@@ -477,7 +483,8 @@ export function withManualDefaults(raw: unknown): ManualPayload {
 
   const surum = Number(o.templateVersion);
   return {
-    v: 1,
+    v: o.v === 2 ? 2 : 1,
+    ...(o.designVersion === 1 || o.designVersion === 2 ? { designVersion: o.designVersion } : {}),
     docTitle: metin(o.docTitle),
     coverTitle: metin(o.coverTitle),
     ...(metin(o.coverImageId) ? { coverImageId: metin(o.coverImageId) } : {}),
@@ -494,6 +501,9 @@ export function withManualDefaults(raw: unknown): ManualPayload {
 /** Bloğun BASILACAK bir şeyi var mı? Boş bir paragraf belgede kusurdur. */
 export function blockHasContent(b: ManualBlock): boolean {
   switch (b.kind) {
+    case "media": return Boolean(b.title.trim() || b.text.trim() || mediaHasContent(b.media));
+    case "figure": return Boolean(b.title.trim() || mediaHasContent(b.media) || b.markers.length);
+    case "procedure": return Boolean(b.title.trim() || b.steps.some(s => s.text.trim() || s.result?.trim() || (s.media && mediaHasContent(s.media))));
     case "text":
       return b.text.trim() !== "";
     case "list":

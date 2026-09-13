@@ -101,6 +101,9 @@ export function manualUsedAssetKeys(blocks: readonly { kind: string; assetKey?: 
   const out = new Set<string>();
   for (const b of blocks) {
     if (b.kind === "image" && b.assetKey) out.add(b.assetKey);
+    const rich = b as { media?: {assetKey?: string}; steps?: {media?: {assetKey?: string}}[] };
+    if (rich.media?.assetKey) out.add(rich.media.assetKey);
+    for (const step of rich.steps ?? []) if(step.media?.assetKey) out.add(step.media.assetKey);
     if (b.kind === "note" && b.level) {
       const pikt = MANUAL_NOTE_ASSET[b.level];
       if (pikt) out.add(pikt);

@@ -536,7 +536,7 @@ export function EquipmentDocument({
       sectionName: "3 · Teknik Ressam Özeti", sectionKey: "summary",
       anchor: section.anchor, number: `3.${section.directoryIndex}`, name: section.name,
       startNo: 0, endNo: 0,
-      detail: section.kind === "notes" ? "NOTLAR" : `${section.rows.length} ÖLÇÜ`,
+      detail: section.kind === "notes" ? "NOTLAR" : section.kind === "drawingPlan" ? `${section.rows.length} GRUP` : `${section.rows.length} ÖLÇÜ`,
     })),
   ];
   const directorySplit = directoryEntries.length > 9
@@ -851,6 +851,15 @@ export function EquipmentDocument({
                     </View>
                   </View>
                 );
+              }
+              if (sec.kind === "drawingPlan") {
+                return <View key={sec.anchor} id={sec.anchor} style={s.sumBlock}>
+                  <Text style={s.sumSection} minPresenceAhead={45}>{`3.${sec.directoryIndex} · ${trUpper(sec.name)}`}</Text>
+                  {sec.rows.map((row, index) => <View key={index} style={s.sumRow} wrap={false} minPresenceAhead={row.keepWithNext ? 30 : 0}>
+                    <Text style={[s.sLabelText, { width: "72%", paddingLeft: Math.min(row.drawingDepth ?? 0, 6) * 10, fontWeight: row.drawingDepth === 0 ? 700 : 400 }]}>{row.label.replace(/^(↳ )+/, "")}</Text>
+                    <Text style={[s.sVal, { width: "28%" }]}>{summaryRowValue(row)}</Text>
+                  </View>)}
+                </View>;
               }
               return (
                 <View

@@ -10,24 +10,10 @@
 // duzeltilip otekinde unutuldugu gun ayrisirdi ve kullanici hangi ekrandan
 // girdigine gore baska bir davranis gorurdu.
 
-import { useMemo, useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  CircleAlert,
-  Download,
-  FileText,
-  Lock,
-  Pin,
-  RefreshCw,
-  Ruler,
-  ShieldCheck,
-  TriangleAlert,
-  Unlock,
-  BookOpen,
-} from "lucide-react";
+import { ArrowLeft, Pin, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -40,19 +26,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { SayiKutusu } from "@/components/sayi-kutusu";
-import { DiagramSvg } from "@/components/diagrams/diagram-svg";
-import {
-  panoDizilimDiagram,
-  panoIcYerlesimDiagram,
-  panoNumaralari,
-} from "@/lib/diagrams/panoLayout";
+import { panoNumaralari } from "@/lib/diagrams/panoLayout";
 import { COLOR_GROUP_LABEL, MOUNT_LABEL, ZONE_LABEL } from "@/lib/switchboard/mount";
-import {
-  FIELD_GRID,
-  PANEL_WIDTHS_MM,
-  ROOM_GRID,
-} from "@/lib/switchboard/sizes";
-import type { ComputeResult } from "@/lib/switchboard/compute";
+import { FIELD_GRID, ROOM_GRID } from "@/lib/switchboard/sizes";
 import type {
   LineupPrefs,
   LineupSize,
@@ -60,16 +36,34 @@ import type {
   PanelOverride,
   Unplaced,
 } from "@/lib/switchboard/types";
-import type { SwitchboardApproval } from "@/lib/switchboard-data";
-import {
-  approveLayout,
-  resetPlacements,
-  saveDeviceModel,
-  savePlacement,
-  savePanel,
-  unlockPanel,
-  withdrawApproval,
-} from "./actions";
+import { saveDeviceModel, savePlacement, savePanel } from "./actions";
+
+/**
+ * PANO KARARI YÜKÜ — mevcut kararın üstüne tek alan değişikliği.
+ *
+ * `savePanel` bütün alanları ister; ekran üç yerde (tür, en, kapak) aynı on
+ * satırlık yükü kopyalıyordu ve bir alan eklendiğinde üçü de değişmek
+ * zorundaydı. Tek yardımcı: kararın mevcut alanları + değişen alan.
+ */
+export function panoKarariYuku(
+  code: string,
+  karar: PanelOverride | undefined,
+  degisiklik: Partial<Omit<Parameters<typeof savePanel>[0], "projectId" | "code">>
+): Omit<Parameters<typeof savePanel>[0], "projectId"> {
+  return {
+    code,
+    name: karar?.name ?? "",
+    kind: karar?.kind ?? null,
+    widthMm: karar?.widthMm ?? null,
+    heightMm: karar?.heightMm ?? null,
+    depthMm: karar?.depthMm ?? null,
+    baseMm: karar?.baseMm ?? null,
+    doorConfig: karar?.doorConfig ?? null,
+    orderIndex: karar?.orderIndex ?? null,
+    note: karar?.note ?? "",
+    ...degisiklik,
+  };
+}
 
 /**
  * KUYRUK GEREKÇESİYLE SIRALANIR (PANO-30).

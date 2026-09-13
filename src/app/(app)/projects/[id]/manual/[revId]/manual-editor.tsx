@@ -24,6 +24,8 @@
 // kaydedilmez; belirsizlik yoktur. Ama yerinde düzenleme kayıp riskini
 // artırdığı için sekme kazayla kapanırsa yazdıkları geri getirilebilir.
 
+import { manualContentIssues } from "@/lib/manual/quality";
+import { modernizeManualContent } from "@/lib/manual/rich-content";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   BookOpen,
@@ -295,7 +297,8 @@ export function ManualEditor({
     () => new Set(yayimHazirligi.missingSections.map((s) => s.id)),
     [yayimHazirligi]
   );
-  const kalanIs = yayimHazirligi.missingIdentity.length + yayimHazirligi.missingSections.length;
+  const contentIssues=useMemo(()=>manualContentIssues(doc.payload,new Set(kagitGorselleri.keys())),[doc.payload,kagitGorselleri]);
+  const kalanIs = yayimHazirligi.missingIdentity.length + yayimHazirligi.missingSections.length + contentIssues.length;
 
   // ŞABLON BÜYÜDÜĞÜNDE VAR OLAN BELGE DEĞİŞMEZ (KITAP-4): editör yalnız
   // haber verir, eklemeyi kullanıcı seçer.
@@ -584,6 +587,7 @@ export function ManualEditor({
 
   const tomar = gosterilen ? (
     <Tomar
+                onUpload={async file => { const image = await gorselYukle(file); return image ? {imageId:image.id} : null; }}
       kok={gosterilen}
       seciliBlokId={doc.seciliBlokId}
       yazilabilir={yazilabilir}
@@ -734,6 +738,11 @@ export function ManualEditor({
           >
             <SlidersHorizontal className="size-3.5" /> Müfettiş
           </Button>
+          {yazilabilir && <>
+            <Button size="sm" variant="outline" className="oc-tap" disabled={!doc.canUndo} onClick={doc.undo}>Geri al</Button>
+            <Button size="sm" variant="outline" className="oc-tap" disabled={!doc.canRedo} onClick={doc.redo}>Yinele</Button>
+            {doc.payload.designVersion !== 2 && <Button size="sm" variant="outline" className="oc-tap" onClick={() => doc.govdeyiBenimse(modernizeManualContent(doc.payload))}>Şematik tasarıma geç</Button>}
+          </>}
           <Button size="sm" variant="outline" className="oc-tap" asChild>
             <PdfDownloadLink
               href={`/projects/${projectId}/manual/${revisionId}/pdf`}
@@ -957,6 +966,7 @@ export function ManualEditor({
 
         {/* ————————————————————————————————————————————— kalite */}
         <TabsContent value="kalite" className="mt-3 flex max-w-2xl flex-col gap-3">
+          {contentIssues.length>0 && <div className="border p-3"><p className="font-medium">Görsel ve atıf kontrolleri</p><ul className="mt-2 space-y-2">{contentIssues.map((issue,i)=><li key={`${issue.blockId}-${i}`} className="text-sm">{issue.message}</li>)}</ul></div>}
           {kalanIs === 0 ? (
             <p className="border bg-muted/40 p-3 text-sm">
               Yayım kapısı açık: zorunlu künye alanları dolu ve vince özel bekleyen bölüm yok.

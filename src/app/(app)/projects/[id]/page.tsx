@@ -1,6 +1,6 @@
 import { ENGINEERING_REPORT_CONTEXT } from "@/lib/report-context";
 import { ProjectPageView } from "./project-page-view";
 
-export default function ProjectPage(props: { params: Promise<{ id: string }> }) {
+export default function ProjectPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   return <ProjectPageView {...props} expectedContext={ENGINEERING_REPORT_CONTEXT} />;
 }

@@ -65,10 +65,14 @@ export function normalizeSettings(ham: unknown): LayoutSettingsInput {
     "backGapMm",
     "doorGapMm",
     "fillWarnRatio",
+    "minRailMm",
+    "columnGapMm",
   ] as const) {
     const v = sayi(o[alan]);
     if (v !== null) (cikti as Record<string, unknown>)[alan] = v;
   }
+  // Sütunlu yerleşim bir ANAHTARDIR (PANO-39); yalnız gerçek boolean okunur.
+  if (typeof o.columnsEnabled === "boolean") cikti.columnsEnabled = o.columnsEnabled;
 
   if (Array.isArray(o.fieldPrefixes)) {
     const onekler = o.fieldPrefixes.filter((p): p is string => typeof p === "string" && p !== "");

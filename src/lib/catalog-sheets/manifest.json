@@ -31509,6 +31509,118 @@
     "SKGOW028L",
     "SKGOW032L"
    ]
+  },
+  {
+   "id": "gearbox/yilmaz-red-kt-r-vr273",
+   "kind": "gearbox",
+   "brand": "YILMAZ REDÜKTÖR",
+   "series": "VR273",
+   "title": "YILMAZ VR273 — anma momenti ve 1K ölçüleri",
+   "source": "Diğer kataloglar/YILMAZ V PERFORMANS V0500-1018.pdf + YILMAZ V SERİSİ.pdf",
+   "printedPages": "V0500-1018 s.356; V0601-0920 s.344",
+   "images": [
+    "gearbox/yilmaz-red-kt-r-vr273-p1.webp",
+    "gearbox/yilmaz-red-kt-r-vr273-p2.webp"
+   ],
+   "models": [
+    "VR273.1K"
+   ]
+  },
+  {
+   "id": "gearbox/yilmaz-red-kt-r-vr373",
+   "kind": "gearbox",
+   "brand": "YILMAZ REDÜKTÖR",
+   "series": "VR373",
+   "title": "YILMAZ VR373 — anma momenti ve 1K ölçüleri",
+   "source": "Diğer kataloglar/YILMAZ V PERFORMANS V0500-1018.pdf + YILMAZ V SERİSİ.pdf",
+   "printedPages": "V0500-1018 s.356; V0601-0920 s.345",
+   "images": [
+    "gearbox/yilmaz-red-kt-r-vr273-p1.webp",
+    "gearbox/yilmaz-red-kt-r-vr373-p2.webp"
+   ],
+   "models": [
+    "VR373.1K"
+   ]
+  },
+  {
+   "id": "gearbox/yilmaz-red-kt-r-vr473",
+   "kind": "gearbox",
+   "brand": "YILMAZ REDÜKTÖR",
+   "series": "VR473",
+   "title": "YILMAZ VR473 — anma momenti ve 1K ölçüleri",
+   "source": "Diğer kataloglar/YILMAZ V PERFORMANS V0500-1018.pdf + YILMAZ V SERİSİ.pdf",
+   "printedPages": "V0500-1018 s.356; V0601-0920 s.346",
+   "images": [
+    "gearbox/yilmaz-red-kt-r-vr273-p1.webp",
+    "gearbox/yilmaz-red-kt-r-vr473-p2.webp"
+   ],
+   "models": [
+    "VR473.1K"
+   ]
+  },
+  {
+   "id": "gearbox/yilmaz-red-kt-r-vr573",
+   "kind": "gearbox",
+   "brand": "YILMAZ REDÜKTÖR",
+   "series": "VR573",
+   "title": "YILMAZ VR573 — anma momenti ve 1K ölçüleri",
+   "source": "Diğer kataloglar/YILMAZ V PERFORMANS V0500-1018.pdf + YILMAZ V SERİSİ.pdf",
+   "printedPages": "V0500-1018 s.356; V0601-0920 s.347",
+   "images": [
+    "gearbox/yilmaz-red-kt-r-vr273-p1.webp",
+    "gearbox/yilmaz-red-kt-r-vr573-p2.webp"
+   ],
+   "models": [
+    "VR573.1K"
+   ]
+  },
+  {
+   "id": "gearbox/yilmaz-red-kt-r-vr673",
+   "kind": "gearbox",
+   "brand": "YILMAZ REDÜKTÖR",
+   "series": "VR673",
+   "title": "YILMAZ VR673 — anma momenti ve 1K ölçüleri",
+   "source": "Diğer kataloglar/YILMAZ V PERFORMANS V0500-1018.pdf + YILMAZ V SERİSİ.pdf",
+   "printedPages": "V0500-1018 s.356; V0601-0920 s.348",
+   "images": [
+    "gearbox/yilmaz-red-kt-r-vr273-p1.webp",
+    "gearbox/yilmaz-red-kt-r-vr673-p2.webp"
+   ],
+   "models": [
+    "VR673.1K"
+   ]
+  },
+  {
+   "id": "gearbox/yilmaz-red-kt-r-vr773",
+   "kind": "gearbox",
+   "brand": "YILMAZ REDÜKTÖR",
+   "series": "VR773",
+   "title": "YILMAZ VR773 — anma momenti ve 1K ölçüleri",
+   "source": "Diğer kataloglar/YILMAZ V PERFORMANS V0500-1018.pdf + YILMAZ V SERİSİ.pdf",
+   "printedPages": "V0500-1018 s.357; V0601-0920 s.349",
+   "images": [
+    "gearbox/yilmaz-red-kt-r-vr773-p1.webp",
+    "gearbox/yilmaz-red-kt-r-vr773-p2.webp"
+   ],
+   "models": [
+    "VR773.1K"
+   ]
+  },
+  {
+   "id": "gearbox/yilmaz-red-kt-r-vr873",
+   "kind": "gearbox",
+   "brand": "YILMAZ REDÜKTÖR",
+   "series": "VR873",
+   "title": "YILMAZ VR873 — anma momenti ve 1K ölçüleri",
+   "source": "Diğer kataloglar/YILMAZ V PERFORMANS V0500-1018.pdf + YILMAZ V SERİSİ.pdf",
+   "printedPages": "V0500-1018 s.357; V0601-0920 s.350",
+   "images": [
+    "gearbox/yilmaz-red-kt-r-vr773-p1.webp",
+    "gearbox/yilmaz-red-kt-r-vr873-p2.webp"
+   ],
+   "models": [
+    "VR873.1K"
+   ]
   }
  ]
 }

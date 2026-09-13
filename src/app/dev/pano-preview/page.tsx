@@ -23,6 +23,20 @@ import {
 } from "@/lib/diagrams/panoLayout";
 import { computeSwitchboardLayout } from "@/lib/switchboard/compute";
 import type { ElectricalPart } from "@/lib/electrical/types";
+import type { PanelOverride, PlacementOverride } from "@/lib/switchboard/types";
+
+/**
+ * ÖRNEK KARARLAR — Kararlar bölümü boş fikstürle görünmezdi (PANO-40).
+ * Bir kilit, bir UYKUDA kilit (dizide olmayan kod) ve bir komşuya bağlı
+ * sabitleme: üç rozet de ekranda denenebilsin.
+ */
+const ORNEK_PANO_KARARLARI: PanelOverride[] = [
+  { code: "LVD01", name: "", kind: null, widthMm: 600, heightMm: null, depthMm: null, baseMm: null, doorConfig: null, orderIndex: null, widthLocked: true, heightLocked: false, depthLocked: false, note: "" },
+  { code: "LVD01-A", name: "", kind: null, widthMm: 1000, heightMm: null, depthMm: null, baseMm: null, doorConfig: null, orderIndex: null, widthLocked: true, heightLocked: false, depthLocked: false, note: "" },
+];
+const ORNEK_AYGIT_KARARLARI: PlacementOverride[] = [
+  { deviceKey: "185T|LVD01|F2", panelCode: null, mountType: null, zone: null, railIndex: null, orderInRail: null, anchorDeviceKey: "185T|LVD01|F4", anchorSide: "sonra", widthMm: null, heightMm: null, depthMm: null, pinned: true, note: "" },
+];
 
 function p(over: Partial<ElectricalPart>): ElectricalPart {
   return {
@@ -209,8 +223,9 @@ export default async function PanoPreviewPage() {
               belgeRevizyon="rev3"
               okunduMu
               parcaSayisi={KARMASIK.length}
-              sonuc={computeSwitchboardLayout({ parts: KARMASIK })}
-              panoKararlari={[]}
+              sonuc={computeSwitchboardLayout({ parts: KARMASIK, panelOverrides: ORNEK_PANO_KARARLARI, placementOverrides: ORNEK_AYGIT_KARARLARI })}
+              panoKararlari={ORNEK_PANO_KARARLARI}
+              aygitKararlari={ORNEK_AYGIT_KARARLARI}
               onay={null}
             />
           </Suspense>

@@ -42,20 +42,31 @@ export function auditPanel(
   const kapasite = railCapacityMm(panel.widthMm, s);
   const yukseklikKapasitesi = plateCapacityHeightMm(panel.heightMm, s);
 
-  // 1 — Hiçbir parça ray kapasitesini aşmıyor.
-  const tasan = panel.placements.filter((p) => p.xMm + p.widthMm > kapasite + EPS);
+  // 1 — Hiçbir parça KENDİ rayının kapasitesini aşmıyor.
+  //
+  // Cep rayı (PANO-39) tam enli değildir: kapasitesi cebin enidir ve sol
+  // kenarı `xMm`den başlar. Tek bir gövde kapasitesiyle ölçmek cep rayındaki
+  // taşmayı görmezdi.
+  const rayHaritasi = new Map(panel.rails.map((r) => [r.index, r]));
+  const tasan = panel.placements.filter((p) => {
+    const ray = rayHaritasi.get(p.railIndex);
+    const sagSinir = ray ? ray.xMm + ray.capacityMm : kapasite;
+    return p.xMm + p.widthMm > sagSinir + EPS || (ray ? p.xMm < ray.xMm - EPS : false);
+  });
   checks.push({
     key: "ray-kapasitesi",
-    label: "Hiçbir cihaz ray kapasitesini aşmıyor",
+    label: "Hiçbir cihaz rayının kapasitesini aşmıyor",
     ok: tasan.length === 0,
     detail:
       tasan.length === 0
-        ? `${panel.placements.length} parça, kapasite ${Math.round(kapasite)} mm`
+        ? `${panel.placements.length} parça, gövde kapasitesi ${Math.round(kapasite)} mm`
         : tasan.map((p) => `${p.label} (${Math.round(p.xMm + p.widthMm)} mm)`).join(", "),
   });
 
-  // 2 — Hiçbir parça sol kenarın solunda değil.
-  const negatif = panel.placements.filter((p) => p.xMm < -EPS || p.yMm < -EPS);
+  // 2 — Hiçbir parça plakanın dışında değil.
+  const negatif = panel.placements.filter(
+    (p) => p.xMm < -EPS || p.yMm < -EPS || p.xMm + p.widthMm > kapasite + EPS
+  );
   checks.push({
     key: "negatif-koordinat",
     label: "Hiçbir cihaz plakanın dışına taşmıyor",
@@ -63,43 +74,62 @@ export function auditPanel(
     detail: negatif.length === 0 ? "tamam" : negatif.map((p) => p.label).join(", "),
   });
 
-  // 3 — Aynı raydaki iki cihaz ÇAKIŞMIYOR.
+  // 3 — Hiçbir iki cihaz İKİ BOYUTTA çakışmıyor (PANO-39).
+  //
+  // Eski denetim yalnız AYNI RAYDAKİ komşuları x'te kıyaslıyordu; cep rayı bir
+  // sürücünün yanında durduğu için çakışma artık raylar ARASINDA da olabilir.
   const cakisma: string[] = [];
-  for (const ray of panel.rails) {
-    const uzerinde = panel.placements
-      .filter((p) => p.railIndex === ray.index)
-      .sort((a, b) => a.xMm - b.xMm);
-    for (let i = 1; i < uzerinde.length; i++) {
-      const onceki = uzerinde[i - 1];
-      const simdiki = uzerinde[i];
-      if (simdiki.xMm + EPS < onceki.xMm + onceki.widthMm) {
-        cakisma.push(`${ray.index}: ${onceki.label} ↔ ${simdiki.label}`);
-      }
+  const sirali = [...panel.placements].sort((a, b) => a.yMm - b.yMm || a.xMm - b.xMm);
+  for (let i = 0; i < sirali.length; i++) {
+    const a = sirali[i];
+    for (let j = i + 1; j < sirali.length; j++) {
+      const b = sirali[j];
+      if (b.yMm >= a.yMm + a.heightMm - EPS) break;
+      const xKesisir = a.xMm < b.xMm + b.widthMm - EPS && b.xMm < a.xMm + a.widthMm - EPS;
+      const yKesisir = a.yMm < b.yMm + b.heightMm - EPS && b.yMm < a.yMm + a.heightMm - EPS;
+      if (xKesisir && yKesisir) cakisma.push(`${a.label} ↔ ${b.label}`);
     }
   }
   checks.push({
     key: "cakisma",
-    label: "Aynı raydaki cihazlar çakışmıyor",
+    label: "Hiçbir iki cihaz çakışmıyor",
     ok: cakisma.length === 0,
-    detail: cakisma.length === 0 ? `${panel.rails.length} ray denetlendi` : cakisma.join(" · "),
+    detail: cakisma.length === 0 ? `${panel.placements.length} cihaz, ${panel.rails.length} ray denetlendi` : cakisma.slice(0, 6).join(" · "),
   });
 
-  // 4 — Ray satırları üst üste binmiyor ve plakadan taşmıyor.
+  // 4 — Ray satırları birbirine binmiyor ve plakanın içinde.
+  //
+  // Tam enli raylar ardışık yığılır, cep rayları bandın içinde durur; ortak
+  // kural "iki rayın dikdörtgeni kesişmez ve hiçbiri plakayı aşmaz"dır.
   let binme = "";
-  let beklenenY = s.edgeGapMm;
-  for (const ray of panel.rails) {
-    if (Math.abs(ray.yMm - beklenenY) > EPS) {
-      binme = `Ray ${ray.index}: y=${Math.round(ray.yMm)} mm, beklenen ${Math.round(beklenenY)} mm`;
+  const raylar = [...panel.rails].sort((a, b) => a.yMm - b.yMm || a.xMm - b.xMm);
+  for (let i = 0; i < raylar.length && !binme; i++) {
+    const r = raylar[i];
+    if (r.yMm < s.edgeGapMm - EPS || r.xMm < -EPS || r.xMm + r.capacityMm > kapasite + EPS) {
+      binme = `Ray ${r.index}: plakanın dışında (x=${Math.round(r.xMm)}, y=${Math.round(r.yMm)} mm)`;
       break;
     }
-    beklenenY += ray.heightMm;
+    for (let j = i + 1; j < raylar.length; j++) {
+      const q = raylar[j];
+      // CEP RAYI BANDININ İÇİNDEDİR (PANO-39): bandın dikdörtgeniyle kesişmesi
+      // tasarımdır; cihazlarıyla kesişmesi ise yukarıdaki 2B çakışma
+      // denetiminde yakalanır.
+      if (q.pocketOf === r.index || r.pocketOf === q.index) continue;
+      const xKesisir = r.xMm < q.xMm + q.capacityMm - EPS && q.xMm < r.xMm + r.capacityMm - EPS;
+      const yKesisir = r.yMm < q.yMm + q.heightMm - EPS && q.yMm < r.yMm + r.heightMm - EPS;
+      if (xKesisir && yKesisir) {
+        binme = `Ray ${r.index} ↔ Ray ${q.index}: y=${Math.round(q.yMm)} mm, ${Math.round(r.yMm)}–${Math.round(r.yMm + r.heightMm)} aralığına biniyor`;
+        break;
+      }
+    }
   }
-  const toplamYukseklik = beklenenY + s.edgeGapMm;
+  const enAlt = panel.rails.reduce((m, r) => Math.max(m, r.yMm + r.heightMm), s.edgeGapMm);
+  const toplamYukseklik = enAlt + s.edgeGapMm;
   checks.push({
     key: "ray-dizilimi",
     label: "Ray satırları üst üste binmiyor",
     ok: binme === "",
-    detail: binme || `${panel.rails.length} ray, toplam ${Math.round(toplamYukseklik)} mm`,
+    detail: binme || `${panel.rails.length} ray, en alt ${Math.round(toplamYukseklik)} mm`,
   });
 
   checks.push({

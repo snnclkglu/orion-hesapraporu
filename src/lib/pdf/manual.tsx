@@ -15,6 +15,7 @@
 // hesap motorunu ya da Supabase'i tanımaz.
 
 import React from "react";
+import { ModernManualPdf } from "./manual-modern";
 import { Document, Image, Link, StyleSheet, Text, View } from "@react-pdf/renderer";
 import {
   BRAND,
@@ -270,7 +271,12 @@ const s = StyleSheet.create({
   },
 });
 
-export function ManualPdf({
+export function ManualPdf(props: ManualPdfProps) {
+  if (props.payload.designVersion === 2) return ModernManualPdf(props);
+  return LegacyManualPdf(props);
+}
+
+function LegacyManualPdf({
   payload,
   sources,
   images,

@@ -22,7 +22,7 @@
 // yeniden çalışır ve sayfa numarası değişmese bile etki tetiklenirdi; kâğıt her
 // harfte zıplardı.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ManualPaper } from "@/components/manual/manual-paper";
 import type { ManualPayload } from "@/lib/manual/types";
 import type { ManualSourceData } from "@/lib/manual/sources";
@@ -54,6 +54,7 @@ export function PaperPanel({
   firmaLogolari?: ReadonlyMap<string, { url: string; oran: number }>;
   projeFirmaLogosu?: { url: string; oran: number };
 }) {
+  const [readable,setReadable]=useState(false);
   const kap = useRef<HTMLDivElement>(null);
   const sonYaprak = useRef<number | null>(null);
 
@@ -71,6 +72,7 @@ export function PaperPanel({
     <aside className={`flex min-h-0 flex-col gap-2 ${className ?? ""}`}>
       <div className="flex flex-wrap items-center gap-2 px-1 text-xs text-muted-foreground">
         <span className="oc-kicker">KÂĞIT</span>
+        <button type="button" className="min-h-9 border px-2" aria-pressed={readable} onClick={()=>setReadable(v=>!v)}>{readable?"Sayfaya sığdır":"Okunur boyut"}</button>
         <span>Gövde {yaprakSayisi} yaprak</span>
         {sayfa != null ? <span>· seçili bölüm {sayfa}. yaprakta</span> : null}
       </div>
@@ -94,7 +96,7 @@ export function PaperPanel({
         ref={kap}
         className="oc-scrollx relative min-h-0 flex-1 overflow-auto overscroll-contain bg-muted/40 p-3 [--oc-scroll-bg:var(--muted)]"
       >
-        <div className="min-w-[40rem] lg:min-w-0">
+        <div className={readable?"min-w-[40rem]":"min-w-[40rem] lg:min-w-0"}>
           <ManualPaper
             payload={payload}
             projectTitle={projectTitle}

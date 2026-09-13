@@ -162,3 +162,6 @@ export default async function ManualEditorPage({
     </div>
   );
 }
+
+// Tam teslim dosyaları yayımlama eyleminde de üretilir.
+export const maxDuration = 300;

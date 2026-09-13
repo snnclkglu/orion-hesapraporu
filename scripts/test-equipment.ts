@@ -344,8 +344,8 @@ async function main() {
     ...summarySpecsForReport(V5_TEMPLATE),
     specs: V5_TEMPLATE.specs,
   };
-  const planBolumleri = summary.filter((s) => s.name.startsWith("Teknik Resim No"));
-  if (planBolumleri.length !== 4) {
+  const planBolumleri = summary.filter((s) => s.name.startsWith("Teknik Resim Numaralandırması"));
+  if (planBolumleri.length !== 1) {
     console.error(
       `HATA: teknik resim numaralandırması özete girmedi (${planBolumleri.length} bölüm).`
     );

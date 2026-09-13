@@ -163,14 +163,21 @@ export async function savePlacement(girdi: z.input<typeof YerlesimSemasi>): Prom
 const TasimaSemasi = z.object({
   projectId: z.string().uuid(),
   deviceKey: z.string().min(1).max(200),
-  /** Aygıtın panonun sırasındaki YENİ yeri (0 tabanlı). */
-  orderInRail: z.number().int().min(0).max(9999),
+  /** Bırakıldığı KOMŞU aygıt — sıra bir komşuluktur, indeks değil (PANO-38). */
+  anchorDeviceKey: z.string().min(1).max(200),
+  anchorSide: z.enum(["once", "sonra"]),
   /** Bırakıldığı ray — bilgi amaçlı; sıra baskındır (PANO-23). */
   railIndex: z.number().int().min(0).max(999).nullable().default(null),
 });
 
 /**
- * ŞEMADA TAŞINAN AYGITIN SIRASINI YAZAR — ölçüsüne DOKUNMAZ.
+ * ŞEMADA TAŞINAN AYGITIN KOMŞULUĞUNU YAZAR — ölçüsüne DOKUNMAZ.
+ *
+ * KOMŞU + YÖN, İNDEKS DEĞİL (PANO-38). Eski `order_in_rail` bir mutlak
+ * indeksti ve ekran ile çözücü iki ayrı listeyi sayıyordu; ölçüldü (0026,
+ * 12.09.2026): sürücü şalterlerin ortasına düştü, yeni plaka rayı açıldı, pano
+ * taştı. Komşu anahtarı iki tarafta aynı anlama gelir. Eski sütun bu yazımda
+ * SIFIRLANIR — bir aygıt aynı anda iki sabitleme taşımaz.
  *
  * `savePlacement` KULLANILAMAZ ve bu tuzak ölçülmüştür: onun şemasında
  * `widthMm`/`heightMm`/`depthMm` alanları `.default(null)` taşıyor, yani
@@ -199,12 +206,16 @@ export async function movePlacement(girdi: z.input<typeof TasimaSemasi>): Promis
   if (!ayris.success) return { error: ayris.error.issues[0]?.message ?? "Geçersiz girdi." };
   const v = ayris.data;
 
+  if (v.anchorDeviceKey === v.deviceKey) return { error: "Aygıt kendi komşusu olamaz." };
+
   const { error } = await kapi.supabase.from("switchboard_placements").upsert(
     {
       project_id: v.projectId,
       device_key: v.deviceKey,
       rail_index: v.railIndex,
-      order_in_rail: v.orderInRail,
+      order_in_rail: null,
+      anchor_device_key: v.anchorDeviceKey,
+      anchor_side: v.anchorSide,
       pinned: true,
       updated_at: new Date().toISOString(),
     },
@@ -234,11 +245,61 @@ export async function unpinPlacement(projectId: string, deviceKey: string): Prom
     .update({
       rail_index: null,
       order_in_rail: null,
+      anchor_device_key: null,
+      anchor_side: null,
       pinned: false,
       updated_at: new Date().toISOString(),
     })
     .eq("project_id", projectId)
     .eq("device_key", deviceKey);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/projects/${projectId}/pano`);
+  return { ok: true };
+}
+
+/**
+ * BİR AYGIT KARARINI TAMAMEN SİLER — Kararlar panelinden (PANO-40).
+ *
+ * `unpinPlacement` yalnız sırayı bırakır, ölçü/montaj düzeltmesi durur. Bu
+ * ise satırın kendisini siler: kullanıcı "bu aygıt için verdiğim her şeyi
+ * unut" dediğinde tek düğme yetmeli.
+ */
+export async function removePlacementDecision(projectId: string, deviceKey: string): Promise<Sonuc> {
+  const kapi = await yetkiliMi();
+  if ("error" in kapi) return kapi;
+  if (!z.string().uuid().safeParse(projectId).success) return { error: "Geçersiz proje." };
+  if (!deviceKey) return { error: "Aygıt anahtarı boş." };
+
+  const { error } = await kapi.supabase
+    .from("switchboard_placements")
+    .delete()
+    .eq("project_id", projectId)
+    .eq("device_key", deviceKey);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/projects/${projectId}/pano`);
+  return { ok: true };
+}
+
+/**
+ * BİR PANO KARARINI TAMAMEN SİLER — Kararlar panelinden (PANO-40).
+ *
+ * `unlockPanel` ölçü kilitlerini bırakır ama tür/kapak/ad kararı durur; bu
+ * satırı siler. UYKUDA kararlar (bölünmüş gözün eski kodu, `LVD0-A`) yalnız
+ * buradan temizlenir — Panolar tablosunda o kod artık yoktur.
+ */
+export async function removePanelDecision(projectId: string, code: string): Promise<Sonuc> {
+  const kapi = await yetkiliMi();
+  if ("error" in kapi) return kapi;
+  if (!z.string().uuid().safeParse(projectId).success) return { error: "Geçersiz proje." };
+  if (!code) return { error: "Pano kodu boş." };
+
+  const { error } = await kapi.supabase
+    .from("switchboard_panels")
+    .delete()
+    .eq("project_id", projectId)
+    .eq("code", code);
   if (error) return { error: error.message };
 
   revalidatePath(`/projects/${projectId}/pano`);

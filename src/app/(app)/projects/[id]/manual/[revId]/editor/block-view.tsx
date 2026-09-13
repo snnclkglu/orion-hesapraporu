@@ -15,6 +15,8 @@
 // GİZLİ BLOK SOLGUN AMA DÜZENLENEBİLİR KALIR: gizlemek silmek değildir
 // (KITAP-6).
 
+import { RichBlockEditor } from "@/components/manual/rich-block-editor";
+import type { ManualMediaRef } from "@/lib/manual/types";
 import Image from "next/image";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -243,12 +245,14 @@ function TabloOnizleme({ table }: { table: ManualTable }) {
 }
 
 export function BlockView({
+  onUpload,
   blok,
   readOnly,
   sources,
   gorseller,
   onDegis,
 }: {
+  onUpload?: (file: File) => Promise<ManualMediaRef | null>;
   blok: ManualBlock;
   readOnly: boolean;
   sources: ManualSourceData;
@@ -256,6 +260,7 @@ export function BlockView({
   onDegis: (f: (b: ManualBlock) => ManualBlock) => void;
 }) {
   switch (blok.kind) {
+    case "media": case "procedure": case "figure": return <RichBlockEditor block={blok} readOnly={readOnly} images={gorseller} onUpload={onUpload} onChange={next => onDegis(() => next)} />;
     case "text":
       return (
         <div className="flex flex-col gap-1">

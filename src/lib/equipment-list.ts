@@ -1,3 +1,4 @@
+import { orderedDrawingPlan } from "@/lib/drawing-plan/presentation";
 import { brakeHandednessNote } from "./calc/brake-handedness";
 // EKİPMAN LİSTESİNİN SAF ÇEKİRDEĞİ — satırlar, gruplar, katalog bağları ve
 // teknik ressam özeti. DB/HTTP/React/ExcelJS bağımlılığı YOKTUR.
@@ -44,7 +45,7 @@ import {
 } from "@/lib/calc/fields";
 import { attrValueLabel } from "@/lib/catalog-mapping";
 import { catalogSheetPageUrl, findCatalogSheet } from "@/lib/catalog-sheets";
-import { fullDrawingNo, groupDrawingPlan, type DrawingPlanRow } from "@/lib/drawing-plan";
+import { fullDrawingNo, type DrawingPlanRow } from "@/lib/drawing-plan";
 import {
   cabinHasAirConditioner,
   computeCabin,
@@ -636,7 +637,7 @@ function hoistRows(
       // ana gövde koduyla basılır. Aramayı görünür koddan ayır.
       catalogModel: gearboxIdentity(sel.gearboxModel).model,
       catalogInputRpm: sel.gearboxCatalogInputRpm,
-      spec: `i = ${fmt(sel.gearboxRatio, 2)}, nominal tork ${fmt(sel.gearboxNominalTorqueKnm, 1)} kNm, giriş mili Ø${fmt(sel.gearboxInputShaftMm)} / çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm${gearboxMountingNote(sel.gearboxMountingPosition, sel.gearboxShaftDirection)}${gearboxOptionsNote(sel.gearboxOptions)}`,
+      spec: `i = ${fmt(sel.gearboxRatio, 2)}, nominal tork ${fmt(sel.gearboxNominalTorqueKnm, 1)} kNm${sel.gearboxOutputSpline ? `, çıkış ${sel.gearboxOutputSpline}` : `, giriş mili Ø${fmt(sel.gearboxInputShaftMm)} / çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm`}${gearboxMountingNote(sel.gearboxMountingPosition, sel.gearboxShaftDirection)}${gearboxOptionsNote(sel.gearboxOptions)}`,
       // Çift tamburun ikisini de ortadaki TEK redüktör taşır.
       qty: 1,
     },
@@ -1665,6 +1666,9 @@ function lookupByCatalogKey(
 // --- Sayfa 2: Teknik Ressam Özeti --------------------------------------------
 
 export interface SummaryRow {
+  /** Resim planında üst montaj ve sayfa sonu ilişkisi. */
+  drawingDepth?: number;
+  keepWithNext?: boolean;
   label: string;
   value: number | string;
   unit?: string;
@@ -1691,7 +1695,7 @@ export function summaryRowValue(row: SummaryRow): string {
  * Özet bölümünün TÜRÜ. Verilmezse `"table"` — yani eski davranış.
  * `"notes"` mühendisin ressama yazdığı serbest metindir ve satır taşımaz.
  */
-export type SummarySectionKind = "table" | "notes";
+export type SummarySectionKind = "table" | "notes" | "drawingPlan";
 
 export interface SummarySection {
   name: string;
@@ -2328,29 +2332,20 @@ export function buildSummarySections(
     sections.push({ name: "Ağırlıklar", rows: weightRows });
   }
 
-  // TEKNİK RESİM NUMARALANDIRMASI EN SONDADIR ve bilinçli olarak öyledir:
-  // ressam özeti yukarıdan aşağı "neyi çizeceğim"i anlatır, en altta da
-  // "hangi numarayı vereceğim" durur. Ressamın mühendise sorduğu son soru budur.
-  // Köprü ve araba grupları alt alta ayrı başlıklar hâlinde basılır — bant
-  // ayrımı numaranın kendisinde saklıdır ve okuyan onu başlıkta görmelidir.
-  for (const grup of groupDrawingPlan(drawingPlan?.rows ?? [])) {
-    sections.push({
-      name: `Teknik Resim No · ${grup.label}`,
-      rows: grup.rows.map((r) => ({
-        label: r.name.trim() || "(adı girilmemiş grup)",
-        value: fullDrawingNo(drawingPlan?.itemNo, r.code),
-      })),
-    });
-  }
-
-  // NOTLAR EN SONDADIR — teknik resim numarasından da sonra.
-  // Bölüm bir ÇİZELGE DEĞİLDİR (`kind: "notes"`): mühendisin cümleleri satır
-  // sonlarıyla birlikte korunur, üç yazıcı da (ekran · Excel · PDF) onu
-  // ölçü tablosu gibi değil metin gibi basar.
   const note = (drawingNote ?? "").trim();
-  if (note !== "") {
-    sections.push({ name: "Notlar", kind: "notes", rows: [], text: note });
-  }
+  if (note !== "") sections.push({ name: "Notlar", kind: "notes", rows: [], text: note });
+
+  // Montaj ilişkisi numaradan bağımsızdır; ekrandaki sıra bütün çıktılarda korunur.
+  const planRows = orderedDrawingPlan(drawingPlan?.rows ?? []);
+  if (planRows.length) sections.push({
+    name: "Teknik Resim Numaralandırması",
+    kind: "drawingPlan",
+    rows: planRows.map(({ row, depth }, index) => ({
+      drawingDepth: depth, keepWithNext: (planRows[index + 1]?.depth ?? 0) > depth,
+      label: `${depth ? "↳ ".repeat(Math.min(depth, 3)) : ""}${row.name.trim() || "(adı girilmemiş grup)"}`,
+      value: fullDrawingNo(drawingPlan?.itemNo, row.code),
+    })),
+  });
 
   return sections;
 }

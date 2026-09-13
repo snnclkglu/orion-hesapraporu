@@ -14,6 +14,7 @@
 // güvenmemesi demektir.
 
 import { MANUAL_TEMPLATE } from "./template";
+import { templateBlockToBlock } from "./payload";
 import type { TemplateBlock, TemplateSection } from "./template";
 import type { ManualBlock, ManualSection } from "./types";
 
@@ -300,15 +301,17 @@ export function blockRevertToTemplate(
   return bloklariDegistir(sections, sectionId, (blocks) => {
     const i = blocks.findIndex((b) => b.id === blockId);
     if (i < 0) return null;
-    const kaynak = sablon[i];
+    const stableKey = blocks[i].templateBlockKey;
+    // Konumu değişmiş eski blok için tahmin yürütülmez. Eski belgelerde yalnız
+    // şablon uzunluğu ve tür sırası tamamen eşleşiyorsa eski davranış korunur.
+    const legacyMatch = blocks.length === sablon.length && blocks.every((b, j) => b.fromTemplate && b.kind === sablon[j].kind);
+    const sourceIndex = stableKey?.startsWith(`${bolum.key}:`) ? Number(stableKey.slice(bolum.key!.length + 1)) : legacyMatch ? i : -1;
+    const kaynak = sablon[sourceIndex];
     if (!kaynak || kaynak.kind !== blocks[i].kind) return null;
     const kopya = [...blocks];
-    kopya[i] = {
-      ...blocks[i],
-      ...(kaynak.text !== undefined ? { text: kaynak.text } : {}),
-      ...(kaynak.items !== undefined ? { items: [...kaynak.items] } : {}),
-      edited: false,
-    } as ManualBlock;
+    const restored = templateBlockToBlock(kaynak, blockId);
+    if (!restored) return null;
+    kopya[i] = { ...restored, hidden: blocks[i].hidden, templateBlockKey: `${bolum.key}:${sourceIndex}`, edited: false };
     return kopya;
   });
 }

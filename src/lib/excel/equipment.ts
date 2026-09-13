@@ -326,6 +326,7 @@ function writeSummarySheet(
   ws.autoFilter = { from: { row: headerRowNo, column: 1 }, to: { row: headerRowNo, column: 3 } };
 
   let rowNo = headerRowNo + 1;
+  const drawingRows: { rowNo: number; depth: number }[] = [];
   const sections = buildSummarySections(input, result, drawingPlan, drawingNote);
   /** Bölüm başlığı bandı — üç hücresi de kenarlıklıdır (merge kenarlığı A'da kalmaz). */
   const sectionBand = (title: string) => {
@@ -390,6 +391,16 @@ function writeSummarySheet(
         cell.border = THIN_BORDER;
         cell.alignment = { horizontal: c === 1 ? "left" : "right", vertical: "middle" };
       }
+      if (section.kind === "drawingPlan") {
+        const depth = r.drawingDepth ?? 0;
+        row.getCell(1).value = r.label.replace(/^(↳ )+/, "");
+        row.getCell(1).alignment = { horizontal: "left", vertical: "middle", wrapText: true, indent: Math.min(depth, 8) };
+        row.getCell(1).font = { bold: depth === 0 };
+        row.getCell(3).value = null;
+        row.getCell(2).numFmt = "@";
+        row.getCell(2).font = { name: MONO_FONT };
+        drawingRows.push({ rowNo, depth });
+      }
       rowNo += 1;
     }
   }
@@ -397,6 +408,12 @@ function writeSummarySheet(
   writeFooterRow(ws, rowNo + 1, 3, "TEKNİK RESSAM ÖZETİ", meta);
 
   autoWidth(ws, WIDTH_MIN, WIDTH_MAX);
+  // Sabit sütun sınırında uzun montaj adları kesilmesin.
+  for (const { rowNo: index, depth } of drawingRows) {
+    const row = ws.getRow(index);
+    const usable = Math.max(12, ((ws.getColumn(1).width ?? WIDTH_MAX) - 3 - depth * 3) * 0.85);
+    row.height = Math.max(18, Math.ceil(String(row.getCell(1).value).length / usable) * 15);
+  }
 }
 
 // --- ana giriş ---------------------------------------------------------------
@@ -432,7 +449,7 @@ export interface EquipmentWorkbookOptions {
    * görünür (özet sayfasının kendisi gibi).
    */
   drawingPlan?: EquipmentDrawingPlan;
-  /** Mühendisin ressama yazdığı serbest not — özetin en sonundaki Notlar bölümü. */
+  /** Mühendisin ressama yazdığı serbest not — resim numaralandırmasından önce. */
   drawingNote?: string;
   /** Gizlenen alt bölümler — satırları listeye girmez (buildEquipmentGroups). */
   hiddenSections?: readonly string[];

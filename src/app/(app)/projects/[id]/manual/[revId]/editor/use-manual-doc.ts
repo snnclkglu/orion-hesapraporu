@@ -10,7 +10,9 @@
 // KAYDETME BURADA DEĞİL. Bu kanca yalnız YEREL gövdeyi değiştirir ve `kirli`
 // bayrağını açar; veritabanına yazan tek yer `Kaydet` düğmesidir (KITAP-10).
 
-import { useCallback, useMemo, useState } from "react";
+import { manualHistory } from "@/lib/manual/history";
+import { upgradeManualDesign } from "@/lib/manual/rich-content";
+import { useCallback, useMemo, useState, useReducer } from "react";
 import {
   blockAppend,
   blockInsertAt,
@@ -41,6 +43,10 @@ import type {
 export interface ManualDoc {
   payload: ManualPayload;
   kirli: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  undo: () => void;
+  redo: () => void;
   /** Numaralanmış ağaç ve düzleştirilmiş hâli — bütün paneller bunu okur. */
   numarali: ReturnType<typeof numberManual>;
   duz: ReturnType<typeof flattenManual>;
@@ -81,7 +87,8 @@ export function useManualDoc(
   ilkPayload: ManualPayload,
   ilkSecili: string
 ): ManualDoc {
-  const [payload, setPayload] = useState<ManualPayload>(ilkPayload);
+  const [{ present: payload, past, future }, dispatch] = useReducer(manualHistory, { present: ilkPayload, past: [], future: [] });
+  const setPayload = useCallback((value: ManualPayload | ((p: ManualPayload) => ManualPayload)) => dispatch({type:"set",value}), []);
   const [kirli, setKirli] = useState(false);
   const [seciliBolumId, setSeciliBolumId] = useState(ilkSecili);
   const [seciliBlokId, setSeciliBlokId] = useState<string | null>(null);
@@ -92,7 +99,7 @@ export function useManualDoc(
   const yaz = useCallback((f: (p: ManualPayload) => ManualPayload) => {
     setPayload((p) => f(p));
     setKirli(true);
-  }, []);
+  }, [setPayload]);
 
   /** Ağaç işlemlerinin ortak sarmalayıcısı. */
   const agac = useCallback(
@@ -120,6 +127,9 @@ export function useManualDoc(
   return {
     payload,
     kirli,
+    canUndo: past.length > 0, canRedo: future.length > 0,
+    undo: () => { dispatch({type:"undo"}); setKirli(true); },
+    redo: () => { dispatch({type:"redo"}); setKirli(true); },
     numarali,
     duz,
     seciliBolumId,
@@ -130,7 +140,7 @@ export function useManualDoc(
     govdeyiBenimse: useCallback((p: ManualPayload, kirliYap = true) => {
       setPayload(p);
       if (kirliYap) setKirli(true);
-    }, []),
+    }, [setPayload]),
     temizle: useCallback(() => setKirli(false), []),
 
     bolumBaslik: useCallback(
@@ -149,12 +159,12 @@ export function useManualDoc(
 
     blokGuncelle,
     blokEkle: useCallback(
-      (bolumId, index, blok) => agac((s) => blockInsertAt(s, bolumId, index, blok)),
-      [agac]
+      (bolumId, index, blok) => yaz((p) => { const next = { ...p, sections: blockInsertAt(p.sections, bolumId, index, blok) }; return ["media","figure","procedure"].includes(blok.kind) ? upgradeManualDesign(next) : next; }),
+      [yaz]
     ),
     blokSonaEkle: useCallback(
-      (bolumId, blok) => agac((s) => blockAppend(s, bolumId, blok)),
-      [agac]
+      (bolumId, blok) => yaz((p) => { const next={...p,sections:blockAppend(p.sections,bolumId,blok)}; return ["media","figure","procedure"].includes(blok.kind)?upgradeManualDesign(next):next; }),
+      [yaz]
     ),
     blokSil: useCallback(
       (bolumId, blokId) => {
@@ -194,7 +204,7 @@ export function useManualDoc(
         setKirli(true);
         return { korunan: sonuc.korunan, degisen: sonuc.degisen };
       },
-      [payload]
+      [payload, setPayload]
     ),
     ekSecenegi: useCallback(
       (kind: ManualAppendixKind, option: string) =>

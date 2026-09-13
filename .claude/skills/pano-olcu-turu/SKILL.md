@@ -18,8 +18,14 @@ aynı tur yeniden yürür.
 ## 0 · Önce ölç, sonra konuş
 
 ```bash
-npx tsx scripts/test-switchboard-layout.ts .tmp/electrical-parts-all.json --is <IS-NO> --defter .tmp/device-models.json
+python scripts/switchboard-live-dump.py <IS-NO>
+npx tsx scripts/test-switchboard-layout.ts .tmp/pano/<IS-NO>/parts.json --kararlar .tmp/pano/<IS-NO> --svg .tmp/pano/<IS-NO>/svg --png
 ```
+
+`--kararlar` kullanıcının KARARLARINI da (kilit, sabitleme, ayar) okur;
+kararsız ölçüm ekrandakini yeniden üretmez (0026'da kararsız 1600 mm iki göz,
+kararlı 2313 mm taşan tek gözdü — Plan F0). "Kararlar kalkarsa ne olur"
+sorusu `--kararsiz` ile ölçülür.
 
 Bu çıktı turun BAŞLANGIÇ ÖLÇÜSÜDÜR ve sonunda aynı komutla karşılaştırılır.
 Beş sayı not edilir: **sınıflanmamış ürün · kuyruk (sebep dağılımıyla) ·

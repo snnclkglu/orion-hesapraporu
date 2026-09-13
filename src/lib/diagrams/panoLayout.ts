@@ -42,6 +42,7 @@ import type {
 import { COLOR_GROUP_LABEL, ZONE_LABEL } from "@/lib/switchboard/mount";
 import { naturalCompare } from "@/lib/switchboard/panels";
 import {
+  railCapacityMm,
   plateCapacityHeightMm,
   plateHeightMm,
   plateWidthMm,
@@ -431,8 +432,10 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
         stroke: DCOL.faint,
         strokeWidth: 0.6,
       });
-      // Kulp: çift kapakta ortaya bakar, tek kapakta sağ kenarda.
-      const kulpX = kanat === 2 && i === 0 ? kx + kw - 6 : kx + kw - 6;
+      // Kulp: çift kapakta ORTAYA bakar (sol kanadın sağ, sağ kanadın sol
+      // kenarı), tek kapakta sağ kenarda. İki dal aynı ifadeydi ve iki kulp
+      // aynı kenara çiziliyordu (T10, 12.09.2026).
+      const kulpX = kanat === 2 && i === 1 ? kx + 3 : kx + kw - 6;
       els.push({
         kind: "rect",
         x: kulpX,
@@ -517,12 +520,18 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
   // TOPLAM EN ÖLÇÜSÜNE GİRMEZ: yukarıdaki `Toplam N mm` imalatçıya giden dizi
   // enidir ve bir sirenle büyümez. Yalnız çizim tuvali genişler.
   const yanlar = [...(g.yanCihazlar ?? [])].sort((a, b) => naturalCompare(a.label, b.label));
+  // ÖLÇÜSÜ BİLİNEN yan ekipman kutu olarak çizilir; bilinmeyen LİSTELENİR (T11,
+  // Plan S7). Soru işaretli dört kutu dizilimin yarısını kaplıyor ve hiçbir
+  // bilgi taşımıyordu; bir satır metin aynı şeyi söyler ve şemayı bastırmaz.
+  const cizilecek = yanlar.filter((d) => d.widthMm !== null && d.heightMm !== null);
+  const listelenecek = yanlar.filter((d) => d.widthMm === null || d.heightMm === null);
   let yanSagKenar = sol + gW;
-  if (yanlar.length > 0) {
+  let altSatir = altSatirY + (esitBoy ? 12 : 24);
+  if (cizilecek.length > 0) {
     const ayiracX = sol + gW + (YAN_BOSLUK_MM / 2) * k;
     els.push(ln(ayiracX, yUst - 20, ayiracX, yBazaAlt + 6, DCOL.faint, 0.8, "5 4"));
     els.push(
-      txt(ayiracX + 8, yUst - 24, `Pano yanı ekipmanları (${yanlar.length})`, 8, {
+      txt(ayiracX + 8, yUst - 24, `Pano yanı ekipmanları (${cizilecek.length})`, 8, {
         fill: DCOL.muted,
         fixed: true,
         bold: true,
@@ -530,8 +539,7 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
     );
 
     let yx = sol + gW + YAN_BOSLUK_MM * k;
-    for (const d of yanlar) {
-      const bilinen = d.widthMm !== null && d.heightMm !== null;
+    for (const d of cizilecek) {
       const enMm = d.widthMm ?? YAN_VARSAYILAN_MM;
       const boyMm = d.heightMm ?? YAN_VARSAYILAN_MM;
       const w = Math.max(4, enMm * k);
@@ -539,7 +547,6 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
       // Cihazlar panonun ALT hattına oturur: göz onları gövdeyle aynı zeminde
       // karşılaştırabilsin.
       const yy = yAlt - h;
-
       els.push({
         kind: "rect",
         x: yx,
@@ -548,34 +555,35 @@ export function panoDizilimDiagram(g: DizilimGirdisi): Diagram {
         h,
         fill: PANO_RENK[d.colorGroup],
         stroke: DCOL.ink,
-        strokeWidth: bilinen ? 0.7 : 0.5,
+        strokeWidth: 0.7,
         rx: 0.8,
       });
-      // ÖLÇÜSÜ BİLİNMEYEN KUTU YER TUTUCU GİBİ GÖRÜNÜR: taralı ve soru
-      // işaretli. Kesin bir kutu çizmek, ölçülmemiş bir sayıyı ölçülmüş
-      // gösterirdi (değişmez md. 4).
-      if (!bilinen) {
-        tarama(els, yx, yy, w, h);
-        els.push(txt(yx + w / 2, yy + h / 2 + 3, "?", 9, { anchor: "middle", fixed: true }));
-      }
+      els.push(txt(yx + w / 2, yAlt + 12, d.label, 7, { anchor: "middle", fixed: true }));
       els.push(
-        txt(yx + w / 2, yAlt + 12, d.label, 7, { anchor: "middle", fixed: true })
+        txt(yx + w / 2, yAlt + 21, `${fmtN(enMm, 0)}×${fmtN(boyMm, 0)}`, 6, {
+          anchor: "middle",
+          fill: DCOL.muted,
+          fixed: true,
+        })
       );
-      if (bilinen) {
-        els.push(
-          txt(yx + w / 2, yAlt + 21, `${fmtN(enMm, 0)}×${fmtN(boyMm, 0)}`, 6, {
-            anchor: "middle",
-            fill: DCOL.muted,
-            fixed: true,
-          })
-        );
-      }
       yx += w + YAN_ARALIK_MM * k;
     }
     yanSagKenar = yx;
   }
+  if (listelenecek.length > 0) {
+    els.push(
+      txt(
+        sol,
+        altSatir,
+        `Pano yanına asılır, ölçüsü defterde yok: ${listelenecek.map((d) => d.label).join(" · ")}`,
+        8,
+        { fill: DCOL.muted, fixed: true }
+      )
+    );
+    altSatir += 12;
+  }
 
-  return fitDiagram(els, Math.max(460, yanSagKenar + 110), yBazaAlt + (esitBoy ? 80 : 100));
+  return fitDiagram(els, Math.max(460, yanSagKenar + 110), Math.max(yBazaAlt + (esitBoy ? 80 : 100), altSatir + 10));
 }
 
 // ═══════════════════════════════════════════════════════ İÇ YERLEŞİM
@@ -630,16 +638,44 @@ export function kutuBul(kutular: readonly IcKutu[], x: number, y: number, tolera
 }
 
 /**
- * SÜRÜKLENEN AYGITIN YENİ SIRA İNDEKSİ — saf, DOM'suz, sınanabilir.
+ * SÜRÜKLENEN AYGITIN BIRAKILDIĞI KOMŞULUK — saf, DOM'suz, sınanabilir (PANO-38).
  *
- * `sirali` panonun aygıt sırasıdır (çizim sırasından türetilir); `tasinan`
- * sürüklenen aygıt, `komsu` bırakıldığı yerdeki aygıt, `oncesine` ise imlecin
- * o aygıtın orta noktasının solunda olup olmadığı.
+ * `komsu` bırakıldığı yerdeki aygıt, `oncesine` imlecin o aygıtın orta
+ * noktasının solunda olup olmadığı. Sonuç bir indeks DEĞİL bir komşuluktur:
+ * "taşınan, komşunun önüne/sonrasına". İndeks, ekranın ve çözücünün aynı
+ * listeyi saymasını gerektiriyordu ve ölçüldü (0026): first-fit iki listeyi
+ * ayırınca cihaz bırakılan yere gitmiyordu.
  *
- * OFF-BY-ONE BURADA YAŞAR ve bir bileşenin içinde sınanamazdı: taşınan aygıt
- * listeden ÇIKACAĞI için, hedef indeks onun eski yerinden sonraysa bir
- * azaltılmalıdır. Azaltılmazsa cihaz her sürüklemede bir adım geride kalır ve
- * kullanıcı "tuttu ama tam oraya gitmedi" diye ikinci kez sürükler.
+ * Aygıtı kendi üstüne bırakmak karar üretmez. Komşu ile taşınan zaten
+ * bitişikse ve yön aynıysa yine karar üretmez — gereksiz bir sabitleme
+ * yazılmaz.
+ */
+export interface BirakmaHedefi {
+  komsu: string;
+  yon: "once" | "sonra";
+}
+
+export function birakmaHedefi(
+  sirali: readonly string[],
+  tasinan: string,
+  komsu: string,
+  oncesine: boolean
+): BirakmaHedefi | null {
+  if (komsu === tasinan) return null;
+  const k = sirali.indexOf(komsu);
+  if (k < 0) return null;
+  const eski = sirali.indexOf(tasinan);
+  const yon: "once" | "sonra" = oncesine ? "once" : "sonra";
+  if (eski >= 0) {
+    if (yon === "once" && eski === k - 1) return null;
+    if (yon === "sonra" && eski === k + 1) return null;
+  }
+  return { komsu, yon };
+}
+
+/**
+ * ESKİ İNDEKS HESABI — yalnız eski biçim kayıtlar ve testler için durur;
+ * ekran artık `birakmaHedefi` kullanır.
  */
 export function birakmaIndeksi(
   sirali: readonly string[],
@@ -714,7 +750,9 @@ export function panoIcYerlesim(g: IcYerlesimGirdisi): IcYerlesimCizimi {
   // (09.09.2026): "bazı şeyler dışarda duruyor ama panoya sığmış gibi
   // görünüyor." Önceki sürüm taşan rayı sessizce plakanın altına çiziyordu.
   const kapasiteH = plateCapacityHeightMm(p.heightMm, s);
-  const rayYigini = p.rails.reduce((t, r) => t + r.heightMm, 0);
+  // YIĞIN = en alttaki rayın alt kenarı (cep rayları bandın içindedir,
+  // toplama girmez — PANO-39).
+  const rayYigini = p.rails.reduce((t, r) => Math.max(t, r.yMm + r.heightMm), 0) - s.edgeGapMm;
   const tasti = rayYigini > kapasiteH;
 
   caption(
@@ -756,10 +794,14 @@ export function panoIcYerlesim(g: IcYerlesimGirdisi): IcYerlesimCizimi {
     );
   }
 
+  const tamKapasite = railCapacityMm(p.widthMm, s);
   for (const ray of p.rails) {
     const yRay = plakaY + ray.yMm * k;
     const hRay = ray.heightMm * k;
     const hKanal = ray.ductMm * k;
+    // CEP RAYI kendi x'inden başlar ve cebin eni kadardır (PANO-39).
+    const xRay = rayX + ray.xMm * k;
+    const wRay = ray.capacityMm * k;
     // Bu ray plakanın ray kapasitesini aşıyor mu? (Sınırı KESEN ray de sayılır.)
     const rayTasti = ray.yMm + ray.heightMm > s.edgeGapMm + kapasiteH;
 
@@ -770,10 +812,16 @@ export function panoIcYerlesim(g: IcYerlesimGirdisi): IcYerlesimCizimi {
     // BÖLGE ARTIK RAY AÇMIYOR (PANO-37): bir rayda birkaç bölge olabilir, o
     // yüzden yazılan ad rayın BASKIN bölgesidir ve yalnız değiştiğinde çıkar.
     const bolgeBasi = ray.index === 0 || p.rails[ray.index - 1]?.zone !== ray.zone;
+    // Bölge çizgisi rayın kendi eni kadardır; cep rayında sürücünün üstünden
+    // geçmez.
     els.push(
-      ln(plakaX, yRay, plakaX + plakaW, yRay, bolgeBasi ? DCOL.muted : DCOL.line, bolgeBasi ? 0.7 : 0.4, bolgeBasi ? undefined : "2 3")
+      ln(ray.pocketOf === null ? plakaX : xRay - 2, yRay, ray.pocketOf === null ? plakaX + plakaW : xRay + wRay + 2, yRay, bolgeBasi ? DCOL.muted : DCOL.line, bolgeBasi ? 0.7 : 0.4, bolgeBasi ? undefined : "2 3")
     );
-    if (bolgeBasi) {
+    // CEBİN SOLUNDAKİ DİKEY KANAL — sürücü ile cep rayı arasındaki sütun payı.
+    if (ray.pocketOf !== null) {
+      kanalCiz(els, xRay - s.columnGapMm * k, yRay, Math.max(2, s.columnGapMm * k - 2), hRay);
+    }
+    if (bolgeBasi && ray.pocketOf === null) {
       els.push(
         txt(sol - 6, yRay + 8, ZONE_LABEL[ray.zone].split(" ")[0], 6.5, {
           anchor: "end",
@@ -784,18 +832,18 @@ export function panoIcYerlesim(g: IcYerlesimGirdisi): IcYerlesimCizimi {
     }
 
     if (ray.kind === "din") {
-      rayCiz(els, rayX, yRay + hRay - hKanal - 2.2, ray.capacityMm * k);
+      rayCiz(els, xRay, yRay + hRay - hKanal - 2.2, wRay);
     }
-    kanalCiz(els, rayX, yRay + hRay - hKanal, ray.capacityMm * k, Math.max(2, hKanal - 1));
+    kanalCiz(els, xRay, yRay + hRay - hKanal, wRay, Math.max(2, hKanal - 1));
 
     // TAŞAN RAY UYARI RENGİNDE ÇERÇEVELENİR: plakanın dışında duran bir cihaz,
     // sığmış gibi görünmemelidir.
     if (rayTasti) {
       els.push({
         kind: "rect",
-        x: rayX - 3,
+        x: xRay - 3,
         y: yRay,
-        w: ray.capacityMm * k + 6,
+        w: wRay + 6,
         h: hRay,
         fill: "none",
         stroke: DCOL.accent,
@@ -825,13 +873,17 @@ export function panoIcYerlesim(g: IcYerlesimGirdisi): IcYerlesimCizimi {
     else efsane.push({ grup: y.colorGroup, sayi: y.unitCount });
 
     // ETİKET KURALI: sığan etiket, sığmayan yerine numara, o da sığmıyorsa hiçbir şey.
+    //
+    // NUMARANIN ENİ RAKAM SAYISINA BAĞLIDIR (T9): 1:4'te 15,8 mm'lik röle 4
+    // birimdir ve iki basamaklı bir numara komşusunun üstüne taşıyordu — eşik
+    // yalnız "7 birim" diyordu, kaç rakam olduğuna bakmıyordu.
     const etiket = y.unitCount > 1 ? `${y.label}·${y.unitCount}` : y.label;
+    const n = numaralar.get(yerlesimAnahtari(y));
+    const numaraEni = n ? String(n).length * 3.6 + 1 : Number.POSITIVE_INFINITY;
     if (w >= etiket.length * 3.4 && w >= EN_KUCUK_ETIKET && h >= 10) {
       els.push(txt(x + w / 2, yy + h / 2 + 2.4, etiket, 6.5, { anchor: "middle", fixed: true }));
-    } else if (w >= EN_KUCUK_NUMARA && h >= 10) {
-      const n = numaralar.get(yerlesimAnahtari(y));
-      if (n) els.push(txt(x + w / 2, yy + h / 2 + 2.4, String(n), 6, { anchor: "middle", fixed: true }));
-      else yazisiz++;
+    } else if (n && w >= Math.max(EN_KUCUK_NUMARA, numaraEni) && h >= 10) {
+      els.push(txt(x + w / 2, yy + h / 2 + 2.4, String(n), 6, { anchor: "middle", fixed: true }));
     } else {
       // NE ETİKET NE NUMARA SIĞDI. Ölçek küçüldükçe artar (1:4'te tek kutuplu
       // bir otomat 4,4 birime iner) ve kullanıcı bunu BİLMELİ — kimlik o zaman
@@ -846,24 +898,30 @@ export function panoIcYerlesim(g: IcYerlesimGirdisi): IcYerlesimCizimi {
   dimH(els, plakaX, plakaX + plakaW, yAlt + 36, `Plaka ${fmtN(plateWidthMm(p.widthMm, s), 0)}`, {
     size: 7.5,
   });
-  dimH(els, rayX, rayX + (p.rails[0]?.capacityMm ?? 0) * k, yAlt + 52, `Ray ${fmtN(p.rails[0]?.capacityMm ?? 0, 0)}`, {
+  dimH(els, rayX, rayX + tamKapasite * k, yAlt + 52, `Ray ${fmtN(tamKapasite, 0)}`, {
     size: 7.5,
   });
   dimV(els, sol - 52, ust, yAlt, `${fmtN(p.heightMm, 0)}`, { size: 8, labelSide: "left" });
 
-  // Efsane (renk grubu) — çizimin altında.
+  // Efsane (renk grubu) — çizimin altında, SATIR SATIR.
+  //
+  // Sığmayan öğe bir alt satıra iner: eski sürüm `ex`i başa alıyor ama `ey`i
+  // ilerletmiyordu; dar gövdede (400 mm) ikinci öğe birincinin ÜSTÜNE
+  // yazılıyordu (T8, kullanıcı ekran görüntüsü 12.09.2026).
   let ex = sol;
-  const ey = yAlt + 74;
+  let ey = yAlt + 74;
+  const efsaneSagSinir = Math.max(sol + gW + 180, sol + 420);
   els.push(txt(sol, ey - 12, "Renk grubu", 8, { fill: DCOL.muted, fixed: true, bold: true }));
   for (const e of efsane) {
-    els.push({ kind: "rect", x: ex, y: ey - 6, w: 9, h: 9, fill: PANO_RENK[e.grup], stroke: DCOL.ink, strokeWidth: 0.5 });
     const metin = `${COLOR_GROUP_LABEL[e.grup]} (${e.sayi})`;
-    els.push(txt(ex + 12, ey + 1.5, metin, 7, { fixed: true }));
-    ex += 12 + metin.length * 3.6 + 14;
-    if (ex > sol + gW + 180) {
+    const genislik = 12 + metin.length * 3.6 + 14;
+    if (ex > sol && ex + genislik > efsaneSagSinir) {
       ex = sol;
-      // Sığmayan efsane satırı bir alta iner; `fitDiagram` çerçeveyi büyütür.
+      ey += 14;
     }
+    els.push({ kind: "rect", x: ex, y: ey - 6, w: 9, h: 9, fill: PANO_RENK[e.grup], stroke: DCOL.ink, strokeWidth: 0.5 });
+    els.push(txt(ex + 12, ey + 1.5, metin, 7, { fixed: true }));
+    ex += genislik;
   }
 
   if (yazisiz > 0) {

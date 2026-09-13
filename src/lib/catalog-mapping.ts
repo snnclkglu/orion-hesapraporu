@@ -146,6 +146,15 @@ export const ATTR_LABELS: Record<string, string> = {
   // ortak
   series: "Seri",
   weight_kg: "Ağırlık [kg]",
+  frame_max_nominal_torque_nm: "Gövdenin En Yüksek Anma Momenti (1400 d/d, fs=1) [Nm]",
+  torque_basis: "Anma Momenti Dayanağı",
+  weight_basis: "Ağırlık Açıklaması",
+  geared_motor_weight_min_kg: "Motor Dahil En Düşük Katalog Ağırlığı [kg]",
+  geared_motor_weight_max_kg: "Motor Dahil En Yüksek Katalog Ağırlığı [kg]",
+  output_connection: "Çıkış Bağlantısı",
+  output_speed_basis: "Çıkış Devri Hesabı",
+  printed_output_speed_rpm: "Katalogda Basılı Çıkış Devri [d/dak]",
+  nominal_power_by_iso_class_kw: "ISO Sınıfına Göre Anma Giriş Gücü [kW]",
   // motor
   power_kw: "Güç [kW]",
   poles: "Kutup Sayısı",
@@ -1012,6 +1021,7 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "gearboxCatalogInputRpm", from: { attr: "input_speed_rpm" } },
       { sel: "gearboxRatio", from: { attr: "ratio" } },
       { sel: "gearboxNominalTorqueKnm", from: { attr: "output_torque_nm" }, scale: 0.001 },
+      { sel: "gearboxOutputSpline", from: { attr: "output_spline" } },
       { sel: "gearboxOutputShaftMm", from: { attr: "output_shaft_mm" } },
       { sel: "gearboxInputShaftMm", from: { attr: "input_shaft_mm" } },
       { sel: "gearboxWeightKg", from: { attr: "weight_kg" } },
@@ -1456,6 +1466,11 @@ export function applyCatalogPick(
 ): Record<string, unknown> {
   const targets = new Map((targetFields ?? []).map((d) => [d.key, d]));
   const out: Record<string, unknown> = {};
+  const isVrGearbox = mapping.kind === "gearbox" && row.attrs.series === "VR" && /^VR[2-8]73\.1K$/.test(row.model);
+  if (isVrGearbox) {
+    // 1K model kimliğinde bulunur; önceki redüktörün .03 gibi soneki eklenmez.
+    out.gearboxOutputFeature = "";
+  }
   for (const f of mapping.fields) {
     let v: unknown;
     if (f.from === "brand") v = kimlikBuyuk(row.brand);
@@ -1465,7 +1480,13 @@ export function applyCatalogPick(
     // Yeni redüktör eski motor akuple kararını devralamaz. Alanı olmayan
     // katalog için bağlantı bilinmiyor; harici kaplin kontrolü açık kalır.
     if (f.sel === "gearboxInputConfiguration" && (v === undefined || v === null)) { out[f.sel] = ""; continue; }
-    if (v === undefined || v === null || v === "") continue;
+    if (f.sel === "gearboxOutputSpline" && (v === undefined || v === null)) { out[f.sel] = ""; continue; }
+    if (v === undefined || v === null || v === "") {
+      // VR motorlu ağırlığını çıplak redüktör ağırlığı, çoklu kamayı düz mil
+      // çapı saymayız. Önceki ürünün değerleri bu ürüne taşınamaz.
+      if (isVrGearbox && ["gearboxWeightKg", "gearboxInputShaftMm", "gearboxOutputShaftMm"].includes(f.sel)) out[f.sel] = null;
+      continue;
+    }
     if (f.scale !== undefined && typeof v === "number") v = v * f.scale;
     if (f.translate && f.from !== "brand" && f.from !== "model" && f.from !== "brand_model") {
       v = attrValueLabel(f.from.attr, v);

@@ -1207,12 +1207,48 @@ IEC 60072-1 Tablo 4'ten alınır ve `shaft_source` bunu satırda belirtir.
 python motors_sew.py
 ```
 
-## KAPSAM DIŞI — üç katalog neden satır üretmiyor
+## YILMAZ VR — 12.09.2026 tamamlayıcı kaynakla eklendi
+
+`reducers_yilmaz_v.py` → `catalog_data/reducers/yilmaz_v.json`: VR273.1K,
+VR373.1K, VR473.1K, VR573.1K, VR673.1K, VR773.1K, VR873.1K; toplam 84 oran.
+Kullanıcının V0601-0920 baskısında bağımsız anma momenti tablosu yoktur.
+Kullanıcı onayıyla **Yılmaz V0500-1018** baskısının s.356-357 performans
+tabloları kullanılır: n1=1400, fs=1; anma momenti doğrudan basılı sütundur,
+motor çıkış torkundan veya tonajdan türetilmez. Kaynak PDF üretici belgesinin
+bayi kopyasıdır:
+https://salter.com.tr/files/reduktorler/yilmaz-katalog-vinc-reduktoru.pdf
+Workspace'te `Diğer kataloglar/YILMAZ V PERFORMANS V0500-1018.pdf` olarak
+saklanır; iki PDF'in SHA-256 değerleri JSON künyesinde tutulur.
+
+Her model/oran 2020 motorlu tablolarında da aranır. Tam 84 oran ve yedi
+model doğrulanır. 1400 referansı korunur; uygulamanın 1500 motor devri ayrı
+seçimdir. Çıkış devri n1/i ile hesaplanır, basılı yuvarlatılmış değer de
+ayrı tutulur. fs=1 radyal yük ve M2…M8 anma güçleri kaybolmaz. Gövdenin
+en yüksek anma momenti ayrı bilgi alanıdır, bütün oranlara kapasite olarak
+kopyalanmaz. VR273'ün orana göre azalan kapasite satırları basıldığı gibi
+korunur; monotonluk varsayımıyla düzeltilmez.
+
+Motorlu ağırlıklar oran bazında min/max olarak saklanır. **Motorsuz ağırlık
+yoktur**, motorlu ağırlık motorla tekrar toplanmaz. Giriş mili çapı ve çoklu
+kamanın yerine düz mil çapı üretilmez. DIN 5480 1K kodu ve ilgili ölçü
+yaprağı (2020 s.344-350) korunur. Motorlu tablodaki yanlış ölçü sayfası
+referansları künyede listelenir; bağlantı gerçek ölçü sayfasının model
+başlığına karşı doğrulanır. `--sheets` mevcut manifestin yalnız bu yedi
+kaydını günceller; dokuz kaynak WebP'yi ortak kesiciyle üretir.
+
+2020 motorlu tablolarında ayrıca VR873 / i=46,32 (s.252) ve VR773 /
+i=213,15 (s.315,333,337,341) yazımları vardır. Bağımsız performans
+tablosunda karşılıkları yoktur; VR873'te basılı oran 46,82, VR773'te üst
+oran 233,77'dir. Bunlar yakın orana veya VR673 gövdesine sessizce
+dönüştürülmez. İki eşleşmeyen kombinasyon JSON künyesinde kaynak
+sayfalarıyla saklanır; doğrulanmış 84 seçim kaydına girmez.
+
+## KAPSAM DIŞI — iki katalog neden satır üretmiyor
 
 `POLAT PD/PM` (paralel mil yürütme) · `SEW GEARHOIST CATALOG` (G..7 kaldırma
-redüktörlü motorları) · `YILMAZ V SERİSİ` (vinç tamburu tahrik redüktörü).
+redüktörlü motorları).
 
-Üçü de yalnız **motorlu (geared motor) tablo** yayımlar. Bu biçim uygulamanın
+İkisi de yalnız **motorlu (geared motor) tablo** yayımlar. Bu biçim uygulamanın
 modeline uymaz: her satır bir motoru — SEW'de ayrıca bir tambur çapını ve bir
 halat donanımını — zorunlu kılar, oysa uygulama redüktörle motoru AYRI
 bölümlerde seçer (2.3/2.4 kaldırma, 5.4/5.5 yürütme). Redüktörün kendi anma
@@ -1224,7 +1260,7 @@ GERÇEKTE ÇIKMIYOR: fB tek ondalıkla basıldığı için aynı (gövde, çevri
 için farklı motorlardan gelen değerler %8'e varan bant gösteriyor (ölçüldü:
 i = 2769,78'de 2988 / 2920 / 2323 Nm). `gearbox.torque` ENGELLEYİCİ bir
 kontroldür; onu ±%8 belirsizlikli türetilmiş bir sayıyla beslemek, kataloğu
-hiç eklememekten kötüdür. Bu yüzden üçü de `cat_equipment`e girmez.
+hiç eklememekten kötüdür. Bu yüzden ikisi de `cat_equipment`e girmez.
 
 Bu karar değişirse yol açıktır: satırlar `M2 × fB` ile üretilip
 `unverified: true` taşıyabilir (Vasel feston satırlarındaki desen) — ama o

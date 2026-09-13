@@ -82,13 +82,22 @@
   dökümü. Fikstür repoda DEĞİLDİR (12 MB'lık müşteri belgesi); yol argümandan
   gelir. Sütun kümeleme kuralına dokunmadan önce koştur — birim testleri küçük
   fikstürlerle koşar, bu betik 157 sayfada ne bulunduğunu GÖSTERİR
-- `npx tsx scripts/test-switchboard-layout.ts <pdf> [--svg <dizin>]` — PANO
-  YERLEŞTİRİCİSİNİ gerçek bir elektrik projesinde koştur: pano başına
-  en/boy/derinlik, ray ve cihaz sayısı, doluluk, uyarılar, yerleşmeyen aygıt
-  kuyrukları, ölçüsü doğrulanmamış aygıt sayacı, DENETİM sonucu ve
-  DETERMİNİZM sınaması (aynı girdi iki kez → aynı plan). `--svg` ile şemalar
-  dosyaya yazılır; indirilen SVG'nin kendi başına açıldığı böyle görülür.
-  Yerleştirme kuralına (PANO-4…PANO-10) dokunmadan önce koştur
+- `npx tsx scripts/test-switchboard-layout.ts <pdf|parts.json> [--is <no>] [--kararlar <klasör>] [--kararsiz] [--svg <dizin>] [--png]`
+  — PANO YERLEŞTİRİCİSİNİ gerçek bir elektrik projesinde koştur: pano başına
+  en/boy/derinlik, ray ve cihaz sayısı, ray başına satır, ölü alan (m²),
+  uyarılar, yerleşmeyen aygıt kuyrukları, ölçüsü doğrulanmamış aygıt sayacı,
+  DENETİM sonucu ve DETERMİNİZM sınaması. `--kararlar`
+  `switchboard-live-dump.py` klasörünü (defter + kilit + sabitleme + ayar)
+  okur — ekrandaki plan kararsız ölçümle yeniden üretilemez (Plan F0).
+  `--kararsiz` aynı klasörün yalnız defterini alır. `--png` SVG'leri PNG'ye
+  çevirir (kontrol fazı kanıtı). Yerleştirme kuralına (PANO-4…PANO-10,
+  PANO-38…41) dokunmadan önce koştur
+- `python scripts/switchboard-live-dump.py <is-no> [--out .tmp/pano]` — bir
+  işin CANLI pano girdisini salt okunur döker (parts · models · panels ·
+  placements · settings · approval). Şirket verisi `.tmp/`de kalır
+- `python scripts/apply-migration.py <migration.sql> [--apply]` — TEK
+  migration dosyasını canlıya uygular ve damgalar (`db push` YERİNE; prova
+  begin→rollback, `--apply` commit). Uygulanmış sürümün kaynağı farklıysa DURUR
 - `npx tsx scripts/switchboard-dimension-plan.ts <parts.json> <katalog-koku> [--out plan.json]`
   — AYIKLAMA IS LISTESI: hangi urunun olcusu eksik ve o urunu hangi uretici
   PDF kapsiyor. Iki kaynagi birlestirir: proje malzeme satirlari ve
@@ -182,3 +191,8 @@
 - `node scripts/test-email-center-db.mjs --installed` — yayın, düzenleme kilidi, kuyruk sahipliği ve teslim sıralaması; tüm denemeler geri alınır. `ORION_SUPABASE_CLI` yerel CLI yoludur, bağlantı `.env.frankfurt` üzerinden okunur.
 - `node scripts/email-center.mjs get` — Codex için canlı e-posta merkezi; komut sözleşmesi `docs/email-center-agent.md` içindedir.
 - `/dev/email-center-preview` ve `?template=1` — yönetim ekranı ve gerçek varsayılan e-posta tasarımının gönderimsiz önizlemesi.
+
+- Hesaptan Teknik Resim Takibi: `npx vitest run src/lib/drawing-plan src/lib/__tests__/drawing-plan.test.ts src/lib/__tests__/equipment-summary.test.ts` — topoloji, numara ve manuel karar koruma.
+- `python scripts/drawing-plan-db-check.py test|verify` — yalnız teknik resim migration'ı; testler geri alınır. pg8000 ve mevcut yerel Supabase bağlantısı gerekir.
+- `npx tsx scripts/test-drawing-plan-output.ts` — 120 satırlı gerçek PDF/Excel, sıra, baştaki sıfırlar ve müşteri kapsamı.
+- `/dev/drawing-plan-preview` — ortak/ayrı araba, sabit kaldırma, eski manuel plan ve 0/1/25/120 satır önizlemeleri.

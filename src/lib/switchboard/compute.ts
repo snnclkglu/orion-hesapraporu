@@ -192,6 +192,8 @@ export function computeSwitchboardLayout(input: ComputeInput): ComputeResult {
         pinned: false,
         pinnedOrder: null,
         pinnedRail: null,
+        anchorKey: null,
+        anchorSide: null,
       },
       reason: "etiketsiz",
       note: "Aygıt etiketi okunamadı; yerleşim yuvası açılmadı",
@@ -207,6 +209,10 @@ export function computeSwitchboardLayout(input: ComputeInput): ComputeResult {
   }
 
   const fingerprint = fingerprintOf(fingerprintParts(buildInput));
+
+  const kuyruktakiler = new Set(unplaced.map((u) => u.device.key));
+  const beklenenler = (girdiler: PanelInput[]): DeviceBox[] =>
+    girdiler.flatMap((g) => g.devices).filter((d) => !kuyruktakiler.has(d.key));
 
   return {
     room: oda.layouts,
@@ -242,9 +248,14 @@ export function computeSwitchboardLayout(input: ComputeInput): ComputeResult {
     fingerprint,
     // BEKLENEN AYGIT KÜMESİ GEÇİRİLİR: bir cihazın sessizce düşmesini
     // yakalayan tek denetim budur (PANO-11) ve dizi düzeyinde sınanır.
+    //
+    // KUYRUĞA DÜŞEN AYGIT "SESSİZCE KAYIP" DEĞİLDİR: ölçüsüz ya da sığmayan
+    // cihaz `unplaced` listesinde sebebiyle duruyor. Onu beklenen kümede
+    // tutmak denetimi her ölçüsüz cihazda kırmızıya boyuyordu ve gerçek bir
+    // kaybı (yerleştiricinin düşürdüğü cihaz) görünmez kılıyordu.
     audits: [
-      ...auditLineup(oda.layouts, settings, odaGirdi.flatMap((g) => g.devices), "Oda dizisi"),
-      ...auditLineup(saha.layouts, settings, sahaGirdi.flatMap((g) => g.devices), "Saha dizisi"),
+      ...auditLineup(oda.layouts, settings, beklenenler(odaGirdi), "Oda dizisi"),
+      ...auditLineup(saha.layouts, settings, beklenenler(sahaGirdi), "Saha dizisi"),
     ],
   };
 }

@@ -41,6 +41,8 @@ function duzeltme(over: Partial<PlacementOverride> = {}): PlacementOverride {
     zone: null,
     railIndex: null,
     orderInRail: null,
+    anchorDeviceKey: null,
+    anchorSide: null,
     widthMm: null,
     heightMm: null,
     depthMm: null,

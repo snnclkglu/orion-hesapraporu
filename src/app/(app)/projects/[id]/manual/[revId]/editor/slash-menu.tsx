@@ -53,6 +53,9 @@ const TURLER: {
   ikon: typeof Type;
   yap: () => ManualBlock;
 }[] = [
+  { ad: "Fotoğraf + açıklama", ipucu: "Şematik tasarımda birlikte taşınan görsel ve metin", ikon: ImageIcon, yap: () => ({ id:yeniBlokId(),kind:"media",title:"",text:"",media:{},side:"right" }) },
+  { ad: "İşlem adımları", ipucu: "Görsel ve beklenen sonuç eklenebilen adımlar", ikon: ListOrdered, yap: () => ({ id:yeniBlokId(),kind:"procedure",title:"",steps:[{id:yeniBlokId(),text:""}] }) },
+  { ad: "Numaralı şekil", ipucu: "Numaralı işaretlerle parça ve nokta açıklaması", ikon: Ruler, yap: () => ({ id:yeniBlokId(),kind:"figure",title:"",media:{},markers:[] }) },
   {
     ad: "Paragraf",
     ipucu: "Düz metin; satır sonları korunur",

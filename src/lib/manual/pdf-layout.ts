@@ -490,6 +490,7 @@ export function blokOlcusu(
   const sutun = tamGenislik ? TAM_GENISLIK : SUTUN_GENISLIK;
 
   switch (block.kind) {
+    case "media": case "figure": case "procedure": return { h: 0, tam: true };
     case "text": {
       const kenar = block.margin?.trim() ? KENAR_NOT_YUK : 0;
       return { h: kenar + satirSayisi(block.text, GOVDE_PUNTO, sutun) * GOVDE_SATIR + PARAGRAF_PAY, tam: tamGenislik };

@@ -384,6 +384,8 @@ describe("yandan takılan aksesuarın eni AYGITA EKLENİR", () => {
           zone: null,
           railIndex: null,
           orderInRail: null,
+          anchorDeviceKey: null,
+          anchorSide: null,
           widthMm: 50,
           heightMm: 90,
           depthMm: 80,

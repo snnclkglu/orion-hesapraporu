@@ -111,6 +111,8 @@ export interface ManualTable {
 }
 
 interface ManualBlockBase {
+  /** Sıralamadan bağımsız şablon kaynağı. */
+  templateBlockKey?: string;
   /** Kararlı kimlik — düzenleme, sürükleme ve karşılaştırma buna dayanır. */
   id: string;
   /** Şablondan doğdu; `edited` kapalıyken şablon tazelemesi onu ezebilir. */
@@ -289,7 +291,42 @@ export type ManualBlock =
   | ManualTableBlock
   | ManualImageBlock
   | ManualDiagramBlock
-  | ManualAutoBlock;
+  | ManualAutoBlock
+  | ManualMediaBlock
+  | ManualProcedureBlock
+  | ManualFigureBlock;
+
+/** Birleşik içeriklerdeki görsel kaynağı; baytlar JSON'a yazılmaz. */
+export interface ManualMediaRef {
+  imageId?: string;
+  assetKey?: string;
+  diagram?: ManualDiagramModel;
+  diagramKey?: string;
+}
+
+export interface ManualMediaBlock extends ManualBlockBase {
+  kind: "media";
+  title: string;
+  text: string;
+  media: ManualMediaRef;
+  caption?: string;
+  side: "left" | "right" | "top";
+}
+
+export interface ManualProcedureBlock extends ManualBlockBase {
+  kind: "procedure";
+  title: string;
+  steps: { id: string; text: string; result?: string; media?: ManualMediaRef }[];
+}
+
+export interface ManualFigureBlock extends ManualBlockBase {
+  kind: "figure";
+  title: string;
+  media: ManualMediaRef;
+  caption?: string;
+  /** Koordinatlar görselin sol üst köşesine göre 0–1 aralığında. */
+  markers: { id: string; x: number; y: number; label: string; text: string }[];
+}
 
 // ———————————————————————————————————————————————————————————————— bölüm
 
@@ -483,7 +520,9 @@ export interface ManualScope {
 
 export interface ManualPayload {
   /** Sözleşme sürümü — `withManualDefaults` eski kayıtları bugüne taşır. */
-  v: 1;
+  v: 1 | 2;
+  /** Alanı olmayan eski belgeler eski çiziciyle açılır. */
+  designVersion?: 1 | 2;
   /** Kapakta basılan belge adı; öntanımı `MANUAL_DOC_TITLE`. */
   docTitle: string;
   /** Kapağın üst satırı ("185/40 TON KAPASİTELİ ŞARJ VİNCİ"). */

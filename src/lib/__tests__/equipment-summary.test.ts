@@ -53,3 +53,17 @@ describe("Teknik Ressam Özeti", () => {
     ]));
   });
 });
+
+import type { DrawingPlanRow } from "@/lib/drawing-plan";
+
+describe("teknik resim çıktı sırası", () => {
+  it("notlardan sonra montaj sırasını ve baştaki sıfırları korur; gizlenen satırı basmaz", () => {
+    const make = (id: string, code: string, parentId: string | null, sortOrder: number): DrawingPlanRow => ({ id, code, parentId, sortOrder, name: id, status: "bekliyor", drawnBy: null, drawnByName: "", note: "" });
+    const rows = [make("ANA ARABA", "1500", null, 1), make("KÖPRÜ", "0100", null, 0), make("KANCA", "2300", "ANA ARABA", 0), { ...make("GİZLİ", "0400", null, 2), suppressed: true }];
+    const sections = buildSummarySections(NEW_WORK_TEMPLATE, runCalc(NEW_WORK_TEMPLATE), { itemNo: "0045-00", rows }, "MONTAJ NOTU");
+    expect(sections.at(-2)?.name).toBe("Notlar");
+    expect(sections.at(-1)?.name).toBe("Teknik Resim Numaralandırması");
+    expect(sections.at(-1)?.rows.map(r => r.value)).toEqual(["0045-00-0100", "0045-00-1500", "0045-00-2300"]);
+    expect(sections.at(-1)?.rows.at(-1)?.label).toContain("KANCA");
+  });
+});

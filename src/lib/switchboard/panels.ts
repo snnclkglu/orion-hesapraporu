@@ -260,6 +260,9 @@ export function buildDeviceBoxes(input: BuildInput): BuildResult {
       pinned: override?.pinned ?? false,
       pinnedOrder: override?.orderInRail ?? null,
       pinnedRail: override?.railIndex ?? null,
+      // KOMŞUYA BAĞLI SABİTLEME (PANO-38): "bu aygıt şunun yanına".
+      anchorKey: override?.anchorDeviceKey ?? null,
+      anchorSide: override?.anchorSide ?? null,
     });
 
     // `panelOverride` yalnız pano ADININ/türünün kaynağıdır; kutuya girmez.
@@ -324,6 +327,8 @@ export function fingerprintParts(input: BuildInput): string[] {
         o.zone ?? "",
         o.railIndex ?? "",
         o.orderInRail ?? "",
+        o.anchorDeviceKey ?? "",
+        o.anchorSide ?? "",
         o.widthMm ?? "",
         o.heightMm ?? "",
         o.depthMm ?? "",

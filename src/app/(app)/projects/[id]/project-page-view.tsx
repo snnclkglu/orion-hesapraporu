@@ -70,12 +70,15 @@ function drawingStatusBadge(status: DrawingStatus) {
 
 export async function ProjectPageView({
   params,
+  searchParams,
   expectedContext = ENGINEERING_REPORT_CONTEXT,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ tab?: string }>;
   expectedContext?: ReportContext;
 }) {
   const { id } = await params;
+  const initialTab = (await searchParams)?.tab === "drawings" ? "drawings" : "report";
   const supabase = await createClient();
 
   const { data: project } = await supabase
@@ -322,7 +325,7 @@ export async function ProjectPageView({
         checkedByName={(project.checked_by_name as string | null) ?? null}
       />
 
-      <Tabs defaultValue="report">
+      <Tabs defaultValue={initialTab}>
         {/* Bölüm rayı kendi dosyasındadır (`project-tabs.tsx`) ki
             `/dev/project-preview` GERÇEK rayı bassın; gerekçe orada. */}
         <ProjectTabsNav
@@ -506,7 +509,7 @@ export async function ProjectPageView({
             Plan en üsttedir çünkü diğer ikisi ondan sonra doğar. Üç katman
             birbirine BAĞLANMAZ: plan Teknik Resimler modülünü hiç bilmez
             (kullanıcı kararı) ve paket kartı da planı okumaz. */}
-        {!offerContext && <TabsContent value="drawings">
+        {!offerContext && <TabsContent value="drawings" forceMount className="data-[state=inactive]:hidden">
           <div className="grid gap-3">
             <DrawingPlanCard
               projectId={project.id}

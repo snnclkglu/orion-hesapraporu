@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
+  AnchorSide,
   DeviceModel,
   LayoutSettings,
   MountType,
@@ -28,6 +29,7 @@ const MOUNT_TIPLERI: MountType[] = [
 const BOLGELER: Zone[] = ["giris", "guc", "motor", "kumanda", "klemens"];
 const PANO_TURLERI: PanelKind[] = ["oda", "saha", "haric"];
 const KAPAKLAR: ("tek" | "cift")[] = ["tek", "cift"];
+const YONLER: AnchorSide[] = ["once", "sonra"];
 
 function metinVeyaNull(v: unknown): string | null {
   const s = v === null || v === undefined ? "" : String(v);
@@ -51,7 +53,15 @@ function secenek<T extends string>(v: unknown, izin: T[]): T | null {
 const MODEL_SUTUNLARI =
   "lookup_key, supplier, type_no, width_mm, height_mm, depth_mm, module_units, mount_type, zone, clearance_top_mm, clearance_bottom_mm, heat_w, source, note";
 
-function modelden(r: Record<string, unknown>): DeviceModel {
+/**
+ * HAM SATIR → ÇEKİRDEK TİPİ dönüştürücüler DIŞA AÇIKTIR ve saftır.
+ *
+ * Aynı satırı iki taraf okur: uygulama (Supabase) ve ölçüm betiği
+ * (`scripts/test-switchboard-layout.ts --kararlar`, canlı döküm). Betik kendi
+ * dönüştürücüsünü yazsaydı `width_locked`ı bir gün unutur ve yerelde
+ * yeniden üretilen plan canlıdakinden ayrışırdı (Plan F0).
+ */
+export function deviceModelFromRow(r: Record<string, unknown>): DeviceModel {
   return {
     lookupKey: String(r.lookup_key ?? ""),
     supplier: String(r.supplier ?? ""),
@@ -88,7 +98,7 @@ export async function loadDeviceModels(supabase: SupabaseClient): Promise<Device
       .order("lookup_key", { ascending: true })
       .range(ofset, ofset + ADIM - 1);
     const satirlar = (data ?? []) as unknown as Record<string, unknown>[];
-    for (const r of satirlar) out.push(modelden(r));
+    for (const r of satirlar) out.push(deviceModelFromRow(r));
     if (satirlar.length < ADIM) break;
   }
   return out;
@@ -109,7 +119,11 @@ export async function loadPanelOverrides(
     .eq("project_id", projectId)
     .order("order_index", { ascending: true, nullsFirst: false });
 
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map(panelOverrideFromRow);
+}
+
+export function panelOverrideFromRow(r: Record<string, unknown>): PanelOverride {
+  return {
     code: String(r.code ?? ""),
     name: String(r.name ?? ""),
     kind: secenek(r.kind, PANO_TURLERI),
@@ -123,13 +137,13 @@ export async function loadPanelOverrides(
     heightLocked: r.height_locked === true,
     depthLocked: r.depth_locked === true,
     note: String(r.note ?? ""),
-  }));
+  };
 }
 
 // ═══════════════════════════════════════════════════ AYGIT DÜZELTMELERİ
 
 const YERLESIM_SUTUNLARI =
-  "device_key, panel_code, mount_type, zone, rail_index, order_in_rail, width_mm, height_mm, depth_mm, pinned, note";
+  "device_key, panel_code, mount_type, zone, rail_index, order_in_rail, anchor_device_key, anchor_side, width_mm, height_mm, depth_mm, pinned, note";
 
 export async function loadPlacementOverrides(
   supabase: SupabaseClient,
@@ -145,24 +159,28 @@ export async function loadPlacementOverrides(
       .order("device_key", { ascending: true })
       .range(ofset, ofset + ADIM - 1);
     const satirlar = (data ?? []) as unknown as Record<string, unknown>[];
-    for (const r of satirlar) {
-      out.push({
-        deviceKey: String(r.device_key ?? ""),
-        panelCode: metinVeyaNull(r.panel_code),
-        mountType: secenek(r.mount_type, MOUNT_TIPLERI),
-        zone: secenek(r.zone, BOLGELER),
-        railIndex: sayiVeyaNull(r.rail_index),
-        orderInRail: sayiVeyaNull(r.order_in_rail),
-        widthMm: sayiVeyaNull(r.width_mm),
-        heightMm: sayiVeyaNull(r.height_mm),
-        depthMm: sayiVeyaNull(r.depth_mm),
-        pinned: r.pinned === true,
-        note: String(r.note ?? ""),
-      });
-    }
+    for (const r of satirlar) out.push(placementOverrideFromRow(r));
     if (satirlar.length < ADIM) break;
   }
   return out;
+}
+
+export function placementOverrideFromRow(r: Record<string, unknown>): PlacementOverride {
+  return {
+    deviceKey: String(r.device_key ?? ""),
+    panelCode: metinVeyaNull(r.panel_code),
+    mountType: secenek(r.mount_type, MOUNT_TIPLERI),
+    zone: secenek(r.zone, BOLGELER),
+    railIndex: sayiVeyaNull(r.rail_index),
+    orderInRail: sayiVeyaNull(r.order_in_rail),
+    anchorDeviceKey: metinVeyaNull(r.anchor_device_key),
+    anchorSide: secenek(r.anchor_side, YONLER),
+    widthMm: sayiVeyaNull(r.width_mm),
+    heightMm: sayiVeyaNull(r.height_mm),
+    depthMm: sayiVeyaNull(r.depth_mm),
+    pinned: r.pinned === true,
+    note: String(r.note ?? ""),
+  };
 }
 
 // ═════════════════════════════════════════════════ KAYDEDİLMİŞ AYARLAR

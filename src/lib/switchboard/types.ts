@@ -110,6 +110,16 @@ export interface DeviceModel {
   note: string;
 }
 
+/**
+ * Sabitlemenin YÖNÜ: taşınan aygıt komşusunun ÖNÜNE mi ARKASINA mı oturur.
+ *
+ * Sıra bir indeks değil bir KOMŞULUKTUR (PANO-38). İndeks, ekranın ve
+ * çözücünün AYNI listeyi saymasını şart koşar; ölçüldü (0026, 12.09.2026) —
+ * first-fit iki listeyi ayırmıştı ve sürüklenen cihaz bırakılan yere
+ * gitmiyordu. Komşu anahtarı iki tarafta da aynı anlama gelir.
+ */
+export type AnchorSide = "once" | "sonra";
+
 /** Kullanıcının bir aygıt için yaptığı düzeltme (`switchboard_placements`). */
 export interface PlacementOverride {
   deviceKey: string;
@@ -117,7 +127,15 @@ export interface PlacementOverride {
   mountType: MountType | null;
   zone: Zone | null;
   railIndex: number | null;
+  /**
+   * ESKİ BİÇİM sabitleme — mutlak sıra indeksi. 12.09.2026'dan önce yazılan
+   * satırlar bunu taşır; okunmaya devam eder (kendi TÜRÜNÜN listesinde
+   * sayılır), yenisi yazılmaz. Yeni sabitleme `anchorDeviceKey`dir.
+   */
   orderInRail: number | null;
+  /** Komşuya bağlı sabitleme: taşınan aygıt bu aygıtın yanına oturur. */
+  anchorDeviceKey: string | null;
+  anchorSide: AnchorSide | null;
   widthMm: number | null;
   heightMm: number | null;
   depthMm: number | null;
@@ -198,10 +216,16 @@ export interface DeviceBox {
    * koordinat bir sonraki yerleştirmede çakışma üretirdi.
    */
   pinned: boolean;
-  /** Kullanıcının bıraktığı sıra (panonun tamamında). `null` = serbest. */
+  /**
+   * ESKİ BİÇİM: kullanıcının bıraktığı mutlak sıra. `null` = yok.
+   * Kendi TÜRÜNÜN (DIN/plaka) listesinde sayılır (PANO-38).
+   */
   pinnedOrder: number | null;
   /** Kullanıcının bıraktığı ray — bilgi amaçlı; sıra baskındır. */
   pinnedRail: number | null;
+  /** Komşuya bağlı sabitleme (PANO-38): bu aygıt `anchorKey`nin yanındadır. */
+  anchorKey: string | null;
+  anchorSide: AnchorSide | null;
 }
 
 /** Bir aygıtın montaj plakasındaki yeri [mm, plakanın sol üstünden]. */
@@ -239,12 +263,25 @@ export interface Rail {
   yMm: number;
   /** Satırın toplam yüksekliği (cihaz + ısı payı + kanal). */
   heightMm: number;
+  /**
+   * Rayın sol kenarı, RAY BAŞLANGICINDAN [mm] (dikey kanal + kenar payı
+   * sonrası). Tam enli rayda 0; bir CEP rayında cebin solu + sütun payı
+   * (PANO-39). Çizim ve denetim bunu okur; `0` varsaymak cep raylarını
+   * sürücünün üstüne çizerdi.
+   */
+  xMm: number;
   /** Bu satırda kullanılan genişlik [mm]. */
   usedMm: number;
-  /** Satırda kullanılabilir genişlik [mm]. */
+  /** Satırda kullanılabilir genişlik [mm] — cep rayında cebin eni kadar. */
   capacityMm: number;
   /** Satırın altındaki kablo kanalı yüksekliği [mm]. */
   ductMm: number;
+  /**
+   * Bu ray bir plaka bandının CEBİNDE mi? Cebi açan plaka rayının indeksi;
+   * tam enli rayda `null`. Çizim cebin solundaki dikey kanalı buna bakarak
+   * çizer.
+   */
+  pocketOf: number | null;
 }
 
 /** Yerleşemeyen aygıtın sebebi — sessizce düşmez (PANO-10). */
@@ -286,6 +323,13 @@ export interface PanelLayout {
   depthLocked: boolean;
   rails: Rail[];
   placements: Placement[];
+  /**
+   * ÇÖZÜCÜNÜN NİHAİ AYGIT SIRASI — plakaya giren aygıt anahtarları, sabitleme
+   * uygulanmış hâliyle (PANO-38). Ekran sürükle-bırak hedefini BU listeden
+   * okur, çizim sırasından türetmez: iki liste bir kez ayrıştı ve cihaz
+   * bırakılan yere gitmedi.
+   */
+  order: string[];
   /** Kapak üstü aygıtlar (ayrı görünüş). */
   doorPlacements: Placement[];
   /** Gövde gereçleri — yerleşimi çizilmez, listede durur. */
@@ -350,6 +394,16 @@ export interface LayoutSettings {
   doorGapMm: number;
   /** Hedef doluluk üst sınırı — aşılırsa UYARI, engel değil. */
   fillWarnRatio: number;
+  /**
+   * SÜTUNLU YERLEŞİM (PANO-39): uzun plaka cihazının (sürücü) yanında kalan
+   * boşluğa DIN rayı açılır mı? Kapalıyken eski tam-enli raf modeli çalışır
+   * ve çıktı bit-aynıdır — gerileme bu anahtarla ölçülür.
+   */
+  columnsEnabled: boolean;
+  /** Bir cep rayının açılabileceği en küçük en [mm]; altı kanal + tek cihaz bile almaz. */
+  minRailMm: number;
+  /** Uzun plaka cihazı ile cep rayı arasındaki sütun payı [mm] — kablo iniş yolu ve soğuma. */
+  columnGapMm: number;
 }
 
 /** Bütün işin çözülmüş hâli. */

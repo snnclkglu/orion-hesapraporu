@@ -5,7 +5,7 @@
 > `.claude/rules/resimler.md` ve haritadaki satır ondan ÜRETİLİR
 > (`npx tsx scripts/agent-docs/split.ts --uygula`).
 
-**Kapsam:** `src/lib/drawings/**` · `src/lib/drawing-plan.ts` · `src/lib/drawing-plan-data.ts` · `src/lib/drawings.ts` · `src/app/(app)/drawings/**` · `scripts/test-drawings*.ts` · `scripts/test-normalize.ts`
+**Kapsam:** `src/lib/drawing-plan/**` · `src/lib/drawing-plan-service.ts` · `scripts/test-drawing-plan-output.ts` · `scripts/drawing-plan-db-*` · `src/lib/drawings/**` · `src/lib/drawing-plan.ts` · `src/lib/drawing-plan-data.ts` · `src/lib/drawings.ts` · `src/app/(app)/drawings/**` · `scripts/test-drawings*.ts` · `scripts/test-normalize.ts`
 
 ## RESIM-20 — Teknik Resim Takibi PLANDIR, teslim değil.
 
@@ -16,18 +16,13 @@ ressamın teslim ettiğinden doğar, bu defter teslimden aylar önce yazılır.
 Proje sayfasındaki sekme bu yüzden üç katmanlıdır ve sıra ZAMAN SIRASIDIR —
 plan → doğrulanmış paketler → kapanmış eski Drive defteri.
 
-Numara `<iş kalemi no>-<grup kodu>`dur (`0055-00-0100`). Bant kuralı
-firmanındır ve TEK yerdedir (`lib/drawing-plan.ts`): köprü 0100–1400,
-**ANA ARABA 1500–2200, YARDIMCI ARABA 2300–2900**, ekstra 3000–3900.
-**Bant bir sütun DEĞİL koddan türeyen bir sonuçtur.** Vinçte iki araba
-olabilir ve ikisinin resimleri ressam için ayrı iki takımdır; aradaki
-2201–2299 boşluğu bilinçlidir. **ADIM 100'DÜR** (kullanıcı kararı,
-11.08.2026) — bir süre 50 idi çünkü devralınan antedlerde ara numara vardı
-(`0019-00-0950`); firma numaralandırmayı yüzlüklere sabitledi. Ara numara
-YASAK DEĞİLDİR: yazılmış bir "0950" kendi bandında görünmeye devam eder ve
-seçicide kendi seçeneği olarak korunur, yalnız yeni numara olarak
-önerilmez. Kalem numarası deftere KOPYALANMAZ; `job_items.item_no` tek
-kaynaktır ve `autoItemNos` onu kaydırabilir (md. 14).
+Numara `<iş kalemi no>-<grup kodu>`dur (`0045-00-1500`). Yeni planlarda
+ana araba **1500**, ikinci araba **2500** ile başlar; mühendis başlangıçları
+değiştirebilir (12.09.2026 kullanıcı kararı). Öneri adımı 100; mevcut 0950
+gibi ara kodlar korunur. Montaj `parent_id`, sıra `sort_order` ile saklanır;
+2300 kodu hangi montaja bağlandıysa oradadır. Eski bant yardımcıları yalnız
+geriden uyum içindir. Kalem numarası satırlara kopyalanmaz;
+`resolveProjectItemNo` iş kalemi/doküman numarasından güncel kökü okur.
 
 **DURUM BİR KUTU DEĞİL BİR ETİKETTİR ve yüzde ondan TÜRETİLİR.** İlk
 sürümde tek bir `drawn` boolean'ı vardı; gerekçesi "ara durumlar teslim
@@ -43,16 +38,33 @@ yanında bırakılmadı. **%100 yalnız her satır "Çizildi" iken çıkar** —
 bitmemiş bir işi bitmiş gösterirdi; `drawingPlanProgress` orada %99'da
 kelepçeler.
 
-Ekran OTOMATİK DOLDURMAZ (karar mühendisin). **Grup adı alanı SERBEST
-METİN kutusudur** (`components/editable-combobox.tsx`), açılır liste değil:
-ekstra gruplarda (kepçe, mıknatıs, müşteriye özel aparat) hazır listenin
-karşılığı çoğu zaman yoktur ve `Combobox`ta listede olmayan bir ad ancak
-arama kutusuna yazıp "+ Ekle" satırına basarak giriliyordu — iki adım, ve
-kutunun yazılabilir olduğu ilk bakışta görünmüyordu. Öneriler satırın
-KENDİ BANDINDAN başlar. Grup adedi ve ağırlık SORULMAZ — onlara ressam
-çizerken karar verir. Defter Teknik Ressam Özeti'nin sonuna basılır
-(panel + Excel + PDF) ama `CalcInput`a GİRMEZ: snapshot'a gömülseydi proje
-başında verilmiş karar her revizyonda donardı.
+**HESAP KAYDINDAN OTOMATİK TÜRETİLİR** (12.09.2026 kullanıcı kararı;
+önceki otomatik doldurmama kuralının yerini alır). `drawing-plan/derive.ts`
+mevcut modül/topoloji ve halat yardımcılarını kullanır; ortak arabadaki iki
+kaldırmayı tek şasiye bağlar. Kabin, elektrik odası/panolar ve enerji hattı
+açık beyanlardan gelir. Platform/yaşam hattı gibi belirsiz gruplar öneridir.
+Grup adet/ağırlığı tahmin edilmez; bu defter `CalcInput`a gömülmez.
+
+İlk başarılı mühendislik hesap kaydı boş defteri oluşturur. Teklif kaydı
+plan üretmez. Kaynak başka revizyonsa sessiz değiştirilmez; mevcut manuel
+defter önce eşleştirilir. `source_key`, `overrides` ve `suppressed` manuel
+kararları/çıkarma tercihini korur. Topoloji değişimi karşılaştırmalı önizleme
+ister; hesapta kalmayan grup elle silinir veya manuel tutulur. Yer dolarsa
+kodlar sessiz kaydırılmaz. Düzenleme, sürükleme, yukarı/aşağı ve silme işlemi
+kaydet öncesi geri alınabilir; teknik resim sekmesi taslağı korumak için
+bağlı kalır. Kaydet sürerken alanlar kilitlenir.
+
+`save_drawing_plan_document` satırları ve kaynak durumunu tek transaction'da,
+beklenen sürümle yazar. Kod unique kısıtı ertelenebilir: iki kod takas
+edilebilir. Yetki, tekrar kod/kimlik, yabancı proje satırı/kaynağı, döngü,
+kaldırılmış ebeveyn, kaynak zaman damgası ve 120 satır sınırı doğrulanır.
+Okuma hatası boş defter sayılmaz. Eski doğrudan yazma da sürümü artırır.
+Migration: `20260912233000_drawing_plan_automation.sql`.
+
+`orderedDrawingPlan` ekran, indirmeler ve el kitabı kaynağında aynı montaj
+sırasını verir. Teknik özetin **son bloğu Teknik Resim Numaralandırması**;
+Notlar ondan öncedir. Çizen/durum/silinmiş öneriler müşteri belgesine basılmaz.
+Yalnız ekipman kapsamına numaralandırma eklenmez.
 
 **ÇİZEN BİR BAĞDIR, SERBEST METİN DEĞİL** (`drawn_by` → `profiles.id`,
 kullanıcı kararı 12.08.2026: *"Not bölümünün soluna, çizen teknik ressamı

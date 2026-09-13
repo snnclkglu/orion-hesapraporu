@@ -13,6 +13,8 @@ import {
   type DrawingPlanRow,
 } from "@/lib/drawing-plan";
 import { DRAWING_AUTHOR_ROLES } from "@/lib/roles";
+import { emptyDrawingPlanState, type DrawingPlanDocument } from "./drawing-plan/types";
+import { orderedDrawingPlan } from "./drawing-plan/presentation";
 
 /**
  * `project_drawing_plan` satırının okunan sütunları — ZENGİN ve DAR.
@@ -29,6 +31,33 @@ import { DRAWING_AUTHOR_ROLES } from "@/lib/roles";
 const PLAN_COLUMNS_ZENGIN =
   "id, code, name, status, note, drawn_by, cizen:profiles!drawn_by ( full_name )";
 const PLAN_COLUMNS_DAR = "id, code, name, status, note";
+const PLAN_COLUMNS_TREE = `${PLAN_COLUMNS_ZENGIN},parent_id,sort_order,source_key,origin,generated_values,overrides,suppressed,reason`;
+
+function planRow(r: Record<string, unknown>): DrawingPlanRow {
+  return { id: String(r.id), code: String(r.code ?? ""), name: String(r.name ?? ""), status: toDrawingStatus(r.status),
+    drawnBy: r.drawn_by ? String(r.drawn_by) : null, drawnByName: cizenAdi(r.cizen), note: String(r.note ?? ""),
+    parentId: r.parent_id ? String(r.parent_id) : null, sortOrder: r.sort_order == null ? undefined : Number(r.sort_order),
+    sourceKey: r.source_key ? String(r.source_key) : null, origin: r.origin as DrawingPlanRow["origin"],
+    generated: r.generated_values as DrawingPlanRow["generated"], overrides: (r.overrides ?? []) as DrawingPlanRow["overrides"],
+    suppressed: r.suppressed === true, reason: String(r.reason ?? "") };
+}
+
+/** Otomatik yazma yolunda sorgu hatası hiçbir zaman boş defter sayılmaz. */
+export async function loadDrawingPlanDocument(supabase: SupabaseClient, projectId: string): Promise<DrawingPlanDocument> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const before = await supabase.from("project_drawing_plan_state").select("version").eq("project_id", projectId).maybeSingle();
+    const plan = await supabase.from("project_drawing_plan").select(PLAN_COLUMNS_TREE).eq("project_id", projectId);
+    const state = await supabase.from("project_drawing_plan_state").select("*").eq("project_id", projectId).maybeSingle();
+    if (before.error || plan.error || state.error) throw new Error("Teknik resim planı okunamadı. Güncel veriler yüklenmeden değişiklik yapılmadı.");
+    if ((before.data?.version ?? 0) !== (state.data?.version ?? 0)) continue;
+    const value = state.data;
+    return { rows: (plan.data as unknown as Record<string, unknown>[]).map(planRow), state: value ? {
+      version: Number(value.version), sourceRevisionId: value.source_revision_id, sourceRevisionLabel: value.source_revision_label,
+      sourceUpdatedAt: value.source_updated_at, fingerprint: value.fingerprint, numbering: value.numbering,
+    } : emptyDrawingPlanState() };
+  }
+  throw new Error("Resim planı düzenleniyor; birkaç saniye sonra yeniden açın.");
+}
 
 /** Gömülü ilişki tekil de dizi de dönebilir; adı iki biçimden de çıkarır. */
 function cizenAdi(value: unknown): string {
@@ -37,15 +66,15 @@ function cizenAdi(value: unknown): string {
   return typeof ad === "string" ? ad : "";
 }
 
-/**
- * Projenin ana grup numaralandırması. Tablo yoksa/erişilemezse BOŞ döner —
- * numaralandırma bir teslim belgesinin süsü değil ama yokluğu da ekipman
- * listesini düşürmemelidir.
- */
+/** Projenin görünür montaj sırası. Okuma hatası boş liste sayılmaz. */
 export async function loadDrawingPlan(
   supabase: SupabaseClient,
   projectId: string
 ): Promise<DrawingPlanRow[]> {
+  const tree = await supabase.from("project_drawing_plan").select(PLAN_COLUMNS_TREE).eq("project_id", projectId);
+  if (!tree.error) return orderedDrawingPlan((tree.data as unknown as Record<string, unknown>[]).map(planRow)).map(r => r.row);
+  // Yalnız eski şemaya geçiş; ağ/yetki hatası planı görünmez yapmaz.
+  if (!["42703", "PGRST200", "PGRST204"].includes(tree.error.code)) throw new Error("Teknik resim listesi okunamadı; tekrar deneyin.");
   const sorgu = (columns: string) =>
     supabase
       .from("project_drawing_plan")
@@ -54,7 +83,10 @@ export async function loadDrawingPlan(
       .order("code", { ascending: true });
 
   const zengin = await sorgu(PLAN_COLUMNS_ZENGIN);
-  const data = zengin.error ? (await sorgu(PLAN_COLUMNS_DAR)).data : zengin.data;
+  if (zengin.error && !["42703", "PGRST200", "PGRST204"].includes(zengin.error.code)) throw new Error("Teknik resim listesi okunamadı.");
+  const legacy = zengin.error ? await sorgu(PLAN_COLUMNS_DAR) : zengin;
+  if (legacy.error) throw new Error("Teknik resim listesi okunamadı.");
+  const data = legacy.data;
 
   return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
     id: String(r.id),

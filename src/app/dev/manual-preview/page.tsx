@@ -6,6 +6,8 @@
 // tabloları `scripts/test-manual-pdf.ts`teki sahte veriyle aynıdır. Böylece
 // ekranda görülen belge ile duman testinin bastığı PDF aynı şeyi anlatır.
 
+import fs from "node:fs";
+import { modernizeManualContent } from "@/lib/manual/rich-content";
 import { notFound } from "next/navigation";
 import { ManualEditor } from "@/app/(app)/projects/[id]/manual/[revId]/manual-editor";
 import { MANUAL_DOC_TITLE } from "@/lib/manual/naming";
@@ -49,16 +51,19 @@ const SOURCES: ManualSourceData = {
 export default function ManualPreviewPage() {
   if (process.env.NODE_ENV !== "development") notFound();
 
-  const payload = manualFromTemplate({
+  let payload = modernizeManualContent(manualFromTemplate({
     manufacturer: "ORION CRANES",
     product: "ŞARJ VİNCİ",
     craneType: "GEZER KÖPRÜ VİNCİ",
     customer: "ÖRNEK MÜŞTERİ",
     site: "ÇELİK ÜRETİM TESİSİ",
     productionYear: "2026",
-  });
+  }));
+  const pilotPath="tmp/manual-redesign/0026-pilot.json";
+  const pilot=fs.existsSync(pilotPath)?JSON.parse(fs.readFileSync(pilotPath,"utf8")):null;
+  if(pilot)payload=pilot.payload;
   payload.docTitle = MANUAL_DOC_TITLE;
-  payload.coverTitle = "ŞARJ VİNCİ";
+  if(!pilot)payload.coverTitle = "ŞARJ VİNCİ";
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -73,11 +78,11 @@ export default function ManualPreviewPage() {
           status="draft"
           label="Ön Tasarım"
           initialPayload={payload}
-          projectTitle="185/40 T X 18,28 M KAPASİTELİ DÖRT KİRİŞLİ KÖPRÜLÜ ŞARJ VİNCİ"
-          sources={SOURCES}
+          projectTitle={pilot?.project.name??"185/40 T X 18,28 M KAPASİTELİ DÖRT KİRİŞLİ KÖPRÜLÜ ŞARJ VİNCİ"}
+          sources={pilot?.sources??SOURCES}
           images={[]}
           snippets={[]}
-          itemNo="0019-00"
+          itemNo={pilot?"0026-01":"0019-00"}
           identitySources={{}}
           firmalar={[]}
           firmaLogolari={{}}

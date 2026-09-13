@@ -1,183 +1,176 @@
 "use server";
 
-// Teknik Resim Takibi defterinin yazma katmanı.
-//
-// DEFTER BİR BÜTÜN OLARAK KAYDEDİLİR (`saveWorkDay` ile aynı desen, AGENTS
-// WORKLOG-17): gelen satırlar kimlikleriyle eşlenir, kalanlar güncellenir,
-// listeden düşenler silinir. Alternatif — her satırı ayrı ayrı yazmak —
-// mühendisin "önce numarayı 0100'den 0200'e al, sonra 0100'ü başka gruba ver"
-// gibi tek bir düzenlemede yaptığı yer değiştirmelerde tekillik kısıtına
-// (`unique (project_id, code)`) ARADA takılırdı: numara kısa bir an iki satırda
-// birden dururdu. Bütün olarak kaydetmek bu ara durumu hiç doğurmaz — silmeler
-// yazmalardan ÖNCE uygulanır.
-
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { DRAWING_PLAN_STATUSES } from "@/lib/drawing-plan";
-
-/**
- * Durum listesi ÇEKİRDEKTEN okunur, burada tekrar yazılmaz: yüzde ağırlıkları
- * ile kabul edilen değerler aynı listeden çıkmalıdır, aksi hâlde ekranda
- * seçilebilen bir durum sunucuda reddedilirdi.
- */
-const STATUS_VALUES = DRAWING_PLAN_STATUSES.map((s) => s.status) as [
-  string,
-  ...string[],
-];
+import { DRAWING_PLAN_STATUSES, type DrawingPlanRow } from "@/lib/drawing-plan";
+import { loadDrawingPlanDocument } from "@/lib/drawing-plan-data";
+import {
+  drawingPlanSource,
+  persistDrawingPlan,
+} from "@/lib/drawing-plan-service";
+import { adBuyuk } from "@/lib/tr-text";
+import { numberingError } from "@/lib/drawing-plan/numbering";
+import type { DrawingNumbering } from "@/lib/drawing-plan/types";
 
 const rowSchema = z.object({
-  /** Var olan satırın kimliği; yeni satırda boş gelir. */
-  id: z.string().trim().max(60).optional(),
-  code: z
-    .string()
-    .trim()
-    .regex(/^[0-9]{4}$/, "Grup kodu dört rakam olmalı (ör. 0100)"),
-  name: z.string().trim().max(120).default(""),
-  status: z.enum(STATUS_VALUES).default("bekliyor"),
-  /**
-   * Grubu çizen kişi (`profiles.id`) — BOŞ DİZGE `null` demektir.
-   *
-   * Ekran "Atanmadı"yı bir sentinel değerle taşır ve buraya boş dizge olarak
-   * gelir; `null` ile boş dizge aynı şey sayılmazsa Postgres uuid sütununa
-   * `""` yazmayı dener ve satır tümüyle reddedilirdi.
-   */
-  drawnBy: z.union([z.uuid(), z.literal("")]).optional().default(""),
-  note: z.string().trim().max(300).default(""),
+  id: z.uuid(),
+  code: z.string().regex(/^[0-9]{4}$/),
+  name: z.string().trim().min(1).max(120).transform(adBuyuk),
+  status: z.enum(DRAWING_PLAN_STATUSES.map((s) => s.status)),
+  drawnBy: z.uuid().nullable(),
+  note: z.string().max(300),
+  parentId: z.uuid().nullable().optional(),
+  sortOrder: z.number().int().nonnegative().optional(),
+  sourceKey: z.string().max(100).nullable().optional(),
+  suppressed: z.boolean().optional(),
+  origin: z.enum(["auto", "manual", "legacy"]).optional(),
+  overrides: z
+    .array(z.enum(["name", "code", "parentId", "sortOrder"]))
+    .max(4)
+    .optional(),
 });
-
 export type DrawingPlanInput = z.input<typeof rowSchema>;
 
-const payloadSchema = z
-  .array(rowSchema)
-  // Ana grup sayısı gerçekte 10–25 arasındadır; sınır bir kota değil, kazara
-  // gönderilmiş dev bir yükün kalkanıdır.
-  .max(120, "Çok fazla satır")
-  .superRefine((rows, ctx) => {
-    const gorulen = new Set<string>();
-    for (const r of rows) {
-      if (gorulen.has(r.code)) {
-        ctx.addIssue({
-          code: "custom",
-          message: `${r.code} numarası listede iki kez var — her ana gruba bir numara.`,
-        });
-        return;
-      }
-      gorulen.add(r.code);
-    }
-  });
+export async function getDrawingPlanEditor(
+  projectId: string,
+  revisionId?: string | null,
+) {
+  try {
+    z.uuid().parse(projectId);
+    if (revisionId) z.uuid().parse(revisionId);
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Oturum bulunamadı.");
+    const document = await loadDrawingPlanDocument(supabase, projectId);
+    const { data: revisions, error } = await supabase
+      .from("revisions")
+      .select("id,label")
+      .eq("project_id", projectId)
+      .order("rev_no", { ascending: false });
+    if (error) throw new Error("Revizyonlar okunamadı.");
+    let source: Awaited<ReturnType<typeof drawingPlanSource>> | null = null;
+    if (revisions.length)
+      source = await drawingPlanSource(
+        supabase,
+        projectId,
+        revisionId ?? document.state.sourceRevisionId,
+      );
+    return {
+      document,
+      derivation: source?.derivation ?? null,
+      revisionId: source?.revision.id ?? null,
+      revisions,
+      error: undefined,
+    };
+  } catch (cause) {
+    return {
+      error: cause instanceof Error ? cause.message : "Resim planı okunamadı.",
+    };
+  }
+}
 
-export type DrawingPlanResult = {
-  ok?: boolean;
-  error?: string;
-  /**
-   * Kaydedilen satırların kod → kimlik eşlemesi.
-   *
-   * NEDEN GERİ DÖNER: yeni satırların kimliğini SUNUCU üretir. Ekran onu
-   * öğrenmezse aynı satır ikinci kaydetmede yeniden EKLENMEYE çalışılır ve
-   * `unique (project_id, code)` kısıtına takılır — kullanıcı hiçbir şey
-   * değiştirmeden hata görürdü. `revalidatePath` bunu çözmez: istemci
-   * durumundaki `dbId` alanı sunucu yeniden çizse de yerinde kalır.
-   */
-  saved?: { code: string; id: string }[];
-};
-
-/**
- * Projenin ana grup numaralandırmasını kaydeder.
- *
- * Yetki RLS'tedir (`can_edit_reports()`); buradaki kontrol yalnız kullanıcıya
- * anlaşılır bir cümle söylemek içindir — menüden gizlemek görgü kuralı, asıl
- * engel politikadır (AGENTS ROL-15).
- */
 export async function saveDrawingPlan(
   projectId: string,
-  rows: DrawingPlanInput[]
-): Promise<DrawingPlanResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Oturum bulunamadı" };
-
-  const parsedId = z.uuid("Geçersiz hesap raporu").safeParse(projectId);
-  if (!parsedId.success) return { error: parsedId.error.issues[0].message };
-
-  const parsed = payloadSchema.safeParse(rows);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
-
-  const { data: mevcut } = await supabase
-    .from("project_drawing_plan")
-    .select("id")
-    .eq("project_id", projectId);
-
-  const kalanIds = new Set(
-    parsed.data.map((r) => (r.id ?? "").trim()).filter(Boolean)
-  );
-  const silinecek = ((mevcut ?? []) as { id: string }[])
-    .map((r) => r.id)
-    .filter((id) => !kalanIds.has(id));
-
-  // ÖNCE SİLME: yer değiştiren numaraların tekillik kısıtına takılmaması için
-  // (dosya başlığındaki gerekçe).
-  if (silinecek.length > 0) {
-    const { error } = await supabase
-      .from("project_drawing_plan")
-      .delete()
-      .eq("project_id", projectId)
-      .in("id", silinecek);
-    if (error) return { error: error.message };
+  rows: DrawingPlanInput[],
+  expectedVersion: number,
+  revisionId: string | null,
+  numbering: DrawingNumbering,
+) {
+  try {
+    z.uuid().parse(projectId);
+    z.number().int().nonnegative().parse(expectedVersion);
+    if (revisionId) z.uuid().parse(revisionId);
+    const clean = z.array(rowSchema).max(120).parse(rows);
+    const invalid = numberingError(numbering);
+    if (invalid) throw new Error(invalid);
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Oturum bulunamadı.");
+    const document = await loadDrawingPlanDocument(supabase, projectId);
+    if (document.state.version !== expectedVersion)
+      throw new Error(
+        "Resim planı değişti. Taslağınız korundu; güncel planı yeniden açın.",
+      );
+    const source = revisionId
+      ? await drawingPlanSource(supabase, projectId, revisionId)
+      : null;
+    const candidates = new Map(
+      source?.derivation.candidates.map((c) => [c.key, c]) ?? [],
+    );
+    const current = new Map(document.rows.map((r) => [r.id, r]));
+    const prepared: DrawingPlanRow[] = clean.map((row) => {
+      const old = current.get(row.id);
+      const candidate = row.sourceKey
+        ? candidates.get(row.sourceKey)
+        : undefined;
+      if (row.sourceKey && !candidate && old?.sourceKey !== row.sourceKey)
+        throw new Error("Otomatik grubun kaynağı hesapta bulunamadı.");
+      return {
+        ...row,
+        drawnByName: old?.drawnByName ?? "",
+        sourceKey: row.sourceKey ?? null,
+        origin: row.sourceKey
+          ? row.origin === "manual"
+            ? "manual"
+            : "auto"
+          : old?.origin === "legacy"
+            ? "legacy"
+            : "manual",
+        generated: candidate
+          ? {
+              name: candidate.name,
+              parentKey: candidate.parentKey,
+              code: row.overrides?.includes("code")
+                ? (old?.generated?.code ?? row.code)
+                : row.code,
+            }
+          : row.sourceKey
+            ? old?.generated
+            : null,
+        reason:
+          candidate?.reason ??
+          (row.sourceKey
+            ? (old?.reason ?? "")
+            : "Mühendis tarafından düzenlendi."),
+      };
+    });
+    // Otomatik satırın çıkarılması kalıcı bir tercih olarak saklanır.
+    for (const old of document.rows)
+      if (old.sourceKey && !prepared.some((r) => r.id === old.id))
+        prepared.push({ ...old, suppressed: true });
+    const state = {
+      ...document.state,
+      numbering,
+      sourceRevisionId: revisionId,
+      sourceRevisionLabel: source?.revision.label ?? "",
+      fingerprint: source?.derivation.fingerprint ?? "",
+    };
+    await persistDrawingPlan(
+      supabase,
+      projectId,
+      document,
+      prepared,
+      state,
+      source?.revision.updated_at ?? null,
+    );
+    revalidatePath(`/projects/${projectId}`, "layout");
+    return {
+      ok: true,
+      document: await loadDrawingPlanDocument(supabase, projectId),
+    };
+  } catch (cause) {
+    return {
+      error:
+        cause instanceof z.ZodError
+          ? "Alanları kontrol edin: ad, dört haneli numara ve geçerli satır bilgisi gerekli."
+          : cause instanceof Error
+            ? cause.message
+            : "Kaydedilemedi; taslağınız korundu.",
+    };
   }
-
-  const simdi = new Date().toISOString();
-  const ortak = (r: (typeof parsed.data)[number]) => ({
-    project_id: projectId,
-    code: r.code,
-    name: r.name,
-    status: r.status,
-    drawn_by: r.drawnBy || null,
-    note: r.note,
-    updated_at: simdi,
-    updated_by: user.id,
-  });
-
-  // YENİ ve VAR OLAN satırlar AYRI yazılır. Tek bir `upsert` ile yazılsaydı
-  // `created_by` her kaydetmede o anki kullanıcıya dönerdi: defteri açan kişi
-  // bilgisi ilk düzenlemede sessizce silinirdi. Alan, güncelleme yükünde hiç
-  // GEÇMEZ — `on conflict do update` yalnız gönderilen sütunları yazar.
-  const yeniler = parsed.data
-    .filter((r) => !(r.id ?? "").trim())
-    .map((r) => ({ id: crypto.randomUUID(), ...ortak(r), created_by: user.id }));
-  const guncellenenler = parsed.data
-    .filter((r) => (r.id ?? "").trim())
-    .map((r) => ({ id: (r.id ?? "").trim(), ...ortak(r) }));
-
-  const yazmaHatasi = (error: { code?: string; message: string }) =>
-    error.code === "23505"
-      ? "Bu numara projede zaten kullanılıyor — her ana gruba bir numara."
-      : error.message;
-
-  if (guncellenenler.length > 0) {
-    const { error } = await supabase
-      .from("project_drawing_plan")
-      .upsert(guncellenenler, { onConflict: "id" });
-    if (error) return { error: yazmaHatasi(error) };
-  }
-  if (yeniler.length > 0) {
-    const { error } = await supabase.from("project_drawing_plan").insert(yeniler);
-    if (error) return { error: yazmaHatasi(error) };
-  }
-  const yazilacak = [...yeniler, ...guncellenenler];
-
-  await supabase.from("audit_log").insert({
-    project_id: projectId,
-    actor: user.id,
-    action: "drawingPlan.save",
-    detail: { groups: yazilacak.length, removed: silinecek.length },
-  });
-
-  revalidatePath(`/projects/${projectId}`);
-  return {
-    ok: true,
-    saved: yazilacak.map((r) => ({ code: r.code, id: r.id })),
-  };
 }

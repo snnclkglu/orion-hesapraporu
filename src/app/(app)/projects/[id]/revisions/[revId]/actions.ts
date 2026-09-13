@@ -3,6 +3,7 @@
 import { readSelectionTrace, selectionReviewComplete, selectionNumericallyComplete } from "@/lib/auto-selection/trace";
 import { selectionAuditChecksComplete } from "@/lib/auto-selection/publication-check";
 import type { SelectionTrace } from "@/lib/auto-selection/types";
+import { syncDrawingPlanAfterSave } from "@/lib/drawing-plan-service";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { runCalc, type CalcInput } from "@/lib/calc/engine";
@@ -29,7 +30,7 @@ import {
   reportContextOf,
 } from "@/lib/report-context";
 
-export type SaveResult = { error?: string; ok?: boolean; updatedAt?: string };
+export type SaveResult = { error?: string; ok?: boolean; updatedAt?: string; drawingPlanMessage?: string; drawingPlanWarning?: boolean };
 
 /**
  * Taslak revizyonu yayınlar (issue): durum 'issued' olur, DB trigger'ı
@@ -441,5 +442,12 @@ export async function saveRevision(
 
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}`);
   revalidatePath(`/offers/hesap-raporlari/${projectId}/revisions/${revisionId}`);
-  return { ok: true, updatedAt: updated[0].updated_at };
+  let drawingPlanMessage: string | undefined;
+  let drawingPlanWarning = false;
+  if (reportContextOf(project.report_context) === ENGINEERING_REPORT_CONTEXT) {
+    try { drawingPlanMessage = await syncDrawingPlanAfterSave(supabase, projectId, revisionId); }
+    catch { drawingPlanWarning = true; drawingPlanMessage = "Hesap kaydedildi; teknik resim planı güncellenemedi. Teknik Resim Takibi'nden tekrar deneyin."; }
+    revalidatePath(`/projects/${projectId}`);
+  }
+  return { ok: true, updatedAt: updated[0].updated_at, drawingPlanMessage, drawingPlanWarning };
 }

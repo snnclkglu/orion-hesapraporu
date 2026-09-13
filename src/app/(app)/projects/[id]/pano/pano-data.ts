@@ -23,7 +23,7 @@ import {
   FIELD_GRID,
   ROOM_GRID,
 } from "@/lib/switchboard/sizes";
-import type { LineupPrefs, PanelOverride } from "@/lib/switchboard/types";
+import type { LineupPrefs, PanelOverride, PlacementOverride } from "@/lib/switchboard/types";
 
 /** Adresten gelen ölçü YALNIZ ızgaradaysa geçerlidir; değilse yok sayılır. */
 function izgaradan(
@@ -44,6 +44,8 @@ export interface PanoVerisi {
   parcaSayisi: number;
   sonuc: ComputeResult;
   panoKararlari: PanelOverride[];
+  /** Aygıt kararları — Kararlar bölümü listeler ve kaldırır (PANO-40). */
+  aygitKararlari: PlacementOverride[];
   onay: SwitchboardApproval | null;
 }
 
@@ -136,6 +138,7 @@ export async function loadPanoVerisi(
     parcaSayisi: parcalar.length,
     sonuc,
     panoKararlari,
+    aygitKararlari: yerlesimKararlari,
     onay,
   };
 }

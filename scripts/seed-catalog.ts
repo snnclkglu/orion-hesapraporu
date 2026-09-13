@@ -40,12 +40,16 @@ const CATALOG_DIR = positional
   : path.resolve(SCRIPT_DIR, "..", "..", "catalog_data");
 const ONLY_KINDS = argOf("kinds")?.split(",").map((s) => s.trim()).filter(Boolean);
 const ONLY_BRANDS = argOf("brands")?.split(",").map((s) => s.trim()).filter(Boolean);
+const ONLY_MODELS = argOf("models")?.split(",").map((s) => s.trim()).filter(Boolean);
 /**
  * Mevcut katalog satırlarını koruyarak yalnızca eksik tür/marka/model
  * birleşimlerini ekler. Canlı ortama ilk katalog aktarımı için güvenli moddur.
  */
 const APPEND_ONLY = process.argv.includes("--append");
 const REPLACE_BRANDS = process.argv.includes("--replace");
+if (ONLY_MODELS && !APPEND_ONLY) {
+  throw new Error("--models yalnızca --append ile kullanılabilir; mevcut katalog korunmalıdır.");
+}
 if (ONLY_BRANDS && !APPEND_ONLY && !REPLACE_BRANDS) {
   throw new Error("--brands yalnızca --append veya --replace ile kullanılabilir.");
 }
@@ -151,6 +155,7 @@ const REDUCER_FILES: { file: string; application?: string }[] = [
   { file: "reducers/yilmaz_dr.json" },
   { file: "reducers/yilmaz_m.json" },
   { file: "reducers/yilmaz_h.json" },
+  { file: "reducers/yilmaz_v.json" },
   // K serisi (helisel-konik) ve planet redüktörler kullanım grubunu SATIRDA
   // taşır: katalogları kaldırma/yürütme ayrımı yapmadığı için çıkarım her
   // satırı iki grup için de yazar.
@@ -711,14 +716,15 @@ function rowSql(r: Row): string {
 // `--kinds` verildiyse yalnız o türler yazılır ve önce mevcut satırları silinir.
 const emitted = rows.filter((r) =>
   (!ONLY_KINDS || ONLY_KINDS.includes(r.kind)) &&
-  (!ONLY_BRANDS || ONLY_BRANDS.includes(r.brand))
+  (!ONLY_BRANDS || ONLY_BRANDS.includes(r.brand)) &&
+  (!ONLY_MODELS || ONLY_MODELS.includes(r.model))
 );
 
 const BATCH = 500;
 const parts: string[] = [];
 parts.push(`-- Katalog seed — catalog_data JSON'larından scripts/seed-catalog.ts ile üretildi.
 -- Yeniden üretmek için: npx tsx scripts/seed-catalog.ts${
-  `${ONLY_KINDS ? ` --kinds ${ONLY_KINDS.join(",")}` : ""}${ONLY_BRANDS ? ` --brands ${ONLY_BRANDS.join(",")}` : ""}${APPEND_ONLY ? " --append" : ""}${REPLACE_BRANDS ? " --replace" : ""} --out ${OUT_NAME}`}
+  `${ONLY_KINDS ? ` --kinds ${ONLY_KINDS.join(",")}` : ""}${ONLY_BRANDS ? ` --brands ${ONLY_BRANDS.join(",")}` : ""}${ONLY_MODELS ? ` --models ${ONLY_MODELS.join(",")}` : ""}${APPEND_ONLY ? " --append" : ""}${REPLACE_BRANDS ? " --replace" : ""} --out ${OUT_NAME}`}
 -- Toplam ${emitted.length} ürün.
 `);
 
@@ -764,6 +770,8 @@ for (let i = 0; i < emitted.length; i += BATCH) {
 }
 
 // Katalog sürümü → app_settings
+// Tek model eklemesi tüm kataloğun sürüm/kaynak künyesini eski dosyayla ezmez.
+if (!ONLY_MODELS) {
 const version = JSON.parse(
   fs.readFileSync(path.join(CATALOG_DIR, "_version.json"), "utf-8")
 ) as Record<string, unknown>;
@@ -772,6 +780,7 @@ parts.push(
   `  ('catalog_version', '${esc(JSON.stringify(version))}'::jsonb)\n` +
   `on conflict (key) do update set value = excluded.value, updated_at = now();\n`
 );
+}
 
 fs.writeFileSync(OUT_FILE, parts.join("\n"), "utf-8");
 

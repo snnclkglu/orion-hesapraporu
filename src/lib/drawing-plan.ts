@@ -333,6 +333,15 @@ export const DRAWING_GROUP_PRESETS: Record<DrawingBand, readonly string[]> = {
 /** Defter satırı — tablo sütunlarıyla birebir. */
 export interface DrawingPlanRow {
   id: string;
+  /** Yeni defterlerde montaj ilişkisi koddan bağımsızdır; eski satırlar boş kalır. */
+  parentId?: string | null;
+  sortOrder?: number;
+  sourceKey?: string | null;
+  origin?: "auto" | "manual" | "legacy";
+  generated?: { name: string; parentKey: string | null; code: string } | null;
+  overrides?: ("name" | "code" | "parentId" | "sortOrder")[];
+  suppressed?: boolean;
+  reason?: string;
   code: string;
   name: string;
   status: DrawingPlanStatus;

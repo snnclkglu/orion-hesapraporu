@@ -86,6 +86,7 @@ function BlokRozeti({ blok }: { blok: ManualBlock }) {
 }
 
 export function Tomar({
+  onUpload,
   kok,
   seciliBlokId,
   yazilabilir,
@@ -94,6 +95,7 @@ export function Tomar({
   parcalar,
   eylem,
 }: {
+  onUpload?: (file: File) => Promise<import("@/lib/manual/types").ManualMediaRef | null>;
   /** Gösterilecek alt ağacın kökü (numaralanmış). */
   kok: NumberedSection;
   seciliBlokId: string | null;
@@ -278,6 +280,7 @@ export function Tomar({
                     </div>
 
                     <BlockView
+                      onUpload={onUpload}
                       blok={b}
                       readOnly={!yazilabilir}
                       sources={sources}

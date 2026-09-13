@@ -17,6 +17,28 @@ eski föy/tercih eşleşmelerinde büyük-küçük harf farkı kimlik farkı say
 
 ## KATALOG-13 — Katalog ürünü kullanım grubuna bağlıdır.
 
+**YILMAZ VR gövde + tahvil oranıdır (12.09.2026).** `yilmaz_v.json` yedi
+gövdenin 84 oranını yalnız kaldırmaya ekler. Kullanıcının V0601-0920 PDF'i
+motorlu kombinasyonları ve 1K ölçülerini verir; fs=1 anma momenti, radyal yük
+ve sınıfa göre anma giriş güçleri kullanıcı onayıyla tamamlayıcı üretici
+kataloğu V0500-1018 s.356-357'den gelir. Kaynak gerçekten VR273…VR873'tür;
+her oran 2020 kataloğuyla da eşlenmiştir. Referans n1=1400 d/d değeri 1500
+diye yeniden etiketlenmez; motor seçimi ve uygulamanın hız hesabı değişmez.
+`frame_max_nominal_torque_nm` yalnız gövde özetidir; hesap seçilen oranın
+`output_torque_nm` değerini kullanır. Ani tepe momenti yayımlanmamıştır.
+
+Motor dahil ağırlık aralığı ayrı niteliktir; motorsuz `weight_kg` basılmadığı
+için BOŞTUR. DIN 5480 çoklu kama kodu `output_spline` →
+`gearboxOutputSpline` → ekipman açıklamasına taşınır; düz mil çapına çevrilmez.
+VR seçimi eski ürünün ağırlık/mil çaplarını temizler. Model `VR473.1K` gibi
+tam kimliktir; eski `.03` çıkış soneki eklenmez. Her model bir anma momenti
+yaprağı + kendi 2020 ölçü yaprağına bağlıdır (7 föy / 9 ortak görüntü).
+Üretim: `python scripts/catalog-extract/reducers_yilmaz_v.py`, ardından
+`--sheets` ile yalnız VR föylerini ortak MANUAL kuralından üret ve diğer
+manifest kayıtlarını koru. Tam `catalog-sheets.py` üretimi de aynı kuralları
+kullanır. Seed `--models ... --append` ile yalnız bu modelleri ekleyebilir;
+bu dar işlem genel katalog sürümünü veya mevcut ürün UUID'lerini değiştirmez.
+
 Bir redüktör ya kaldırma ya
 yürütme tahrikidir; `cat_equipment.attrs.application` (`kaldirma` |
 `yurutme`) bunu taşır. Bölümün katalog eşlemesindeki

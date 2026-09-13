@@ -182,6 +182,11 @@ export const DEFAULT_SETTINGS: LayoutSettings = {
   backGapMm: 40,
   doorGapMm: 20,
   fillWarnRatio: 0.8,
+  // SÜTUNLU YERLEŞİM AÇIK (PANO-39, Plan F4). Ölçüldü (0026): 922 mm'lik
+  // sürücünün yanındaki 0,28 m² boşluk fazladan bir 400 mm göz açtırıyordu.
+  columnsEnabled: true,
+  minRailMm: 200,
+  columnGapMm: 50,
 };
 
 /**

@@ -2,10 +2,12 @@
 paths:
   - "src/lib/manual/**"
   - "orion-hesapraporu/src/lib/manual/**"
-  - "src/lib/pdf/manual.tsx"
-  - "orion-hesapraporu/src/lib/pdf/manual.tsx"
+  - "src/lib/pdf/manual*.tsx"
+  - "orion-hesapraporu/src/lib/pdf/manual*.tsx"
   - "src/app/(app)/projects/[id]/manual/**"
   - "orion-hesapraporu/src/app/(app)/projects/[id]/manual/**"
+  - "src/components/manual/**"
+  - "orion-hesapraporu/src/components/manual/**"
   - "scripts/test-manual-pdf.ts"
   - "orion-hesapraporu/scripts/test-manual-pdf.ts"
 ---

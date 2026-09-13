@@ -24,10 +24,11 @@ import { Badge } from "@/components/ui/badge";
 import { DiagramSvg } from "@/components/diagrams/diagram-svg";
 import {
   IC_OLCEKLERI,
-  birakmaIndeksi,
+  birakmaHedefi,
   kutuBul,
   olcekMetni,
   panoIcYerlesim,
+  type BirakmaHedefi,
   type IcKutu,
   type IcOlcek,
 } from "@/lib/diagrams/panoLayout";
@@ -70,7 +71,7 @@ export function IcYerlesimView({
   const [secilenAygit, setSecilenAygit] = useState<string>("");
   const [baloncuk, setBaloncuk] = useState<IcKutu | null>(null);
   const [surukleme, setSurukleme] = useState<{ kutu: IcKutu; x: number; y: number } | null>(null);
-  const [hedefIndeks, setHedefIndeks] = useState<number | null>(null);
+  const [hedef, setHedef] = useState<BirakmaHedefi | null>(null);
   const basladi = useRef<{ x: number; y: number } | null>(null);
 
   const panolar = useMemo(() => [...sonuc.room, ...sonuc.field], [sonuc]);
@@ -89,25 +90,25 @@ export function IcYerlesimView({
   );
 
   /**
-   * PANONUN AYGIT SIRASI — çizim sırasından türetilir.
+   * PANONUN AYGIT SIRASI — ÇÖZÜCÜDEN gelir, çizimden türetilmez (PANO-38).
    *
-   * Yerleştirici plaka aygıtlarını `sirala()` sırasıyla tüketiyor ve şemaya
-   * ray ray, soldan sağa basıyor. Yani ÇİZİMDEKİ SIRA, sabitlemenin indekslediği
-   * sıranın ta kendisidir; ikinci bir hesap yazmak ikisini ayrıştırırdı.
-   *
-   * Bölünmüş bir klemens şeridi birden çok dilim üretir; sıra AYGIT sırasıdır,
-   * dilim sırası değil — ilk görüldüğü yer sayılır.
+   * Eski sürüm sırayı ray ray, soldan sağa çizim sırasından türetiyordu ve
+   * çözücü kendi `sirala()` sırasını sayıyordu. First-fit ikisini ayırdı;
+   * ölçüldü (0026): bırakılan komşuluk ile yazılan indeks başka yerlere denk
+   * geldi. Artık iki taraf da `PanelLayout.order` okur.
    */
-  const siraliAnahtarlar = useMemo(() => {
-    const gorulen = new Set<string>();
-    const cikti: string[] = [];
-    for (const k of cizim?.kutular ?? []) {
-      if (gorulen.has(k.deviceKey)) continue;
-      gorulen.add(k.deviceKey);
-      cikti.push(k.deviceKey);
-    }
-    return cikti;
-  }, [cizim]);
+  const siraliAnahtarlar = useMemo(() => aktif?.order ?? [], [aktif]);
+
+  /** DIN mi plaka mı — sürükleme tür sınırını aşamaz (PANO-38). */
+  const turu = (key: string): "din" | "plaka" =>
+    kutular.get(key)?.mountType === "plaka" ? "plaka" : "din";
+
+  /** Aynı türden komşular arasında sıra (1 tabanlı) ve toplam. */
+  function turIcindeSira(key: string): { sira: number; adet: number } {
+    const t = turu(key);
+    const ayni = siraliAnahtarlar.filter((k) => turu(k) === t);
+    return { sira: ayni.indexOf(key), adet: ayni.length };
+  }
 
   /** Ekran noktasını çizimin kendi eksenine çevirir. */
   function noktaCoz(e: { clientX: number; clientY: number }): { x: number; y: number } | null {
@@ -120,25 +121,20 @@ export function IcYerlesimView({
   }
 
   /**
-   * Bırakılan noktanın karşılık geldiği SIRA İNDEKSİ.
+   * Bırakılan noktanın karşılık geldiği KOMŞULUK.
    *
    * En yakın kutunun ORTASINA göre karar verilir: solundaysa onun ÖNÜNE,
-   * sağındaysa ARKASINA. Taşınan aygıt listeden çıkacağı için hedef indeks
-   * ondan sonraysa bir azaltılır — yoksa cihaz her seferinde bir adım geride
-   * kalırdı.
+   * sağındaysa ARKASINA. Komşu farklı türdense (DIN ↔ plaka) karar YOKTUR —
+   * bırakma sırasında gösterge çıkmaz, bırakınca uyarı verilir.
    */
-  function hedefIndeksCoz(nokta: { x: number; y: number }, tasinan: string): number | null {
+  function hedefCoz(nokta: { x: number; y: number }, tasinan: string): BirakmaHedefi | null {
     if (!cizim) return null;
     // Bırakma hoşgörüsü tıklamadan GENİŞTİR (40 birim): sürüklerken imleç iki
     // cihazın arasında durur, tam üstünde değil.
     const kutu = kutuBul(cizim.kutular, nokta.x, nokta.y, 40);
     if (!kutu) return null;
-    return birakmaIndeksi(
-      siraliAnahtarlar,
-      tasinan,
-      kutu.deviceKey,
-      nokta.x < kutu.x + kutu.w / 2
-    );
+    if (turu(kutu.deviceKey) !== turu(tasinan)) return null;
+    return birakmaHedefi(siraliAnahtarlar, tasinan, kutu.deviceKey, nokta.x < kutu.x + kutu.w / 2);
   }
 
   async function calistir(is: () => Promise<{ ok: true } | { error: string }>, basarili: string) {
@@ -150,16 +146,29 @@ export function IcYerlesimView({
     }
   }
 
-  /** Aygıtı SIRADA bir adım kaydırır — dokunmatik ve klavye yolu. */
+  /**
+   * Aygıtı SIRADA bir adım kaydırır — dokunmatik ve klavye yolu.
+   *
+   * Adım KENDİ TÜRÜNÜN komşusuna atılır: bir röle bir sürücünün önüne
+   * geçemez (PANO-38). Komşu yoksa düğme zaten pasiftir.
+   */
   function kaydir(deviceKey: string, yon: -1 | 1) {
     if (!aktif) return;
-    const i = siraliAnahtarlar.indexOf(deviceKey);
+    const t = turu(deviceKey);
+    const ayni = siraliAnahtarlar.filter((k) => turu(k) === t);
+    const i = ayni.indexOf(deviceKey);
     if (i < 0) return;
-    const hedef = Math.max(0, Math.min(siraliAnahtarlar.length - 1, i + yon));
-    if (hedef === i) return;
+    const komsu = ayni[i + yon];
+    if (!komsu) return;
     void calistir(
       () =>
-        movePlacement({ projectId, deviceKey, orderInRail: hedef, railIndex: null }),
+        movePlacement({
+          projectId,
+          deviceKey,
+          anchorDeviceKey: komsu,
+          anchorSide: yon < 0 ? "once" : "sonra",
+          railIndex: null,
+        }),
       "Aygıt taşındı."
     );
   }
@@ -172,7 +181,7 @@ export function IcYerlesimView({
     const dinle = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       setSurukleme(null);
-      setHedefIndeks(null);
+      setHedef(null);
       basladi.current = null;
     };
     window.addEventListener("keydown", dinle);
@@ -206,7 +215,7 @@ export function IcYerlesimView({
 
     basladi.current = nokta;
     setSurukleme({ kutu, x: nokta.x, y: nokta.y });
-    setHedefIndeks(null);
+    setHedef(null);
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
@@ -216,16 +225,14 @@ export function IcYerlesimView({
     if (!nokta) return;
     setSurukleme({ ...surukleme, x: nokta.x, y: nokta.y });
     const uzaklik = Math.hypot(nokta.x - basladi.current.x, nokta.y - basladi.current.y);
-    setHedefIndeks(
-      uzaklik < SURUKLEME_ESIGI ? null : hedefIndeksCoz(nokta, surukleme.kutu.deviceKey)
-    );
+    setHedef(uzaklik < SURUKLEME_ESIGI ? null : hedefCoz(nokta, surukleme.kutu.deviceKey));
   }
 
   function semadaBirak(e: React.PointerEvent<SVGRectElement>) {
     const tasinan = surukleme;
     const baslangic = basladi.current;
     setSurukleme(null);
-    setHedefIndeks(null);
+    setHedef(null);
     basladi.current = null;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
@@ -237,16 +244,27 @@ export function IcYerlesimView({
     // EŞİĞİN ALTI BİR TIKLAMADIR: elin titremesi bir aygıtı taşımamalı.
     if (Math.hypot(nokta.x - baslangic.x, nokta.y - baslangic.y) < SURUKLEME_ESIGI) return;
 
-    const hedef = hedefIndeksCoz(nokta, tasinan.kutu.deviceKey);
-    if (hedef === null) return;
-    if (hedef === siraliAnahtarlar.indexOf(tasinan.kutu.deviceKey)) return;
+    // TÜR SINIRI: DIN cihazı plaka cihazının yanına bırakıldıysa söylenir,
+    // sessizce yok sayılmaz (Plan S3).
+    const yakin = cizim ? kutuBul(cizim.kutular, nokta.x, nokta.y, 40) : null;
+    if (yakin && turu(yakin.deviceKey) !== turu(tasinan.kutu.deviceKey)) {
+      toast.error(
+        turu(tasinan.kutu.deviceKey) === "din"
+          ? "Ray cihazı plakaya vidalanan cihazın yanına taşınamaz; montaj tipini aygıt formundan değiştirin."
+          : "Plaka cihazı ray cihazının yanına taşınamaz; montaj tipini aygıt formundan değiştirin."
+      );
+      return;
+    }
+    const karar = hedefCoz(nokta, tasinan.kutu.deviceKey);
+    if (karar === null) return;
 
     void calistir(
       () =>
         movePlacement({
           projectId,
           deviceKey: tasinan.kutu.deviceKey,
-          orderInRail: hedef,
+          anchorDeviceKey: karar.komsu,
+          anchorSide: karar.yon,
           railIndex: null,
         }),
       `${tasinan.kutu.label} taşındı ve sabitlendi.`
@@ -345,7 +363,8 @@ export function IcYerlesimView({
           sayılır. */}
       <p className="text-xs text-muted-foreground">
         Bir cihaza tıklayın: ne olduğu, ölçüsü ve ölçünün kaynağı görünür.
-        {canEdit && " Fareyle sürükleyerek sırasını değiştirebilirsiniz; bırakılan sıra SABİTLENİR ve “Yeniden Yerleştir” onu korur."}
+        {canEdit &&
+          " Fareyle bir komşunun yanına sürükleyin; cihaz o komşuluğa SABİTLENİR ve Kararlar bölümünde listelenir. Ray cihazı plaka cihazının yanına taşınamaz."}
       </p>
       <div className="relative">
         <SemaKabi>
@@ -360,15 +379,15 @@ export function IcYerlesimView({
                     söyleyen dikey çizgi. Koordinat değil SIRA taşınıyor
                     (PANO-23), o yüzden gösterge bir hayalet kutu değil bir
                     EKLEME NOKTASIDIR. */}
-                {surukleme && hedefIndeks !== null && (() => {
-                  const anahtar = siraliAnahtarlar[hedefIndeks];
-                  const k = cizim.kutular.find((x) => x.deviceKey === anahtar);
+                {surukleme && hedef !== null && (() => {
+                  const k = cizim.kutular.find((x) => x.deviceKey === hedef.komsu);
                   if (!k) return null;
+                  const xCizgi = hedef.yon === "once" ? k.x - 1.5 : k.x + k.w + 1.5;
                   return (
                     <line
-                      x1={k.x - 1.5}
+                      x1={xCizgi}
                       y1={k.y - 3}
-                      x2={k.x - 1.5}
+                      x2={xCizgi}
                       y2={k.y + k.h + 3}
                       stroke="var(--oc-diagram-accent)"
                       strokeWidth={2}
@@ -433,8 +452,8 @@ export function IcYerlesimView({
             device={kutular.get(baloncuk.deviceKey) ?? null}
             projectId={projectId}
             canEdit={canEdit}
-            sira={siraliAnahtarlar.indexOf(baloncuk.deviceKey)}
-            adet={siraliAnahtarlar.length}
+            sira={turIcindeSira(baloncuk.deviceKey).sira}
+            adet={turIcindeSira(baloncuk.deviceKey).adet}
             onKaydir={(yon) => kaydir(baloncuk.deviceKey, yon)}
             onSerbest={() =>
               void calistir(

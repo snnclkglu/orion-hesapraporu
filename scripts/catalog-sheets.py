@@ -85,6 +85,8 @@ PDFS = {
     "yilmaz_dr": "YILMAZ DR KATALOG.pdf",
     "yilmaz_m": "YILMAZ M KATALOG.pdf",
     "yilmaz_h": "YILMAZ H KATALOG.pdf",
+    "yilmaz_v": "YILMAZ V SERİSİ.pdf",
+    "yilmaz_v_performance": "Diğer kataloglar/YILMAZ V PERFORMANS V0500-1018.pdf",
     "abb": "abb-ozel-elektrik-motor-katalog.pdf",
     "gamak": "GAMAK Teknik Katalog TR 2026.pdf",
     "elk": "elk-motor-katalog-tr.pdf",
@@ -605,6 +607,17 @@ MANUAL = [
 #   technical_field   JSON'daki doğrulanmış 1-tabanlı teknik sayfayı kullanır.
 #   continuation_pages Teknik tablonun ardındaki tamamlayıcı sayfa sayısı.
 #   variant_field     Aynı modelin farklı teknik tablolarını ayıran alan (n1).
+
+# VR anma momenti ayrı baskıdan, ölçüler kullanıcının 2020 kataloğundan.
+# Aynı gövdenin tüm oranları aynı 1400 d/d tablosuna bağlanır.
+MANUAL.extend([
+    ("gearbox", "YILMAZ REDÜKTÖR", f"VR{size}73", "reducers/yilmaz_v.json",
+     "yilmaz_v_performance", [355 if size <= 6 else 356],
+     f"V0500-1018 s.{356 if size <= 6 else 357}; V0601-0920 s.{342 + size}",
+     f"YILMAZ VR{size}73 — anma momenti ve 1K ölçüleri",
+     {"model": [f"VR{size}73.1K"]}, [("yilmaz_v", 341 + size)])
+    for size in range(2, 9)
+])
 
 DISCOVER = [
     ("bearing", "bearings/skf.json", "skf_bearing", "designation",

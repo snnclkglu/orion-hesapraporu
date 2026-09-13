@@ -9,10 +9,16 @@
 > `--uygula` demek on yedi alan dosyasını altı satırlık kütüğe indirmektir.
 > Denetim salt okunur `npx tsx scripts/agent-docs/doctor.ts` iledir.
 
-**Kapsam:** `src/lib/switchboard/**` · `src/lib/switchboard-data.ts` ·
-`src/lib/diagrams/panoLayout.ts` · `src/lib/diagrams/svg.ts` ·
-`src/lib/pdf/pano-layout.tsx` · `src/app/(app)/projects/[id]/pano/**` ·
-`scripts/test-switchboard-layout.ts`
+**Kapsam:** `src/lib/switchboard/**` (`layout/sirala.ts` · `layout/paketle.ts`
+· `layout/coz.ts` · `layout/dizi.ts` — `layout.ts` yalnız dışa aktarır) ·
+`src/lib/switchboard-data.ts` · `src/lib/diagrams/panoLayout.ts` ·
+`src/lib/diagrams/svg.ts` · `src/lib/pdf/pano-layout.tsx` ·
+`src/app/(app)/projects/[id]/pano/**` (`bolumler/` dört bölüm) ·
+`scripts/test-switchboard-layout.ts` · `scripts/switchboard-live-dump.py` ·
+`scripts/apply-migration.py`
+
+**Plan ve ölçüm:** `docs/plans/PANO_YERLESIMI_IYILESTIRME_PLANI.md`
+(12–13.09.2026; teşhis T1–T13, fazlar F0–F7, kontrol K0–K5).
 
 **Ne yapar:** Elektrik projesinin okunmuş malzeme listesinden (`ELEKTRIK-5`,
 aygıt etiketinin `+` parçası) panoları çıkarır, cihazları montaj plakasına
@@ -582,9 +588,13 @@ DOĞRULANMIŞTIR — yani orada bir tahmin değil, ölçülmüş bir standart va
 
 ## PANO-23 — Sabitleme SIRAYI korur, KOORDİNATI değil.
 
+> **13.09.2026:** sıra artık bir İNDEKS değil bir KOMŞULUKTUR
+> (`anchor_device_key` + `anchor_side`, PANO-38). `order_in_rail` eski
+> biçimdir: okunur, yazılmaz. Aşağıdaki gerekçe (koordinat donmaz) aynen
+> geçerlidir.
+
 Şemada bir aygıtı başka bir yere taşımak, onu o KOMŞULUĞA taşımaktır. Bırakılan
-sıra saklanır (`switchboard_placements.order_in_rail`), koordinat ise her
-yerleştirmede YENİDEN HESAPLANIR.
+komşuluk saklanır, koordinat ise her yerleştirmede YENİDEN HESAPLANIR.
 
 Sebep: koordinat donmuş olsaydı komşu bir cihazın eni değiştiğinde — bir ölçü
 deftere girdiğinde, bir cihaz eklendiğinde, pano eni büyüdüğünde — sabitlenmiş
@@ -831,9 +841,11 @@ satırı açılmamış; altı satır "Sınıflanmamış" kuyruğunu kirletiyordu
 
 ## PANO-31 — Sürükle-bırak SIRA yazar, pano kodu YAZMAZ.
 
+> **13.09.2026:** bırakılan yer artık `anchor_device_key` + `anchor_side`
+> olarak yazılır (PANO-38); `order_in_rail` eski biçimdir.
+
 Şemada bir aygıtı sürüklemek onu bir KOMŞULUĞA taşımaktır (PANO-23). Bırakılan
-yer `switchboard_placements.order_in_rail` alanına, panonun aygıt sırasındaki
-İNDEKS olarak yazılır ve satır `pinned` olur.
+komşuluk `switchboard_placements` satırına yazılır ve satır `pinned` olur.
 
 **Temel yarım bağlıydı:** `order_in_rail` ve `rail_index` sütunları okunuyordu
 (`switchboard-data.ts`), yerleştirici onları dinliyordu (`sirala`, PANO-23) —
@@ -1226,6 +1238,124 @@ sessizce kazanır.** 09.09.2026'da tam bu oldu: kural değişti, ekranda hiçbir
 değişmedi. Beş ikaz/aydınlatma ürünü, trafo ve telsiz kumanda bir migration ile
 düzeltildi (`20260909000011`). **Bir sınıflandırma kuralını değiştiren herkes
 `electrical_device_models.mount_type` sütununa da bakmak zorundadır.**
+
+## PANO-38 — Sıra bir KOMŞULUKTUR, indeks değil; tür sınırı aşılmaz.
+
+Sabitleme `anchor_device_key` + `anchor_side` (`once` / `sonra`) taşır: "U30,
+U20'nin sonrasına". Komşu anahtarı ekranda ve çözücüde AYNI anlama gelir;
+hiçbir listeyi saymaz.
+
+**Ölçülmüş kusur (0026-01, 12.09.2026):** ekran sırayı ÇİZİM sırasından,
+çözücü `sirala()` sırasından türetiyordu. PANO-37 md. 5'in first-fit'i
+cihazları önceki raylara taşıdığı gün iki liste ayrıştı. Kullanıcı sürücüyü bir
+şalterin yanına bıraktı; yazılan 15. indeks çözücüde giriş şalterlerinin
+ortasıydı, orada yeni bir plaka rayı açıldı (806 mm), pano 2313/1250 mm ile
+taştı. Aynı gün canlıda `T14` ve `U30` ikisi de indeks 15'i istiyordu.
+
+Uygulama (`layout/sirala.ts`):
+- Türetilmiş sıra (bölge → ana şalter → renk → doğal kod) kurulur. **Bölgesi
+  boş aygıt `kumanda` sayılır**; `indexOf(null) = -1` onu en öne alıyordu ve
+  0026'da bölgesiz bir termostat (`S162`) ilk DIN rayını panonun EN ÜSTÜNDE
+  açıyordu — "sürücüler en üstte" fiilen bozuktu.
+- Eski biçim (`order_in_rail`) okunur ama KENDİ TÜRÜNÜN listesinde sayılır:
+  plaka sürücüsü DIN şalterlerinin arasına düşemez.
+- Komşuya bağlı sabitlemeler doğal kod sırasıyla, üç geçişte uygulanır
+  (zincirler için). Komşusu panoda olmayan ya da FARKLI TÜRDEN (DIN ↔ plaka)
+  olan sabitleme UYGULANMAZ ve panonun `warnings` listesine
+  "`X` sabitlemesi uygulanamadı: …" yazılır; Kararlar bölümü aynı satırda
+  gösterir.
+- Sabitlenmiş aygıt geriye (önceki rayların boşluğuna) bakmaz: komşusunun
+  yanına yazıldı, oradan kaçmamalı.
+- Çözücü nihai sırayı `PanelLayout.order` olarak verir; ekran sürükleme
+  hedefini BU listeden okur (`birakmaHedefi`, saf).
+
+Eylem: `movePlacement` komşu + yön alır, `order_in_rail`i sıfırlar; DIN ↔
+plaka bırakma ekranda `toast` ile reddedilir (kullanıcı kararı S3, Plan). Tip
+değişikliği aygıt formundan yapılır. Migration `20260913043000_switchboard_anchor`.
+
+## PANO-39 — SÜTUNLU YERLEŞİM: uzun plaka cihazının yanındaki cep DIN rayı alır.
+
+Plaka, tam enli BANTLARIN dikey yığınıdır. Plaka bandında cihazlar BOYCA
+BÜYÜKTEN KÜÇÜĞE sola dizilir; en uzun cihazın yanında, kısa cihazların üstünde
+kalan dikdörtgen bir CEPtir ve o cebe DIN rayları açılır. Ray yine yataydır
+(PANO-4 korunur), yalnız eni cebin enidir; solunda `columnGapMm` (öntanım
+50 mm) sütun payı vardır — kablo iniş yolu ve soğuma. Bandın sağında kalan boş
+en de bir ceptir.
+
+**Ölçüldü (0026-01):** 922 mm'lik 90 kW sürücü tam enli bir satır açıyordu;
+yanındaki üç 546 mm'lik sürücünün altında 0,28 m² ölü alan kalıyordu ve bütün
+kumanda rayları o boşluğa sığarken pano ikiye bölünüp fazladan 400 mm göz
+açılıyordu.
+
+| 0026-01 oda dizisi | Önce | Sonra |
+|---|---|---|
+| Göz | 2 (1200 + 400) | **1 (1200 × 1800)** |
+| Ölü alan | 1,05 m² | **0,71 m²** |
+| Denetim | geçti | geçti |
+
+| 0019-00 (gerileme) | Önce | Sonra |
+|---|---|---|
+| Oda dizisi | 19 göz · 11.100 mm | 19 göz · **11.000 mm** |
+| Saha dizisi | 5 göz · 2.100 mm | 5 göz · 2.100 mm |
+
+Kurallar (`layout/paketle.ts`):
+- **Önce plaka, sonra DIN.** Sütunlu kipte plaka cihazlarının tamamı önce
+  bantlara dağıtılır; cebin geometrisi bandın cihazlarından türer. İlk deneme
+  bandı "donduruyordu" ve ana şalter `Q12`, `F14`ten sonra sıralandığı için
+  panonun dibinde yeni bant açıyordu.
+- **Plaka cihazı en az BÜYÜYEN banda gider** (önce büyütmeyen, yoksa en az
+  büyüten). DIN cihazı için eski kural durur: etkin ray, sonra geriye
+  büyütmeyen ray, sonra cep, sonra tam enli yeni ray.
+- Cep rayı `minRailMm` (200 mm) altında açılmaz; cebin dibini aşacak büyüme
+  reddedilir ve yeni ray açılır.
+- `Rail.xMm` ve `Rail.pocketOf` çizim ve denetim için taşınır; `Rail.zone`
+  raydaki BASKIN bölgedir (en çok en kaplayan).
+- **Anahtar:** `columnsEnabled` (öntanım açık). Kapalıyken eski raf modeli
+  bit-aynı çalışır — gerileme bu anahtarla ölçülür (`sutun.test.ts`).
+- **Denetçi 2B'dir:** herhangi iki cihaz kesişemez (aynı ray şartı kalktı);
+  raylar birbirine binemez, ama cep rayı kendi bandının dikdörtgeniyle
+  kesişir — bu tasarımdır ve `pocketOf` ile muaf tutulur. Yığın yüksekliği
+  toplam değil EN ALT rayın alt kenarıdır.
+- Kuyruğa düşen aygıt (ölçüsüz, sığmadı) eksiksizlik denetiminin beklenen
+  kümesine GİRMEZ: sessizce kayıp değildir, sebebiyle listededir. Eskiden
+  her ölçüsüz cihaz denetimi kırmızıya boyuyordu.
+
+## PANO-40 — Kararlar GÖRÜNÜR ve geri alınabilir; uykuda karar silinir.
+
+Kullanıcının verdiği her şey tek listede durur (ana sayfa 3. bölüm): pano
+kararları (tür/kilit/kapak), aygıt kararları (sabitleme, düzeltme, ölçü), ölçü
+tercihleri. Her satırın "Kaldır"ı vardır (`removePanelDecision`,
+`removePlacementDecision`). "Yeniden Yerleştir" buradadır ve kaç serbest
+düzeltmeyi sileceğini yazar; kilit ve sabitlemeleri korur.
+
+**Ölçüldü (0026, 12.09.2026):** canlıda `LVD0` 1200 kilidi, `LVD0-A`/`LVD0-B`
+1000 kilitleri ve iki sabitleme vardı; hiçbir ekran bunları bir arada
+göstermiyordu. Taşan panonun sebebi kullanıcının kendi kararlarıydı ve
+kullanıcı bunu göremiyordu. `LVD0-A`/`-B` bölünmüş gözün ESKİ kodlarıydı —
+bugünkü dizide karşılığı yok ama LVD0 kilidi kalkınca 1000+1000 dayatacaktı.
+Böyle karar **uykuda** rozetiyle listelenir (bölünmüş gözün kapağı seçilebilir
+diye yazılması serbest, Plan S2) ve buradan silinir.
+
+Uyarılar da görünürdür: her bölümün üstündeki şerit (`uyarilariTuret`, saf)
+taşan panoyu, kilitli-sığmayan panoyu, ölçüsüz/tahmin cihazı, uygulanamayan
+sabitlemeyi ve eskimiş onayı açık metinle yazar ve ilgili bölüme götürür.
+Pano kartında uyarı AÇIK METİNDİR; `title` ipucu bir uyarı yeri değildir.
+
+Ekran dört bölümdür ve bir İŞ AKIŞIDIR: **1 · Girdi** (belge, ölçü defteri
+eksikleri, tanınmayan ürün) → **2 · Panolar** (dizilim, kartlar, ölçü
+tercihleri) → **3 · Kararlar** → **4 · Onay ve çıktı** (denetim — geçenler
+dahil —, panoya girmeyenler, SVG/PDF, onay ve değişiklik izi). "Aygıt
+kuyruğu" adı kalktı: sorun kovaları Girdi'de, beklenen kovalar (saha,
+ürünsüz) Onay'da. "Parmak izi" ekranda "değişiklik izi"dir.
+
+## PANO-41 — Kilitli en sığmıyorsa EN BÜYÜK boy seçilir, pano bölünmez.
+
+Kilitli en bir karardır ve sistem onu ezmez (PANO-9); kilitli pano bölünmez
+(kullanıcı kararı S1). Hiçbir boyda sığmıyorsa `yukseklikSec` "daha az pano
+bırakan" kıyasında EŞİTLİKTE BÜYÜK boyu tutar. Eski `<` kıyası ilk adayı
+(1400) tutuyordu; ölçüldü (0026): 2000'de 1760/1850 ile sığan pano ekranda
+1400'de 2313/1250 taşıyor görünüyordu. Uyarı şeridi "kilidi kaldır ya da
+daha yüksek gövde seç" der ve Kararlar bölümüne götürür.
 
 ## ÖLÇÜM — gerçek iki iş (08.09.2026)
 

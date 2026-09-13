@@ -893,3 +893,41 @@ altındadır ve ızgara oradaki doğru biçimdir.
 Önceki mobil üst ızgara/yan ray kapsam notları için güncel kural
 `arayuz.md` MOBIL-35’tir. Masaüstü düzeni korunur; yerel durum, mevcut yetkiler
 ve kayıt yolları aynı kalır. Kontrol kanıtları Plan 013’te tutulur.
+
+
+## KITAP-28 — Şematik tasarımın sürümü, sayfa planı ve teslim arşivi
+
+13.09.2026: Yeni el kitapları `v: 2, designVersion: 2` ile açılır. Eski belge
+kendiliğinden dönüştürülmez; taslakta **Şematik tasarıma geç** eylemi vardır.
+`modernizeManualContent` kimlikleri, metinleri ve kapsamı korur; düzenlenmiş
+bloklara dokunmaz. Sıralı listeler işlem adımlarına, halat hasar görselleri
+fotoğraf/açıklama satırlarına dönüşür. Eski yayınlar eski çiziciyi kullanır.
+
+`document-plan.ts` ölçüleri gerçek Archivo fontundan (`font-metrics.json`)
+alır. PDF (`manual-modern.tsx`) ve tarayıcı (`modern-paper.tsx`) aynı planı
+çizer. A4 yüksekliği PDF Page üzerinde açıkça verilmelidir; yalnız mutlak
+konumlu çocuklarla Yoga yüksekliği sıfıra indirebilir. Kesirli punto metin
+kutularında yuvarlama payı gerekir. Metin kaybı `check-manual-plan.py` ile
+PDF'in gerçek satırlarından denetlenir. Güvenlik işaretleri `marks.ts`ten
+gelir; düz ünlem işaretiyle değiştirilmez.
+
+Yeni bloklar `media`, `procedure`, `figure`dır. İç içe görseller kayıt,
+önizleme, PDF, arşiv ve yeni revizyon kopyasında korunur. Bilinmeyen belge
+sürümü ve blok türü kayıtta reddedilir. Standarta dönüş yeni bloklarda
+`templateBlockKey` kullanır; eski blokların sırası belirsizse içerik ezilmez.
+Geri al/yinele 50 belge durumu tutar. Fotoğraf açıklaması, işlem sonucu ve
+numaralı şekil açıklamaları ayrı ayrı düzenlenebilir.
+
+Yayım, iki PDF'i `manual-deliveries` özel kovasına yükler. Dosya yolları
+benzersizdir; üzerine yazma yoktur. `complete_manual_delivery` kaynak taslak
+hâlâ aynıysa payload + `delivery_archive` + issued durumunu tek işlemde
+yazar. Üretim hatasında taslak korunur. Seçili eksik ek, kayıp görsel ve bozuk
+atıf yayımı durdurur. Kayıtlı yayının indirmesi arşivden gelir ve SHA-256
+kontrolünden geçer. Arşiv bozuksa canlı kaynaklardan sessizce yeniden üretilmez.
+Eski arşivsiz v1 yayınlar geriye uyumlu eski indirme yolunda kalır.
+
+Kontrol: `vitest run src/lib/manual/__tests__`,
+`scripts/manual-db-tests.sql` (transaction + rollback),
+`scripts/manual-audit.ts` (salt okunur gerçek iş çıktısı),
+`scripts/manual-pilot.ts`, `scripts/check-manual-plan.py`.
+Ayrıntılar: `docs/plans/ISLETME_EL_KITABI_UYGULAMA_SONUCU.md`.

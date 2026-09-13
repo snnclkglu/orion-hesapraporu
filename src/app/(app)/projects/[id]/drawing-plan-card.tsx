@@ -1,145 +1,98 @@
 "use client";
 
-// TEKNİK RESİM TAKİBİ — ana grup numaralandırma ve ilerleme defteri.
-//
-// Ressam çizime oturmadan önce mühendise "bu grup kaç olacak?" diye sorar ve
-// cevabı bugüne kadar telefonla ya da hafızadan veriliyordu. Bu kart o soruyu
-// projenin kendi sayfasına yazar; aynı liste ekipman listesindeki Teknik Ressam
-// Özeti'nin, onun Excel'inin ve PDF'inin sonuna da basılır (tek kaynak:
-// `project_drawing_plan`).
-//
-// EKRAN OTOMATİK DOLDURMAZ. Numaralandırma projenin BAŞINDA verilen bir
-// karardır; hesap raporundaki bölümlerden türetilseydi mühendisin henüz
-// vermediği bir kararı uygulama vermiş olurdu. Öneri listesi vardır, dayatma
-// yoktur: grup adı alanı serbest metin kutusudur (`EditableCombobox`), liste
-// yalnız yazmayı hızlandırır.
-//
-// YÜZDE ELLE GİRİLMEZ. Tamamlanma oranı satırların durumlarından TÜRETİLİR
-// (`drawingPlanProgress`): elle girilen bir yüzde ilk haftadan sonra kimsenin
-// güncellemediği bir sayı olur, buradaki ise bir grup eklendiği anda
-// kendiliğinden düşer.
-//
-// TEKNİK RESİMLER MODÜLÜNE BAĞLI DEĞİLDİR (kullanıcı kararı). Aynı sekmedeki
-// "Teknik Resim Paketleri" kartı ressamın TESLİM ETTİĞİNİ gösterir; bu kart
-// mühendisin PLANLADIĞINI. İkisini bağlamak, henüz var olmayan bir teslimi
-// bekleyen bir soruya cevap vermek olurdu.
-
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  GripVertical,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
+  Plus,
+  Save,
+  Undo2,
+} from "lucide-react";
 import { toast } from "sonner";
-import { ListOrdered, Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
-  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Combobox, type ComboOption } from "@/components/combobox";
-import { EditableCombobox } from "@/components/editable-combobox";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { adBuyuk } from "@/lib/tr-text";
 import {
-  DRAWING_BANDS,
-  DRAWING_GROUP_PRESETS,
   DRAWING_PLAN_STATUSES,
-  bandOfCode,
-  codesOfBand,
   drawingPlanProgress,
   fullDrawingNo,
-  groupDrawingPlan,
-  nextFreeCode,
-  type DrawingAuthor,
-  type DrawingBand,
   type DrawingPlanRow,
-  type DrawingPlanStatus,
+  type DrawingAuthor,
 } from "@/lib/drawing-plan";
-import { DRAWING_AUTHOR_ROLES, roleLabel } from "@/lib/roles";
-import { saveDrawingPlan } from "./drawing-plan-actions";
+import {
+  emptyDrawingPlanState,
+  type DrawingDerivation,
+  type DrawingPlanDocument,
+  type DrawingCandidate,
+} from "@/lib/drawing-plan/types";
+import {
+  orderedDrawingPlan,
+  moveDrawingRow,
+  drawingDescendants,
+  removeDrawingGroup,
+} from "@/lib/drawing-plan/presentation";
+import { reconcileDrawingPlan } from "@/lib/drawing-plan/reconcile";
+import {
+  candidateCode,
+  renumberDrawingPlan,
+  numberingError,
+} from "@/lib/drawing-plan/numbering";
+import { getDrawingPlanEditor, saveDrawingPlan } from "./drawing-plan-actions";
 
-/**
- * Ekrandaki satır. `key` YALNIZ React içindir ve veritabanına gitmez; `dbId`
- * ise var olan kaydın kimliğidir ve yeni satırda boştur. İkisini tek alanda
- * tutmak, kaydedilmemiş bir satırın kimliğini varmış gibi göstermek olurdu.
- */
-interface PlanRowState {
-  key: string;
-  dbId?: string;
-  code: string;
-  name: string;
-  status: DrawingPlanStatus;
-  /** Çizen kişinin kimliği; ATANMADI = kimse seçilmemiş (bkz. sentinel). */
-  drawnBy: string;
-  note: string;
-}
-
-/**
- * "Atanmadı" SEÇENEĞİNİN DEĞERİ — boş dizge OLAMAZ.
- *
- * Radix `Select` boş dizgeyi "değer yok" olarak okur ve o seçeneğe basıldığında
- * tetikleyici yer tutucuya döner; kullanıcı seçimi kaldıramaz, yalnız listeyi
- * kapatmış olur. Sunucuya giderken bu değer boş dizgeye çevrilir ve orada
- * `null`a düşer.
- */
-const ATANMADI = "__yok__";
-
-function yeniAnahtar(): string {
-  return `yeni-${crypto.randomUUID()}`;
-}
-
-function toState(rows: readonly DrawingPlanRow[]): PlanRowState[] {
-  return rows.map((r) => ({
-    key: r.id,
-    dbId: r.id,
-    code: r.code,
-    name: r.name,
-    status: r.status,
-    drawnBy: r.drawnBy ?? "",
-    note: r.note,
-  }));
-}
-
-/** Kaydedilmemiş değişiklik var mı — "Kaydet" düğmesi buna göre canlanır. */
-function imza(rows: readonly PlanRowState[]): string {
-  return JSON.stringify(
-    rows.map((r) => [r.dbId ?? "", r.code, r.name, r.status, r.drawnBy, r.note])
-  );
-}
-
-/**
- * Bir bandın ad önerileri: ÖNCE kendi bandınınkiler, sonra diğerleri.
- *
- * Liste bant başına daraltılmaz — köprü grubuna araba adı yazmak yasak
- * değildir, yalnız olası değildir. Kendi bandını başa almak, aranan adın ilk
- * üç satırda çıkmasını sağlar.
- */
-function adOnerileri(band: DrawingBand | null): string[] {
-  const oncelikli = band ? DRAWING_GROUP_PRESETS[band] : [];
-  const gorulen = new Set(oncelikli);
-  const kalan = DRAWING_BANDS.flatMap((b) => DRAWING_GROUP_PRESETS[b.band]).filter(
-    (ad) => !gorulen.has(ad)
-  );
-  return [...oncelikli, ...kalan];
-}
-
-/** İlerleme çubuğu — başlıktaki tek satırlık özet. */
-function IlerlemeCubugu({ percent, done, total }: { percent: number; done: number; total: number }) {
-  const fillPercent = Math.min(100, Math.max(0, Math.max(percent, percent > 0 ? 2 : 0)));
-
+const field =
+  "min-h-11 w-full min-w-0 rounded-md border bg-background px-3 py-2 text-base";
+function SortableRow({
+  row,
+  disabled,
+  children,
+}: {
+  row: DrawingPlanRow;
+  disabled: boolean;
+  children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: row.id, disabled });
   return (
-    <div className="flex min-w-[10rem] flex-1 items-center gap-2 sm:max-w-[18rem]">
-      <div
-        className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
-        role="progressbar"
-        aria-valuenow={percent}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label="Teknik resim tamamlanma oranı"
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className="flex min-w-0 gap-1 rounded-lg border bg-card p-2"
+    >
+      <button
+        type="button"
+        className="oc-tap size-8 shrink-0 self-start touch-none rounded text-muted-foreground disabled:opacity-30"
+        aria-label={`${row.name} grubunu sürükle`}
+        disabled={disabled}
+        {...attributes}
+        {...listeners}
       >
-        <div
-          className="h-full origin-left rounded-full bg-primary transition-transform duration-200 ease-linear motion-reduce:transition-none"
-          style={{ transform: `scaleX(${fillPercent / 100})` }}
-        />
-      </div>
-      <span className="shrink-0 font-mono text-xs font-semibold tabular-nums">%{percent}</span>
-      <span className="shrink-0 text-[11px] whitespace-nowrap text-muted-foreground">
-        {done}/{total} Çizildi
-      </span>
+        <GripVertical className="mx-auto size-4" />
+      </button>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }
@@ -150,392 +103,1000 @@ export function DrawingPlanCard({
   initialRows,
   authors,
   canEdit,
+  previewDerivation,
+  previewDocument,
 }: {
   projectId: string;
-  /** Resim numarasının kökü ("0055-00"); boşsa yalnız grup kodu gösterilir. */
-  itemNo: string;
+  itemNo: string | null;
   initialRows: DrawingPlanRow[];
-  /**
-   * "Çizen" seçicisinin listesi — Teknik Ressam ve Mühendis, ÖNCE RESSAMLAR.
-   * Sıra SUNUCUDA verilir (`loadDrawingAuthors`); burada yeniden sıralanmaz,
-   * yoksa iki sıralama kuralı bir gün ayrışırdı.
-   */
   authors: DrawingAuthor[];
   canEdit: boolean;
+  previewDerivation?: DrawingDerivation;
+  previewDocument?: DrawingPlanDocument;
 }) {
-  const [rows, setRows] = useState<PlanRowState[]>(() => toState(initialRows));
-  const [kayitli, setKayitli] = useState<string>(() => imza(toState(initialRows)));
-  const [pending, startTransition] = useTransition();
-
-  const kirli = imza(rows) !== kayitli;
-
-  // Kod HAVUZU proje geneldir: aynı numara iki ana gruba verilemez (veritabanı
-  // kısıtı da bunu söyler). Seçici bu yüzden BAŞKA satırların kodlarını hiç
-  // göstermez — kullanıcıya önce yasak bir seçenek sunup sonra hata mesajı
-  // basmaktansa, seçeneği hiç sunmamak doğrudur.
-  const kullanilan = useMemo(
-    () => new Set(rows.map((r) => r.code)),
-    [rows]
+  const demo = projectId === "dev";
+  const initial = previewDocument ?? {
+    rows: initialRows,
+    state: emptyDrawingPlanState(),
+  };
+  const [saved, setSaved] = useState(initial);
+  const [rows, setRows] = useState(initial.rows);
+  const [numbering, setNumbering] = useState(initial.state.numbering);
+  const [revisionId, setRevisionId] = useState<string | null>(
+    initial.state.sourceRevisionId,
   );
-
-  /**
-   * Kimlik → görünen ad. DEFTERDEN GELEN AD DA GİRER, yalnız seçici listesi
-   * değil: bir kişinin rolü sonradan değişirse (ya da işten ayrılırsa) listeden
-   * düşer ve o kişinin çizdiği satırlar ekranda BOŞ görünürdü — oysa o
-   * resimleri gerçekten o çizdi. Güncel liste sonra yazılır, yani ad değişmişse
-   * yeni yazım kazanır.
-   */
-  const adDefteri = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const r of initialRows) if (r.drawnBy && r.drawnByName) m.set(r.drawnBy, r.drawnByName);
-    for (const a of authors) m.set(a.id, a.name);
-    return m;
-  }, [initialRows, authors]);
-
-  const adiCoz = (id: string): string => (id ? (adDefteri.get(id) ?? "—") : "");
-
-  const gruplar = useMemo(
-    () =>
-      groupDrawingPlan(
-        rows.map((r) => ({
-          id: r.key,
-          code: r.code,
-          name: r.name,
-          status: r.status,
-          drawnBy: r.drawnBy || null,
-          // GRUPLAMA ÇİZENE BAKMAZ — bant yalnız koddan türer. Ad burada
-          // çözülmez: hesaplanan değer hiçbir yerde okunmadığı hâlde `useMemo`
-          // bağımlılıklarına girer ve liste, kişi defteri her değiştiğinde
-          // boşuna yeniden gruplanırdı. Ekranda okunan ad `adiCoz`tan gelir.
-          drawnByName: "",
-          note: r.note,
-        }))
-      ),
-    [rows]
+  const [sourceChanged, setSourceChanged] = useState(false);
+  const [revisions, setRevisions] = useState<{ id: string; label: string }[]>(
+    [],
   );
-
-  const ilerleme = useMemo(() => drawingPlanProgress(rows), [rows]);
-
-  function setRow(key: string, patch: Partial<PlanRowState>) {
-    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
-  }
-
-  function removeRow(key: string) {
-    setRows((prev) => prev.filter((r) => r.key !== key));
-  }
-
-  function addRow(band: DrawingBand) {
-    const code = nextFreeCode(band, kullanilan);
-    if (!code) {
-      toast.error("Bu bandın bütün numaraları kullanılmış.");
-      return;
-    }
-    setRows((prev) => [
-      ...prev,
-      { key: yeniAnahtar(), code, name: "", status: "bekliyor", drawnBy: "", note: "" },
-    ]);
-  }
-
-  function kaydet() {
-    const eksik = rows.filter((r) => !r.name.trim());
-    if (eksik.length > 0) {
-      toast.error("Adı girilmemiş grup var — her numaraya bir ad verin.");
-      return;
-    }
-    startTransition(async () => {
-      const sonuc = await saveDrawingPlan(
-        projectId,
-        rows.map((r) => ({
-          id: r.dbId,
-          code: r.code,
-          name: r.name,
-          status: r.status,
-          drawnBy: r.drawnBy,
-          note: r.note,
-        }))
-      );
-      if (sonuc?.error) {
-        toast.error(sonuc.error);
+  const [derivation, setDerivation] = useState<DrawingDerivation | null>(
+    previewDerivation ?? null,
+  );
+  const [ready, setReady] = useState(demo);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [history, setHistory] = useState<DrawingPlanRow[][]>([]);
+  const [preview, setPreview] = useState<{
+    title: string;
+    rows: DrawingPlanRow[];
+  } | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [numberOpen, setNumberOpen] = useState(false);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+  useEffect(() => {
+    if (demo) return;
+    let live = true;
+    getDrawingPlanEditor(projectId).then((result) => {
+      if (!live) return;
+      if (result.error || !result.document) {
+        setError(result.error ?? "Plan okunamadı.");
         return;
       }
-      // Yeni satırların kimliği SUNUCUDA üretilir ve geri döner. Ekran onu
-      // almazsa aynı satır ikinci kaydetmede yeniden eklenmeye çalışılır ve
-      // numara tekillik kısıtına takılır (bkz. `DrawingPlanResult.saved`).
-      const kimlikler = new Map((sonuc?.saved ?? []).map((s) => [s.code, s.id]));
-      const sonrasi = rows.map((r) => ({ ...r, dbId: kimlikler.get(r.code) ?? r.dbId }));
-      setRows(sonrasi);
-      setKayitli(imza(sonrasi));
-      toast.success("Teknik resim numaralandırması kaydedildi");
+      setSaved(result.document);
+      setRows(result.document.rows);
+      setNumbering(result.document.state.numbering);
+      setRevisionId(result.revisionId ?? null);
+      setRevisions(result.revisions ?? []);
+      setDerivation(result.derivation ?? null);
+      setReady(true);
+    }).catch(() => {
+      if (live) setError("Plan yüklenemedi. Bağlantınızı kontrol edip sayfayı yeniden açın.");
     });
+    return () => {
+      live = false;
+    };
+  }, [projectId, demo]);
+  const dirty =
+    canEdit &&
+    ready &&
+    (JSON.stringify(rows) !== JSON.stringify(saved.rows) ||
+      JSON.stringify(numbering) !== JSON.stringify(saved.state.numbering) ||
+      (sourceChanged && revisionId !== saved.state.sourceRevisionId));
+  useEffect(() => {
+    if (!dirty) return;
+    const unload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    const leave = (event: MouseEvent) => {
+      const target =
+        event.target instanceof Element
+          ? event.target.closest("a[href]")
+          : null;
+      if (
+        target &&
+        !target.closest("[data-drawing-editor]") &&
+        !window.confirm(
+          "Kaydedilmemiş resim planı değişiklikleri var. Ayrılmak istiyor musunuz?",
+        )
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", unload);
+    document.addEventListener("click", leave, true);
+    return () => {
+      window.removeEventListener("beforeunload", unload);
+      document.removeEventListener("click", leave, true);
+    };
+  }, [dirty]);
+  const editable = canEdit && ready && !busy;
+  const ordered = orderedDrawingPlan(rows);
+  const progress = drawingPlanProgress(ordered.map((x) => x.row));
+  const displayed = ordered.filter(
+    ({ row }) =>
+      ![...collapsed].some(
+        (id) => id !== row.id && drawingDescendants(rows, id).has(row.id),
+      ),
+  );
+  const candidates = derivation?.candidates ?? [];
+  const changes = derivation
+    ? reconcileDrawingPlan(rows, candidates, numbering).changes
+    : [];
+  const choices = candidates.filter(
+    (c) => !rows.some((r) => r.sourceKey === c.key),
+  );
+  function replace(next: DrawingPlanRow[]) {
+    setHistory((h) => [...h.slice(-19), rows]);
+    setRows(next);
+    setError("");
   }
-
-  /**
-   * Bir satırın kod seçenekleri: kendi kodu + hiç kullanılmamışlar.
-   *
-   * Kendi kodu havuzda OLMASA DA listeye girer (ilk satır): numaralandırma bir
-   * süre 50'şer adımlıydı ve o dönemde yazılmış bir "0150" havuzda yoktur —
-   * seçeneği hiç sunmamak, kutuyu açan mühendise kendi numarasını kaybettirirdi.
-   */
-  function kodSecenekleri(row: PlanRowState): ComboOption[] {
-    const havuz = DRAWING_BANDS.flatMap((b) =>
-      codesOfBand(b.band)
-        .filter((c) => c === row.code || !kullanilan.has(c))
-        .map((c) => ({
-          value: c,
-          label: fullDrawingNo(itemNo, c),
-          hint: b.label,
-          keywords: [c, b.label],
-        }))
+  function patch(
+    id: string,
+    values: Partial<DrawingPlanRow>,
+    override?: "name" | "code" | "parentId",
+  ) {
+    setRows((current) =>
+      current.map((row) =>
+        row.id === id
+          ? {
+              ...row,
+              ...values,
+              overrides: override
+                ? [...new Set([...(row.overrides ?? []), override])]
+                : row.overrides,
+            }
+          : row,
+      ),
     );
-    if (row.code && !havuz.some((o) => o.value === row.code)) {
-      const band = bandOfCode(row.code);
-      havuz.unshift({
-        value: row.code,
-        label: fullDrawingNo(itemNo, row.code),
-        hint: band ? DRAWING_BANDS.find((b) => b.band === band)!.label : "Bant Dışı",
-        keywords: [row.code],
-      });
-    }
-    return havuz;
   }
-
+  function add(candidate?: DrawingCandidate, parentId: string | null = null) {
+    if (rows.length >= 120) {
+      setError("En fazla 120 satır saklanabilir.");
+      return;
+    }
+    const parent = candidate?.parentKey
+      ? rows.find((r) => r.sourceKey === candidate.parentKey && !r.suppressed)
+      : rows.find((r) => r.id === parentId);
+    if (candidate?.parentKey && !parent) {
+      setError("Önce üst montajı ekleyin.");
+      return;
+    }
+    const fallback: DrawingCandidate = {
+      key: "manual",
+      name: "",
+      reason: "",
+      parentKey: parent?.sourceKey ?? null,
+      block:
+        candidates.find((c) => c.key === parent?.sourceKey)?.block ?? "general",
+    };
+    const code = candidateCode(
+      candidate ?? fallback,
+      new Set(rows.map((r) => r.code)),
+      numbering,
+    );
+    if (!code) {
+      setError("Numara alanı dolu. Numara düzenini genişletin.");
+      return;
+    }
+    replace([
+      ...rows,
+      {
+        id: crypto.randomUUID(),
+        code,
+        name: candidate?.name ?? "",
+        status: "bekliyor",
+        drawnBy: null,
+        drawnByName: "",
+        note: "",
+        parentId: parent?.id ?? null,
+        sortOrder:
+          Math.max(0, ...rows.map((r) => r.sortOrder ?? Number(r.code))) + 1,
+        sourceKey: candidate?.key ?? null,
+        origin: candidate ? "auto" : "manual",
+        overrides: candidate ? [] : ["code"],
+        generated: candidate
+          ? { name: candidate.name, parentKey: candidate.parentKey, code }
+          : null,
+        reason: candidate?.reason ?? "Mühendis tarafından eklendi.",
+      },
+    ]);
+  }
+  function dragEnd(event: DragEndEvent) {
+    const source = rows.find((r) => r.id === event.active.id),
+      target = rows.find((r) => r.id === event.over?.id);
+    if (!source || !target || source.id === target.id) return;
+    if ((source.parentId ?? null) !== (target.parentId ?? null)) {
+      toast.info(
+        "Montaj değiştirmek için satırın Üst montaj alanını kullanın.",
+      );
+      return;
+    }
+    const siblings = ordered
+      .map((x) => x.row)
+      .filter((r) => (r.parentId ?? null) === (source.parentId ?? null));
+    const from = siblings.indexOf(source),
+      to = siblings.indexOf(target);
+    siblings.splice(from, 1);
+    siblings.splice(to, 0, source);
+    replace(
+      rows.map((r) => {
+        const index = siblings.findIndex((s) => s.id === r.id);
+        return index < 0
+          ? r
+          : {
+              ...r,
+              sortOrder: index,
+              overrides: [
+                ...new Set([...(r.overrides ?? []), "sortOrder" as const]),
+              ],
+            };
+      }),
+    );
+  }
+  function remove(keepChildren: boolean) {
+    if (!deleting) return;
+    replace(removeDrawingGroup(rows, deleting, keepChildren));
+    setDeleting(null);
+  }
+  function compare() {
+    const invalid = numberingError(numbering);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
+    const result = reconcileDrawingPlan(rows, candidates, numbering, {
+      applyChanges: true,
+      allowExisting: true,
+    });
+    const blocked = result.changes.find((c) => c.kind === "space");
+    if (blocked) {
+      setError(blocked.message);
+      return;
+    }
+    setPreview({ title: "Hesaptan gelen değişiklikler", rows: result.rows });
+  }
+  async function save() {
+    setBusy(true);
+    setError("");
+    try {
+      if (demo) {
+        setSaved({
+          rows,
+          state: {
+            ...saved.state,
+            numbering,
+            sourceRevisionId: revisionId,
+            version: saved.state.version + 1,
+          },
+        });
+        setHistory([]);
+        toast.success("Önizleme taslağı kaydedildi.");
+        return;
+      }
+      const result = await saveDrawingPlan(
+        projectId,
+        rows,
+        saved.state.version,
+        revisionId,
+        numbering,
+      );
+      if (result.error || !result.document) {
+        setError(result.error ?? "Kaydedilemedi.");
+        return;
+      }
+      setSaved(result.document);
+      setRows(result.document.rows);
+      setSourceChanged(false);
+      setHistory([]);
+      toast.success("Teknik resim planı kaydedildi.");
+    } catch {
+      setError(
+        "Bağlantı kurulamadı; taslağınız korundu. Tekrar kaydedebilirsiniz.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
-    <section className="border bg-card">
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b bg-muted/40 px-4 py-2.5">
-        <h3 className="flex items-center gap-2 text-sm font-medium">
-          <ListOrdered className="size-4 text-primary" />
-          Teknik Resim Takibi
-          <span className="font-mono text-[11px] font-normal text-muted-foreground">
-            {rows.length} Grup
-          </span>
-        </h3>
-        {/* İlerleme başlıktadır: kart açıldığında ilk okunan sayı "ne kadarı
-            bitti"dir, satırların tek tek durumu ondan sonra gelir. */}
-        {rows.length > 0 && <IlerlemeCubugu {...ilerleme} />}
+    <section
+      data-drawing-editor
+      className="min-w-0 space-y-4 rounded-xl border bg-card p-3 sm:p-5"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Teknik Resim Takibi</h2>
+          <p className="text-sm text-muted-foreground">
+            {progress.total} grup · {progress.done} tamamlandı · %
+            {progress.percent} · Sürüm {saved.state.version}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Sıralama numarayı değiştirmez. Kaydedilen liste teknik özetin sonuna
+            eklenir.
+          </p>
+        </div>
         {canEdit && (
-          <Button type="button" size="sm" onClick={kaydet} disabled={pending || !kirli}>
-            <Save className="size-3.5" />
-            {pending ? "Kaydediliyor…" : kirli ? "Kaydet" : "Kayıtlı"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              disabled={!editable || !history.length}
+              onClick={() => {
+                setRows(history[history.length - 1]);
+                setHistory(history.slice(0, -1));
+              }}
+            >
+              <Undo2 className="size-4" />
+              Geri al
+            </Button>
+            <Button disabled={!editable || !dirty} onClick={save}>
+              <Save className="size-4" />
+              {busy ? "Kaydediliyor…" : "Kaydet"}
+            </Button>
+          </div>
         )}
-      </header>
-
-      {gruplar.length === 0 && (
-        <p className="px-4 py-4 text-sm text-muted-foreground">
-          Henüz ana grup tanımlanmadı.{" "}
-          {canEdit
-            ? "Aşağıdaki düğmelerle köprü ve araba gruplarını ekleyin."
-            : "Numaralandırmayı hesap raporunu yazan mühendis tanımlar."}
+      </div>
+      {saved.state.sourceUpdatedAt && (
+        <p className="text-xs text-muted-foreground">
+          Kaynak: {saved.state.sourceRevisionLabel || "Hesap raporu"} · Son
+          eşitleme:{" "}
+          {new Date(saved.state.sourceUpdatedAt).toLocaleString("tr-TR")}
         </p>
       )}
-
-      <div className="divide-y">
-        {gruplar.map((grup) => (
-          <div key={grup.label} className="px-4 py-3">
-            <div
-              className="mb-2 text-xs font-semibold tracking-wide text-primary uppercase"
-              title={
-                grup.band
-                  ? `Numara aralığı ${DRAWING_BANDS.find((b) => b.band === grup.band)?.rangeText}`
-                  : undefined
-              }
-            >
-              {grup.label}
-            </div>
-            <ul className="grid gap-2">
-              {grup.rows.map((satir) => {
-                const row = rows.find((r) => r.key === satir.id);
-                if (!row) return null;
-                // DAR EKRANDA DÖRT SATIR, altı değil: numara ve ad kendi tam
-                // genişlik satırlarını alır, kalan dört alan İKİŞERLİ iner
-                // ("durum · çizen", sonra "not · sil"). Altısı alt alta inince
-                // tek bir grup satırı 270px'i geçiyordu ve altı gruplu bir
-                // listede ekran sonsuz kayıyordu.
-                //
-                // Izgara `grid-cols-2`dir, `[auto_1fr_auto]` DEĞİL: "çizen"
-                // eklendikten sonra tek satıra sığmayan alanlar üçlü ızgarada
-                // yarım satırlar bırakıyor, sil düğmesi tek başına bir satıra
-                // düşüyordu.
-                return (
-                  <li
-                    key={row.key}
-                    className="grid grid-cols-2 items-center gap-2 md:grid-cols-[9.5rem_1fr_9.5rem_10rem_9.5rem_2.5rem]"
-                  >
-                    <div className="col-span-2 md:col-span-1">
-                      {canEdit ? (
-                        <Combobox
-                          options={kodSecenekleri(row)}
-                          value={row.code}
-                          onChange={(v) => setRow(row.key, { code: v })}
-                          placeholder="Numara"
-                          searchPlaceholder="Numara Ara…"
-                          className="h-9 font-mono text-xs pointer-coarse:h-11"
-                        />
-                      ) : (
-                        <span className="font-mono text-sm">
-                          {fullDrawingNo(itemNo, row.code)}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="col-span-2 md:col-span-1">
-                      {canEdit ? (
-                        // Ad ALANI YAZILABİLİRDİR ve listeden de seçilir:
-                        // ekstra gruplarda (kepçe, mıknatıs, müşteriye özel
-                        // aparat) hazır listenin karşılığı çoğu zaman yoktur.
-                        <EditableCombobox
-                          options={adOnerileri(bandOfCode(row.code))}
-                          value={row.name}
-                          onChange={(v) => setRow(row.key, { name: v })}
-                          placeholder="Grup Adı"
-                          aria-label="Grup adı"
-                          uppercase
-                          inputClassName="h-9 pointer-coarse:h-11"
-                        />
-                      ) : (
-                        <span className="text-sm font-medium">{row.name || "—"}</span>
-                      )}
-                    </div>
-
-                    {canEdit ? (
-                      <Select
-                        value={row.status}
-                        onValueChange={(v) =>
-                          setRow(row.key, { status: v as DrawingPlanStatus })
-                        }
-                      >
-                        <SelectTrigger
-                          className="h-9 w-full text-xs pointer-coarse:h-11"
-                          aria-label="Çizim durumu"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {DRAWING_PLAN_STATUSES.map((s) => (
-                            <SelectItem key={s.status} value={s.status}>
-                              {s.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        {DRAWING_PLAN_STATUSES.find((s) => s.status === row.status)?.label}
-                      </span>
-                    )}
-
-                    {/*
-                      ÇİZEN — NOT'UN HEMEN SOLUNDA (kullanıcı kararı, 12.08.2026).
-                      Liste Teknik Ressam ve Mühendis rollerini taşır ve
-                      ÖNCE RESSAMLARI basar; sıra sunucudan gelir
-                      (`loadDrawingAuthors`), burada yeniden sıralanmaz.
-                      Roller BAŞLIK olarak ayrılır: "önce ressamlar" kuralı
-                      ancak görünürse bir kural olur, yoksa listedeki sıra
-                      rastlantı gibi okunur.
-                    */}
-                    {canEdit ? (
-                      <Select
-                        value={row.drawnBy || ATANMADI}
-                        onValueChange={(v) =>
-                          setRow(row.key, { drawnBy: v === ATANMADI ? "" : v })
-                        }
-                      >
-                        <SelectTrigger
-                          className="h-9 w-full text-xs pointer-coarse:h-11"
-                          aria-label="Çizen"
-                        >
-                          <SelectValue placeholder="Çizen" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={ATANMADI}>
-                            <span className="text-muted-foreground">Çizen Atanmadı</span>
-                          </SelectItem>
-                          {DRAWING_AUTHOR_ROLES.map((rol) => {
-                            const kisiler = authors.filter((a) => a.role === rol);
-                            if (kisiler.length === 0) return null;
-                            return (
-                              <SelectGroup key={rol}>
-                                <SelectLabel>{roleLabel(rol)}</SelectLabel>
-                                {kisiler.map((a) => (
-                                  <SelectItem key={a.id} value={a.id}>
-                                    {a.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
-                            );
-                          })}
-                          {/*
-                            LİSTEDEN DÜŞMÜŞ KİŞİ SEÇENEK OLARAK KORUNUR: rolü
-                            değişen ya da işten ayrılan birinin çizdiği satır
-                            açıldığında `Select` bilinmeyen bir değerle kalır ve
-                            tetikleyici BOŞ görünürdü — kullanıcı da dolu bir
-                            alanı boş sanıp üzerine yazardı.
-                          */}
-                          {row.drawnBy && !authors.some((a) => a.id === row.drawnBy) && (
-                            <SelectGroup>
-                              <SelectLabel>Listede Değil</SelectLabel>
-                              <SelectItem value={row.drawnBy}>{adiCoz(row.drawnBy)}</SelectItem>
-                            </SelectGroup>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        {adiCoz(row.drawnBy) || "—"}
-                      </span>
-                    )}
-
-                    {canEdit ? (
-                      <Input
-                        value={row.note}
-                        onChange={(e) => setRow(row.key, { note: e.target.value })}
-                        placeholder="Not"
-                        className="h-9 pointer-coarse:h-11"
-                      />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">{row.note}</span>
-                    )}
-
-                    {canEdit ? (
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label={`${fullDrawingNo(itemNo, row.code)} satırını sil`}
-                        className="justify-self-end text-destructive md:justify-self-auto"
-                        onClick={() => removeRow(row.key)}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    ) : (
-                      // Salt-okunur kipte de bir hücre bırakılır: ızgarada
-                      // boşluk atlanırsa not sütunu kayar.
-                      <span aria-hidden />
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </div>
-
+      {dirty && (
+        <p className="text-sm font-medium" role="status">
+          Kaydedilmemiş değişiklikler var.
+        </p>
+      )}
+      {error && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive p-3 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      )}
+      {!ready && !error && (
+        <p role="status">Plan ve kaynak hesap yükleniyor…</p>
+      )}
       {canEdit && (
-        <div className="flex flex-wrap items-center gap-2 border-t bg-muted/20 px-4 py-2.5">
-          {DRAWING_BANDS.map((b) => (
-            <Button
-              key={b.band}
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => addRow(b.band)}
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="min-w-0 flex-1 text-sm">
+            Kaynak hesap
+            <select
+              className={field}
+              value={revisionId ?? ""}
+              disabled={!editable || demo}
+              onChange={async (e) => {
+                const id = e.target.value;
+                if (!id) { setRevisionId(null); setDerivation(null); setSourceChanged(true); return; }
+                setBusy(true);
+                try {
+                  const result = await getDrawingPlanEditor(projectId, id);
+                  if (result.error) setError(result.error);
+                  else {
+                    setRevisionId(id);
+                    setSourceChanged(true);
+                    setDerivation(result.derivation ?? null);
+                  }
+                } catch {
+                  setError("Kaynak hesap okunamadı; mevcut taslağınız korundu.");
+                } finally {
+                  setBusy(false);
+                }
+              }}
             >
-              <Plus className="size-3.5" />
-              {b.shortLabel}
-            </Button>
-          ))}
+              <option value="">Kaynak seçilmedi</option>
+              {revisions.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button variant="outline" disabled={!editable} onClick={() => add()}>
+            <Plus className="size-4" />
+            Grup ekle
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!editable}
+            onClick={() => setNumberOpen(!numberOpen)}
+          >
+            Numara düzeni
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!editable || !derivation}
+            onClick={compare}
+          >
+            Hesapla karşılaştır{changes.length ? ` (${changes.length})` : ""}
+          </Button>
         </div>
       )}
+      {numberOpen && (
+        <div className="grid gap-3 rounded-lg bg-muted/40 p-3 sm:grid-cols-3">
+          <label className="text-sm">
+            Ana araba başlangıcı
+            <input
+              type="number"
+              step="100"
+              disabled={!editable}
+              className={field}
+              value={Number.isNaN(numbering.main) ? "" : numbering.main}
+              onChange={(e) =>
+                setNumbering({
+                  ...numbering,
+                  main: e.target.value ? Number(e.target.value) : NaN,
+                })
+              }
+            />
+          </label>
+          <label className="text-sm">
+            İkinci araba başlangıcı
+            <input
+              type="number"
+              step="100"
+              disabled={!editable}
+              className={field}
+              value={
+                Number.isNaN(numbering.auxiliary) ? "" : numbering.auxiliary
+              }
+              onChange={(e) =>
+                setNumbering({
+                  ...numbering,
+                  auxiliary: e.target.value ? Number(e.target.value) : NaN,
+                })
+              }
+            />
+          </label>
+          <Button
+            className="self-end"
+            variant="outline"
+            disabled={!editable}
+            onClick={() => {
+              const result = renumberDrawingPlan(rows, candidates, numbering);
+              if (result.error) setError(result.error);
+              else
+                setPreview({ title: "Yeni numara düzeni", rows: result.rows });
+            }}
+          >
+            Numaraları önizle
+          </Button>
+          <p className="text-sm text-muted-foreground sm:col-span-3">
+            Başlangıçları değiştirmek mevcut numaraları değiştirmez. Yeniden
+            numaralandırmayı önizleyip uygulayın; sabitlenen kodlar korunur.
+          </p>
+        </div>
+      )}
+      {!!derivation?.warnings.length && (
+        <details className="rounded-lg border p-3 text-sm">
+          <summary className="cursor-pointer font-medium">
+            Hesap inceleme notları ({derivation.warnings.length})
+          </summary>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {derivation.warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {!!changes.length && (
+        <details className="rounded-lg border p-3 text-sm">
+          <summary className="cursor-pointer font-medium">
+            İncelenecek farklar ({changes.length})
+          </summary>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {changes.map((c, i) => (
+              <li key={i}>
+                {c.message}
+                {c.kind === "removed" && canEdit && (
+                  <Button
+                    variant="outline"
+                    disabled={!editable}
+                    className="ml-2"
+                    onClick={() =>
+                      replace(
+                        rows.map((r) =>
+                          r.sourceKey === c.key
+                            ? {
+                                ...r,
+                                origin: "manual",
+                                overrides: [
+                                  "name",
+                                  "code",
+                                  "parentId",
+                                  "sortOrder",
+                                ],
+                              }
+                            : r,
+                        ),
+                      )
+                    }
+                  >
+                    Manuel tut
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      <DndContext
+        accessibility={{
+          screenReaderInstructions: {
+            draggable:
+              "Taşımayı başlatmak için boşluk tuşuna basın. Yön tuşlarıyla hedefi seçin; boşlukla bırakın, Escape ile vazgeçin.",
+          },
+          announcements: {
+            onDragStart: ({ active }) =>
+              `${rows.find((r) => r.id === active.id)?.name ?? "Grup"} taşınıyor.`,
+            onDragOver: ({ over }) =>
+              over
+                ? `Hedef: ${rows.find((r) => r.id === over.id)?.name ?? "grup"}.`
+                : "Bir hedef seçin.",
+            onDragEnd: () => "Taşıma tamamlandı.",
+            onDragCancel: () => "Taşımadan vazgeçildi.",
+          },
+        }}
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={dragEnd}
+      >
+        <SortableContext
+          items={displayed.map((x) => x.row.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-2">
+            {displayed.map(({ row, depth }) => (
+              <div key={row.id} style={{ marginLeft: Math.min(depth, 2) * 12 }}>
+                <SortableRow row={row} disabled={!editable}>
+                  {rows.some((r) => r.parentId === row.id && !r.suppressed) && (
+                    <button
+                      type="button"
+                      className="min-h-11 text-sm font-medium"
+                      aria-expanded={!collapsed.has(row.id)}
+                      onClick={() =>
+                        setCollapsed((current) => {
+                          const next = new Set(current);
+                          if (next.has(row.id)) next.delete(row.id);
+                          else next.add(row.id);
+                          return next;
+                        })
+                      }
+                    >
+                      {collapsed.has(row.id)
+                        ? "Alt grupları göster"
+                        : "Alt grupları daralt"}
+                    </button>
+                  )}
+                  <div
+                    onFocusCapture={(e) => {
+                      if (
+                        e.target instanceof HTMLInputElement ||
+                        e.target instanceof HTMLTextAreaElement ||
+                        e.target instanceof HTMLSelectElement
+                      )
+                        setHistory((h) => [...h.slice(-19), rows]);
+                    }}
+                    className="grid min-w-0 gap-2 sm:grid-cols-[8rem_minmax(0,1fr)_auto]"
+                  >
+                    <label className="text-xs text-muted-foreground">
+                      Resim kodu
+                      <input
+                        aria-label={`${row.name || "Yeni grup"} resim kodu`}
+                        className={`${field} font-mono`}
+                        disabled={!editable}
+                        maxLength={4}
+                        value={row.code}
+                        onChange={(e) =>
+                          patch(
+                            row.id,
+                            { code: e.target.value.replace(/\D/g, "") },
+                            "code",
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="text-xs text-muted-foreground">
+                      Grup adı
+                      <textarea
+                        rows={1}
+                        aria-label="Grup adı"
+                        className={`${field} [field-sizing:content] resize-none`}
+                        disabled={!editable}
+                        maxLength={120}
+                        value={row.name}
+                        onChange={(e) =>
+                          patch(
+                            row.id,
+                            { name: adBuyuk(e.target.value) },
+                            "name",
+                          )
+                        }
+                      />
+                    </label>
+                    <div className="flex items-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`${row.name} yukarı`}
+                        disabled={!editable}
+                        onClick={() =>
+                          replace(moveDrawingRow(rows, row.id, -1))
+                        }
+                      >
+                        <ArrowUp className="size-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`${row.name} aşağı`}
+                        disabled={!editable}
+                        onClick={() => replace(moveDrawingRow(rows, row.id, 1))}
+                      >
+                        <ArrowDown className="size-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`${row.name} kaldır`}
+                        disabled={!editable}
+                        onClick={() => setDeleting(row.id)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <details
+                    onFocusCapture={(e) => {
+                      if (
+                        e.target instanceof HTMLInputElement ||
+                        e.target instanceof HTMLTextAreaElement ||
+                        e.target instanceof HTMLSelectElement
+                      )
+                        setHistory((h) => [...h.slice(-19), rows]);
+                    }}
+                    className="mt-2 text-sm"
+                  >
+                    <summary className="min-h-11 cursor-pointer py-2 text-muted-foreground">
+                      <span className="font-mono">
+                        {fullDrawingNo(itemNo, row.code)}
+                      </span>{" "}
+                      ·{" "}
+                      {
+                        DRAWING_PLAN_STATUSES.find(
+                          (s) => s.status === row.status,
+                        )?.label
+                      }{" "}
+                      ·{" "}
+                      {row.sourceKey && row.origin !== "manual"
+                        ? "Hesaptan"
+                        : "Manuel"}{" "}
+                      · Ayrıntılar
+                    </summary>
+                    <div className="grid gap-3 pb-2 sm:grid-cols-2 lg:grid-cols-3">
+                      <label>
+                        Durum
+                        <select
+                          className={field}
+                          value={row.status}
+                          disabled={!editable}
+                          onChange={(e) =>
+                            patch(row.id, {
+                              status: e.target
+                                .value as DrawingPlanRow["status"],
+                            })
+                          }
+                        >
+                          {DRAWING_PLAN_STATUSES.map((s) => (
+                            <option key={s.status} value={s.status}>
+                              {s.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Çizen
+                        <select
+                          className={field}
+                          value={row.drawnBy ?? ""}
+                          disabled={!editable}
+                          onChange={(e) =>
+                            patch(row.id, {
+                              drawnBy: e.target.value || null,
+                              drawnByName:
+                                authors.find((a) => a.id === e.target.value)
+                                  ?.name ?? "",
+                            })
+                          }
+                        >
+                          <option value="">Atanmadı</option>
+                          {row.drawnBy &&
+                            !authors.some((a) => a.id === row.drawnBy) && (
+                              <option value={row.drawnBy}>
+                                {row.drawnByName || "Önceki atama"}
+                              </option>
+                            )}
+                          {authors.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Üst montaj
+                        <select
+                          className={field}
+                          disabled={!editable}
+                          value={row.parentId ?? ""}
+                          onChange={(e) =>
+                            patch(
+                              row.id,
+                              { parentId: e.target.value || null },
+                              "parentId",
+                            )
+                          }
+                        >
+                          <option value="">Genel montaj</option>
+                          {ordered
+                            .filter(
+                              (x) =>
+                                !drawingDescendants(rows, row.id).has(x.row.id),
+                            )
+                            .map((x) => (
+                              <option key={x.row.id} value={x.row.id}>
+                                {x.row.code} · {x.row.name}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                      <label className="sm:col-span-2">
+                        Not
+                        <input
+                          className={field}
+                          value={row.note}
+                          maxLength={300}
+                          disabled={!editable}
+                          onChange={(e) =>
+                            patch(row.id, { note: e.target.value })
+                          }
+                        />
+                      </label>
+                      <label className="flex min-h-11 items-center gap-2">
+                        <input
+                          type="checkbox"
+                          disabled={!editable}
+                          checked={row.overrides?.includes("code") ?? false}
+                          onChange={(e) =>
+                            patch(row.id, {
+                              overrides: e.target.checked
+                                ? [
+                                    ...new Set([
+                                      ...(row.overrides ?? []),
+                                      "code" as const,
+                                    ]),
+                                  ]
+                                : row.overrides?.filter((x) => x !== "code"),
+                            })
+                          }
+                        />
+                        Numarayı sabitle
+                      </label>
+                      <p className="text-muted-foreground sm:col-span-2">
+                        {row.reason}
+                      </p>
+                      {canEdit && (
+                        <Button
+                          variant="outline"
+                          disabled={!editable}
+                          onClick={() => add(undefined, row.id)}
+                        >
+                          Alt grup ekle
+                        </Button>
+                      )}
+                    </div>
+                  </details>
+                </SortableRow>
+              </div>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+      {!ordered.length && (
+        <p className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
+          Henüz resim grubu yok. Hesabı karşılaştırarak oluşturun veya grup
+          ekleyin.
+        </p>
+      )}
+      {canEdit && !!choices.length && (
+        <details className="rounded-lg border p-3">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">
+            Eklenebilir hesap grupları ({choices.length})
+          </summary>
+          <div className="space-y-2">
+            {choices.map((c) => (
+              <div
+                key={c.key}
+                className="flex flex-wrap items-center gap-2 border-t py-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">
+                    {c.name}
+                    {c.optional ? " · isteğe bağlı" : ""}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{c.reason}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={!editable}
+                  onClick={() => add(c)}
+                >
+                  Ekle
+                </Button>
+                <select
+                  aria-label={`${c.name} mevcut satırla eşleştir`}
+                  className={`${field} max-w-64`}
+                  value=""
+                  disabled={!editable}
+                  onChange={(e) => {
+                    const old = rows.find((r) => r.id === e.target.value);
+                    if (old)
+                      replace(
+                        rows.map((r) =>
+                          r.id === old.id
+                            ? {
+                                ...r,
+                                sourceKey: c.key,
+                                origin: "auto",
+                                reason: c.reason,
+                                overrides: [
+                                  "name",
+                                  "code",
+                                  "parentId",
+                                  "sortOrder",
+                                ],
+                              }
+                            : r,
+                        ),
+                      );
+                  }}
+                >
+                  <option value="">Mevcut satırla eşleştir</option>
+                  {ordered
+                    .filter((x) => !x.row.sourceKey)
+                    .map((x) => (
+                      <option key={x.row.id} value={x.row.id}>
+                        {x.row.code} · {x.row.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+      {canEdit && rows.some((r) => r.suppressed) && (
+        <details className="rounded-lg border p-3">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm">
+            Kaldırılan otomatik gruplar
+          </summary>
+          {rows
+            .filter((r) => r.suppressed)
+            .map((r) => (
+              <div
+                className="flex flex-wrap items-center justify-between gap-2 py-1 text-sm"
+                key={r.id}
+              >
+                <span>
+                  {r.code} · {r.name}
+                </span>
+                <Button
+                  variant="outline"
+                  disabled={!editable}
+                  onClick={() => {
+                    if (
+                      r.parentId &&
+                      rows.find((p) => p.id === r.parentId)?.suppressed
+                    ) {
+                      setError("Önce üst montajı geri alın.");
+                      return;
+                    }
+                    replace(
+                      rows.map((p) =>
+                        p.id === r.id ? { ...p, suppressed: false } : p,
+                      ),
+                    );
+                  }}
+                >
+                  Geri getir
+                </Button>
+              </div>
+            ))}
+        </details>
+      )}
+      <Dialog
+        open={!!preview}
+        onOpenChange={(open) => {
+          if (!open) setPreview(null);
+        }}
+      >
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{preview?.title}</DialogTitle>
+            <DialogDescription>
+              Kontrol edip taslağa uygulayın. Veritabanına yazmak için ayrıca
+              Kaydet düğmesine basın.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {preview &&
+              orderedDrawingPlan(preview.rows).map(({ row, depth }) => {
+                const old = rows.find((r) => r.id === row.id);
+                return (
+                  <div
+                    key={row.id}
+                    className="rounded border p-2 text-sm"
+                    style={{ marginLeft: Math.min(depth, 2) * 12 }}
+                  >
+                    <p className="font-medium">
+                      {!old
+                        ? "Yeni · "
+                        : old.code !== row.code
+                          ? `${old.code} → `
+                          : ""}
+                      {row.code} · {row.name}
+                    </p>
+                    {old && old.name !== row.name && (
+                      <p>Önceki ad: {old.name}</p>
+                    )}
+                    {old && old.parentId !== row.parentId && (
+                      <p>
+                        Üst montaj:{" "}
+                        {rows.find((r) => r.id === old.parentId)?.name ??
+                          "Genel"}{" "}
+                        →{" "}
+                        {preview.rows.find((r) => r.id === row.parentId)
+                          ?.name ?? "Genel"}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+          <Button
+            onClick={() => {
+              if (preview) {
+                replace(preview.rows);
+                setSourceChanged(true);
+              }
+              setPreview(null);
+            }}
+          >
+            Taslağa uygula
+          </Button>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={!!deleting}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Grubu kaldır</DialogTitle>
+            <DialogDescription>
+              {rows.find((r) => r.id === deleting)?.name} kaldırılacak. Otomatik
+              gruplar siz geri getirene kadar yeniden eklenmez.
+            </DialogDescription>
+          </DialogHeader>
+          {rows.some((r) => r.parentId === deleting && !r.suppressed) && (
+            <Button variant="outline" onClick={() => remove(true)}>
+              Alt grupları bir üst seviyeye taşı
+            </Button>
+          )}
+          <Button variant="destructive" onClick={() => remove(false)}>
+            Alt gruplarıyla birlikte kaldır
+          </Button>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

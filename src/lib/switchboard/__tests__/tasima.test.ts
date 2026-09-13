@@ -83,6 +83,8 @@ function duzeltme(deviceKey: string, order: number): PlacementOverride {
     zone: null,
     railIndex: null,
     orderInRail: order,
+    anchorDeviceKey: null,
+    anchorSide: null,
     widthMm: null,
     heightMm: null,
     depthMm: null,

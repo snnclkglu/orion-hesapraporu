@@ -47,6 +47,7 @@ export default async function PanoPage({
       parcaSayisi={veri.parcaSayisi}
       sonuc={veri.sonuc}
       panoKararlari={veri.panoKararlari}
+      aygitKararlari={veri.aygitKararlari}
       onay={veri.onay}
     />
   );

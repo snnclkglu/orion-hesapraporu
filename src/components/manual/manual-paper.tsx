@@ -31,6 +31,8 @@
 // çizilen şey uygulamanın arayüzü değil, BASILACAK KÂĞIDIN kendisidir.
 
 import React, { useMemo } from "react";
+import { ModernManualPaper } from "./modern-paper";
+import { buildManualDocumentPlan } from "@/lib/manual/document-plan";
 import { BRAND, PAGE, mm, trUpper } from "@/lib/pdf/palette";
 import { markForLevel, markSlotWidth, markWidthForHeight, type MarkDef } from "@/lib/manual/marks";
 import {
@@ -125,6 +127,10 @@ export function manualOnizlemeOlcusu(
   sources: ManualSourceData,
   oranlar: ReadonlyMap<string, number>
 ): ManualPaperOlcu {
+  if (payload.designVersion === 2) {
+    const plan = buildManualDocumentPlan({ payload, sources, ratios: oranlar });
+    return { sayfalar: Array.from({length:plan.bodyCount}, () => ({bantlar:[]})), sayfaNo: plan.pageNumbers, govdeOfset: plan.bodyOffset };
+  }
   const numarali = numberManual(printedManual(payload).sections);
   const ekKapsayici = numarali.find((b) => b.children.some((c) => c.appendix)) ?? null;
   const govdeBolumleri = numarali.filter((b) => b !== ekKapsayici);
@@ -137,7 +143,11 @@ export function manualOnizlemeOlcusu(
   return { sayfalar, sayfaNo: bolumSayfalari(sayfalar, govdeOfset), govdeOfset };
 }
 
-export function ManualPaper({
+export function ManualPaper(props: ManualPaperProps) {
+  return props.payload.designVersion === 2 ? <ModernManualPaper {...props} /> : <LegacyManualPaper {...props} />;
+}
+
+function LegacyManualPaper({
   payload,
   projectTitle,
   sources,
