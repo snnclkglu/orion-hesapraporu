@@ -28,7 +28,7 @@ export function ModernManualPdf(props: ManualPdfProps) {
       return item.target ? <Link key={index} src={`#${item.target}`} style={style}>{item.text}</Link> : <Text key={index} id={item.id} style={style} wrap={false}>{item.text}</Text>;
     }
     if(item.kind==="marker")return <View key={index} style={{...box,borderRadius:10,backgroundColor:D.red,alignItems:"center",justifyContent:"center"}}><Text style={{fontFamily:FONTS.sans,fontSize:10,fontWeight:700,color:"white"}}>{item.label}</Text></View>;
-    if(item.media.diagram)return <View key={index} style={box}><PdfDiagram diagram={item.media.diagram as Diagram} /></View>;
+    if(item.media.diagram)return <View key={index} style={box}><PdfDiagram diagram={item.media.diagram as Diagram} maxWidth={item.w} maxHeight={item.h} framed={false} /></View>;
     const bytes=images.get(item.media.imageId||item.media.assetKey||"");
     // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image DOM öğesi değildir.
     return bytes?<Image key={index} src={bytes} style={{...box,objectFit:"contain"}} />:null;

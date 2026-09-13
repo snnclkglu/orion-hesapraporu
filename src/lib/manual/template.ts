@@ -360,16 +360,16 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
         title: "Ana Kesici ve Enerji Kesme",
         blocks: [
           p(
-            "Ana kesici vincin bütün enerjisini kesen tek anahtardır. Bakım, muayene ve arıza giderme işlemlerine başlamadan önce ana kesici kapatılır ve KİLİTLENİR."
+            "Ana kesici vincin ana elektrik beslemesini ayırır. Bakım öncesinde diğer beslemeler ve depolanmış enerji kaynakları da belirlenmeli; sahaya özgü izolasyon, kilitleme ve doğrulama prosedürü uygulanmalıdır."
           ),
           ol(
             [
               "Kancayı yüksüz bırakın ve arabayı bakım konumuna alın.",
               "Ana kesiciyi kapalı konuma getirin.",
               "Kesiciyi asma kilitle kilitleyin ve üzerine çalışan kişinin adını taşıyan uyarı etiketini asın.",
-              "Gerilim yokluğunu ölçerek doğrulayın.",
+              "Gerilim yokluğunu yetkili elektrik personeli uygun yöntemle doğrulasın. Diğer enerji kaynakları ve depolanmış enerji de güvenli hâle getirilsin.",
             ],
-            "Vinç enerjisiz ve kilitli durumdadır; çalışma başlayabilir."
+            "Çalışmaya ancak tüm enerji kaynaklarının güvenli durumu doğrulandıktan ve çalışma izni koşulları sağlandıktan sonra başlanır."
           ),
           not(
             "tehlike",
@@ -390,13 +390,13 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
             "Acil stop butonu tehlike anında bütün hareketleri durdurur ve frenleri devreye sokar. Olağan durdurma için KULLANILMAZ; olağan durdurma kumanda organının sıfır konumuyla yapılır."
           ),
           ul(
-            "Butona basıldığında bütün hareketler durur ve enerji kesilir.",
-            "Buton kilitlenir; çevrilerek serbest bırakılana kadar vinç yeniden çalıştırılamaz.",
+            "Buton tehlikeli hareketleri durdurma işlevini başlatır; elektriksel izolasyon sağladığı varsayılmaz.",
+            "Buton kilitli kalır; serbest bırakma şekli kullanılan butonun talimatına göre uygulanır.",
             "Serbest bırakmak vinci ÇALIŞTIRMAZ — devreye alma işlemi baştan yapılır."
           ),
           not(
             "uyari",
-            "Acil stop bir güvenlik fonksiyonudur ve haftalık olarak DENENİR. Denenmemiş bir acil stop, olmayan bir güvenlik önlemidir."
+            "Acil durdurma işlevi üreticinin kontrol planına göre güvenli koşullarda denenir. İşlevde uygunsuzluk varsa vinç kullanılmaz; kontrol aralığı bu vince ait bakım planında belirlenir."
           ),
           bosluk("Acil stop butonlarının sayısı ve yerleri"),
         ],
@@ -694,9 +694,9 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
             head: ["Kontrol", "Nasıl", "Ölçüt"],
             rows: [
               ["Acil stop", "Butona basılır, vinç devreden çıkar", "Bütün hareketler durmalı"],
-              ["Frenler", "Yüksüz kaldırma ve indirme, kumanda bırakılır", "Yük tutulmalı, kayma olmamalı"],
-              ["Limit siviçleri", "Yavaş hızda üst ve alt limite yaklaşılır", "Hareket limitte durmalı"],
-              ["Korna ve ikaz lambaları", "Pedal ve lamba test butonu", "Sesli ve görsel ikaz çalışmalı"],
+              ["Frenler", "Üretici talimatına göre yüksüz fonksiyon kontrolü", "İstenmeyen hareket veya kayma olmamalı"],
+              ["Limit siviçleri", "Üreticinin tarif ettiği yüksüz test yöntemiyle", "İlgili hareket güvenli sınırda durmalı"],
+              ["Korna ve ikaz lambaları", "Varsa, ilgili kumanda talimatına göre", "Mevcut ikazlar düzgün çalışmalı"],
               ["Kanca ve kanca bloğu", "Gözle", "Çatlak, deformasyon, emniyet mandalı"],
               ["Çelik halat", "Gözle, tambur ve makara çevresinde", "Kopuk tel, ezilme, düğümlenme yok"],
               ["Kumanda", "Her eksen kısa hareket", "Kumanda yönü hareket yönüyle aynı"],
@@ -706,7 +706,7 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
           },
           not(
             "uyari",
-            "Fren, limit sivici ya da acil stop arızalı bir vinç kullanılmaz. Bu üç sistemin herhangi biri, tek başına yükün düşmesini önleyen son emniyettir."
+            "Fren, hareket sınırlandırıcı veya acil durdurma işlevinde uygunsuzluk varsa vinç kullanılmaz. Bu donanımlar farklı görevler üstlenir; birbirlerinin yerine geçmez."
           ),
         ],
       },
@@ -747,7 +747,7 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
           ul(
             "Hızlanma ve yavaşlama KADEMELİ yapılır; kumanda kolu bir uçtan ötekine ani hareket ettirilmez.",
             "Yürütme sırasında kaldırma hareketi ile yürütme aynı anda ani biçimde değiştirilmez.",
-            "Savrulma başladıysa kumandayla söndürülür: yük öne savrulurken kısa süre aynı yönde hareket verilir.",
+            "Salınım giderme manevralarını yalnız ilgili kumanda için eğitim aldıysanız uygulayın. Yükü elle yakalamayın; güvenli alanı koruyun ve üretici talimatını izleyin.",
             "Yük mümkün olan en alçak güvenli yükseklikte taşınır; halat boyu arttıkça sarkaç periyodu uzar ve genlik büyür.",
             "Yükün elle tutulup yönlendirilmesi gerekiyorsa halat ya da kılavuz ip kullanılır, yüke elle temas edilmez."
           ),

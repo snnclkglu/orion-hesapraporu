@@ -931,3 +931,28 @@ Kontrol: `vitest run src/lib/manual/__tests__`,
 `scripts/manual-audit.ts` (salt okunur gerçek iş çıktısı),
 `scripts/manual-pilot.ts`, `scripts/check-manual-plan.py`.
 Ayrıntılar: `docs/plans/ISLETME_EL_KITABI_UYGULAMA_SONUCU.md`.
+
+
+## KITAP-29 — Görsel anlatım paketi
+
+`illustrated-content.ts` mevcut kullanıcı içeriğini koruyarak açık işlemle
+uygulanan içerik paketidir (`contentEdition: 1`). Yeni belgeler paketi alır;
+mevcut taslak kendiliğinden güncellenmez. Aynı paket ikinci kez uygulanmaz,
+silinen içerik geri eklenmez. Şablon kaynaklı güvenlik düzeltmeleri yalnız
+`fromTemplate && !edited` bloklara uygulanır; standart şablon da aynı güvenli
+ifadeleri taşır. Sayısal proje ayarları bu paketten türetilmez.
+
+`illustrations.ts` özgün vektör eğitim şemalarını üretir. Şema snapshot'a
+kaydedilir; `media` / `figure` / `procedure` kaynak seçicisinden değiştirilebilir.
+Şekil numaraları hem vektörde hem fotoğrafta düzenlenebilir. PDF çizicisi
+`PdfDiagram`a mutlaka plandaki genişlik ve yüksekliği verir; varsayılan
+468 pt genişlik küçük işlem şemalarını taşırır. Başlık–ilk görsel, kısa uyarı
+ve kısa tablolar birlikte tutulur. İçindekiler iki düzeylik hızlı dizindir;
+tam bölüm ağacı editörde korunur.
+
+Karşılaştırma ve teknik kararlar:
+`docs/plans/EL_KITABI_GORSEL_ICERIK_DENETIMI.md`.
+Kontrol: `scripts/manual-illustrated-pilot.ts` (yerel gerçek 0026 fikstürü),
+`--cached-appendices` (önceki doğrulanmış eklerle yerleşim testi; canlı indirme
+değildir), `scripts/manual-illustrated-install.mjs` (varsayılan rollback,
+`--commit` ayrı taslak oluşturur, kaynak değişirse durur).

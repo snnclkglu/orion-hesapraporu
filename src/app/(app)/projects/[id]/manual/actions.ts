@@ -1,4 +1,5 @@
 "use server";
+import { illustrateManualContent } from "@/lib/manual/illustrated-content";
 
 // İŞLETME VE BAKIM EL KİTABI — yazma katmanı.
 //
@@ -29,7 +30,7 @@ import { applyManualPackage, suggestManualPackage } from "@/lib/manual/packages"
 import { resolveAutoTable, type ManualSourceData } from "@/lib/manual/sources";
 import { MANUAL_IMAGE_BUCKET } from "@/lib/manual/data";
 import { manualPublishReadiness } from "@/lib/manual/guide";
-import { manualWriteError, modernizeManualContent } from "@/lib/manual/rich-content";
+import { manualWriteError } from "@/lib/manual/rich-content";
 import { publishManualDelivery } from "@/lib/manual/delivery-server";
 import {
   applyManualIdentitySuggestion,
@@ -131,7 +132,7 @@ export async function createManual(projectId: string): Promise<ManualResult> {
     .insert({
       manual_id: manual.id,
       rev_no: 1,
-      payload: modernizeManualContent(govde),
+      payload: illustrateManualContent(govde),
       created_by: izin.userId,
     })
     .select("id")
@@ -406,6 +407,7 @@ export async function newManualRevision(
       coverTitle: String(manual.title ?? ""),
     }
   );
+  if (!son) taslak.payload = illustrateManualContent(taslak.payload);
   /*
    * DOKÜMAN NO VE REVİZYON ETİKETİ YENİ SÜRÜMDE KESİN OLARAK DEĞİŞİR.
    *

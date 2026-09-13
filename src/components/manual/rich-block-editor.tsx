@@ -7,6 +7,7 @@ import { DiagramSvg } from "@/components/diagrams/diagram-svg";
 import type { Diagram } from "@/lib/diagrams/model";
 import type { ManualBlock, ManualMediaRef, ManualFigureBlock } from "@/lib/manual/types";
 import type { OnizlemeGorsel } from "./manual-paper";
+import { MANUAL_ILLUSTRATIONS, manualIllustration, type ManualIllustrationKey } from "@/lib/manual/illustrations";
 import { manualAsset } from "@/lib/manual/assets";
 
 type Rich = Extract<ManualBlock,{kind:"media"|"figure"|"procedure"}>;
@@ -15,12 +16,12 @@ export function RichBlockEditor({block,readOnly,images,onChange,onUpload}:{block
   const [busy,setBusy]=useState(false);
   const mediaInput=(media:ManualMediaRef,change:(media:ManualMediaRef)=>void,markers?:ManualFigureBlock["markers"])=> <div className="grid gap-2">
     {!readOnly && <div className="flex flex-wrap items-center gap-2">
-      <select aria-label="Görsel kaynağı" className="h-11 min-w-0 max-w-full rounded border bg-background px-2 text-base" value={media.imageId||media.assetKey||""} onChange={e=>change(manualAsset(e.target.value)?{assetKey:e.target.value}:{imageId:e.target.value})}>
-        <option value="">Görsel seçin</option>{[...images.keys()].map((id,i)=><option key={id} value={id}>{manualAsset(id)?.label||`Yüklenen görsel ${i+1}`}</option>)}
+      <select aria-label="Görsel kaynağı" className="h-11 min-w-0 max-w-full rounded border bg-background px-2 text-base" value={media.diagramKey?.startsWith("manual:")?media.diagramKey:media.imageId||media.assetKey||""} onChange={e=>{const key=e.target.value;if(key.startsWith("manual:")){const type=key.slice(7) as ManualIllustrationKey;change({diagram:manualIllustration(type),diagramKey:key});}else change(manualAsset(key)?{assetKey:key}:{imageId:key});}}>
+        <option value="">Görsel seçin</option><optgroup label="Şematik anlatımlar">{Object.entries(MANUAL_ILLUSTRATIONS).map(([key,label])=><option key={key} value={`manual:${key}`}>{label}</option>)}</optgroup>{[...images.keys()].map((id,i)=><option key={id} value={id}>{manualAsset(id)?.label||`Yüklenen görsel ${i+1}`}</option>)}
       </select>
       {onUpload && <label className="inline-flex min-h-11 cursor-pointer items-center rounded border px-3 text-sm">{busy?"Yükleniyor…":"Fotoğraf yükle"}<input aria-label="Fotoğraf yükle" type="file" accept="image/*" className="sr-only" disabled={busy} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;setBusy(true);try{const ref=await onUpload(file);if(ref)change(ref);}finally{setBusy(false);e.target.value="";}}}/></label>}
     </div>}
-    {media.diagram?<DiagramSvg diagram={media.diagram as Diagram}/>:images.get(media.imageId||media.assetKey||"")?.url?
+    {media.diagram?<div className="relative"><DiagramSvg diagram={media.diagram as Diagram}/>{markers?.map((m,i)=><span key={m.id} className="pointer-events-none absolute grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground" style={{left:`${m.x*100}%`,top:`${m.y*100}%`}}>{i+1}</span>)}</div>:images.get(media.imageId||media.assetKey||"")?.url?
       // eslint-disable-next-line @next/next/no-img-element -- Kullanıcının seçtiği görselin oranını koruyan editör yüzü.
       <div className="relative mx-auto w-fit max-w-full"><img src={images.get(media.imageId||media.assetKey||"")!.url} alt="Seçili görsel" className="max-h-72 max-w-full object-contain"/>{markers?.map((m,i)=><span key={m.id} className="pointer-events-none absolute grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow" style={{left:`${m.x*100}%`,top:`${m.y*100}%`}}>{i+1}</span>)}</div>:<p className="text-sm text-muted-foreground">Bu içerik için bir görsel seçebilirsiniz.</p>}
   </div>;

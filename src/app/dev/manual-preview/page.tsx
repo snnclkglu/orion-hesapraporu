@@ -7,7 +7,7 @@
 // ekranda görülen belge ile duman testinin bastığı PDF aynı şeyi anlatır.
 
 import fs from "node:fs";
-import { modernizeManualContent } from "@/lib/manual/rich-content";
+import { illustrateManualContent } from "@/lib/manual/illustrated-content";
 import { notFound } from "next/navigation";
 import { ManualEditor } from "@/app/(app)/projects/[id]/manual/[revId]/manual-editor";
 import { MANUAL_DOC_TITLE } from "@/lib/manual/naming";
@@ -51,7 +51,7 @@ const SOURCES: ManualSourceData = {
 export default function ManualPreviewPage() {
   if (process.env.NODE_ENV !== "development") notFound();
 
-  let payload = modernizeManualContent(manualFromTemplate({
+  let payload = illustrateManualContent(manualFromTemplate({
     manufacturer: "ORION CRANES",
     product: "ŞARJ VİNCİ",
     craneType: "GEZER KÖPRÜ VİNCİ",
@@ -59,9 +59,9 @@ export default function ManualPreviewPage() {
     site: "ÇELİK ÜRETİM TESİSİ",
     productionYear: "2026",
   }));
-  const pilotPath="tmp/manual-redesign/0026-pilot.json";
+  const pilotPath=fs.existsSync("tmp/manual-compare/0026-illustrated.json")?"tmp/manual-compare/0026-illustrated.json":"tmp/manual-redesign/0026-pilot.json";
   const pilot=fs.existsSync(pilotPath)?JSON.parse(fs.readFileSync(pilotPath,"utf8")):null;
-  if(pilot)payload=pilot.payload;
+  if(pilot)payload=illustrateManualContent(pilot.payload);
   payload.docTitle = MANUAL_DOC_TITLE;
   if(!pilot)payload.coverTitle = "ŞARJ VİNCİ";
 
@@ -73,8 +73,8 @@ export default function ManualPreviewPage() {
       <div className="mx-auto w-full flex-1 px-4 py-6 lg:px-8">
         <ManualEditor
           projectId="dev"
-          revisionId="dev"
-          revNo={1}
+          revisionId="dev-illustrated"
+          revNo={pilot?.revision.rev_no??1}
           status="draft"
           label="Ön Tasarım"
           initialPayload={payload}

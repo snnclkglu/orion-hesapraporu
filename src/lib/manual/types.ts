@@ -523,6 +523,8 @@ export interface ManualPayload {
   v: 1 | 2;
   /** Alanı olmayan eski belgeler eski çiziciyle açılır. */
   designVersion?: 1 | 2;
+  /** Görsel içerik paketi açıkça uygulandı; yeniden ekleme yapılmaz. */
+  contentEdition?: 1;
   /** Kapakta basılan belge adı; öntanımı `MANUAL_DOC_TITLE`. */
   docTitle: string;
   /** Kapağın üst satırı ("185/40 TON KAPASİTELİ ŞARJ VİNCİ"). */

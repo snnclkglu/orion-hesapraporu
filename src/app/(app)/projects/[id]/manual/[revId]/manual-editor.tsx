@@ -25,7 +25,7 @@
 // artırdığı için sekme kazayla kapanırsa yazdıkları geri getirilebilir.
 
 import { manualContentIssues } from "@/lib/manual/quality";
-import { modernizeManualContent } from "@/lib/manual/rich-content";
+import { illustrateManualContent } from "@/lib/manual/illustrated-content";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   BookOpen,
@@ -741,7 +741,7 @@ export function ManualEditor({
           {yazilabilir && <>
             <Button size="sm" variant="outline" className="oc-tap" disabled={!doc.canUndo} onClick={doc.undo}>Geri al</Button>
             <Button size="sm" variant="outline" className="oc-tap" disabled={!doc.canRedo} onClick={doc.redo}>Yinele</Button>
-            {doc.payload.designVersion !== 2 && <Button size="sm" variant="outline" className="oc-tap" onClick={() => doc.govdeyiBenimse(modernizeManualContent(doc.payload))}>Şematik tasarıma geç</Button>}
+            {doc.payload.contentEdition !== 1 && <Button size="sm" variant="outline" className="oc-tap" onClick={() => doc.govdeyiBenimse(illustrateManualContent(doc.payload))}>Görsel anlatımı ve içerik rehberini ekle</Button>}
           </>}
           <Button size="sm" variant="outline" className="oc-tap" asChild>
             <PdfDownloadLink

@@ -5,6 +5,7 @@ import { MANUAL_NOTE_LABELS, type ManualBlock, type ManualDiagramModel, type Man
 import { BRAND } from "../pdf/palette";
 import { MANUAL_DOC_TITLE } from "./naming";
 import type { ManualNoteLevel } from "./types";
+import { manualIllustration } from "./illustrations";
 
 type Box = { x: number; y: number; w: number; h: number };
 export type ManualDraw =
@@ -52,12 +53,13 @@ export function buildManualDocumentPlan(input: ManualPlanInput): ManualDocumentP
     y += 6;
   };
   const heading = (text: string, depth = 2, id?: string) => {
-    const size = depth === 1 ? 23 : depth === 2 ? 15 : 12;
+    const size = depth === 1 ? 22 : depth === 2 ? 14 : 11.5;
     const lines = manualTextLines(text, W, size, true);
     ensure(lines.length * size * 1.25 + 52);
-    y += depth === 1 ? 2 : 13;
+    y += depth === 1 ? 10 : 10;
+    if(depth===1){rect(D.left,y-5,W,2,D.red);}
     lines.forEach((line,i) => { lineAt(line,D.left,y,W,size,true,depth === 1 ? D.ink : D.red,i===0?id:undefined);y+=size*1.25; });
-    y += depth === 1 ? 19 : 10;
+    y += depth === 1 ? 16 : 8;
   };
   const mediaSize = (media: ManualMediaRef, width: number, maxHeight: number) => {
     const d=media.diagram, ratio=d ? d.height/d.width : input.ratios?.get(media.imageId || media.assetKey || "") ?? 0.7;
@@ -68,8 +70,7 @@ export function buildManualDocumentPlan(input: ManualPlanInput): ManualDocumentP
     const size=mediaSize(media,width,maxHeight);
     page.items.push({kind:"media",media,x:x+(width-size.w)/2,y:top,...size});return size;
   };
-  const table = (data: ManualTable) => {
-    if(!data.rows.length) return;
+  const tableMetrics = (data: ManualTable) => {
     const count=Math.max(data.head.length,...data.rows.map(r=>r.length),1);
     // Uzun açıklama sütununa daha fazla alan, kısa kodlara okunabilir asgari genişlik.
     const weights=Array.from({length:count},(_,i)=>Math.max(5, Math.min(45,Math.max(data.head[i]?.length??0,...data.rows.map(r=>r[i]?.length??0)))));
@@ -77,6 +78,13 @@ export function buildManualDocumentPlan(input: ManualPlanInput): ManualDocumentP
     const widths=weights.map(w=>min+(W-min*count)*w/total);
     const headerLines=data.head.map((s,i)=>manualTextLines(s,widths[i]-12,D.table,true));
     const hh=Math.max(1,...headerLines.map(l=>l.length))*D.tableLine+14;
+    const height=hh+data.rows.reduce((sum,row)=>sum+Math.max(1,...row.map((cell,i)=>manualTextLines(resolve(cell),widths[i]-12,D.table).length))*D.tableLine+12,0);
+    return {count,widths,headerLines,hh,height};
+  };
+  const table = (data: ManualTable) => {
+    if(!data.rows.length) return;
+    const {count,widths,headerLines,hh,height}=tableMetrics(data);
+    if(height<350)ensure(height+10);
     const header=()=>{ensure(hh+30);rect(D.left,y,W,hh,BRAND.paper150);let x=D.left;headerLines.forEach((ls,i)=>{ls.forEach((s,j)=>lineAt(s,x+6,y+6+j*D.tableLine,widths[i]-12,D.table,true));x+=widths[i];});y+=hh;};
     header();
     for(const row of data.rows) {
@@ -103,6 +111,9 @@ export function buildManualDocumentPlan(input: ManualPlanInput): ManualDocumentP
         const lines=manualTextLines(resolve([b.title,b.text].filter(Boolean).join("\n")),W-116,D.body);
         const label=b.title ? `${MANUAL_NOTE_LABELS[b.level]} · ${b.title}` : MANUAL_NOTE_LABELS[b.level];
         let offset=0;
+        // Kısa uyarı bir bütündür; tek satırlık NOT devam sayfası üretme.
+        const fullHeight=Math.max(65,lines.length*D.line+22);
+        if(fullHeight<300)ensure(fullHeight+10);
         do {
           ensure(75);
           const n=Math.max(1,Math.min(lines.length-offset,Math.floor((D.bottom-y-26)/D.line)));
@@ -121,8 +132,11 @@ export function buildManualDocumentPlan(input: ManualPlanInput): ManualDocumentP
       case "diagram":
       case "image": {const width=b.kind==="image"?W*(b.widthPct??100)/100:W;const size=mediaSize(b,width,285);ensure(size.h+40);putMedia(b,D.left+(W-width)/2,y,width,285);y+=size.h+8;if(b.caption)para(b.caption,{size:D.caption,color:D.muted});y+=8;break;}
       case "media": {
+        const introHeight=b.title?40:0;
+        const capHeight=b.caption?manualTextLines(b.caption,W,D.caption).length*13+8:0;
+        if(b.side==="top")ensure(Math.min(390,mediaSize(b.media,W,245).h+capHeight+introHeight+55));
         if(b.title)heading(b.title,3,b.id);
-        if(b.side==="top") {const size=mediaSize(b.media,W,270);ensure(size.h+35);putMedia(b.media,D.left,y,W,270);y+=size.h+10;para(b.text);}
+        if(b.side==="top") {const size=mediaSize(b.media,W,245);ensure(size.h+55);putMedia(b.media,D.left,y,W,245);y+=size.h+10;para(b.text);}
         else {
           const mw=W*0.4,tw=W-mw-20,size=mediaSize(b.media,mw,220),lines=manualTextLines(resolve(b.text),tw);
           ensure(Math.max(size.h, Math.min(lines.length,9)*D.line)+12);
@@ -136,8 +150,21 @@ export function buildManualDocumentPlan(input: ManualPlanInput): ManualDocumentP
         if(b.caption)para(b.caption,{size:D.caption,color:D.muted});break;
       }
       case "procedure": {
+        const estimated=b.steps.reduce((h,step)=>h+Math.max(step.media?76:30,manualTextLines(resolve(step.text),step.media?W-178:W-42).length*D.line+16)+(step.result?32:0)+10, b.title?45:0);
+        if(estimated<D.bottom-D.top-60)ensure(estimated);
         if(b.title)heading(b.title,3,b.id);
         b.steps.forEach((step,i)=>{
+          if(step.media){
+            const tw=W-178,ls=manualTextLines(resolve(step.text),tw),height=Math.max(76,ls.length*D.line+16);
+            if(height<D.bottom-D.top-50){
+              ensure(height+30);const sy=y;
+              rect(D.left,sy,26,26,BRAND.red);lineAt(String(i+1),D.left+8,sy+4,20,12,true,BRAND.white);
+              ls.forEach((s,j)=>lineAt(s,D.left+42,sy+j*D.line,tw));
+              putMedia(step.media,D.left+W-125,sy,125,76);y+=height;
+              if(step.result)para(`→ ${step.result}`,{x:D.left+42,width:W-42,bold:true,size:10});
+              rect(D.left+42,y,W-42,0.5,BRAND.line300);y+=10;return;
+            }
+          }
           ensure(65);rect(D.left,y,26,26,BRAND.red);lineAt(String(i+1),D.left+8,y+4,20,12,true,BRAND.white);
           const lines=manualTextLines(resolve(step.text),W-42);
           const startY=y;
@@ -148,8 +175,9 @@ export function buildManualDocumentPlan(input: ManualPlanInput): ManualDocumentP
         });break;
       }
       case "figure": {
+        ensure(mediaSize(b.media,W,270).h+105);
         if(b.title)heading(b.title,3,b.id);
-        const size=mediaSize(b.media,W,330);ensure(size.h+35);const drawn=putMedia(b.media,D.left,y,W,330),x=D.left+(W-drawn.w)/2;
+        const size=mediaSize(b.media,W,270);ensure(size.h+65);const drawn=putMedia(b.media,D.left,y,W,270),x=D.left+(W-drawn.w)/2;
         b.markers.forEach((m,i)=>page.items.push({kind:"marker",label:String(i+1),x:x+m.x*drawn.w-10,y:y+m.y*drawn.h-10,w:20,h:20}));y+=size.h+12;
         if(b.caption)para(b.caption,{size:D.caption,color:D.muted});
         if(b.markers.length)table({head:["No","Parça / nokta","Açıklama"],rows:b.markers.map((m,i)=>[String(i+1),m.label,m.text])});break;
@@ -157,14 +185,35 @@ export function buildManualDocumentPlan(input: ManualPlanInput): ManualDocumentP
     }
   };
   const visit = (list: typeof sections) => {
-    for(const section of list){heading(`${section.number}  ${section.title}`,section.depth,section.id);section.blocks.forEach(block);visit(section.children);}
+    for(const section of list){
+      const first=section.blocks[0];
+      // Başlık ile ilk şekil/fotoğraf aynı yaprakta kalır.
+      if(first?.kind==="media" && first.side==="top")ensure(175+mediaSize(first.media,W,245).h);
+      if(first?.kind==="figure")ensure(175+mediaSize(first.media,W,270).h);
+      if(first?.kind==="image"||first?.kind==="diagram")ensure(110+mediaSize(first,first.kind==="image"?W*(first.widthPct??100)/100:W,285).h);
+      if(first?.kind==="table" || first?.kind==="auto"){
+        const data=first.kind==="table"?first.table:autoTableFor(first,sources);
+        if(data.rows.length){const m=tableMetrics(data);ensure(m.height<350?m.height+85:m.hh+100);}
+      }
+      if(first?.kind==="procedure"){
+        const estimate=first.steps.reduce((h,step)=>h+Math.max(step.media?76:30,manualTextLines(resolve(step.text),step.media?W-178:W-42).length*D.line+16)+10,100);
+        if(estimate<D.bottom-D.top)ensure(estimate);
+      }
+      heading(`${section.number}  ${section.title}`,section.depth,section.id);section.blocks.forEach(block);visit(section.children);
+    }
   };
-  for(const section of sections){currentTitle=section.title;currentId=section.id;newPage();visit([section]);}
+  for(const section of sections){
+    currentTitle=section.title;currentId=section.id;
+    // Kısa önceki bölüm yüzünden neredeyse boş sayfa bırakma.
+    if(!bodies.length || y>D.top+330)newPage();
+    else page.title=`${page.title} / ${currentTitle}`;
+    visit([section]);
+  }
 
-  const tocItems=[...flat,...appendixSections];
+  const tocItems=[...flat.filter(s=>s.depth<=2),...appendixSections];
   const tocRows=tocItems.map(s=>({s,lines:manualTextLines(`${s.number}  ${s.title}`,W-48-(s.depth-1)*10,9.5,s.depth===1)}));
   const tocGroups: typeof tocRows[]=[[]];let tocHeight=0;
-  for(const row of tocRows){const h=row.lines.length*14+5;if(tocHeight+h>600){tocGroups.push([]);tocHeight=0;}tocGroups.at(-1)!.push(row);tocHeight+=h;}
+  for(const row of tocRows){const h=row.lines.length*13+2;if(tocHeight+h>605){tocGroups.push([]);tocHeight=0;}tocGroups.at(-1)!.push(row);tocHeight+=h;}
   const offset=2+tocGroups.length,pageNumbers=new Map<string,number>();
   bodies.forEach((p,i)=>p.items.forEach(item=>{if(item.kind==="text" && item.id)pageNumbers.set(item.id,offset+i+1);}));
   let nextAppendix=offset+bodies.length+1;
@@ -175,34 +224,47 @@ export function buildManualDocumentPlan(input: ManualPlanInput): ManualDocumentP
     const lines=manualTextLines(text,w,size,bold);lines.forEach((s,i)=>p.items.push({kind:"text",text:s,x,y:top+i*size*1.4,w,h:size*1.4,size,bold,color,target}));return lines.length*size*1.4;
   };
   const cover=fixedPage("cover","Belge kapağı");
-  cover.items.push({kind:"rect",x:0,y:0,w:D.width,h:12,color:BRAND.red});
-  cover.items.push({kind:"media",x:D.left,y:52,w:178,h:22,media:{assetKey:"__orion"}});
-  addText(cover,"ORION CRANES / TEKNİK DOKÜMANTASYON",D.left,104,W,9,true,D.muted);
-  let cy=153;
-  cy+=addText(cover,payload.docTitle || MANUAL_DOC_TITLE,D.left,cy,W,30,true)+22;
-  cy+=addText(cover,title,D.left,cy,W,17,true)+16;
-  cy+=addText(cover,payload.identity.customer,D.left,cy,W,11,false,D.muted)+22;
-  if(payload.coverImageId){const size=mediaSize({imageId:payload.coverImageId},W,150);cover.items.push({kind:"media",x:D.left+(W-size.w)/2,y:cy,...size,media:{imageId:payload.coverImageId}});cy+=size.h+16;}
+  cover.items.push({kind:"rect",x:0,y:0,w:17,h:D.height,color:BRAND.red});
+  cover.items.push({kind:"media",x:D.left,y:42,w:185,h:27,media:{assetKey:"__orion"}});
+  cover.items.push({kind:"rect",x:D.left,y:92,w:W,h:1,color:BRAND.ink});
+  addText(cover,"İŞLETME / GÜVENLİK / BAKIM",D.left,111,W,9,true,D.red);
+  let cy=143;
+  cy+=addText(cover,payload.docTitle || MANUAL_DOC_TITLE,D.left,cy,W,27,true)+16;
+  cy+=addText(cover,title,D.left,cy,W,17,true)+10;
+  cy+=addText(cover,payload.identity.customer,D.left,cy,W,11,true,D.muted)+10;
+  const coverMedia:ManualMediaRef|undefined=payload.coverImageId?{imageId:payload.coverImageId}:payload.contentEdition===1?{diagram:manualIllustration("crane")}:undefined;
+  if(coverMedia){
+    const maxHeight=Math.max(70,535-cy),size=mediaSize(coverMedia,W,maxHeight);
+    cover.items.push({kind:"media",x:D.left+(W-size.w)/2,y:cy,...size,media:coverMedia});
+    cy+=size.h+6;
+    if(!payload.coverImageId)addText(cover,"GENEL ÇİFT KİRİŞLİ VİNÇ ŞEMASI · PROJEYE ÖZEL GÖRSELLE DEĞİŞTİRİLEBİLİR",D.left,cy,W,7.5,false,D.muted);
+    cy+=20;
+  }
   const specs=(sources.coverSpecs??[]).slice(0,8);
-  const specHeight=Math.ceil(specs.length/2)*43;
-  // Uzun kapakta teknik özet künye sayfasında devam eder.
-  const coverSpecsFit=cy+specHeight<=754;
-  (coverSpecsFit?specs:[]).forEach((s,i)=>{const x=D.left+(i%2)*(W/2+6),top=cy+Math.floor(i/2)*43;addText(cover,s.label,x,top,W/2-16,8.5,true,D.muted);addText(cover,s.value,x,top+14,W/2-16,10.5,true);});
+  cy=Math.max(cy,566);
+  const specHeight=Math.ceil(specs.length/2)*35;
+  if(cy+specHeight<752){
+    cover.items.push({kind:"rect",x:D.left,y:cy-8,w:W,h:specHeight+12,color:BRAND.paper100});
+    specs.forEach((sp,i)=>{const x=D.left+10+(i%2)*(W/2),top=cy+Math.floor(i/2)*35;addText(cover,sp.label,x,top,W/2-22,8,true,D.muted);addText(cover,sp.value,x,top+12,W/2-22,10,true);});
+  }
+  const meta=input.coverMeta;
+  addText(cover,[meta?.preparedBy?`Hazırlayan: ${meta.preparedBy}`:"",meta?.checkedBy?`Kontrol: ${meta.checkedBy}`:""].filter(Boolean).join("   /   "),D.left,752,W,8,false,D.muted);
   const identity=fixedPage("identity","Belge kimliği");let iy=D.top;
   iy+=addText(identity,"BELGE KİMLİĞİ",D.left,iy,W,22,true)+24;
   const pairs=[["Doküman",input.docCode??""],["Ürün",payload.identity.product],["Seri numarası",payload.identity.serialNo],["Üretim yılı",payload.identity.productionYear],["Müşteri",payload.identity.customer],["Saha",payload.identity.site],["Üretici",payload.identity.manufacturer],["Üretici adresi",payload.identity.manufacturerAddress],["Müşteri doküman no",payload.identity.customerDocNo],["Müşteri revizyonu",payload.identity.customerRevision],["Hazırlanma tarihi",payload.identity.preparedOn],["Revizyon tarihi",payload.identity.revisedOn],["Hazırlayan",input.coverMeta?.preparedBy??""],["Kontrol eden",input.coverMeta?.checkedBy??""],["Belge revizyonu",input.coverMeta?.revision??""],["Telif",payload.identity.copyright],...(sources.coverSpecs??[]).map(s=>[s.label,s.value])];
   const identities:ManualDocumentPage[]=[identity];let ip=identity;
-  for(const [label,value] of pairs.filter(([,v])=>v.trim())){const lines=manualTextLines(value,W-145,10.5),height=Math.max(26,lines.length*15+12);if(iy+height>D.bottom){ip=fixedPage("identity","Belge kimliği · devam");identities.push(ip);iy=D.top;}addText(ip,label,D.left,iy,132,9,true,D.muted);addText(ip,value,D.left+145,iy,W-145,10.5);iy+=height;}
+  for(const [label,value] of pairs.filter(([,v])=>v.trim())){const lines=manualTextLines(value,W-145,9.5),height=Math.max(22,lines.length*13+6);if(iy+height>D.bottom){ip=fixedPage("identity","Belge kimliği · devam");identities.push(ip);iy=D.top;}addText(ip,label,D.left,iy,132,9,true,D.muted);addText(ip,value,D.left+145,iy,W-145,9.5);iy+=height;}
   // Normal künye tek sayfa. Çok uzun kullanıcı adresinde ofseti doğru tutar.
   const extraIdentity=identities.length-1;if(extraIdentity){for(const [key,n] of pageNumbers)pageNumbers.set(key,n+extraIdentity);}
-  const toc=tocGroups.map((rows,index)=>{const p=fixedPage("contents","İçindekiler");let ty=D.top;ty+=addText(p,index?"İÇİNDEKİLER · DEVAM":"İÇİNDEKİLER",D.left,ty,W,22,true)+24;for(const {s,lines} of rows){const h=lines.length*14+5;const x=D.left+(s.depth-1)*10;lines.forEach((text,j)=>p.items.push({kind:"text",text,x,y:ty+j*14,w:W-48-(s.depth-1)*10,h:14,size:9.5,bold:s.depth===1,color:s.depth===1?D.red:D.ink,target:s.id}));addText(p,String(pageNumbers.get(s.id)??""),D.left+W-28,ty,28,9.5,true,D.muted,s.id);ty+=h;}return p;});
+  const toc=tocGroups.map((rows,index)=>{const p=fixedPage("contents","İçindekiler");let ty=D.top;ty+=addText(p,index?"İÇİNDEKİLER · DEVAM":"İÇİNDEKİLER",D.left,ty,W,22,true)+24;for(const {s,lines} of rows){const h=lines.length*13+2;const x=D.left+(s.depth-1)*10;lines.forEach((text,j)=>p.items.push({kind:"text",text,x,y:ty+j*13,w:W-48-(s.depth-1)*10,h:14,size:9.5,bold:s.depth===1,color:s.depth===1?D.red:D.ink,target:s.id}));addText(p,String(pageNumbers.get(s.id)??""),D.left+W-28,ty,28,9.5,true,D.muted,s.id);ty+=h;}return p;});
   const appendix=appendixSections.map((s)=>{const p=fixedPage("appendix",s.title);p.items.push({kind:"text",text:s.number,id:s.id,x:D.left,y:150,w:W,h:50,size:36,bold:true,color:D.red});addText(p,s.title,D.left,222,W,24,true);addText(p,"Bu ekin belgeleri sonraki sayfalarda yer alır.",D.left,318,W,11);return p;});
   const pages=[cover,...toc,...identities,...bodies,...appendix];
   const totalPages=pages.length+Object.values(input.appendixPageCounts??{}).reduce((a,b)=>a+(b??0),0);
   pages.forEach((p,i)=>{
-    if(i){p.items.unshift({kind:"media",x:D.left,y:29,w:137,h:17,media:{assetKey:"__orion"}});addText(p,input.docCode??"",335,30,216,8.5,true,D.muted);addText(p,p.title,D.left,57,W,8.5,false,D.muted);p.items.push({kind:"rect",x:D.left,y:75,w:W,h:1,color:BRAND.red});}
+    if(i){p.items.unshift({kind:"media",x:D.left,y:29,w:137,h:17,media:{assetKey:"__orion"}});addText(p,input.docCode??"",335,60,216,8.5,true,D.muted);addText(p,p.title,D.left,57,W,8.5,false,D.muted);p.items.push({kind:"rect",x:D.left,y:75,w:W,h:1,color:BRAND.red});}
     for(const [key,x,w] of [[input.centerLogoKey,244,106],[input.rightLogoKey,424,127]] as const){if(key)p.items.push({kind:"media",x,y:i?26:50,w,h:i?24:28,media:{assetKey:key}});}
     if(!i && input.endCustomerLogoKey)p.items.push({kind:"media",x:424,y:88,w:127,h:30,media:{assetKey:input.endCustomerLogoKey}});
+    if(i && p.role==="body"){p.items.push({kind:"rect",x:0,y:0,w:8,h:D.height,color:BRAND.red});}
     p.items.push({kind:"rect",x:D.left,y:792,w:W,h:0.5,color:BRAND.line300});
     addText(p,input.docCode??"",D.left,803,260,8,false,D.muted);
     addText(p,input.bandLines?.join(" · ") || payload.identity.revisedOn || payload.identity.preparedOn, D.left,817,420,7.5,false,D.muted);

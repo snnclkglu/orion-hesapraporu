@@ -484,6 +484,7 @@ export function withManualDefaults(raw: unknown): ManualPayload {
   const surum = Number(o.templateVersion);
   return {
     v: o.v === 2 ? 2 : 1,
+    ...(o.contentEdition === 1 ? { contentEdition: 1 as const } : {}),
     ...(o.designVersion === 1 || o.designVersion === 2 ? { designVersion: o.designVersion } : {}),
     docTitle: metin(o.docTitle),
     coverTitle: metin(o.coverTitle),
